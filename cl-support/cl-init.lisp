@@ -17,7 +17,7 @@
 
 
 ;;; CMU CL prints too many compiler progress messages.
-#+cmu
+#+(or cmu sbcl)
 (progn
   (setq *compile-print* '())
   (setq *load-verbose* t)
@@ -82,6 +82,8 @@
   (concatenate 'string "." excl:*fasl-default-type*)
   #+cmu
   (concatenate 'string "." (c:backend-fasl-file-type c:*backend*))
+  #+sbcl
+  (concatenate 'string "." sb-fasl:*fasl-file-type*)
   #+akcl
   ".o"
   #+mcl
@@ -90,7 +92,7 @@
   ".wfasl"
   #+wcl
   ".o"
-  #-(or lucid allegro cmu akcl mcl lispworks wcl)
+  #-(or sbcl lucid allegro cmu akcl mcl lispworks wcl)
   (error "Don't know how to initialize *LISP-BINARY-FILE-TYPE*.")
   )
 
@@ -99,11 +101,12 @@
   #+(and allegro next) "allegro-next"
   #+(and allegro (not next)) "allegro"
   #+cmu "cmu"
+  #+sbcl "sbcl"
   #+akcl "akcl"
   #+mcl "mcl"
   #+lispworks "lispworks"
   #+wcl "wcl"
-  #-(or lucid allegro cmu akcl mcl lispworks wcl)
+  #-(or sbcl lucid allegro cmu akcl mcl lispworks wcl)
   (error "Don't know how to initialize *LISP-IMPLEMENTATION-NAME*.")
   )
 

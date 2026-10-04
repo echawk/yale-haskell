@@ -18,6 +18,27 @@
   `(gethash ,name *struct-lookup-table*))
 
 
+;;; Mumble code is allowed to define structs whose names are symbols
+;;; inherited from COMMON-LISP (notably TYPE, for Haskell type ASTs).
+;;; Defining a structure on CL:TYPE breaks SBCL's own compiler, so the
+;;; underlying Lisp type gets a private name.  The mumble-level name
+;;; (and hence accessor/predicate names) is unchanged.
+
+(eval-when (eval compile load)
+  (defun struct-lisp-name (name)
+    (if (and (symbolp name)
+	     (eq (symbol-package name) (find-package "COMMON-LISP"))
+	     (gethash name *struct-lookup-table*))
+	(intern (concatenate 'string "%STRUCT-" (symbol-name name))
+		"MUMBLE-IMPLEMENTATION")
+	name))
+  (defun struct-lisp-typespec (spec)
+    (cond ((symbolp spec) (struct-lisp-name spec))
+	  ((consp spec)
+	   (cons (car spec) (mapcar #'struct-lisp-typespec (cdr spec))))
+	  (t spec))))
+
+
 ;;; Do NOT add or remove slots from these DEFSTRUCTS without also
 ;;; changing the bootstrap code below!!!
 ;;; Do NOT try to give these structs complicated defaulting behavior!!!
@@ -238,7 +259,8 @@
 
 (defun struct-slot-compiletime (type slot object)
   (let ((sd  (lookup-slot-descriptor type slot)))
-    `(the ,(sd-type sd) (,(sd-getter sd) (the ,type ,object)))))
+    `(the ,(struct-lisp-typespec (sd-type sd))
+	  (,(sd-getter sd) (the ,(struct-lisp-name type) ,object)))))
 
 (defun struct-slot-runtime (type slot object)
   (let ((sd  (lookup-slot-descriptor type slot)))
@@ -403,8 +425,8 @@
        ;; Make the struct definition.
        ;; *** could put the type descriptor for the default in a
        ;; *** global variable; it might speed up reference.
-       (defstruct (,name
-		    (:include ,include
+       (defstruct (,(struct-lisp-name name)
+		    (:include ,(struct-lisp-name include)
 			      (type-descriptor (lookup-type ',name)))
 		    (:conc-name ,prefix)
 		    ;; Disable the default keyword constructor.
@@ -412,7 +434,7 @@
 		    ;; the BOA constructor.  Bogus!!!
 		    ;; If you do this in WCL, it will just quietly ignore
 		    ;; the BOA.
-		    #-(or akcl wcl) (:constructor nil)
+		    #-(or akcl wcl sbcl) (:constructor nil)
 		    (:constructor ,(td-%constructor td) ,(make-boa-args slots))
 		    (:predicate ,predicate)
 		    (:copier    nil))
@@ -425,10 +447,10 @@
 		  ;; slot type.  I think this is a bug, not a feature, but
 		  ;; here's a workaround for it.
 		  :type
-		  #+cmu ,(if (sd-%uninitialized? s)
-			     `(or ,(sd-type s) null)
-			     (sd-type s))
-		  #-cmu ,(sd-type s)
+		  #+(or cmu sbcl) ,(if (sd-%uninitialized? s)
+			     `(or ,(struct-lisp-typespec (sd-type s)) null)
+			     (struct-lisp-typespec (sd-type s)))
+		  #-(or cmu sbcl) ,(struct-lisp-typespec (sd-type s))
 	          ;; Can make slots read-only only if a setf-er is not 
 		  ;; required by MAKE.
 		  :read-only ,(and (sd-%read-only? s) (sd-%required? s))))

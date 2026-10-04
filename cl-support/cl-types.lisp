@@ -11,11 +11,11 @@
 
 #+lucid
 (define-mumble-type mumble::procedure () 'system::procedure)
-#+(or cmu akcl allegro mcl lispworks)
+#+(or sbcl cmu akcl allegro mcl lispworks)
 (define-mumble-type mumble::procedure () 'function)
 #+wcl
 (define-mumble-type mumble::procedure () 'lisp:procedure)
-#-(or lucid cmu akcl allegro mcl lispworks wcl)
+#-(or sbcl lucid cmu akcl allegro mcl lispworks wcl)
 (missing-mumble-definition procedure)
 
 (define-mumble-type mumble::pair () 'cons)

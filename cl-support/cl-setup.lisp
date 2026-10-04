@@ -12,6 +12,22 @@
 ;;; Programs that use mumble should use the mumble package in place of
 ;;; (rather than in addition to) the CL package.
 
+;;; SBCL doesn't provide the old CLtL1 "LISP" package name; the sources
+;;; use lisp: prefixes all over, so add it as a nickname for COMMON-LISP.
+
+#+sbcl
+(unless (find-package "LISP")
+  (sb-ext:without-package-locks
+    (rename-package "COMMON-LISP" "COMMON-LISP"
+		    (cons "LISP" (package-nicknames "COMMON-LISP")))))
+
+;;; The mumble code redeclares some CL specials (e.g. *print-escape*);
+;;; that trips SBCL's package locks.
+;;; *** Should fix the offending definitions instead.
+
+#+sbcl
+(sb-ext:unlock-package "COMMON-LISP")
+
 (unless (find-package "MUMBLE")
   (make-package "MUMBLE" :use nil))
 

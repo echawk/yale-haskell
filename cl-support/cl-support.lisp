@@ -9,6 +9,28 @@
 (in-package "MUMBLE-IMPLEMENTATION")
 
 
+;;; SBCL implements only ANSI CL, so provide the CLtL1 setf-method names
+;;; that the rest of the support code uses.
+
+#+sbcl
+(eval-when (eval compile load)
+  (defmacro define-setf-method (access-fn lambda-list &body body)
+    `(define-setf-expander ,access-fn ,lambda-list ,@body))
+  (defun get-setf-method (form &optional env)
+    (get-setf-expansion form env)))
+
+
+;;; SBCL signals an error when a DEFCONSTANT is re-evaluated with a value
+;;; that is EQUAL but not EQL (e.g. strings), which happens routinely
+;;; when a file is compiled and then loaded.  Reuse the existing value.
+
+(defmacro define-mumble-constant (name value)
+  #+sbcl
+  `(defconstant ,name (if (boundp ',name) (symbol-value ',name) ,value))
+  #-sbcl
+  `(defconstant ,name ,value))
+
+
 ;;; Use this macro for defining an exported mumble function.
 
 (defmacro define-mumble-function (name &rest stuff)
