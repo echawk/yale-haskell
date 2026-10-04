@@ -745,7 +745,7 @@
 
 (define-mumble-function-inline mumble::call-with-output-file (string proc)
   (with-open-file (stream (expand-filename string)
-			  :direction :output :if-exists :new-version)
+			  :direction :output :if-exists #+sbcl :supersede #-sbcl :new-version)
     (funcall (the function proc) stream)))
 
 (define-mumble-function-inline mumble::call-with-input-string (string proc)
@@ -768,7 +768,7 @@
   (open (expand-filename string) :direction :input))
 
 (define-mumble-function-inline mumble::open-output-file (string)
-  (open (expand-filename string) :direction :output :if-exists :new-version))
+  (open (expand-filename string) :direction :output :if-exists #+sbcl :supersede #-sbcl :new-version))
 
 
 (define-mumble-synonym mumble::close-input-port close)

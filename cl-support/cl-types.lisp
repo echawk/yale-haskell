@@ -81,10 +81,20 @@
 (define-mumble-synonym mumble::subtype? subtypep)
 
 (define-mumble-function-inline mumble::is-type? (type object)
-  (typep object type))
+  (typep object (struct-lisp-typespec type)))
+
+;;; Struct names that are COMMON-LISP symbols are renamed at the Lisp
+;;; level (see struct-lisp-name in cl-structs.lisp).  Do the mapping at
+;;; compile time when the type is a constant.
+
+(define-compiler-macro mumble::is-type? (&whole form type object)
+  (if (and (consp type) (eq (car type) 'quote))
+      `(typep ,object ',(struct-lisp-typespec (cadr type)))
+      form))
 
 (define-mumble-macro mumble::typecase (data &rest cases)
   (let ((last  (car (last cases))))
-    (if (eq (car last) 'mumble::else)
-	`(typecase ,data ,@(butlast cases) (t ,@(cdr last)))
-	`(typecase ,data ,@cases))))
+    (flet ((fix (c) (cons (struct-lisp-typespec (car c)) (cdr c))))
+      (if (eq (car last) 'mumble::else)
+	  `(typecase ,data ,@(mapcar #'fix (butlast cases)) (t ,@(cdr last)))
+	  `(typecase ,data ,@(mapcar #'fix cases))))))

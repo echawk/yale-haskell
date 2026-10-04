@@ -491,7 +491,15 @@
     ;; the right thing if you just omit the uninitialized arguments from
     ;; the boa arglist entirely.
     #+akcl (nreverse required-args)
-    #-akcl   
+    ;; SBCL really leaves &AUX slots unbound and errors when they are
+    ;; read.  Some code (e.g. compute-super-classes) relies on the CMU
+    ;; behavior of initializing them to NIL, so do that explicitly.
+    #+sbcl
+    (if (null uninitialized-args)
+	(nreverse required-args)
+	`(,@(nreverse required-args) &aux
+	  ,@(mapcar #'(lambda (a) `(,a nil)) (nreverse uninitialized-args))))
+    #-(or akcl sbcl)
     (if (null uninitialized-args)
 	(nreverse required-args)
 	`(,@(nreverse required-args) &aux ,@(nreverse uninitialized-args)))
