@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# yale-haskell -- run Yale Haskell saved under SBCL (see com/sbcl/savesys).
+
+HASKELL=$(cd "$(dirname "$0")/.." && pwd)
+: "${SBCL:=sbcl}"
+PRELUDE=$HASKELL/progs/prelude
+PRELUDEBIN=$PRELUDE/sbcl
+HASKELL_LIBRARY=$HASKELL/progs/lib
+Y2=$HASKELL
+export HASKELL PRELUDE PRELUDEBIN HASKELL_LIBRARY Y2
+exec "$SBCL" --core "$HASKELL/bin/sbcl-haskell.core" --dynamic-space-size 4096 \
+  --noinform --end-runtime-options "$@"
