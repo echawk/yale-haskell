@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# clean -- delete SBCL binaries.
+
+. "$(dirname "$0")/env.sh"
+source_dirs | while read -r d; do rm -rf "$d/sbcl"; done
+rm -f "$Y2/bin/sbcl-haskell.core"

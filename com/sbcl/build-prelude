@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# build-prelude -- compile the standard prelude into $PRELUDEBIN.
+
+. "$(dirname "$0")/env.sh"
+cd "$Y2" || exit 1
+make_bin_dirs
+run_sbcl --eval '(load "cl-support/cl-setup")' \
+         --eval '(load "cl-support/cl-init")' \
+         --eval '(in-package :mumble-user)' \
+         --eval "(setf *printers* '(phase-time))" \
+         --eval '(setf *optimizers* *all-optimizers*)' \
+         --eval '(setf *code-chunk-size* 300)' \
+         --eval "(setf *compile-interface* '#f)" \
+         --eval '(compile/compile *prelude-unit-filename*)'

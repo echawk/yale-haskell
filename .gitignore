@@ -1,4 +1,5 @@
 # Compiled output from host Lisps
 sbcl/
+!/com/sbcl/
 *.fasl
 bin/*.core

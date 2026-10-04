@@ -1,0 +1,15 @@
+Command scripts for building Yale Haskell under SBCL (tested with
+SBCL 2.6 on arm64 macOS).  They are POSIX sh, and need only SBCL on
+the PATH (or $SBCL set).  Y2 defaults to the root of the checkout.
+
+  com/sbcl/compile        compile the Lisp sources of the compiler
+  com/sbcl/build-prelude  compile the standard prelude
+  com/sbcl/savesys        save bin/sbcl-haskell.core
+  com/sbcl/clean          delete all SBCL binaries
+
+Compiled files go in an "sbcl" subdirectory of each source directory.
+
+To run:
+
+  bin/yale-haskell             interactive command interface
+  bin/yale-haskell foo.hs      compile foo.hs and run Main.main

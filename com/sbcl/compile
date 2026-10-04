@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# compile -- compile the Yale Haskell system under SBCL.
+# Only out-of-date files are recompiled; run "clean" first to start over.
+
+. "$(dirname "$0")/env.sh"
+cd "$Y2" || exit 1
+make_bin_dirs
+run_sbcl --eval '(load "cl-support/cl-setup")' \
+         --eval '(load "cl-support/cl-init")'
