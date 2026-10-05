@@ -140,12 +140,33 @@
 	(token-case
 	 (tyvar
 	  (let* ((class-var (token->symbol))
-		 (decls (parse-where-decls)))
+		 (decls (remove-inline-annotations (parse-where-decls))))
 	    (make class-decl (class class) (super-classes supers)
 		             (class-var class-var) (decls decls))))
 	 (else
 	  (signal-missing-token "<tyvar>" "class declaration")))))
      (else (signal-missing-token "<tycon>" "class declaration"))))))
+
+;;; Class bodies cannot hold annotations (later phases expect only
+;;; signatures and valdefs there), but H98 allows {-# INLINE m #-} on a
+;;; class method.  Inlining is only a hint, so Inline annotations in a
+;;; class body are dropped.
+
+(define (remove-inline-annotations decls)
+  (cond ((null? decls) '())
+	((and (is-type? 'annotation-decls (car decls))
+	      (every (function inline-annotation-decl?)
+		     (annotation-decls-annotations (car decls))))
+	 (remove-inline-annotations (cdr decls)))
+	(else
+	 (cons (car decls) (remove-inline-annotations (cdr decls))))))
+
+(define (inline-annotation-decl? a)
+  (and (is-type? 'annotation-decl a)
+       (every (lambda (v)
+		(and (is-type? 'annotation-value v)
+		     (eq? (annotation-value-name v) '|Inline|)))
+	      (annotation-decl-annotations a))))
 
 (define (parse-instance-decl interface?)
  (save-parser-context

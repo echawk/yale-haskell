@@ -155,7 +155,7 @@
 		(advance-char)
 		(cond ((char=? *char* '#\#)
 		       (advance-char)
-		       (emit-token 'begin-annotation))
+		       (lex-pragma))
 		      (else
 		       (lex-ncomment)
 		       (lex-one-token))))
@@ -191,6 +191,64 @@
      (signal-invalid-character *char*)
      (advance-char)
      (lex-one-token)))))
+
+;;; `{-#' has been scanned.  Yale annotations ({-# f :: Inline #-},
+;;; {-#STRICT#-}, {-# Prelude #-}, ...) go to the annotation parser.
+;;; Haskell 98 style pragmas are named by an all-capitals word: INLINE
+;;; is passed on to the annotation parser, which maps it onto Yale's
+;;; Inline annotation; every other such pragma (NOINLINE, SPECIALIZE,
+;;; LANGUAGE, ...) is skipped like a comment, as the report says unknown
+;;; pragmas should be.  STRICT is a Yale annotation, not a pragma.
+
+(define (lex-pragma)
+  (skip-blanks-on-line)
+  (char-case *char*
+    (large
+     (let ((word (scan-var-con)))
+       (cond ((string=/list? word "INLINE")
+	      (emit-token 'begin-annotation)
+	      (emit-token/string 'conid word))
+	     ((and (pragma-word? word)
+		   (not (string=/list? word "STRICT")))
+	      (skip-pragma *current-line*))
+	     (else
+	      (emit-token 'begin-annotation)
+	      (emit-token/string 'conid word)))))
+    (else
+     (emit-token 'begin-annotation))))
+
+(define (skip-blanks-on-line)
+  (when (and (not *at-eof?*)
+	     (or (char=? *char* #\space) (char=? *char* #\tab)))
+    (advance-char)
+    (skip-blanks-on-line)))
+
+;;; Two or more characters, all capitals, digits or underscores.
+
+(define (pragma-word? word)
+  (and (pair? (cdr word))
+       (pragma-word-1? word)))
+
+(define (pragma-word-1? word)
+  (or (null? word)
+      (and (char-case (car word)
+	     ((large digit #\_) '#t)
+	     (else '#f))
+	   (pragma-word-1? (cdr word)))))
+
+(define (skip-pragma start-line)
+  (cond (*at-eof?*
+	 (lexer-eof-in-comment start-line))
+	((and (char=? *char* #\#)
+	      (char=? *peek-char* #\-)
+	      (char=? (peek-char-2) #\}))
+	 (advance-char)
+	 (advance-char)
+	 (advance-char)
+	 (lex-one-token))
+	(else
+	 (advance-char)
+	 (skip-pragma start-line))))
 
 (define (signal-missing-begin-comment)
   (lexer-error 'missing-begin-comment
