@@ -19,7 +19,12 @@
     (ifile-loaded (type bool))  ; true when interface is loaded (modules)
     (code-loaded (type bool))   ; true when the associated code is in memory
     (source-files (type (list string)))  ; source files in the unit
-    (imported-units (type (list string))) ; the filenames of imported unit files
+    ;; the filenames of imported unit files: explicit-imports plus the
+    ;; units found by the automatic module lookup (see find-implicit-imports
+    ;; in compiler-driver.mumble), recomputed each time the unit is loaded
+    (imported-units (type (list string)))
+    ;; the units listed in the .hu file, plus the Prelude unit
+    (explicit-imports (type (list string)))
     (lisp-files (type (list (tuple string string))))  ; source/binary pairs
     (modules (type (list module)))
     (printers-set? (type bool))
