@@ -1,8 +1,5 @@
 # Compiled output from host Lisps
-sbcl/
-!/com/sbcl/
-*.fasl
-bin/*.core
+/build/
 
 # Local reference clones (see ref/README.md)
 /ref/*

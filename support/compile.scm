@@ -20,6 +20,20 @@
 (define compile.source-filename source-file-type)
 (define compile.binary-filename binary-file-type)
 (define compile.binary-subdir (string-append lisp-implementation-name "/"))
+
+;;; Binaries for sources under $Y2 go in a parallel tree under
+;;; $Y2/build/<lisp>/ rather than in a subdirectory next to each source
+;;; file.  Other sources still use compile.binary-subdir.
+
+(define compile.build-root
+  (string-append "$Y2/build/" lisp-implementation-name "/"))
+
+(define (compile.binary-place source-place)
+  (if (and (>= (string-length source-place) 4)
+	   (string=? (substring source-place 0 4) "$Y2/"))
+      (string-append compile.build-root
+		     (substring source-place 4 (string-length source-place)))
+      (string-append source-place compile.binary-subdir)))
 (define compile.delayed-loads '())
 
 
@@ -256,7 +270,7 @@
     (assemble-filename
         (if (string=? place1 "")
 	    (if add-subdir
-		(string-append (filename-place fname2) add-subdir)
+		(compile.binary-place (filename-place fname2))
 		fname2)
 	    place1)
 	(if (string=? name1 "") fname2 name1)

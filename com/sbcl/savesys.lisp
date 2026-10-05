@@ -35,5 +35,5 @@
 (define (restart-haskell)
   (lisp:invoke-restart 'restart-haskell))
 
-(sb-ext:save-lisp-and-die "bin/sbcl-haskell.core"
+(sb-ext:save-lisp-and-die "build/sbcl/yale-haskell.core"
   :toplevel 'haskell-toplevel)

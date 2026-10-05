@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # savesys -- load the compiled system and prelude and save the core
-# bin/sbcl-haskell.core.  Run it with bin/yale-haskell.
+# build/sbcl/yale-haskell.core.  Run it with bin/yale-haskell.
 
 . "$(dirname "$0")/env.sh"
 cd "$Y2" || exit 1

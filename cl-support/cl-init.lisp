@@ -120,10 +120,11 @@
 #-mcl (progn
         (defvar *support-directory* "cl-support/")
         (defvar *support-binary-directory*
-          (concatenate 'string 
-                       *support-directory* 
+          (concatenate 'string
+                       "build/"
                        *lisp-implementation-name*
-                       "/")))
+                       "/"
+                       *support-directory*)))
 
 (defun load-compiled-cl-file (filename)
   (let ((source-file (concatenate 'string
@@ -136,7 +137,9 @@
 				  *lisp-binary-file-type*)))
     (if (or (not (probe-file binary-file))
 	    (< (file-write-date binary-file) (file-write-date source-file)))
-	(compile-file source-file :output-file (merge-pathnames binary-file)))
+	(compile-file source-file
+		      :output-file (ensure-directories-exist
+				     (merge-pathnames binary-file))))
     (load binary-file)))
 
 

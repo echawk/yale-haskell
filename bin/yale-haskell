@@ -5,9 +5,10 @@
 HASKELL=$(cd "$(dirname "$0")/.." && pwd)
 : "${SBCL:=sbcl}"
 PRELUDE=$HASKELL/progs/prelude
-PRELUDEBIN=$PRELUDE/sbcl
+PRELUDEBIN=$HASKELL/build/sbcl/prelude
+LIBRARYBIN=$HASKELL/build/sbcl/lib
 HASKELL_LIBRARY=$HASKELL/progs/lib
 Y2=$HASKELL
-export HASKELL PRELUDE PRELUDEBIN HASKELL_LIBRARY Y2
-exec "$SBCL" --core "$HASKELL/bin/sbcl-haskell.core" --dynamic-space-size 4096 \
+export HASKELL PRELUDE PRELUDEBIN HASKELL_LIBRARY LIBRARYBIN Y2
+exec "$SBCL" --core "$HASKELL/build/sbcl/yale-haskell.core" --dynamic-space-size 4096 \
   --noinform --end-runtime-options "$@"

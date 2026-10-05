@@ -744,7 +744,7 @@
     (funcall (the function proc) stream)))
 
 (define-mumble-function-inline mumble::call-with-output-file (string proc)
-  (with-open-file (stream (expand-filename string)
+  (with-open-file (stream (ensure-directories-exist (expand-filename string))
 			  :direction :output :if-exists #+sbcl :supersede #-sbcl :new-version)
     (funcall (the function proc) stream)))
 
@@ -768,7 +768,8 @@
   (open (expand-filename string) :direction :input))
 
 (define-mumble-function-inline mumble::open-output-file (string)
-  (open (expand-filename string) :direction :output :if-exists #+sbcl :supersede #-sbcl :new-version))
+  (open (ensure-directories-exist (expand-filename string))
+	:direction :output :if-exists #+sbcl :supersede #-sbcl :new-version))
 
 
 (define-mumble-synonym mumble::close-input-port close)
@@ -1064,7 +1065,8 @@
   (if (string= (mumble::filename-type filename) "")
       (setq filename (build-source-filename filename)))
   (if binary
-      (compile-file filename :output-file (expand-filename binary))
+      (compile-file filename
+		    :output-file (ensure-directories-exist (expand-filename binary)))
       (compile-file filename)))
 
 

@@ -4,10 +4,10 @@ the PATH (or $SBCL set).  Y2 defaults to the root of the checkout.
 
   com/sbcl/compile        compile the Lisp sources of the compiler
   com/sbcl/build-prelude  compile the standard prelude
-  com/sbcl/savesys        save bin/sbcl-haskell.core
+  com/sbcl/savesys        save build/sbcl/yale-haskell.core
   com/sbcl/clean          delete all SBCL binaries
 
-Compiled files go in an "sbcl" subdirectory of each source directory.
+All output goes under build/sbcl/, mirroring the source tree.
 
 To run:
 
