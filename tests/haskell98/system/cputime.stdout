@@ -1,0 +1,7 @@
+precision positive: True
+precision at most 1s: True
+t0 >= 0: True
+work: 42857
+non-decreasing: True
+advanced: True
+
