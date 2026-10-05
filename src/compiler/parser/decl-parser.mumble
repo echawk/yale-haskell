@@ -8,6 +8,8 @@
 	   (parse-pat-or-op))
 	  ((eq? decl-type 'fundef)
 	   (parse-fundef))
+	  ((eq? decl-type 'paren-fundef)
+	   (parse-paren-fundef))
 	  ((eq? decl-type 'plus-def)
 	   (parse-plus-def))
 	  ((eq? decl-type 'annotation)
@@ -17,6 +19,7 @@
 ;;;   var (:: | ,)      - signdecl
 ;;;   var apat-start    - function definition
 ;;;   (var | _) +       - definition of infix +
+;;;   ( funlhs ) apat   - parenthesised function lhs (H98), e.g. (f . g) x
 ;;;   anything alse     - pattern binding or infix definition
 
 (define (find-decl-type)
@@ -33,6 +36,8 @@
 	       (+ 'plus-def)
 	       (else 'pat-or-op)))
 	   (begin-annotation 'annotation)
+	   ((no-advance \()
+	    (if (scan-paren-funlhs) 'paren-fundef 'pat-or-op))
 	   (else 'pat-or-op))))
     (restore-excursion saved-excursion)
     decl-type))
@@ -74,6 +79,87 @@
 	 (fn (parse-apat))  ; must be a single variable
 	 (args (parse-apat-list)))
     (add-rhs fn args '#f start-line))))
+
+;;; Haskell 98 function lhs in parentheses:
+;;;   funlhs -> var apat {apat} | pat varop pat | ( funlhs ) apat {apat}
+;;; `(f . g) x = e' defines (.) with three arguments, `(f x) y = e'
+;;; defines f with two.  Only the parenthesised form is new here.
+
+(define (parse-paren-fundef)
+ (trace-parser paren-fundef
+  (let* ((start-line (capture-current-line))
+	 (lhs (parse-paren-funlhs)))
+    (add-rhs (car lhs) (cdr lhs) '#f start-line))))
+
+;;; At the `('.  Returns (fn-pat arg-pat ...).
+
+(define (parse-paren-funlhs)
+  (advance-token)
+  (let ((inner (parse-funlhs-inner)))
+    (require-token \) (signal-missing-token "`)'" "function lhs"))
+    (append inner (parse-apat-list))))
+
+(define (parse-funlhs-inner)
+  (let ((kind (let ((saved-excursion (save-scanner-state)))
+		(let ((k (scan-funlhs-inner)))
+		  (restore-excursion saved-excursion)
+		  k))))
+    (cond ((eq? kind 'apply)
+	   (let ((fn (parse-apat)))
+	     (cons fn (parse-apat-list))))
+	  ((eq? kind 'paren)
+	   (parse-paren-funlhs))
+	  (else
+	   (let* ((pat1 (parse-pat))
+		  (op (make var-pat (var (varop->ast))))
+		  (pat2 (parse-pat)))
+	     (list op pat1 pat2))))))
+
+;;; Scanners for the above; they leave the scanner state undefined.
+
+(define (scan-paren-funlhs)  ; at the `('
+  (advance-token)
+  (and (scan-funlhs-inner)
+       (token-case
+	(\) (token-case
+	     ((no-advance apat-start) (scan-apat-list))
+	     (else '#f)))
+	(else '#f))))
+
+;;; Returns apply, paren, infix or #f.
+
+(define (scan-funlhs-inner)
+  (let ((saved-excursion (save-scanner-state)))
+    (cond ((and (token-case
+		 ((no-advance var) (scan-var))
+		 (else '#f))
+		(token-case
+		 ((no-advance apat-start) (scan-apat-list))
+		 (else '#f)))
+	   'apply)
+	  ((begin
+	     (restore-excursion saved-excursion)
+	     (token-case
+	      ((no-advance \() (scan-paren-funlhs))
+	      (else '#f)))
+	   'paren)
+	  ((begin
+	     (restore-excursion saved-excursion)
+	     (and (scan-pat)
+		  (scan-varop)
+		  (scan-pat)))
+	   'infix)
+	  (else '#f))))
+
+(define (scan-varop)
+  (token-case
+   (varsym '#t)
+   (\` (token-case
+	(varid (token-case
+		(\` '#t)
+		(else '#f)))
+	(else '#f)))
+   (else '#f)))
 
 (define (parse-plus-def)
   (trace-parser plus-def
