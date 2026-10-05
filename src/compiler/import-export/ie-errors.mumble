@@ -67,8 +67,8 @@
 
 (define (signal-undefined-module-import name)
   (fatal-error 'undefined-module-import
-	       "Cannot find module ~A, imported by module ~A."
-	       name *module-name*))
+	       "Cannot find module ~A, imported by module ~A.~%No unit this one imports defines it, and none of ~A.hu, ~A.hs or~%~A.lhs next to the importing file, nor $HASKELL_LIBRARY/~A.hu, exists."
+	       name *module-name* name name name name))
 
 
 (define (signal-undefined-module-export name)		

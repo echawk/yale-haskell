@@ -167,6 +167,7 @@
 		(code-loaded '#f)
 		(source-files source-files)
 		(imported-units all-imports)
+		(explicit-imports all-imports)
 		(lisp-files lisp-files)
 		(modules '())
 		(printers-set? printers-set?)
@@ -357,12 +358,30 @@
 	  )))
 
 
+;;; The units currently being loaded, innermost first; used to report
+;;; circular dependencies.
+
+(define *units-being-loaded* '())
+
 (define (load-compilation-unit-aux c cflags)
   (setf (ucache-status c) 'loading)
-  (load-imported-units c cflags)
-  (if (unit-valid? c cflags)
-      (load-compiled-unit c (cflags-load-code? cflags))
-      (locally-compile c cflags))
+  (dynamic-let ((*units-being-loaded*
+		 (cons (ucache-ufile c) (dynamic *units-being-loaded*))))
+    ;; First the units named in the .hu file (and the Prelude), then
+    ;; the ones found by the automatic module lookup.  Both kinds end
+    ;; up in ucache-imported-units, so staleness checks and interface
+    ;; files treat them alike.
+    (setf (ucache-imported-units c) (ucache-explicit-imports c))
+    (load-imported-units c cflags)
+    (let ((implicit (find-implicit-imports c)))
+      (when (not (null? implicit))
+	(setf (ucache-imported-units c)
+	      (append (ucache-explicit-imports c) implicit))
+	(dolist (filename implicit)
+	  (load-compilation-unit filename cflags))))
+    (if (unit-valid? c cflags)
+	(load-compiled-unit c (cflags-load-code? cflags))
+	(locally-compile c cflags)))
   (setf (ucache-status c) 'loaded)
   ;; Hack, hack.  When loading the prelude, make sure magic symbol
   ;; table stuff is initialized.
@@ -414,6 +433,153 @@
 (define (load-imported-units c cflags)
   (dolist (filename (ucache-imported-units c))
     (load-compilation-unit filename cflags)))
+
+
+
+;;;=====================================================================
+;;; Automatic module lookup
+;;;=====================================================================
+
+;;; Haskell 98 programs just say `import M'.  When a source file in unit
+;;; C imports a module M that is neither defined in C nor provided by
+;;; the units C's .hu file lists (or the Prelude), look for a unit that
+;;; defines M, in this order:
+;;;
+;;;   1. <dir>/M.hu                  dir = directory of the importing file
+;;;   2. <dir>/M.hs, <dir>/M.lhs     (only if the file defines module M)
+;;;   3. $HASKELL_LIBRARY/M.hu
+;;;
+;;; The units found are returned as a list of filenames; the caller loads
+;;; them exactly as if C's .hu file had listed them.  A module found
+;;; nowhere is left alone, and import-export reports it as undefined.
+;;; Interface files (.hi) are scanned only for the modules they define.
+
+(define (find-implicit-imports c)
+  (if (string=? (ucache-ufile c) *prelude-unit-filename*)
+      '()
+      (let ((defined   '())
+	    (imports   '())      ; list of (module-name . importing-file)
+	    (result    '()))
+	(dolist (file (ucache-source-files c))
+	  (let ((scan  (scan-module-header file)))
+	    (setf defined (append (car scan) defined))
+	    (when (source-extension? (filename-type file))
+	      (dolist (m (cdr scan))
+		(push (cons m file) imports)))))
+	(let ((available
+	       (map (lambda (m) (module-name m))
+		    (collect-all-modules-1 (ucache-explicit-imports c) '() '()))))
+	  (dolist (import (reverse imports))
+	    (let ((name  (car import)))
+	      (when (not (or (memq name defined)
+			     (memq name available)))
+		(let ((unit (locate-module-unit name (cdr import))))
+		  (when (and unit
+			     (not (mem-string unit result))
+			     (not (mem-string unit (ucache-explicit-imports c))))
+		    (push unit result)))))))
+	(nreverse result))))
+
+(predefine (collect-all-modules-1 units mods-so-far units-seen))
+   ; in dump-interface.mumble
+
+;;; Returns the unit filename for module name (a symbol) imported from
+;;; the source file importing-file, or '#f.
+
+(define (locate-module-unit name importing-file)
+  (let ((dir  (filename-place importing-file))
+	(n    (symbol->string name)))
+    (or (existing-file (string-append dir n *unit-file-extension*))
+	(source-file-defining (string-append dir n ".hs") name)
+	(source-file-defining (string-append dir n ".lhs") name)
+	(existing-file
+	  (string-append "$HASKELL_LIBRARY/" n *unit-file-extension*)))))
+
+(define (existing-file filename)
+  (if (file-exists? filename) filename '#f))
+
+;;; The name check matters on case-insensitive file systems, and skips
+;;; files that hold some other module (or an implicit Main).
+
+(define (source-file-defining filename name)
+  (if (and (file-exists? filename)
+	   (memq name (car (scan-module-header filename))))
+      filename
+      '#f))
+
+
+;;; Scanning a source file for the modules it defines and imports.
+;;; This runs the real lexer and looks for `module M' / `interface M'
+;;; (not inside an export list) and `import [qualified] M'.  Lexer
+;;; errors are not reported here; the parser reports them when the file
+;;; is compiled.  The result is a pair (defined-modules . imported-modules)
+;;; and is cached by file name and write date.
+
+(define *module-scan-cache* '())   ; alist: filename -> (date . result)
+
+(define (scan-module-header file)
+  (let ((ext    (filename-type file))
+	(date   (file-write-date file))
+	(entry  (ass-string file *module-scan-cache*)))
+    (cond ((not (or (source-extension? ext) (interface-extension? ext)))
+	   (cons '() '()))
+	  ((and entry (eqv? (car (cdr entry)) date))
+	   (cdr (cdr entry)))
+	  (else
+	   (let ((result (scan-module-tokens (lex-file-quietly file ext))))
+	     (if entry
+		 (setf (cdr entry) (cons date result))
+		 (push (cons file (cons date result)) *module-scan-cache*))
+	     result)))))
+
+(predefine (lex-port port literate?))  ; in parser/lexer.mumble
+
+(define (lex-file-quietly file ext)
+  (let ((tokens '()))
+    (dynamic-let ((*current-file* file))
+      (call-with-output-string
+	(lambda (port)
+	  (dynamic-let ((*error-output-port* port))
+	    (call-with-input-file file
+	      (lambda (in)
+		(setf tokens (lex-port in (string=? ext ".lhs")))))))))
+    tokens))
+
+(define (layout-token? tok)
+  (memq (car tok) '(line col file)))
+
+(define (scan-module-tokens tokens)
+  (let ((defined   '())
+	(imported  '())
+	(prev      '#f))
+    (do ((ts tokens (cdr ts)))
+	((null? ts))
+      (let ((tok  (car ts)))
+	(when (not (layout-token? tok))
+	  (let ((type  (car tok)))
+	    (cond ((and (memq type '(|module| |interface|))
+			(not (memq prev '(\( \,))))
+		   (let ((name (scan-modid (cdr ts))))
+		     (when name (push name defined))))
+		  ((eq? type '|import|)
+		   (let ((name (scan-modid (cdr ts))))
+		     (when (and name (not (memq name imported)))
+		       (push name imported)))))
+	    (setf prev type)))))
+    (cons (nreverse defined) (nreverse imported))))
+
+(define (scan-modid ts)
+  (cond ((null? ts)
+	 '#f)
+	((layout-token? (car ts))
+	 (scan-modid (cdr ts)))
+	((and (eq? (car (car ts)) 'varid)
+	      (string=? (cadr (car ts)) "qualified"))
+	 (scan-modid (cdr ts)))
+	((eq? (car (car ts)) 'conid)
+	 (string->symbol (cadr (car ts))))
+	(else
+	 '#f)))
 
 
 
@@ -490,8 +656,9 @@
 	 sources))
 
 (define (all-imports-current imports unit-write-date)
-  (every (lambda (s) (> unit-write-date
-			(ucache-idate (lookup-compilation-unit s))))
+  (every (lambda (s)
+	   (let ((u  (lookup-compilation-unit s)))
+	     (and u (> unit-write-date (ucache-idate u)))))
 	 imports))
 
 (define (all-lisp-sources-current lisp-files unit-write-date)
@@ -592,12 +759,16 @@
 
 ;;; This checks to make sure that the compilation unit it finds
 ;;; in the cache has not been made out-of-date by updates to the unit file.
+;;; A unit named by a source (or interface) file has no unit file to
+;;; update: editing the source makes the unit's code stale (unit-valid?
+;;; checks that), not the unit itself.
 
 (define (lookup-compilation-unit name)
   (let ((r (ass-string name *unit-cache*)))
     (if r
 	(let ((c  (cdr r)))
 	 (if (or (ucache-stable? c)
+		 (not (unit-extension? (filename-type (ucache-ufile c))))
 		 (> (ucache-udate c)
 		    (or (file-write-date (ucache-ufile c)) 0)))
 	     c
@@ -621,8 +792,22 @@
 
 (define (signal-circular-unit filename)
   (fatal-error 'circular-unit
-    "The compilation unit ~a has a circular dependency."
-    filename))
+    "Circular dependency between compilation units:~%  ~a"
+    (circular-unit-chain filename)))
+
+;;; "a.hu -> b.hs -> a.hu", from the stack of units being loaded.
+
+(define (circular-unit-chain filename)
+  (let ((chain  (list filename)))
+    (block done
+      (dolist (u (dynamic *units-being-loaded*))
+	(push u chain)
+	(when (string=? u filename)
+	  (return-from done '#f))))
+    (let ((result (car chain)))
+      (dolist (u (cdr chain))
+	(setf result (string-append result " -> " u)))
+      result)))
 
 (define (signal-unit-not-found filename)
   (fatal-error 'unit-not-found
