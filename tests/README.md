@@ -18,8 +18,12 @@ tests/<dialect>/<area>/<name>.xfail     marks an expected failure; first line = 
 - A test passes when the program exits with status 0 and its stdout
   matches `.stdout` exactly.  Compile errors and runtime errors give
   status 1.
-- `.hs` files without a `.stdout` are not tests (e.g. helper modules
-  or units).
+- `.hs` files without a `.stdout` are not tests (e.g. helper modules).
+- **Multi-module tests.**  Yale Haskell finds modules through *unit
+  files* (`.hu`: one file name per line, `.hs` sources or other `.hu`
+  units).  If `<name>.hu` exists next to `<name>.hs`, the compiler uses
+  it automatically, so a test that imports a library lists the
+  library's unit, e.g. `$HASKELL_LIBRARY/List.hu`.
 - **Expected failures.**  A test for something not implemented yet
   gets a `.xfail` file whose first line says what is missing, e.g.
   `needs do-notation (M4)`.  It is reported as `xfail` while it fails,
