@@ -211,13 +211,27 @@
   (token-case
    ((apat-start begin-annotation)
     (let ((decl (parse-decl)))
-      (token-case
-       (\; (decl-cons decl (parse-decl-list-1 in-layout?)))
-       (else (close-layout in-layout?)
-	     (list decl)))))
+      (parse-decl-list-2 decl in-layout?)))
+   ;; Local fixity declarations (H98).  The scope phase attaches them to
+   ;; the names bound in the same declaration list and removes them.
+   (|infix| (parse-decl-list-2 (parse-fixity-decl 'n) in-layout?))
+   (|infixl| (parse-decl-list-2 (parse-fixity-decl 'l) in-layout?))
+   (|infixr| (parse-decl-list-2 (parse-fixity-decl 'r) in-layout?))
    (else
     (close-layout in-layout?)
     '())))
+
+(define (parse-decl-list-2 decl in-layout?)
+  (token-case
+   (\; (decl-cons decl (parse-decl-list-1 in-layout?)))
+   (else (close-layout in-layout?)
+	 (list decl))))
+
+(define (remove-fixity-decls decls)
+  (cond ((null? decls) '())
+	((is-type? 'fixity-decl (car decls))
+	 (remove-fixity-decls (cdr decls)))
+	(else (cons (car decls) (remove-fixity-decls (cdr decls))))))
 
 ;;; This adds a new decl to a decl list.  Successive decls for the same fn
 ;;; are combined.

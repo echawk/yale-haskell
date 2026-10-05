@@ -195,6 +195,10 @@
 		     (eq? (annotation-value-name v) '|Inline|)))
 	      (annotation-decl-annotations a))))
 
+(define (signal-fixity-in-instance)
+  (parser-error/recoverable 'fixity-in-instance
+    "A fixity declaration may not appear in an instance declaration."))
+
 (define (parse-instance-decl interface?)
  (save-parser-context
   (let ((contexts (parse-optional-context))
@@ -204,7 +208,10 @@
       (let* ((class (class->ast))
 	     (simple (parse-type)))
 	(when (not interface?)
-	   (setf decls (parse-where-decls)))
+	   (setf decls (parse-where-decls))
+	   (when (some (lambda (d) (is-type? 'fixity-decl d)) decls)
+	     (signal-fixity-in-instance)
+	     (setf decls (remove-fixity-decls decls))))
 	(check-simple simple '#f "instance declaration")
 	(make instance-decl (context contexts) (class class)
 	                    (simple simple) (decls decls))))

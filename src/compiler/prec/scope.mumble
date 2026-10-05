@@ -52,8 +52,15 @@
 ;;; into the var definitions.
 
 (define (scope-ast/decl-list l env)
-  (if (null? l)
-      '()
+  (cond ((null? l)
+	 '())
+	((is-type? 'fixity-decl (car l))
+	 ;; Local fixity declarations were handled by add-local-declarations.
+	 (scope-ast/decl-list (cdr l) env))
+	(else
+	 (scope-ast/decl-list-1 l env))))
+
+(define (scope-ast/decl-list-1 l env)
       (let ((x (scope-ast-1 (car l) env))
 	    (rest (scope-ast/decl-list (cdr l) env)))
 	(if (or (annotation-decls? x)
@@ -63,7 +70,7 @@
 	    (begin
 	      (setf (car l) x)
 	      (setf (cdr l) rest)
-	      l)))))
+	      l))))
 
 ;;; This is the main entry point.  It is called by the driver
 ;;; on each top-level decl in the module.
@@ -131,7 +138,27 @@
 	      (setf contour
 		    (add-bindings (collect-pattern-vars (valdef-lhs d))
 				  contour))))
+	(dolist (d decls)
+	  (when (is-type? 'fixity-decl d)
+	    (attach-local-fixity d contour)))
 	(cons contour env))))
+
+;;; A fixity declaration in a let, where or class body (H98) applies to
+;;; names bound in the same declaration list.  The defs are created here,
+;;; before any expression in their scope is precedence parsed.
+
+(define (attach-local-fixity fixity-decl contour)
+  (remember-context fixity-decl
+    (dolist (op (fixity-decl-names fixity-decl))
+      (let ((info (assq op contour)))
+	(if info
+	    (setf (var-fixity (cdr info)) (fixity-decl-fixity fixity-decl))
+	    (signal-fixity-without-binding op))))))
+
+(define (signal-fixity-without-binding name)
+  (phase-error 'fixity-without-binding
+    "The fixity declaration for ~a is not in the same declaration list as its definition."
+    name))
 
 
 ;;; Similar, but for adding lambda and function argument bindings to the
