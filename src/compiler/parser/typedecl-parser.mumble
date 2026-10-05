@@ -65,15 +65,36 @@
     (token-case
      (consym/paren
       (parse-prefix-constr))
+     ((no-advance satisfies at-strictness-flag?)
+      (let ((t+a1 (parse-strict-atype)))
+	(token-case
+	 ((no-advance conop)
+	  (parse-infix-constr t+a1))
+	 (else
+	  (signal-missing-token "<conop>" "constructor with strict field")))))
      (else
       (let ((type1 (parse-btype))
 	    (anns (parse-constr-annotations)))
 	(token-case
-	 (conop
+	 ((no-advance conop)
 	  (parse-infix-constr (tuple type1 anns)))
 	 (else
 	  (restore-excursion saved-excursion)
 	  (parse-prefix-constr)))))))))
+
+;;; H98 strictness flags: `!atype' in a constructor means the same as
+;;; Yale's `atype {-#STRICT#-}'.  Returns (tuple atype annotations).
+
+(define (at-strictness-flag?)
+  (and (eq? *token* 'varsym)
+       (string=? (car *token-args*) "!")))
+
+(define (parse-strict-atype)
+  (advance-token)  ; past the !
+  (let* ((atype (parse-atype))
+	 (anns (parse-constr-annotations)))
+    (tuple atype (cons (make annotation-value (name '|STRICT|) (args '()))
+		       anns))))
 
 (define (parse-prefix-constr)
   (token-case
@@ -86,6 +107,9 @@
 
 (define (parse-constr-type-list)
   (token-case
+    ((no-advance satisfies at-strictness-flag?)
+     (let ((t+a (parse-strict-atype)))
+       (cons t+a (parse-constr-type-list))))
     (atype-start
      (let* ((atype (parse-atype))
 	    (anns (parse-constr-annotations)))
@@ -95,9 +119,12 @@
 
 (define (parse-infix-constr t+a1)
   (let* ((con (conop->ast))
-	 (type2 (parse-btype))
-	 (anns (parse-constr-annotations)))
-    (make constr (constructor con) (types (list t+a1 (tuple type2 anns))))))
+	 (t+a2 (if (at-strictness-flag?)
+		   (parse-strict-atype)
+		   (let* ((type2 (parse-btype))
+			  (anns (parse-constr-annotations)))
+		     (tuple type2 anns)))))
+    (make constr (constructor con) (types (list t+a1 t+a2)))))
 
 (define (parse-class-list)
   (token-case
