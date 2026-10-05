@@ -1,0 +1,19 @@
+userError: user
+  string: boom
+  shown: user error (boom)
+no error: 42
+getEnv unset: doesNotExist
+inner handler: inner
+outer handler: rethrown
+acquire
+use 7
+release 7
+after bracket: in bracket
+before
+during
+after
+openFile missing: doesNotExist
+hGetLine at EOF: eof
+hPutStr stdin: illegalOperation
+done
+
