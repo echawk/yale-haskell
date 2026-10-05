@@ -137,10 +137,13 @@
      (advance-char)
      (lex-one-token))
     (#\- (char-case *peek-char*
-	    (#\- (lex-comment))
-	    (#\> (advance-char)
-		 (advance-char)
-		 (emit-token '\-\>))
+	    (#\- (if (haskell98?) (lex-varsym) (lex-comment)))
+	    (#\> (cond ((haskell98?)
+			(lex-varsym))
+		       (else
+			(advance-char)
+			(advance-char)
+			(emit-token '\-\>))))
 	    (#\} (signal-missing-begin-comment)
 		 (advance-char)
 		 (advance-char)
@@ -330,13 +333,21 @@
     (emit-token/string 'conid sym)))
 
 (define (lex-consym)
-  (let ((sym (scan-symbol)))
+  (let ((sym (if (haskell98?) (scan-symbol-98) (scan-symbol))))
     (cond ((string=/list? (cdr sym) ":")
 	   (emit-token '\:\:))
 	  (else
 	   (emit-token/string 'consym sym)))))
 
 (define (lex-varsym)
+  (if (haskell98?)
+      (lex-varsym-98)
+      (lex-varsym-1.2)))
+
+;;; Haskell 1.2: `-' and `~' may only start an operator, so `+-' is `+'
+;;; followed by `-', and `--' always starts a comment.
+
+(define (lex-varsym-1.2)
   (let ((sym (scan-symbol)))
     (cond ((and (string=/list? sym "<") (char=? *char* #\-))
 	   (advance-char)
@@ -355,6 +366,54 @@
 	      "\\"
 	      "|"
 	      "~")))))
+
+;;; Haskell 98 (report 2.2-2.4): `-' and `~' are ordinary symbol
+;;; characters, and two or more dashes start a comment only if they are
+;;; not part of a larger operator, so `-->' and `|--' are operators.
+
+(define (scan-symbol-98)
+  (scan-list-of (symbol presymbol #\:)))
+
+(define (lex-varsym-98)
+  (let ((sym (scan-symbol-98)))
+    (cond ((all-dashes? sym)
+	   (if (null? (cdr sym))
+	       (if (char=? *char* #\})
+		   (begin
+		     (signal-missing-begin-comment)
+		     (advance-char)
+		     (lex-one-token))
+		   (emit-token/string 'varsym sym))
+	       (lex-comment-rest)))
+	  ((and (string=/list? sym "#-")
+		(char=? *char* #\}))
+	   (advance-char)
+	   (emit-token 'end-annotation))
+	  (else
+	   (parse-reserved sym varsym
+	      ".."
+	      "=>" "="
+	      "@"
+	      "\\"
+	      "|"
+	      "~"
+	      "->" "<-")))))
+
+(define (all-dashes? sym)
+  (or (null? sym)
+      (and (char=? (car sym) #\-)
+	   (all-dashes? (cdr sym)))))
+
+;;; Skip the rest of a -- comment whose dashes have been scanned.
+
+(define (lex-comment-rest)
+  (cond (*at-eof?*
+	 (lex-one-token))
+	((char=? *char* #\newline)
+	 (lex-one-token))
+	(else
+	 (advance-char)
+	 (lex-comment-rest))))
 
 (define (lex-integer radix)
   (lex-integer-1 radix 0))
