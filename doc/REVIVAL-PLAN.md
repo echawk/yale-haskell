@@ -369,3 +369,79 @@ nofib's `imaginary` and `spectral` programs).
 - **Second host.**  ECL or ABCL first?  ECL has `ext:` POSIX support
   and C compilation; ABCL runs on the JVM, so it is the stronger
   portability test.
+
+## 7. Status after the first Haskell 98 round (2026-10-05)
+
+Test suite: **103 passed, 45 expected failures** (`make test`); CI in
+`.github/workflows/ci.yml` (Ubuntu + macOS).
+
+### Landed
+
+- **Dialects.**  `lib/haskell98/` is built alongside `lib/haskell-1.2/`;
+  `bin/yale-haskell --haskell98`.  Compiler-level differences are gated
+  on `*haskell-dialect*` / `(haskell98?)` (`src/compiler/top/globals.mumble`).
+- **Module lookup.**  `import M` finds a sibling `M.hs`/`M.hu` or
+  `$HASKELL_LIBRARY/M.hu` without a unit file (`csys/compiler-driver.mumble`).
+- **Syntax (M2).**  Hex/octal literals, `(,)`-style constructors,
+  parenthesised function LHS, `let` in comprehensions, `!` fields, H98
+  pragmas, `-->` operators (98 only), headerless `Main` (98 only), local
+  fixity declarations.
+- **Prelude.**  `Maybe`, `Either`, `Ordering`, `compare`, `Bounded`
+  (no deriving), Enum's `succ`/`pred`/`toEnum`/`fromEnum`, RealFloat
+  predicates, `seq`/`$!`, `concatMap` & co., Int-typed `take`/`drop`,
+  H98 superclasses for Real/Integral, shortest-digit float `show`,
+  `[1,2]` list syntax, tuple-pair arrays.  The Prelude no longer leaks
+  non-H98 names into user scope (except the compatibility set listed in
+  `lib/haskell98/README.md`).
+- **Libraries.**  List, Char, Maybe, Numeric, Ratio, Complex, Ix, Array
+  (Report code); System, CPUTime, Directory, Time, Locale, Random, and a
+  standalone IO (handles, IOError, `catch`, `bracket`) with primitives
+  in `src/runtime/{io-errors,system-prims,handle-prims}.mumble`.
+  SBCL-only pieces are behind `#+sbcl` with fallbacks.
+- **Tests.**  12 Haskell 1.2 demo regressions; H98 language tests by
+  milestone; `.exit` (expected status) and `-j N` in the runner.
+
+### Open bugs (each has a test, most as `.xfail`)
+
+1. No defaulting under an expression signature:
+   `show (2 ^ 2 :: Int)` is "ambiguous" (`default-in-annotation`).
+   Also `round 2.5` (only `RealFrac`) is not defaulted (`default-realfrac`).
+2. `Int` arithmetic wraps silently, and the default is `(Int, Double)`
+   rather than `(Integer, Double)` (`default-integer`).
+3. Monomorphism restriction rule 2: exporting a pattern binding reports
+   "Can't export pattern binding" (`mr-exported`).
+4. Shallow control stack: non-tail recursion over 100 000 elements
+   overflows (`deep-stack`); consider a larger SBCL control stack for
+   the image.
+5. Batch mode: compiler diagnostics go to stdout; after a compile error
+   it continues to "The variable #:|mainNNNN| is unbound"; and
+   `apply-exec` prints an extra newline after every program
+   (`command-interface/incremental-compiler.mumble:147`) — every
+   `.stdout` currently includes it.
+6. Datatype contexts (`data Eq a => Set a`) are not enforced.
+7. `Assoc` and `Bin` are compiler core types, so H98 programs cannot
+   define them (`prelude-names-free`).
+8. A `foo.hs` beside a `Foo.hu` on a case-insensitive file system picks
+   up the wrong unit file.
+9. Possibly flaky: `tests/haskell-1.2/demo/prolog` failed once under
+   `-j 8` right after a merge and has not reproduced since.
+
+### Recommended next steps
+
+- **Class layout in the runtime.**  `src/runtime/tuple-prims.mumble`
+  hard-codes dictionary layouts (e.g. Ord = 6 methods + Eq at slot 6),
+  which blocks making `compare` and `rangeSize` true methods
+  (`ord-compare-method`).  Make tuple dictionaries generic, or
+  per-dialect.
+- **Deriving.**  `derived/ix-enum.mumble`: generate `fromEnum`/`toEnum`
+  and drop Enum's Ord superclass (`enum-derived`); add `Bounded`
+  deriving (`bounded-derived`); stop parenthesising nullary
+  constructors in derived Text (`derived-show`).
+- **System libraries follow-ups**, now that `Maybe`/`Either` exist:
+  `ioeGetFileName`, `ioeGetHandle`, `try`, `BlockBuffering (Maybe Int)`;
+  switch `Random` to `minBound`/`maxBound`/`realToFrac` and drop the
+  compatibility names from the Prelude.
+- **Unify I/O.**  When monadic IO lands (M4), the Prelude takes over
+  `IO.hs`'s `IOError`, `ioError`, `userError` and `catch`, and Prelude
+  I/O is rebuilt on the handle primitives.
+- **M3 (constructor classes)** remains the critical path.
