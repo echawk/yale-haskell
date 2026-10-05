@@ -25,8 +25,31 @@
   (init-token-stream tokens)
   (let ((mod (token-case
 	      (|module| (parse-module))
-	      (else (parse-modules/named '|Main| '())))))
+	      (else (parse-headerless-module)))))
     (cons mod (parse-module-list))))
+
+;;; A module without a header.  In Haskell 1.2 that means `module Main
+;;; where', which exports every local name.  Haskell 98 (report 5.1)
+;;; makes it `module Main(main) where'.  In the haskell98 dialect the
+;;; export list is (main) whenever the module defines main at top level;
+;;; a headerless file without main (a scratch file loaded into the
+;;; interactive system) keeps exporting everything rather than failing.
+
+(define (parse-headerless-module)
+  (let* ((line (capture-current-line))
+	 (mod (parse-modules/named '|Main| '())))
+    (when (and (haskell98?) (defines-main? mod))
+      (let ((entity (make entity-var (name '|main|))))
+	(setf (ast-node-line-number entity) line)
+	(setf (module-exports mod) (list entity))))
+    mod))
+
+(define (defines-main? mod)
+  (some (lambda (decl)
+	  (and (is-type? 'valdef decl)
+	       (is-type? 'var-pat (valdef-lhs decl))
+	       (eq? (var-ref-name (var-pat-var (valdef-lhs decl))) '|main|)))
+	(module-decls mod)))
 
 (define (parse-module)
   (token-case
@@ -96,6 +119,13 @@
 	     (push-decl-list synonym-decl (module-synonyms mod-ast)))
 	   (terminate-topdecl mod-ast in-layout? 'topdecl))
    (|class| (let ((class-decl (parse-class-decl)))
+	      ;; Fixity declarations for class methods (H98) are moved to
+	      ;; the top level, where the methods are defined.
+	      (dolist (d (class-decl-decls class-decl))
+		(when (is-type? 'fixity-decl d)
+		  (push-decl-list d (module-fixities mod-ast))))
+	      (setf (class-decl-decls class-decl)
+		    (remove-fixity-decls (class-decl-decls class-decl)))
 	      (push-decl-list class-decl (module-classes mod-ast)))
 	    (terminate-topdecl mod-ast in-layout? 'topdecl))
    (|instance| (let ((instance-decl (parse-instance-decl '#f)))
@@ -222,27 +252,37 @@
 		(\) (list renaming)))))
 
 (define (parse-fixity associativity mod-ast state)
-  (let ((fixity-decl
-	 (save-parser-context
-	  (let* ((prec (token-case
-			(k (let ((p (token->integer)))
-			     (cond ((<= p 9)
-				    p)
-				   (else
-				    (signal-bad-fixity)
-				    9))))
-			(else 9)))
-		 (ops (parse-op-list))
-		 (fixity (make fixity (associativity associativity)
-		       (precedence prec))))
-	    (make fixity-decl (fixity fixity) (names ops))))))
+  (let ((fixity-decl (parse-fixity-decl associativity)))
     (push-decl-list fixity-decl (module-fixities mod-ast))
+    ;; Haskell 1.2 allows fixity declarations only between the imports
+    ;; and the other topdecls; Haskell 98 allows them anywhere among
+    ;; the topdecls.  Their order does not matter to later phases.
     (cond ((or (eq? state 'import)
 	       (eq? state 'fixity))
 	   'fixity)
+	  ((haskell98?)
+	   state)
 	  (else
 	   (signal-misplaced-fixity)
 	   state))))
+
+;;; Just past the infix/infixl/infixr keyword.  Also used for fixity
+;;; declarations in let, where and class bodies (decl-parser).
+
+(define (parse-fixity-decl associativity)
+  (save-parser-context
+   (let* ((prec (token-case
+		 (k (let ((p (token->integer)))
+		      (cond ((<= p 9)
+			     p)
+			    (else
+			     (signal-bad-fixity)
+			     9))))
+		 (else 9)))
+	  (ops (parse-op-list))
+	  (fixity (make fixity (associativity associativity)
+			(precedence prec))))
+     (make fixity-decl (fixity fixity) (names ops)))))
 
 
 (define (signal-bad-fixity)

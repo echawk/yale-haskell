@@ -73,3 +73,32 @@
 (define *prelude-fixity-table* '())
 (define *prelude-inverted-symbol-table* '())
 
+
+;;; The language dialect: 'haskell-1.2 or 'haskell98.  The compiler is
+;;; shared by both dialects; this flag gates the few places where Haskell
+;;; 98 is not a pure extension of Haskell 1.2 (lexing of `-' and `~'
+;;; inside operators and of `--' comments, the headerless-module export
+;;; list).  It is set when the compiler is loaded, from $PRELUDE: the
+;;; Makefile and bin/yale-haskell point that at lib/<dialect>/prelude.
+;;; The prelude build and the saved image both load the compiler with
+;;; it set, so each dialect's image keeps its own value.
+
+(define (dialect-from-environment)
+  (let ((p (getenv "PRELUDE")))
+    (if (and (string? p) (string-contains? p "haskell98"))
+	'haskell98
+	'haskell-1.2)))
+
+(define (string-contains? s sub)
+  (let ((n (string-length s))
+	(m (string-length sub)))
+    (do ((i 0 (1+ i))
+	 (found? '#f))
+	((or found? (> (+ i m) n)) found?)
+      (when (string=? (substring s i (+ i m)) sub)
+	(setf found? '#t)))))
+
+(define *haskell-dialect* (dialect-from-environment))
+
+(define (haskell98?)
+  (eq? *haskell-dialect* 'haskell98))
