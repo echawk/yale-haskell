@@ -11,6 +11,8 @@ module Prelude (
     -- Not in the H98 Prelude (they are in Char), kept for compatibility:
     ord, chr, isAscii, isControl, isPrint, isSpace,
     isUpper, isLower, isAlpha, isDigit, isAlphaNum, toUpper, toLower,
+    -- Haskell 1.2 names for minBound/maxBound, still used by Random:
+    minInt, maxInt, minChar, maxChar, fromRealFrac,
     -- Yale's Binary class support (to be removed with Binary):
     nullBin, isNullBin, appendBin,
     (&&), (||), not, otherwise, maybe, either,
@@ -39,7 +41,7 @@ import PreludeText(reads, shows, show, read, lex,
 import PreludeIO
 import PreludeChar(ord, chr, isAscii, isControl, isPrint, isSpace,
 		   isUpper, isLower, isAlpha, isDigit, isAlphaNum,
-		   toUpper, toLower)
+		   toUpper, toLower, minChar, maxChar)
 
 infixr 9  .
 infixr 8  ^, ^^
@@ -122,6 +124,10 @@ fromIntegral	=  fromInteger . toInteger
 
 realToFrac	:: (Real a, Fractional b) => a -> b
 realToFrac	=  fromRational . toRational
+
+-- Haskell 1.2 name of realToFrac.
+fromRealFrac	:: (Real a, Fractional b) => a -> b
+fromRealFrac	=  realToFrac
 
 -- Some standard functions:
 -- component projections for pairs:

@@ -28,7 +28,7 @@ module PreludeCore (
     Ordering(LT, EQ, GT), Maybe(Nothing, Just), Either(Left, Right),
     Char, Int, Integer, Float, Double, Bin,
     Ratio, Complex((:+)), Assoc((:=)), Array,
-    String(..), Rational(..) )  where
+    String(..), Rational(..), minInt, maxInt )  where
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 

@@ -1,1 +1,0 @@
-bug: [] sorts after (:), since the Prelude declares data List a = a : (List a) | Nil deriving Ord (lib/*/prelude/PreludeCore.hs:53)
