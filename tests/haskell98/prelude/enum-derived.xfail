@@ -1,0 +1,1 @@
+derived Enum instances do not define toEnum/fromEnum (compiler: derived/ix-enum.mumble)

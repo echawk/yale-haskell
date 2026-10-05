@@ -1,0 +1,1 @@
+deriving Bounded is not supported, nor Bounded for tuples (compiler: derived/, tuple instances)
