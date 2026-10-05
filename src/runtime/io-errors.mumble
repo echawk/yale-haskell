@@ -119,7 +119,6 @@
   (cond ((eqv? errno sb-posix:enoent) 'does-not-exist)
 	((eqv? errno sb-posix:enotdir) 'does-not-exist)
 	((eqv? errno sb-posix:eexist) 'already-exists)
-	((eqv? errno sb-posix:enotempty) 'already-exists)
 	((eqv? errno sb-posix:ebusy) 'already-in-use)
 	((eqv? errno sb-posix:eacces) 'permission)
 	((eqv? errno sb-posix:eperm) 'permission)

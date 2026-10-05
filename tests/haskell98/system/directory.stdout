@@ -1,0 +1,28 @@
+created: directory True, file False
+create again: alreadyExists
+create in missing parent: doesNotExist
+a.txt: file True, directory False
+contents: . .. a.txt
+contents: . .. b.txt
+rename missing file: doesNotExist
+renameFile on a directory: illegalOperation
+renameDirectory on a file: illegalOperation
+contents: . .. b.txt sub2
+permissions: file rw--, directory rw-s
+after setPermissions: r-x-
+open read-only file for writing: permission
+restored: rw--
+permissions of missing file: doesNotExist
+modification time plausible: True
+modification time of missing file: doesNotExist
+cd: ends in test directory True
+relative names: True hello
+cd back: True
+cd to missing directory: doesNotExist
+remove non-empty directory: other error
+removeFile on a directory: illegalOperation
+remove missing file: doesNotExist
+contents: . ..
+removed: True
+list missing directory: doesNotExist
+
