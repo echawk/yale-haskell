@@ -23,4 +23,13 @@
 	(source-filename "debug-utils.mumble"))
   (unit tuple-prims
         (require runtime-utils)
-	(source-filename "tuple-prims.mumble")))
+	(source-filename "tuple-prims.mumble"))
+  (unit io-errors
+	(require runtime-utils)
+	(source-filename "io-errors.mumble"))
+  (unit system-prims
+	(require io-errors prims)
+	(source-filename "system-prims.mumble"))
+  (unit handle-prims
+	(require io-errors system-prims)
+	(source-filename "handle-prims.mumble")))

@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/
+:o= all
+CPUTimePrims.hi
+CPUTime.hs

@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/
+:o= all
+SystemPrims.hi
+System.hs

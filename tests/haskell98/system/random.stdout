@@ -1,0 +1,21 @@
+mkStdGen 42: 43 1
+mkStdGen (-42): 43 1
+mkStdGen 3000000000: 852516439 2
+next: 1679910 620339110 2104174556 2010543953 769061955
+genRange: (0,2147483562)
+dice: 6 4 2 5 3 2 1 6 1 4 4 4
+reversed range: 6 4 2 5 3
+chars: ndfeolyrgnvdecmnpxda
+bools: TTTFFTFTFTTTFFFTTTTF
+big: 509783746554540217020343438449 262384676223747011196759103149 429919982329678279322682284552
+split: 44 40692 / 1720602 2147483398
+read . show: 43 1
+read junk: 12802 1
+doubles in [0,1): True
+floats in [2,3]: True
+unseeded randomIO is an Int: True
+seeded randomRIO: 82 51 66
+getStdGen: 33684305 2103410263
+newStdGen: 1371586269 2103410262 / 33684306 1872071452
+getStdRandom: 2
+
