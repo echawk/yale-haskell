@@ -1,0 +1,37 @@
+-- DirectoryPrims.hi -- Lisp primitives for the Directory library
+--
+-- The Lisp side is src/runtime/system-prims.mumble: sb-posix on SBCL,
+-- with portable-CL approximations (or "not supported" IOErrors) for
+-- other Lisps.  Failing primitives signal an IOError.
+
+interface DirectoryPrims where
+
+primCreateDirectory      :: String -> IO ()
+primRemoveDirectory      :: String -> IO ()
+primRemoveFile           :: String -> IO ()
+primRenameDirectory      :: String -> String -> IO ()
+primRenameFile           :: String -> String -> IO ()
+primGetDirectoryContents :: String -> IO [String]
+primGetCurrentDirectory  :: IO String
+primSetCurrentDirectory  :: String -> IO ()
+primDoesFileExist        :: String -> IO Bool
+primDoesDirectoryExist   :: String -> IO Bool
+primGetPermissions       :: String -> IO [Bool]
+primSetPermissions       :: String -> Bool -> Bool -> Bool -> Bool -> IO ()
+primGetModificationTime  :: String -> IO Integer
+
+{-#
+primCreateDirectory      :: LispName("prim.create-directory")
+primRemoveDirectory      :: LispName("prim.remove-directory")
+primRemoveFile           :: LispName("prim.remove-file")
+primRenameDirectory      :: LispName("prim.rename-directory")
+primRenameFile           :: LispName("prim.rename-file")
+primGetDirectoryContents :: LispName("prim.get-directory-contents")
+primGetCurrentDirectory  :: LispName("prim.get-current-directory")
+primSetCurrentDirectory  :: LispName("prim.set-current-directory")
+primDoesFileExist        :: LispName("prim.does-file-exist")
+primDoesDirectoryExist   :: LispName("prim.does-directory-exist")
+primGetPermissions       :: LispName("prim.get-permissions")
+primSetPermissions       :: LispName("prim.set-permissions")
+primGetModificationTime  :: LispName("prim.get-modification-time")
+#-}

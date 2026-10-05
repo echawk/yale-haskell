@@ -1,0 +1,358 @@
+;;; handle-prims.mumble -- H98 Handles over Lisp streams, and mutable cells
+;;;   (lib/haskell98/IOPrims.hi, lib/haskell98/RandomPrims.hi)
+;;;
+;;; A Handle is a HASKELL-HANDLE structure.  The standard handles keep a
+;;; symbol instead of a stream and look up the current value of
+;;; *standard-input* etc. when used, so they survive a saved image and
+;;; follow whatever the command interface binds those variables to.
+;;;
+;;; This is portable Common Lisp except for NATIVE-PATHNAME.
+;;;
+;;; WARNING!!!  This file contains Common-Lisp specific code.
+
+(lisp:defstruct (haskell-handle
+		 (:constructor make-haskell-handle
+			       (stream name readable? writable? file?)))
+  stream		; a Lisp stream, or stdin/stdout/stderr
+  name			; file name, or "<stdin>" etc.
+  readable?
+  writable?
+  file?			; a file stream (seekable, has a size)
+  (state 'open)		; open, semi-closed or closed
+  (buffering 1)		; 0 = none, 1 = line, 2 = block
+  (block-size 0))	; for block buffering; 0 = default
+
+(define (handle-stream h)
+  (let ((s  (haskell-handle-stream h)))
+    (case s
+      ((stdin)  lisp:*standard-input*)
+      ((stdout) lisp:*standard-output*)
+      ((stderr) lisp:*error-output*)
+      (else s))))
+
+(define (standard-handle? h)
+  (symbol? (haskell-handle-stream h)))
+
+(define (handle-name-for-error h)
+  (haskell-handle-name h))
+
+(define prim.stdin-handle (make-haskell-handle 'stdin "<stdin>" '#t '#f '#f))
+(define prim.stdout-handle (make-haskell-handle 'stdout "<stdout>" '#f '#t '#f))
+(define prim.stderr-handle (make-haskell-handle 'stderr "<stderr>" '#f '#t '#f))
+(setf (haskell-handle-buffering prim.stderr-handle) 0)
+
+;;; Turn a file name into a pathname without treating *, ? or [ as
+;;; wildcards.
+#+sbcl
+(define (native-pathname name)
+  (sb-ext:parse-native-namestring name))
+
+#-sbcl
+(define (native-pathname name)
+  (lisp:pathname name))
+
+
+;;; Checks used by the primitives
+
+(define (check-open h location)
+  (case (haskell-handle-state h)
+    ((closed)
+     (raise-io-error/handle 'illegal-operation location "handle is closed" h))
+    ((semi-closed)
+     (raise-io-error/handle 'illegal-operation location
+			    "handle is semi-closed" h))))
+
+(define (check-readable h location)
+  (check-open h location)
+  (unless (haskell-handle-readable? h)
+    (raise-io-error/handle 'illegal-operation location
+			   "handle is not open for reading" h)))
+
+(define (check-writable h location)
+  (check-open h location)
+  (unless (haskell-handle-writable? h)
+    (raise-io-error/handle 'illegal-operation location
+			   "handle is not open for writing" h)))
+
+(define (check-file h location)
+  (check-open h location)
+  (unless (haskell-handle-file? h)
+    (raise-io-error/handle 'illegal-operation location
+			   "handle is not seekable" h)))
+
+(define-syntax (with-handle-errors location h . body)
+  `(with-host-io-errors ,location (haskell-handle-name ,h)
+     ,@body))
+
+
+;;; primOpenFile :: String -> Int -> IO Handle
+;;;   mode 0 = ReadMode, 1 = WriteMode, 2 = AppendMode, 3 = ReadWriteMode
+
+(define (prim.open-file name mode)
+  (let ((path  (native-pathname name)))
+    (when (lisp:ignore-errors
+	   (let ((p  (lisp:probe-file path)))
+	     (and p (null? (lisp:pathname-name p))
+		  (null? (lisp:pathname-type p)))))
+      (raise-io-error 'illegal-operation "openFile" "is a directory" name))
+    (when (and (eqv? mode 0) (not (lisp:probe-file path)))
+      (raise-io-error 'does-not-exist "openFile" "" name))
+    (with-host-io-errors "openFile" name
+      (let ((stream
+	     (case mode
+	       ((0) (lisp:open path :direction :input))
+	       ((1) (lisp:open path :direction :output
+			       :if-exists :supersede :if-does-not-exist :create))
+	       ((2) (lisp:open path :direction :output
+			       :if-exists :append :if-does-not-exist :create))
+	       (else (lisp:open path :direction :io
+				:if-exists :overwrite
+				:if-does-not-exist :create)))))
+	(let ((h  (make-haskell-handle stream name
+				       (or (eqv? mode 0) (eqv? mode 3))
+				       (not (eqv? mode 0))
+				       '#t)))
+	  (setf (haskell-handle-buffering h) 2)
+	  h)))))
+
+;;; primHClose :: Handle -> IO ()
+(define (prim.h-close h)
+  (unless (eq? (haskell-handle-state h) 'closed)
+    (if (standard-handle? h)
+	(when (haskell-handle-writable? h)
+	  (lisp:finish-output (handle-stream h)))
+	(with-handle-errors "hClose" h
+	  (lisp:close (handle-stream h))))
+    (setf (haskell-handle-state h) 'closed))
+  0)
+
+;;; primHFileSize :: Handle -> IO Integer
+(define (prim.h-file-size h)
+  (check-file h "hFileSize")
+  (with-handle-errors "hFileSize" h
+    (when (haskell-handle-writable? h)
+      (lisp:finish-output (handle-stream h)))
+    (lisp:file-length (handle-stream h))))
+
+;;; primHIsEOF :: Handle -> IO Bool
+(define (prim.h-is-eof h)
+  (check-readable h "hIsEOF")
+  (with-handle-errors "hIsEOF" h
+    (if (eq? (lisp:peek-char '#f (handle-stream h) '#f ':eof) ':eof)
+	'#t
+	'#f)))
+
+;;; primHSetBuffering :: Handle -> Int -> Int -> IO ()
+(define (prim.h-set-buffering h mode size)
+  (check-open h "hSetBuffering")
+  (when (and (eqv? mode 2) (< size 0))
+    (raise-io-error/handle 'illegal-operation "hSetBuffering"
+			   "illegal buffer size" h))
+  (when (haskell-handle-writable? h)
+    (lisp:force-output (handle-stream h)))
+  (setf (haskell-handle-buffering h) mode)
+  (setf (haskell-handle-block-size h) size)
+  0)
+
+;;; primHGetBuffering :: Handle -> IO Int, primHGetBlockSize :: Handle -> IO Int
+(define (prim.h-get-buffering h)
+  (check-open h "hGetBuffering")
+  (haskell-handle-buffering h))
+
+(define (prim.h-get-block-size h)
+  (haskell-handle-block-size h))
+
+;;; primHFlush :: Handle -> IO ()
+(define (prim.h-flush h)
+  (check-writable h "hFlush")
+  (with-handle-errors "hFlush" h
+    (lisp:finish-output (handle-stream h)))
+  0)
+
+;;; primHGetPosn :: Handle -> IO Integer
+(define (prim.h-get-posn h)
+  (check-file h "hGetPosn")
+  (with-handle-errors "hGetPosn" h
+    (lisp:file-position (handle-stream h))))
+
+;;; primHSeek :: Handle -> Int -> Integer -> IO ()
+;;;   mode 0 = AbsoluteSeek, 1 = RelativeSeek, 2 = SeekFromEnd
+(define (prim.h-seek h mode offset)
+  (check-file h "hSeek")
+  (with-handle-errors "hSeek" h
+    (let* ((s    (handle-stream h))
+	   (pos  (case mode
+		   ((0) offset)
+		   ((1) (+ (lisp:file-position s) offset))
+		   (else (+ (lisp:file-length s) offset)))))
+      (when (haskell-handle-writable? h)
+	(lisp:finish-output s))
+      (when (or (< pos 0) (not (lisp:file-position s pos)))
+	(raise-io-error/handle 'illegal-operation "hSeek"
+			       "invalid position" h))))
+  0)
+
+;;; primHWaitForInput :: Handle -> Int -> IO Bool
+;;; The timeout is not implemented: a negative one waits for input,
+;;; anything else just checks whether input is available now.
+(define (prim.h-wait-for-input h timeout)
+  (check-readable h "hWaitForInput")
+  (with-handle-errors "hWaitForInput" h
+    (let ((s  (handle-stream h)))
+      (cond ((< timeout 0)
+	     (when (eq? (lisp:peek-char '#f s '#f ':eof) ':eof)
+	       (raise-io-error/handle 'eof "hWaitForInput" "" h))
+	     '#t)
+	    ((lisp:listen s) '#t)
+	    (else '#f)))))
+
+;;; primHGetChar :: Handle -> IO Char   (a Haskell Char is its code)
+(define (prim.h-get-char h)
+  (check-readable h "hGetChar")
+  (with-handle-errors "hGetChar" h
+    (char->integer (lisp:read-char (handle-stream h)))))
+
+;;; primHLookAhead :: Handle -> IO Char
+(define (prim.h-look-ahead h)
+  (check-readable h "hLookAhead")
+  (with-handle-errors "hLookAhead" h
+    (char->integer (lisp:peek-char '#f (handle-stream h)))))
+
+;;; primHGetLine :: Handle -> IO String
+;;; At end of file, a partial last line is returned; EOF before any
+;;; character is an isEOFError.
+(define (prim.h-get-line h)
+  (check-readable h "hGetLine")
+  (with-handle-errors "hGetLine" h
+    (let ((line  (lisp:read-line (handle-stream h) '#f ':eof)))
+      (when (eq? line ':eof)
+	(raise-io-error/handle 'eof "hGetLine" "" h))
+      line)))
+
+;;; primHGetContents :: Handle -> IO String    (NoConversion)
+;;; Returns the boxed IOResult itself: a lazy list of the remaining
+;;; characters.  The handle becomes semi-closed, and is closed when the
+;;; end of the stream is reached.
+(define (prim.h-get-contents h state)
+  (declare (ignore state))
+  (check-readable h "hGetContents")
+  (setf (haskell-handle-state h) 'semi-closed)
+  (delay (lazy-read-handle h)))
+
+(define (lazy-read-handle h)
+  (let ((ch  (if (eq? (haskell-handle-state h) 'closed)
+		 ':eof
+		 (with-handle-errors "hGetContents" h
+		   (lisp:read-char (handle-stream h) '#f ':eof)))))
+    (cond ((eq? ch ':eof)
+	   (unless (or (eq? (haskell-handle-state h) 'closed)
+		       (standard-handle? h))
+	     (lisp:close (handle-stream h)))
+	   (setf (haskell-handle-state h) 'closed)
+	   '())
+	  (else
+	   (cons (box (char->integer ch))
+		 (delay (lazy-read-handle h)))))))
+
+;;; Output.  After writing, flush according to the buffering mode.
+
+(define (after-output h newline?)
+  (let ((mode  (haskell-handle-buffering h)))
+    (when (or (eqv? mode 0) (and newline? (eqv? mode 1)))
+      (lisp:force-output (handle-stream h)))))
+
+;;; primHPutChar :: Handle -> Char -> IO ()
+(define (prim.h-put-char h ch)
+  (check-writable h "hPutChar")
+  (with-handle-errors "hPutChar" h
+    (lisp:write-char ch (handle-stream h))
+    (after-output h (char=? ch #\newline)))
+  0)
+
+;;; primHPutStr :: Handle -> String -> IO ()    (NoConversion)
+;;; Writes the Haskell string as it is evaluated, so that infinite or
+;;; partially failing strings behave as in H98.
+(define (prim.h-put-str h s state)
+  (declare (ignore state))
+  (check-writable h "hPutStr")
+  (let ((stream    (handle-stream h))
+	(newline?  '#f))
+    (with-handle-errors "hPutStr" h
+      (do ((s1 s (force (cdr s1))))
+	  ((null? s1))
+	(let ((ch  (integer->char (force (car s1)))))
+	  (lisp:write-char ch stream)
+	  (when (char=? ch #\newline)
+	    (setf newline? '#t)
+	    (when (eqv? (haskell-handle-buffering h) 0)
+	      (lisp:force-output stream))))))
+    (after-output h newline?))
+  (box 0))
+
+;;; Queries
+
+(define (prim.h-is-open h)
+  (if (eq? (haskell-handle-state h) 'open) '#t '#f))
+
+(define (prim.h-is-closed h)
+  (if (eq? (haskell-handle-state h) 'closed) '#t '#f))
+
+(define (prim.h-is-readable h)
+  (check-open h "hIsReadable")
+  (if (haskell-handle-readable? h) '#t '#f))
+
+(define (prim.h-is-writable h)
+  (check-open h "hIsWritable")
+  (if (haskell-handle-writable? h) '#t '#f))
+
+(define (prim.h-is-seekable h)
+  (check-open h "hIsSeekable")
+  (if (haskell-handle-file? h) '#t '#f))
+
+;;; primHandleEq :: Handle -> Handle -> Bool
+(define (prim.handle-eq h1 h2)
+  (if (eq? h1 h2) '#t '#f))
+
+;;; primHandleName :: Handle -> String
+(define (prim.handle-name h)
+  (haskell-handle-name h))
+
+
+;;;=====================================================================
+;;; Mutable cells
+;;;=====================================================================
+
+;;; A cell is a one-element vector.  New cells hold *empty-cell* until
+;;; written.  Values are stored as they arrive (forced to WHNF, since
+;;; the primitives are strict).
+
+(define *empty-cell* (list 'empty-cell))
+(define *named-cells* (make-table))
+
+;;; primNewRef :: a -> IO (Ref a)
+(define (prim.new-ref value)
+  (vector value))
+
+;;; primNamedRef :: String -> Ref a
+;;; The same cell every time for the same name: a global variable.
+(define (prim.named-ref name)
+  (let* ((key   (string->symbol name))
+	 (cell  (table-entry *named-cells* key)))
+    (or cell
+	(setf (table-entry *named-cells* key) (vector *empty-cell*)))))
+
+;;; primRefIsEmpty :: Ref a -> IO Bool
+(define (prim.ref-is-empty cell)
+  (if (eq? (vector-ref cell 0) *empty-cell*) '#t '#f))
+
+;;; primReadRef :: Ref a -> IO a
+(define (prim.read-ref cell)
+  (let ((value  (vector-ref cell 0)))
+    (if (eq? value *empty-cell*)
+	(haskell-runtime-error "Read of an uninitialized reference.")
+	value)))
+
+;;; primWriteRef :: Ref a -> a -> IO ()
+(define (prim.write-ref cell value)
+  (setf (vector-ref cell 0) value)
+  0)

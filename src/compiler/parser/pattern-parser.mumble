@@ -42,8 +42,19 @@
        (token-case
 	(+k (cons pat (parse-+k-pat)))
 	(else (cons pat (parse-pat/tail))))))
+    ((no-advance satisfies at-tuple-con?)
+     (let ((pcon (parse-tuple-pcon)))
+       (setf (pcon-pats pcon) (parse-apat-list))
+       (cons pcon (parse-pat/tail))))
     (else (let ((apat (parse-apat)))
 	    (cons apat (parse-pat/tail))))))
+
+;;; (,), (,,), ... as constructors (H98).  The scanner is at the `('.
+
+(define (parse-tuple-pcon)
+  (advance-token)
+  (advance-token)
+  (**pcon/def (tuple-constructor (parse-tuple-con-commas 2)) '()))
 
 
 (define (parse-+k-pat)
@@ -77,6 +88,7 @@
      (_ (make wildcard-pat))
      (\( (token-case
            (\) (**pcon/def (core-symbol "UnitConstructor") '()))
+	   (\, (**pcon/def (tuple-constructor (parse-tuple-con-commas 2)) '()))
 	   (else
 	    (let ((pat (parse-pat)))
 	      (token-case
@@ -130,6 +142,11 @@
 	       (+k (scan-+k))
 	       (else '#t))))
     (_ (scan-+k))
+    ((no-advance satisfies at-tuple-con?)
+     (advance-token)
+     (advance-token)
+     (and (scan-tuple-con-commas)
+	  (scan-apat-list)))
     (else (scan-apat)))
    (scan-pat/tail)))
 
@@ -151,6 +168,7 @@
    (_ '#t)
    (\( (token-case
 	(\) '#t)
+	(\, (scan-tuple-con-commas))
 	(else
 	 (and (scan-pat)
 	      (token-case
@@ -218,3 +236,9 @@
 	(else '#f)))
    (else '#t)))
 
+
+(define (scan-tuple-con-commas)  ; just past the first comma of (,,...)
+  (token-case
+   (\, (scan-tuple-con-commas))
+   (\) '#t)
+   (else '#f)))

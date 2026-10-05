@@ -1,0 +1,23 @@
+write handle: writable True, readable False
+size: 38
+"first line";"ss";"econd!";"42";"last, no newline";
+eof before/after last line: (False,True)
+hGetLine at end: eof
+hGetChar at end: eof
+"line";"ond!";"line";"second!"; seekable True
+write to a read handle: illegalOperation
+after hClose: open False, closed True
+read a closed handle: illegalOperation
+after hGetContents: open False, closed False
+hGetLine on a semi-closed handle: illegalOperation
+lines: 4, chars: 38
+after reading it all: open False, closed True
+read/write: FIRST line
+buffering: BlockBuffering 0 NoBuffering BlockBuffering 512
+open a directory: illegalOperation
+(True,False,True)
+{handle: <stdout>} {handle: <stderr>}
+isEOF: False
+stdin: ("line one",'x',"yz\n")
+isEOF after hGetContents stdin: illegalOperation
+

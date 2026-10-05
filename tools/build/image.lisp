@@ -28,7 +28,10 @@
 (lisp:declaim (sb-ext:muffle-conditions lisp:style-warning
 					sb-ext:compiler-note))
 
-(define (batch-run file)
+(define (batch-run file args)
+  ;; getArgs, getProgName and exitWith (src/runtime/system-prims.mumble)
+  (set-haskell-program-args file args)
+  (setf *haskell-batch-mode* '#t)
   ;; Haskell runtime errors (error, head [], ...) normally return to the
   ;; REPL; in batch mode they end the program with status 1.
   (setf (lisp:symbol-function 'haskell-runtime-error)
@@ -59,7 +62,7 @@
     (if (pair? args)
 	(begin
 	  (setf *printers* '())
-	  (batch-run (car args)))
+	  (batch-run (car args) (cdr args)))
 	(begin
 	  (load-init-files)
 	  (do () ('#f)

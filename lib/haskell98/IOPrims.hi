@@ -1,0 +1,96 @@
+-- IOPrims.hi -- Lisp primitives for the IO library
+--
+-- The Lisp side is src/runtime/io-errors.mumble (the IOError model)
+-- and src/runtime/handle-prims.mumble (Handles over Lisp streams).
+-- Both types are abstract here: an IOErrorObj is a Lisp condition
+-- object and a HandleObj a Lisp structure.  IO.hs wraps them in the
+-- IOError and Handle types (instances must be declared with the type).
+
+interface IOPrims where
+
+
+data IOErrorObj
+data HandleObj
+
+-- IOErrors
+
+primCatchIO           :: IO a -> (IOErrorObj -> IO a) -> IO a
+primThrowIO           :: IOErrorObj -> IO a
+primUserError         :: String -> IOErrorObj
+primIOErrorKind       :: IOErrorObj -> Int
+primIOErrorString     :: IOErrorObj -> String
+primIOErrorMessage    :: IOErrorObj -> String
+primIOErrorHasFile    :: IOErrorObj -> Bool
+primIOErrorFile       :: IOErrorObj -> String
+primIOErrorHasHandle  :: IOErrorObj -> Bool
+primIOErrorHandle     :: IOErrorObj -> HandleObj
+
+-- Handles
+
+primStdin             :: HandleObj
+primStdout            :: HandleObj
+primStderr            :: HandleObj
+primOpenFile          :: String -> Int -> IO HandleObj
+primHClose            :: HandleObj -> IO ()
+primHFileSize         :: HandleObj -> IO Integer
+primHIsEOF            :: HandleObj -> IO Bool
+primHSetBuffering     :: HandleObj -> Int -> Int -> IO ()
+primHGetBuffering     :: HandleObj -> IO Int
+primHGetBlockSize     :: HandleObj -> IO Int
+primHFlush            :: HandleObj -> IO ()
+primHGetPosn          :: HandleObj -> IO Integer
+primHSeek             :: HandleObj -> Int -> Integer -> IO ()
+primHWaitForInput     :: HandleObj -> Int -> IO Bool
+primHGetChar          :: HandleObj -> IO Char
+primHLookAhead        :: HandleObj -> IO Char
+primHGetLine          :: HandleObj -> IO String
+primHGetContents      :: HandleObj -> IO String
+primHPutChar          :: HandleObj -> Char -> IO ()
+primHPutStr           :: HandleObj -> String -> IO ()
+primHIsOpen           :: HandleObj -> IO Bool
+primHIsClosed         :: HandleObj -> IO Bool
+primHIsReadable       :: HandleObj -> IO Bool
+primHIsWritable       :: HandleObj -> IO Bool
+primHIsSeekable       :: HandleObj -> IO Bool
+primHandleEq          :: HandleObj -> HandleObj -> Bool
+primHandleName        :: HandleObj -> String
+
+{-#
+primCatchIO           :: LispName("prim.catch-io")
+primThrowIO           :: LispName("prim.throw-io")
+primUserError         :: LispName("prim.user-error")
+primIOErrorKind       :: LispName("prim.io-error-kind")
+primIOErrorString     :: LispName("prim.io-error-string")
+primIOErrorMessage    :: LispName("prim.io-error-message")
+primIOErrorHasFile    :: LispName("prim.io-error-has-filename")
+primIOErrorFile       :: LispName("prim.io-error-filename")
+primIOErrorHasHandle  :: LispName("prim.io-error-has-handle")
+primIOErrorHandle     :: LispName("prim.io-error-handle")
+primStdin             :: LispName("prim.stdin-handle")
+primStdout            :: LispName("prim.stdout-handle")
+primStderr            :: LispName("prim.stderr-handle")
+primOpenFile          :: LispName("prim.open-file")
+primHClose            :: LispName("prim.h-close")
+primHFileSize         :: LispName("prim.h-file-size")
+primHIsEOF            :: LispName("prim.h-is-eof")
+primHSetBuffering     :: LispName("prim.h-set-buffering")
+primHGetBuffering     :: LispName("prim.h-get-buffering")
+primHGetBlockSize     :: LispName("prim.h-get-block-size")
+primHFlush            :: LispName("prim.h-flush")
+primHGetPosn          :: LispName("prim.h-get-posn")
+primHSeek             :: LispName("prim.h-seek")
+primHWaitForInput     :: LispName("prim.h-wait-for-input")
+primHGetChar          :: LispName("prim.h-get-char")
+primHLookAhead        :: LispName("prim.h-look-ahead")
+primHGetLine          :: LispName("prim.h-get-line")
+primHGetContents      :: LispName("prim.h-get-contents"), NoConversion
+primHPutChar          :: LispName("prim.h-put-char")
+primHPutStr           :: LispName("prim.h-put-str"), NoConversion
+primHIsOpen           :: LispName("prim.h-is-open")
+primHIsClosed         :: LispName("prim.h-is-closed")
+primHIsReadable       :: LispName("prim.h-is-readable")
+primHIsWritable       :: LispName("prim.h-is-writable")
+primHIsSeekable       :: LispName("prim.h-is-seekable")
+primHandleEq          :: LispName("prim.handle-eq")
+primHandleName        :: LispName("prim.handle-name")
+#-}

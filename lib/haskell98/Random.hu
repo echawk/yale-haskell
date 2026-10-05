@@ -1,0 +1,6 @@
+:output $LIBRARYBIN/
+:o= all
+CPUTime.hu
+Time.hu
+RandomPrims.hi
+Random.hs

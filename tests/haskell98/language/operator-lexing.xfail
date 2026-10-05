@@ -1,0 +1,1 @@
+bug: operators that start with a reserved op are split: <-> lexes as <- then >, and |-| as | then -| (M2 lexer)

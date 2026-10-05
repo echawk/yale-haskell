@@ -1,0 +1,428 @@
+;;; system-prims.mumble -- host primitives for the Haskell 98 libraries
+;;;   System, CPUTime, Time and Directory (lib/haskell98/*Prims.hi).
+;;;
+;;; Portable Common Lisp is used where it can do the job.  The rest is
+;;; SBCL-specific (sb-ext, sb-posix, sb-alien) and kept behind #+sbcl;
+;;; each such definition has a #-sbcl version that either approximates
+;;; it in portable CL or signals an "illegal operation" IOError saying
+;;; that the operation is not supported on this Lisp.  To port to
+;;; another host, supply the #-sbcl branches.
+;;;
+;;; Errors are signalled as HASKELL-IO-ERRORs (io-errors.mumble).
+;;;
+;;; WARNING!!!  This file contains Common-Lisp specific code.
+
+#+sbcl
+(lisp:eval-when (:compile-toplevel :load-toplevel :execute)
+  (lisp:require :sb-posix))
+
+(define (unsupported-operation location)
+  (raise-io-error 'illegal-operation location
+		  (format '#f "not supported on ~a" (lisp:lisp-implementation-type))))
+
+
+;;;=====================================================================
+;;; Program arguments and exit
+;;;=====================================================================
+
+;;; The batch driver (batch-run in tools/build/image.lisp) sets these
+;;; before running Main.main: the arguments after the program file name,
+;;; and the program name (the file name without directory and .hs).
+;;; *haskell-batch-mode* tells exitWith that it may leave Lisp; in the
+;;; interactive system it returns to the command loop instead.
+
+(define *haskell-program-args* '())
+(define *haskell-program-name* "haskell")
+(define *haskell-batch-mode* '#f)
+
+(define (set-haskell-program-args file args)
+  (setf *haskell-program-args* args)
+  (setf *haskell-program-name* (lisp:pathname-name (lisp:pathname file))))
+
+;;; primGetArgs :: IO [String]
+(define (prim.get-args)
+  *haskell-program-args*)
+
+;;; primGetProgName :: IO String
+(define (prim.get-prog-name)
+  *haskell-program-name*)
+
+(define (flush-standard-streams)
+  (lisp:finish-output lisp:*standard-output*)
+  (lisp:finish-output lisp:*error-output*))
+
+;;; primExitWith :: Int -> IO a     (0 means ExitSuccess)
+(define (prim.exit-with code)
+  (flush-standard-streams)
+  (if *haskell-batch-mode*
+      (exit code)
+      (haskell-runtime-error
+       (format '#f "Program exited with code ~a." code))))
+
+;;; primSystem :: String -> IO Int  (the command's exit status)
+#+sbcl
+(define (prim.system command)
+  (flush-standard-streams)
+  (with-host-io-errors "system" '#f
+    (let ((p  (sb-ext:run-program "/bin/sh" (list "-c" command)
+				  :input '#t :output '#t :error '#t
+				  :wait '#t)))
+      (sb-ext:process-exit-code p))))
+
+#-sbcl
+(define (prim.system command)
+  (declare (ignore command))
+  (unsupported-operation "system"))
+
+
+;;;=====================================================================
+;;; Environment
+;;;=====================================================================
+
+;;; primGetEnv :: String -> IO String; isDoesNotExistError if unset.
+(define (prim.get-env name)
+  (let ((value  (getenv name)))
+    (if value
+	value
+	(raise-io-error 'does-not-exist "getEnv"
+			(format '#f "no environment variable ~a" name)))))
+
+
+;;;=====================================================================
+;;; CPU time (portable)
+;;;=====================================================================
+
+(define *picoseconds-per-internal-unit*
+  (lisp:floor 1000000000000 lisp:internal-time-units-per-second))
+
+;;; primGetCPUTime :: IO Integer    (picoseconds)
+(define (prim.get-cpu-time)
+  (* (lisp:get-internal-run-time) *picoseconds-per-internal-unit*))
+
+;;; primCPUTimePrecision :: Integer
+(define prim.cpu-time-precision *picoseconds-per-internal-unit*)
+
+
+;;;=====================================================================
+;;; Clock and time zone
+;;;=====================================================================
+
+;;; Seconds between the CL universal-time epoch (1900) and Unix's (1970).
+(define *unix-epoch* 2208988800)
+
+;;; primGetClockTime :: IO (Integer, Integer)
+;;;   seconds since 1970-01-01 00:00 UTC, and picoseconds.
+#+sbcl
+(define (prim.get-clock-time)
+  (multiple-value-bind (sec usec) (sb-ext:get-time-of-day)
+    (make-haskell-tuple2 sec (* usec 1000000))))
+
+#-sbcl
+(define (prim.get-clock-time)
+  (make-haskell-tuple2 (- (lisp:get-universal-time) *unix-epoch*) 0))
+
+;;; Local time zone at Unix time SECS, from portable CL.  CL only
+;;; decodes universal times (>= 1900); earlier times use 1900's zone.
+
+(define (local-zone-info secs)
+  (multiple-value-bind (s mi h d mo y dow dst-p tz)
+      (lisp:decode-universal-time (max 0 (+ secs *unix-epoch*)))
+    (declare (ignore s mi h d mo y dow))
+    (values (lisp:round (* -3600 (if dst-p (- tz 1) tz))) dst-p)))
+
+;;; primTimeZoneOffset :: Integer -> IO Int
+;;;   seconds east of UTC (including daylight saving time)
+(define (prim.time-zone-offset secs)
+  (multiple-value-bind (offset dst-p) (local-zone-info secs)
+    (declare (ignore dst-p))
+    offset))
+
+;;; primIsDST :: Integer -> IO Bool
+(define (prim.is-dst secs)
+  (multiple-value-bind (offset dst-p) (local-zone-info secs)
+    (declare (ignore offset))
+    (if dst-p '#t '#f)))
+
+;;; primTimeZoneName :: Integer -> IO String
+;;; CL has no time zone names.  On SBCL, ask the C library (strftime %Z).
+#+sbcl
+(define (prim.time-zone-name secs)
+  (sb-alien:with-alien ((tt (sb-alien:signed 64) secs)
+			(tm (lisp:array sb-alien:char 128))
+			(buf (lisp:array sb-alien:char 64)))
+    (sb-alien:alien-funcall
+     (sb-alien:extern-alien "localtime_r"
+			    (lisp:function sb-alien:system-area-pointer
+					   sb-alien:system-area-pointer
+					   sb-alien:system-area-pointer))
+     (sb-alien:alien-sap (sb-alien:addr tt))
+     (sb-alien:alien-sap tm))
+    (let* ((n  (sb-alien:alien-funcall
+		(sb-alien:extern-alien "strftime"
+				       (lisp:function sb-alien:unsigned-long
+						      sb-alien:system-area-pointer
+						      sb-alien:unsigned-long
+						      sb-alien:c-string
+						      sb-alien:system-area-pointer))
+		(sb-alien:alien-sap buf) 64 "%Z" (sb-alien:alien-sap tm)))
+	   (s  (make-string n)))
+      (dotimes (i n)
+	(setf (string-ref s i)
+	      (integer->char (lisp:logand 255 (sb-alien:deref buf i)))))
+      s)))
+
+#-sbcl
+(define (prim.time-zone-name secs)
+  (multiple-value-bind (offset dst-p) (local-zone-info secs)
+    (declare (ignore dst-p))
+    (if (eqv? offset 0) "UTC" "")))
+
+
+;;;=====================================================================
+;;; Directories
+;;;=====================================================================
+
+;;; Directory names: CL wants "dir/" to name a directory, POSIX doesn't
+;;; care.  These helpers convert between the two.
+
+(define (as-directory-name name)
+  (if (and (> (string-length name) 0)
+	   (not (char=? (string-ref name (1- (string-length name))) #\/)))
+      (string-append name "/")
+      name))
+
+;;; File kinds: 'directory, 'file (anything else), or '#f.
+
+#+sbcl
+(define (file-kind name)
+  (let ((st  (lisp:handler-case (sb-posix:stat name)
+	       (sb-posix:syscall-error () '#f))))
+    (cond ((not st) '#f)
+	  ((eqv? (lisp:logand (sb-posix:stat-mode st) sb-posix:s-ifmt)
+		 sb-posix:s-ifdir)
+	   'directory)
+	  (else 'file))))
+
+#-sbcl
+(define (file-kind name)
+  (let ((p  (lisp:ignore-errors (lisp:probe-file name))))
+    (cond ((not p) '#f)
+	  ((and (null? (lisp:pathname-name p)) (null? (lisp:pathname-type p)))
+	   'directory)
+	  (else 'file))))
+
+;;; primDoesFileExist, primDoesDirectoryExist :: String -> IO Bool
+(define (prim.does-file-exist name)
+  (if (eq? (file-kind name) 'file) '#t '#f))
+
+(define (prim.does-directory-exist name)
+  (if (eq? (file-kind name) 'directory) '#t '#f))
+
+;;; primCreateDirectory :: String -> IO ()
+#+sbcl
+(define (prim.create-directory name)
+  (with-host-io-errors "createDirectory" name
+    (sb-posix:mkdir name #o777)
+    0))
+
+#-sbcl
+(define (prim.create-directory name)
+  (if (file-kind name)
+      (raise-io-error 'already-exists "createDirectory" "" name)
+      (with-host-io-errors "createDirectory" name
+	(lisp:ensure-directories-exist (as-directory-name name))
+	0)))
+
+;;; primRemoveDirectory :: String -> IO ()
+#+sbcl
+(define (prim.remove-directory name)
+  (with-host-io-errors "removeDirectory" name
+    (sb-posix:rmdir name)
+    0))
+
+#-sbcl
+(define (prim.remove-directory name)
+  (declare (ignore name))
+  (unsupported-operation "removeDirectory"))
+
+;;; primRemoveFile :: String -> IO ()
+#+sbcl
+(define (prim.remove-file name)
+  (with-host-io-errors "removeFile" name
+    (when (eq? (file-kind name) 'directory)
+      (raise-io-error 'illegal-operation "removeFile" "is a directory" name))
+    (sb-posix:unlink name)
+    0))
+
+#-sbcl
+(define (prim.remove-file name)
+  (case (file-kind name)
+    ((#f) (raise-io-error 'does-not-exist "removeFile" "" name))
+    ((directory)
+     (raise-io-error 'illegal-operation "removeFile" "is a directory" name))
+    (else
+     (with-host-io-errors "removeFile" name
+       (lisp:delete-file name)
+       0))))
+
+;;; primRenameFile, primRenameDirectory :: String -> String -> IO ()
+;;; H98: renameFile fails if the source is a directory, renameDirectory
+;;; if it isn't one.
+
+(define (check-rename-source location from want)
+  (let ((kind  (file-kind from)))
+    (cond ((not kind)
+	   (raise-io-error 'does-not-exist location "" from))
+	  ((not (eq? kind want))
+	   (raise-io-error 'illegal-operation location
+			   (if (eq? want 'file)
+			       "is a directory"
+			       "not a directory")
+			   from)))))
+
+#+sbcl
+(define (host-rename location from to)
+  (with-host-io-errors location from
+    (sb-posix:rename from to)
+    0))
+
+;;; CL's rename-file merges the new name with the old one, so "a.txt"
+;;; renamed to "b" would become "b.txt"; give the new name an explicit
+;;; empty type to prevent that.
+#-sbcl
+(define (host-rename location from to)
+  (with-host-io-errors location from
+    (let ((new  (lisp:pathname to)))
+      (lisp:rename-file from
+			(if (lisp:pathname-type new)
+			    new
+			    (lisp:make-pathname :type :unspecific
+						:defaults new)))
+      0)))
+
+(define (prim.rename-file from to)
+  (check-rename-source "renameFile" from 'file)
+  (when (eq? (file-kind to) 'directory)
+    (raise-io-error 'illegal-operation "renameFile" "is a directory" to))
+  (host-rename "renameFile" from to))
+
+(define (prim.rename-directory from to)
+  (check-rename-source "renameDirectory" from 'directory)
+  (when (eq? (file-kind to) 'file)
+    (raise-io-error 'illegal-operation "renameDirectory" "not a directory" to))
+  (host-rename "renameDirectory" from to))
+
+;;; primGetDirectoryContents :: String -> IO [String]
+;;; All entries, including "." and "..", in the order the system gives.
+#+sbcl
+(define (prim.get-directory-contents name)
+  (with-host-io-errors "getDirectoryContents" name
+    (let ((dir  (sb-posix:opendir name))
+	  (result  '()))
+      (unwind-protect
+	   (do ((ent (sb-posix:readdir dir) (sb-posix:readdir dir)))
+	       ((sb-alien:null-alien ent))
+	     (push (sb-posix:dirent-name ent) result))
+	(sb-posix:closedir dir))
+      (nreverse result))))
+
+#-sbcl
+(define (prim.get-directory-contents name)
+  (unless (eq? (file-kind name) 'directory)
+    (raise-io-error 'does-not-exist "getDirectoryContents" "" name))
+  (with-host-io-errors "getDirectoryContents" name
+    (let* ((dir    (as-directory-name name))
+	   (files  (lisp:directory
+		    (lisp:merge-pathnames (lisp:make-pathname :name :wild
+							      :type :wild)
+					  dir)))
+	   (subdirs (lisp:directory
+		     (lisp:merge-pathnames (lisp:make-pathname
+					    :directory '(:relative :wild))
+					   dir))))
+      (append (list "." "..")
+	      (map (lambda (p)
+		     (if (lisp:pathname-name p)
+			 (lisp:file-namestring p)
+			 (car (last (lisp:pathname-directory p)))))
+		   (append subdirs files))))))
+
+;;; primGetCurrentDirectory :: IO String
+#+sbcl
+(define (prim.get-current-directory)
+  (with-host-io-errors "getCurrentDirectory" '#f
+    (sb-posix:getcwd)))
+
+#-sbcl
+(define (prim.get-current-directory)
+  (let ((s  (lisp:namestring (lisp:truename lisp:*default-pathname-defaults*))))
+    (if (and (> (string-length s) 1)
+	     (char=? (string-ref s (1- (string-length s))) #\/))
+	(substring s 0 (1- (string-length s)))
+	s)))
+
+;;; primSetCurrentDirectory :: String -> IO ()
+;;; Lisp's file functions merge names with *default-pathname-defaults*,
+;;; so that is updated as well as the process's directory.
+(define (prim.set-current-directory name)
+  (unless (eq? (file-kind name) 'directory)
+    (raise-io-error (if (file-kind name) 'illegal-operation 'does-not-exist)
+		    "setCurrentDirectory" "" name))
+  (with-host-io-errors "setCurrentDirectory" name
+    #+sbcl (sb-posix:chdir name)
+    (setf lisp:*default-pathname-defaults*
+	  (lisp:truename (as-directory-name name)))
+    0))
+
+;;; Permissions.  primGetPermissions :: String -> IO [Bool] returns
+;;; [readable, writable, executable, searchable] for the current user.
+;;; executable is for files only and searchable for directories only.
+#+sbcl
+(define (prim.get-permissions name)
+  (with-host-io-errors "getPermissions" name
+    (let ((dir?  (eq? (file-kind name) 'directory)))
+      (sb-posix:stat name)		; signals does-not-exist
+      (flet ((ok? (mode)
+	       (lisp:handler-case (begin (sb-posix:access name mode) '#t)
+		 (sb-posix:syscall-error () '#f))))
+	(let ((x (ok? sb-posix:x-ok)))
+	  (list (ok? sb-posix:r-ok) (ok? sb-posix:w-ok)
+		(and (not dir?) x) (and dir? x)))))))
+
+#-sbcl
+(define (prim.get-permissions name)
+  ;; Portable CL can only tell whether the file exists.
+  (let ((kind  (file-kind name)))
+    (if (not kind)
+	(raise-io-error 'does-not-exist "getPermissions" "" name)
+	(list '#t '#t '#f (eq? kind 'directory)))))
+
+;;; primSetPermissions :: String -> Bool -> Bool -> Bool -> Bool -> IO ()
+;;; Sets the owner's r, w and x bits (x from executable or searchable);
+;;; the group and other bits are left alone.
+#+sbcl
+(define (prim.set-permissions name r w x s)
+  (with-host-io-errors "setPermissions" name
+    (let* ((mode  (sb-posix:stat-mode (sb-posix:stat name)))
+	   (mode  (lisp:logandc2 mode #o700)))
+      (when r (setf mode (lisp:logior mode #o400)))
+      (when w (setf mode (lisp:logior mode #o200)))
+      (when (or x s) (setf mode (lisp:logior mode #o100)))
+      (sb-posix:chmod name (lisp:logand mode #o7777))
+      0)))
+
+#-sbcl
+(define (prim.set-permissions name r w x s)
+  (declare (ignore name r w x s))
+  (unsupported-operation "setPermissions"))
+
+;;; primGetModificationTime :: String -> IO Integer  (Unix seconds)
+#+sbcl
+(define (prim.get-modification-time name)
+  (with-host-io-errors "getModificationTime" name
+    (sb-posix:stat-mtime (sb-posix:stat name))))
+
+#-sbcl
+(define (prim.get-modification-time name)
+  (with-host-io-errors "getModificationTime" name
+    (- (lisp:file-write-date name) *unix-epoch*)))

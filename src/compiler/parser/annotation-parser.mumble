@@ -24,6 +24,12 @@
 	      (\; (cons d (parse-annotation-list-1 in-layout?)))
 	      (else (close-layout in-layout?)
 		    (list d)))))
+	  ((eq? kind 'inline)
+	   (let ((d (parse-inline-pragma)))
+	     (token-case
+	      (\; (cons d (parse-annotation-list-1 in-layout?)))
+	      (else (close-layout in-layout?)
+		    (list d)))))
 	  ((eq? kind 'value)
 	   (let ((d (parse-annotation-value)))
 	     (token-case
@@ -38,6 +44,7 @@
   (token-case
    ((no-advance end-annotation) 'end)
    ((no-advance \() 'decl)
+   ((no-advance satisfies at-inline-pragma?) 'inline)
    ((var con)
     (let ((next (peek-1-type)))
       (cond ((eq? next '|,|)
@@ -47,6 +54,29 @@
 	    (else
 	     'value))))
    (else 'error)))
+
+;;; The Haskell 98 pragma {-# INLINE f #-} (the lexer passes INLINE on
+;;; as a conid) means the same as Yale's {-# f :: Inline #-}.
+
+(define (at-inline-pragma?)
+  (and (eq? *token* 'conid)
+       (string=? (car *token-args*) "INLINE")))
+
+(define (parse-inline-pragma)
+  (advance-token)
+  (let ((names (parse-inline-names)))
+    (make annotation-decl
+	  (names names)
+	  (annotations (list (make annotation-value
+				   (name '|Inline|) (args '())))))))
+
+(define (parse-inline-names)
+  (let ((name (token-case
+	       (var (var->symbol))
+	       (else (signal-annotation-error)))))
+    (token-case
+     (\, (cons name (parse-inline-names)))
+     (else (list name)))))
 
 (define (parse-annotation-decl)
   (let* ((names (parse-aname-list))

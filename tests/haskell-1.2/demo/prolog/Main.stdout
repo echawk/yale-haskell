@@ -1,0 +1,32 @@
+Mini Prolog Version 1.5 (tree based)
+
+Reading $HASKELL/tests/haskell-1.2/demo/prolog/stdlib...done
+> ?- append(X,Y,cons(a,cons(b,nil)))
+X = nil
+Y = cons(a,cons(b,nil)) ;
+X = cons(a,nil)
+Y = cons(b,nil) ;
+X = cons(a,cons(b,nil))
+Y = nil ;
+no.
+> 
+> ?- reverse(cons(a,cons(b,cons(c,nil))),R)
+R = cons(c,cons(b,cons(a,nil))) 
+> ?- palindromes(cons(a,cons(b,cons(a,nil))))
+yes.
+> ?- palindromes(cons(a,cons(b,nil)))
+no.
+> parent(tom,bob).
+> parent(bob,ann).
+> grand(X,Z):-parent(X,Y),parent(Y,Z).
+> ?- grand(tom,W)
+W = ann 
+> ?- not(parent(ann,tom))
+yes.
+> ?- not(parent(tom,bob))
+no.
+> this is not prolog
+I don't understand
+> bye
+Thank you and goodbye
+

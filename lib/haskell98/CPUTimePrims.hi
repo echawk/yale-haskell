@@ -1,0 +1,12 @@
+-- CPUTimePrims.hi -- Lisp primitives for the CPUTime library
+-- (src/runtime/system-prims.mumble; portable Common Lisp)
+
+interface CPUTimePrims where
+
+primGetCPUTime       :: IO Integer
+primCPUTimePrecision :: Integer
+
+{-#
+primGetCPUTime       :: LispName("prim.get-cpu-time")
+primCPUTimePrecision :: LispName("prim.cpu-time-precision")
+#-}

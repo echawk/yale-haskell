@@ -137,10 +137,13 @@
      (advance-char)
      (lex-one-token))
     (#\- (char-case *peek-char*
-	    (#\- (lex-comment))
-	    (#\> (advance-char)
-		 (advance-char)
-		 (emit-token '\-\>))
+	    (#\- (if (haskell98?) (lex-varsym) (lex-comment)))
+	    (#\> (cond ((haskell98?)
+			(lex-varsym))
+		       (else
+			(advance-char)
+			(advance-char)
+			(emit-token '\-\>))))
 	    (#\} (signal-missing-begin-comment)
 		 (advance-char)
 		 (advance-char)
@@ -152,7 +155,7 @@
 		(advance-char)
 		(cond ((char=? *char* '#\#)
 		       (advance-char)
-		       (emit-token 'begin-annotation))
+		       (lex-pragma))
 		      (else
 		       (lex-ncomment)
 		       (lex-one-token))))
@@ -188,6 +191,64 @@
      (signal-invalid-character *char*)
      (advance-char)
      (lex-one-token)))))
+
+;;; `{-#' has been scanned.  Yale annotations ({-# f :: Inline #-},
+;;; {-#STRICT#-}, {-# Prelude #-}, ...) go to the annotation parser.
+;;; Haskell 98 style pragmas are named by an all-capitals word: INLINE
+;;; is passed on to the annotation parser, which maps it onto Yale's
+;;; Inline annotation; every other such pragma (NOINLINE, SPECIALIZE,
+;;; LANGUAGE, ...) is skipped like a comment, as the report says unknown
+;;; pragmas should be.  STRICT is a Yale annotation, not a pragma.
+
+(define (lex-pragma)
+  (skip-blanks-on-line)
+  (char-case *char*
+    (large
+     (let ((word (scan-var-con)))
+       (cond ((string=/list? word "INLINE")
+	      (emit-token 'begin-annotation)
+	      (emit-token/string 'conid word))
+	     ((and (pragma-word? word)
+		   (not (string=/list? word "STRICT")))
+	      (skip-pragma *current-line*))
+	     (else
+	      (emit-token 'begin-annotation)
+	      (emit-token/string 'conid word)))))
+    (else
+     (emit-token 'begin-annotation))))
+
+(define (skip-blanks-on-line)
+  (when (and (not *at-eof?*)
+	     (or (char=? *char* #\space) (char=? *char* #\tab)))
+    (advance-char)
+    (skip-blanks-on-line)))
+
+;;; Two or more characters, all capitals, digits or underscores.
+
+(define (pragma-word? word)
+  (and (pair? (cdr word))
+       (pragma-word-1? word)))
+
+(define (pragma-word-1? word)
+  (or (null? word)
+      (and (char-case (car word)
+	     ((large digit #\_) '#t)
+	     (else '#f))
+	   (pragma-word-1? (cdr word)))))
+
+(define (skip-pragma start-line)
+  (cond (*at-eof?*
+	 (lexer-eof-in-comment start-line))
+	((and (char=? *char* #\#)
+	      (char=? *peek-char* #\-)
+	      (char=? (peek-char-2) #\}))
+	 (advance-char)
+	 (advance-char)
+	 (advance-char)
+	 (lex-one-token))
+	(else
+	 (advance-char)
+	 (skip-pragma start-line))))
 
 (define (signal-missing-begin-comment)
   (lexer-error 'missing-begin-comment
@@ -330,13 +391,21 @@
     (emit-token/string 'conid sym)))
 
 (define (lex-consym)
-  (let ((sym (scan-symbol)))
+  (let ((sym (if (haskell98?) (scan-symbol-98) (scan-symbol))))
     (cond ((string=/list? (cdr sym) ":")
 	   (emit-token '\:\:))
 	  (else
 	   (emit-token/string 'consym sym)))))
 
 (define (lex-varsym)
+  (if (haskell98?)
+      (lex-varsym-98)
+      (lex-varsym-1.2)))
+
+;;; Haskell 1.2: `-' and `~' may only start an operator, so `+-' is `+'
+;;; followed by `-', and `--' always starts a comment.
+
+(define (lex-varsym-1.2)
   (let ((sym (scan-symbol)))
     (cond ((and (string=/list? sym "<") (char=? *char* #\-))
 	   (advance-char)
@@ -355,6 +424,54 @@
 	      "\\"
 	      "|"
 	      "~")))))
+
+;;; Haskell 98 (report 2.2-2.4): `-' and `~' are ordinary symbol
+;;; characters, and two or more dashes start a comment only if they are
+;;; not part of a larger operator, so `-->' and `|--' are operators.
+
+(define (scan-symbol-98)
+  (scan-list-of (symbol presymbol #\:)))
+
+(define (lex-varsym-98)
+  (let ((sym (scan-symbol-98)))
+    (cond ((all-dashes? sym)
+	   (if (null? (cdr sym))
+	       (if (char=? *char* #\})
+		   (begin
+		     (signal-missing-begin-comment)
+		     (advance-char)
+		     (lex-one-token))
+		   (emit-token/string 'varsym sym))
+	       (lex-comment-rest)))
+	  ((and (string=/list? sym "#-")
+		(char=? *char* #\}))
+	   (advance-char)
+	   (emit-token 'end-annotation))
+	  (else
+	   (parse-reserved sym varsym
+	      ".."
+	      "=>" "="
+	      "@"
+	      "\\"
+	      "|"
+	      "~"
+	      "->" "<-")))))
+
+(define (all-dashes? sym)
+  (or (null? sym)
+      (and (char=? (car sym) #\-)
+	   (all-dashes? (cdr sym)))))
+
+;;; Skip the rest of a -- comment whose dashes have been scanned.
+
+(define (lex-comment-rest)
+  (cond (*at-eof?*
+	 (lex-one-token))
+	((char=? *char* #\newline)
+	 (lex-one-token))
+	(else
+	 (advance-char)
+	 (lex-comment-rest))))
 
 (define (lex-integer radix)
   (lex-integer-1 radix 0))
@@ -379,7 +496,24 @@
 	    (+ (* int-part 10) (the fixnum d)) (* denominator 10)))
 	(values int-part denominator))))
 
+;;; Hexadecimal (0x1F, 0X1F) and octal (0o17, 0O17) literals are from
+;;; Haskell 98.  They are a pure extension, so both dialects get them.
+;;; Without a digit after the x or o, `0x' is still 0 followed by x.
+
 (define (lex-numeric)
+  (let ((radix (and (char=? *char* #\0)
+		    (char-case *peek-char*
+		      ((#\x #\X) 16)
+		      ((#\o #\O) 8)
+		      (else '#f)))))
+    (if (and radix (char->digit (peek-char-2) radix))
+	(begin
+	  (advance-char)
+	  (advance-char)
+	  (emit-token 'integer (lex-integer radix)))
+	(lex-decimal))))
+
+(define (lex-decimal)
   (let ((int-part (lex-integer 10)))
     (if (and (char=? *char* #\.)
 	     (char->digit *peek-char* 10))

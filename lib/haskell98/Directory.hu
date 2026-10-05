@@ -1,0 +1,5 @@
+:output $LIBRARYBIN/
+:o= all
+Time.hu
+DirectoryPrims.hi
+Directory.hs

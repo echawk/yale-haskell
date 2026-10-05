@@ -122,6 +122,7 @@
     (\(
      (token-case
        (\) (**con/def (core-symbol "UnitConstructor")))
+       (\, (**con/def (tuple-constructor (parse-tuple-con-commas 2))))
        ((no-advance -) (parse-exp-or-tuple))
        (varop
 	(let ((varop (varop->ast)))
@@ -201,14 +202,70 @@
 (define (parse-list-comp exp)
  (save-parser-context 
   (let ((quals (parse-qual-list)))
-    (make list-comp (exp exp) (quals quals)))))
+    (build-list-comp exp quals))))
 
 (define (parse-qual-list)
-  (let ((qual (parse-qual)))
+  (let ((qual (token-case
+	       (|let| (parse-let-qual))
+	       (else (parse-qual)))))
     (token-case
       (\, (cons qual (parse-qual-list)))
       (\] (list qual))
       (else (signal-missing-token "`]' or `,'" "list comprehension")))))
+
+;;; A `let' qualifier (H98).  `let decls in exp' is still an ordinary
+;;; filter; without the `in', the qualifier is returned as the list
+;;; (let-qual . decls) for build-list-comp to remove.
+
+(define (parse-let-qual)
+  (let* ((line (capture-current-line))
+	 (decls (parse-decl-list)))
+    (token-case
+     (|in| (let* ((body (parse-exp))
+		  (let-exp (make let (decls decls) (body body)))
+		  (qual (make qual-filter (exp let-exp))))
+	     (setf (ast-node-line-number let-exp) line)
+	     (setf (ast-node-line-number qual) line)
+	     qual))
+     (else (cons 'let-qual decls)))))
+
+;;; Later phases only know generators and filters, so let qualifiers are
+;;; translated away here (report 3.11):
+;;;   [e | let ds, Q]      =  let ds in [e | Q]       ([e] when Q is empty)
+;;;   [e | Q1, let ds, Q]  =  [v | Q1, v <- let ds in [e | Q]]
+;;; v is a fresh variable; it is bound only around the result v, so it
+;;; cannot capture anything.
+
+(define (build-list-comp exp quals)
+  (let ((before '())
+	(rest quals))
+    (do () ((or (null? rest) (let-qual? (car rest))))
+      (push (car rest) before)
+      (setf rest (cdr rest)))
+    (if (null? rest)
+	(make list-comp (exp exp) (quals quals))
+	(let* ((decls (cdr (car rest)))
+	       (after (cdr rest))
+	       (inner (make let
+			    (decls decls)
+			    (body (if (null? after)
+				      (make list-exp (exps (list exp)))
+				      (build-list-comp exp after))))))
+	  (if (null? before)
+	      inner
+	      (let ((v (make var-ref (name '|let-qual-v|) (infix? '#f)
+			     (var *undefined-def*)))
+		    (vp (make var-ref (name '|let-qual-v|) (infix? '#f)
+			      (var *undefined-def*))))
+		(make list-comp
+		      (exp v)
+		      (quals (append (nreverse before)
+				     (list (make qual-generator
+						 (pat (make var-pat (var vp)))
+						 (exp inner))))))))))))
+
+(define (let-qual? q)
+  (and (pair? q) (eq? (car q) 'let-qual)))
 
 (define (parse-qual)
  (trace-parser qual
@@ -224,6 +281,15 @@
 	  (else
 	   (let ((exp (parse-exp)))
 	     (make qual-filter (exp exp)))))))))
+
+;;; (,), (,,), ... as constructors (H98).  The scanner is just past the
+;;; first comma; n is the arity so far.  Returns the arity.
+
+(define (parse-tuple-con-commas n)
+  (token-case
+   (\, (parse-tuple-con-commas (1+ n)))
+   (\) n)
+   (else (signal-missing-token "`)' or `,'" "tuple constructor"))))
 
 (define (make-tuple-cons args)
   (let ((tuple-con (**con/def (tuple-constructor (length args)))))
