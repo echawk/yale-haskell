@@ -379,7 +379,24 @@
 	    (+ (* int-part 10) (the fixnum d)) (* denominator 10)))
 	(values int-part denominator))))
 
+;;; Hexadecimal (0x1F, 0X1F) and octal (0o17, 0O17) literals are from
+;;; Haskell 98.  They are a pure extension, so both dialects get them.
+;;; Without a digit after the x or o, `0x' is still 0 followed by x.
+
 (define (lex-numeric)
+  (let ((radix (and (char=? *char* #\0)
+		    (char-case *peek-char*
+		      ((#\x #\X) 16)
+		      ((#\o #\O) 8)
+		      (else '#f)))))
+    (if (and radix (char->digit (peek-char-2) radix))
+	(begin
+	  (advance-char)
+	  (advance-char)
+	  (emit-token 'integer (lex-integer radix)))
+	(lex-decimal))))
+
+(define (lex-decimal)
   (let ((int-part (lex-integer 10)))
     (if (and (char=? *char* #\.)
 	     (char->digit *peek-char* 10))
