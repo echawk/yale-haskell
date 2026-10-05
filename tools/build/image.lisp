@@ -1,5 +1,9 @@
-;;; savesys.lisp -- body of the com/sbcl/savesys script.
-;;; This is read in MUMBLE-USER, where CL symbols need a lisp: prefix.
+;;; image.lisp -- load the compiler and the compiled prelude and save
+;;; a standalone executable.  The output path is the last command-line
+;;; argument.  This is read in MUMBLE-USER after the first form, where
+;;; CL symbols need a lisp: prefix.
+
+(load "tools/build/compiler.lisp")
 
 (in-package :mumble-user)
 
@@ -11,11 +15,11 @@
 
 (compile/load *prelude-unit-filename*)
 
+;;; string->symbol interns in the current package, so the compiler only
+;;; works when *package* is MUMBLE-USER, as it is while this file loads.
+;;;
 ;;; With a file argument, compile and run its Main.main and exit;
 ;;; otherwise start the interactive command interface.
-
-;;; string->symbol interns in the current package, so the compiler only
-;;; works when *package* is MUMBLE-USER, as it was when this was loaded.
 
 (define (haskell-toplevel)
   (setf lisp:*package* (lisp:find-package "MUMBLE-USER"))
@@ -35,5 +39,7 @@
 (define (restart-haskell)
   (lisp:invoke-restart 'restart-haskell))
 
-(sb-ext:save-lisp-and-die "build/sbcl/yale-haskell.core"
-  :toplevel 'haskell-toplevel)
+(sb-ext:save-lisp-and-die (car (last sb-ext:*posix-argv*))
+  :toplevel 'haskell-toplevel
+  :executable '#t
+  :save-runtime-options '#t)

@@ -1,6 +1,0 @@
-#!/bin/sh
-#
-# clean -- delete SBCL binaries.
-
-. "$(dirname "$0")/env.sh"
-rm -rf "$BUILD"

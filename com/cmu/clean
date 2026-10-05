@@ -1,4 +1,0 @@
-#!/bin/csh
-#
-# delete CMU CL binaries
-'rm' $Y2/*/cmu/*.sparcf
