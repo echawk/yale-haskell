@@ -1,0 +1,1 @@
+compare is not an Ord method yet: the runtime's tuple Ord dictionary has a fixed layout (src/runtime/tuple-prims.mumble)

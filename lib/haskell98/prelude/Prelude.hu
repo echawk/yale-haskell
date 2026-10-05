@@ -7,10 +7,12 @@ PreludeTuplePrims.hu
 PreludeIOPrims.hu
 Prelude.hs
 PreludeArray.hs
+PreludeChar.hs
 PreludeComplex.hs
 PreludeCore.hs
 PreludeIO.hs
 PreludeList.hs
+PreludeNumeric.hs
 PreludeRatio.hs
 PreludeText.hs
 PreludeTuple.hs

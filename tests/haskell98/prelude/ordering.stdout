@@ -1,0 +1,9 @@
+[LT,EQ,GT]
+(LT,GT,LT)
+(LT,GT,GT)
+[GT,EQ,LT]
+([LT,EQ,GT],[LT,EQ,GT],EQ,EQ)
+(True,GT,2,EQ)
+(GT,'z',1.5)
+(True,"apple")
+

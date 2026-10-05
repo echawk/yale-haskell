@@ -7,6 +7,7 @@ module	PreludeRatio (
 
 infixl 7  %, :%
 
+prec :: Int
 prec = 7
 
 data  (Integral a)	=> Ratio a = a {-# STRICT #-} :% a {-# STRICT #-}
@@ -48,7 +49,7 @@ instance  (Integral a)	=> Real (Ratio a)  where
 
 instance  (Integral a)	=> Fractional (Ratio a)  where
     (x:%y) / (x':%y')	=  (x*y') % (y*x')
-    recip (x:%y)	=  if x < 0 then (-y) :% (-x) else y :% x
+    recip (x:%y)	=  y % x
     fromRational (x:%y) =  fromInteger x :% fromInteger y
 
 instance  (Integral a)	=> RealFrac (Ratio a)  where
@@ -56,17 +57,28 @@ instance  (Integral a)	=> RealFrac (Ratio a)  where
 			    where (q,r) = quotRem x y
 
 instance  (Integral a)	=> Enum (Ratio a)  where
-    enumFrom		=  iterate ((+)1)
-    enumFromThen n m	=  iterate ((+)(m-n)) n
+    succ x		=  x+1
+    pred x		=  x-1
+    toEnum		=  fromIntegral
+    fromEnum		=  fromInteger . truncate	-- May overflow
+    enumFrom		=  iterate (+1)
+    enumFromThen n m	=  iterate (+(m-n)) n
+    enumFromTo n m	=  takeWhile (<= m + 1/2) (enumFrom n)
+    enumFromThenTo e1 e2 e3
+			=  takeWhile p (enumFromThen e1 e2)
+			   where mid = (e2 - e1) / 2
+				 p | e2 >= e1  = (<= e3 + mid)
+				   | otherwise = (>= e3 + mid)
 
 instance  (Integral a) => Text (Ratio a)  where
     readsPrec p  =  readParen (p > prec)
-			      (\r -> [(x%y,u) | (x,s)   <- reads r,
+			      (\r -> [(x%y,u) | (x,s)   <- readsPrec (prec+1) r,
 					        ("%",t) <- lex s,
-						(y,u)   <- reads t ])
+						(y,u)   <- readsPrec (prec+1) t ])
 
     showsPrec p (x:%y)	=  showParen (p > prec)
-    	    	    	       (shows x . showString " % " . shows y)
+    	    	    	       (showsPrec (prec+1) x . showString " % " .
+				showsPrec (prec+1) y)
 
 
 -- approxRational, applied to two real fractional numbers x and epsilon,

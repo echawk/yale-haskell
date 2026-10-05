@@ -8,7 +8,7 @@ this one.
 | Path | Contents |
 |---|---|
 | `prelude/` | the Prelude.  It started as a copy of the 1.2 Prelude and is being moved towards the H98 Report's Standard Prelude as the compiler gains the language features it needs. |
-| `*.hs` (to come) | the H98 standard libraries: `List`, `Char`, `Maybe`, `Numeric`, `Ratio`, `Complex`, `Ix`, `Array`, `Monad`, `IO`, `System`, `Directory`, `Time`, `Locale`, `CPUTime`, `Random` |
+| `<Module>.hs`, `<Module>.hu` | the H98 standard libraries: `List`, `Char`, `Maybe`, `Numeric`, `Ratio`, `Complex`, `Ix`, `Array`, `IO`, `System`, `Directory`, `Time`, `Locale`, `CPUTime`, `Random` (`Monad` needs constructor classes) |
 
 Reference material: the Report (`ref/haskell-report`, branch `h98`) is
 the specification; Hugs (`ref/hugs98`, `libraries/hugsbase/Hugs/Prelude.hs`
@@ -21,3 +21,51 @@ The compiler still implements Haskell 1.2 (no constructor classes,
 compiler as it is today; definitions that need a missing feature are
 left out until that feature lands, and the tests that need them are
 marked as expected failures (`tests/README.md`).
+
+## How the Prelude is organised
+
+The compiler gives every user module the *symbol table* of module
+`Prelude` (everything in scope there, not just its export list), so
+`prelude/Prelude.hs` imports only the names the H98 Prelude exports.
+A program may therefore define `nub`, `partition`, `(!)`, `elems`,
+`showInt`, ... without hiding anything.  The rest lives in internal
+modules that the libraries re-export:
+
+| Library | Defined in |
+|---|---|
+| `List` | `List.hs` (Report code) |
+| `Maybe` | `Maybe.hs` (Report code) |
+| `Char` | `prelude/PreludeChar.hs`, `prelude/PreludeText.hs` (`readLitChar`, `showLitChar`, `lexLitChar`) |
+| `Numeric` | `prelude/PreludeNumeric.hs` (Report code; the Prelude's `Text` instances use it) |
+| `Ratio` | `prelude/PreludeRatio.hs` |
+| `Complex` | `prelude/PreludeComplex.hs` |
+| `Ix` | class in `prelude/PreludeCore.hs`; `rangeSize` in `Ix.hs` |
+| `Array` | `prelude/PreludeArray.hs` |
+
+Library modules do not repeat the Prelude names in their export lists
+(e.g. `Maybe` does not re-export `Maybe(..)` and `maybe`): this compiler
+rejects re-exporting an entity it gets from the Prelude.
+
+## Deviations from the H98 Prelude (current)
+
+- **Still exported for compatibility:** `ord`, `chr`, `isAscii`,
+  `isControl`, `isPrint`, `isSpace`, `isUpper`, `isLower`, `isAlpha`,
+  `isDigit`, `isAlphaNum`, `toUpper`, `toLower` (H98: only in `Char`);
+  `minInt`, `maxInt`, `minChar`, `maxChar`, `fromRealFrac` (used by
+  `Random.hs`; H98 uses `minBound`/`maxBound`/`realToFrac`); the
+  Dialogue I/O names; `nullBin`, `isNullBin`, `appendBin`.
+- **Always in scope** (compiler core symbols in `PreludeCore`): the
+  types `Ratio`, `Complex` (with `:+`), `Array`, `Assoc` (with `:=`),
+  `Bin`, and the classes `Text` and `Binary`.  Programs cannot define
+  these names.
+- `compare` is a function, not an `Ord` method; `rangeSize` is a
+  function, not an `Ix` method.  The runtime builds tuple dictionaries
+  for `Ord` and `Ix` with a fixed layout (`src/runtime/tuple-prims.mumble`).
+- `Enum` keeps its `Ord` superclass and `Ix` its `Text` superclass;
+  derived `Enum` instances lack `toEnum`/`fromEnum` (and so `pred`);
+  there is no `deriving Bounded`.
+- `Text` stands in for `Show`/`Read`; no `Functor`, `Monad` or monadic
+  I/O.
+- Arrays take H98 `(i, e)` pairs (the 1.2 `i := e` form is gone).
+- `Char` is Latin-1; the character predicates follow Latin-1.
+- `readFloat` does not accept `NaN`/`Infinity` (SBCL traps on `0/0`).

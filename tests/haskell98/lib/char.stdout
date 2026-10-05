@@ -1,0 +1,15 @@
+([True,True,True,True,True,True,False,False],[True,True,False])
+([0,9,10,15,10,15],"09af")
+[True,True,True,True,False,False,False,True,True,False,False,False,False,False,True,True,False,False]
+[True,True,False,False,False,False,False,True,True,False,False,False,False,False,True,True,False,False]
+([False,True,False,False,False,False,False,False,True,False,False,False,False,False,True,False,False,False],[True,False,False,False,False,False,False,True,False,False,False,False,False,False,False,True,False,False])
+[False,False,False,False,True,True,True,False,False,False,False,False,False,True,False,False,False,False]
+([False,False,False,False,False,True,True,False,False,False,False,False,True,False,False,False,False,False],[True,True,True,True,True,False,False,True,True,True,True,True,False,True,True,True,True,True])
+([True,True,True,True,True,True,True,True,True,True,True,True,True,False,False,False,False,False],True)
+("AZ09 \t\nFF!_~\DEL\160\200\201\215\247","az09 \t\nff!_~\DEL\160\232\233\215\247")
+(97,'B',"IBM")
+([('\n',"abc")],[('A',"z")],[('\SOH',"x")],[('A',"")],[('\SOH',"x")])
+([("\\n","abc")],[("\\123","x")],[("a","")])
+\n\DEL\200
+('\t',"a\SOHH")
+

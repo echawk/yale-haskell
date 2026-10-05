@@ -2,7 +2,8 @@
 
 module PreludeCore (
     Eq((==), (/=)),
-    Ord((<), (<=), (>=), (>), max, min),
+    Ord((<), (<=), (>=), (>), max, min), compare,
+    Bounded(minBound, maxBound),
     Num((+), (-), (*), negate, abs, signum, fromInteger),
     Integral(quot, rem, div, mod, quotRem, divMod, even, odd, toInteger),
     Fractional((/), recip, fromRational),
@@ -12,26 +13,33 @@ module PreludeCore (
     Real(toRational),
     RealFrac(properFraction, truncate, round, ceiling, floor),
     RealFloat(floatRadix, floatDigits, floatRange,
-	      encodeFloat, decodeFloat, exponent, significand, scaleFloat),
+	      encodeFloat, decodeFloat, exponent, significand, scaleFloat,
+	      isNaN, isInfinite, isDenormalized, isNegativeZero, isIEEE,
+	      atan2),
     Ix(range, index, inRange),
-    Enum(enumFrom, enumFromThen, enumFromTo, enumFromThenTo),
+    Enum(succ, pred, toEnum, fromEnum,
+	 enumFrom, enumFromThen, enumFromTo, enumFromThenTo),
     Text(readsPrec, showsPrec, readList, showList), ReadS(..), ShowS(..),
     Binary(readBin, showBin),
 --  List type: [_]((:), [])
 --  Tuple types: (_,_), (_,_,_), etc.
 --  Trivial type: () 
     Bool(True, False),
+    Ordering(LT, EQ, GT), Maybe(Nothing, Just), Either(Left, Right),
     Char, Int, Integer, Float, Double, Bin,
     Ratio, Complex((:+)), Assoc((:=)), Array,
-    String(..), Rational(..) )  where
+    String(..), Rational(..), minInt, maxInt )  where
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
 import PreludePrims
 import PreludeText
-import PreludeRatio(Ratio, Rational(..))
+import PreludeNumeric(readSigned, showSigned, readDec, showInt,
+		      readFloat, showFloat)
+import PreludeChar(ord, chr, minChar, maxChar)
+import PreludeRatio(Ratio, Rational(..), (%))
 import PreludeComplex(Complex((:+)))
-import PreludeArray(Assoc((:=)), Array)
+import PreludeArray(Assoc((:=)), Array, listArray, bounds, elems)
 import PreludeIO({-Request, Response,-} IOError,
 		 Dialogue(..), SuccCont(..), StrCont(..), 
 		 StrListCont(..), BinCont(..), FailCont(..))
@@ -50,9 +58,12 @@ data Float = MkFloat
 data Double   = MkDouble
 data Char = MkChar
 data Bin = MkBin
-data List a = a : (List a) | Nil deriving (Eq, Ord)
+-- The constructor order is fixed by the code generator (cons = 0), so a
+-- derived Ord would put [] after every non-empty list; Ord is written
+-- out below instead.
+data List a = a : (List a) | Nil deriving (Eq)
 data Arrow a b = MkArrow a b
-data UnitType = UnitConstructor deriving (Eq, Ord, Ix, Enum, Binary)
+data UnitType = UnitConstructor deriving (Eq, Ord, Ix, Binary)
 
 -- Equality and Ordered classes
 
@@ -60,6 +71,7 @@ class  Eq a  where
     (==), (/=)		:: a -> a -> Bool
 
     x /= y		=  not (x == y)
+    x == y		=  not (x /= y)
 
 class  (Eq a) => Ord a  where
     (<), (<=), (>=), (>):: a -> a -> Bool
@@ -69,15 +81,27 @@ class  (Eq a) => Ord a  where
     x >= y		=  y <= x
     x >	 y		=  y <	x
 
-    -- The following default methods are appropriate for partial orders.
-    -- Note that the second guards in each function can be replaced
-    -- by "otherwise" and the error cases, eliminated for total orders.
-    max x y | x >= y	=  x
-	    | y >= x	=  y
-	    |otherwise	=  error "max{PreludeCore}: no ordering relation"
+    -- Haskell 98 defaults (total orders).
+    max x y | x <= y	=  y
+	    | otherwise	=  x
     min x y | x <= y	=  x
-	    | y <= x	=  y
-	    |otherwise	=  error "min{PreludeCore}: no ordering relation"
+	    | otherwise	=  y
+
+-- H98: compare should be a method of Ord.  It cannot be one yet: the
+-- runtime builds Ord dictionaries for tuples with a fixed layout
+-- (src/runtime/tuple-prims.mumble), so it is an ordinary function.
+
+data  Ordering  =  LT | EQ | GT  deriving (Eq, Ord, Ix)
+
+compare			:: (Ord a) => a -> a -> Ordering
+compare x y | x == y	=  EQ
+	    | x <= y	=  LT
+	    | otherwise	=  GT
+
+-- Bounded class (H98).  No derived instances yet.
+
+class  Bounded a  where
+    minBound, maxBound	:: a
 
 
 -- Numeric classes
@@ -90,10 +114,10 @@ class  (Eq a, Text a) => Num a  where
 
     x - y		=  x + negate y
 
-class  (Num a, Enum a) => Real a  where
+class  (Num a, Ord a) => Real a  where
     toRational		::  a -> Rational
 
-class  (Real a, Ix a) => Integral a  where
+class  (Real a, Enum a) => Integral a  where
     quot, rem, div, mod	:: a -> a -> a
     quotRem, divMod	:: a -> a -> (a,a)
     even, odd		:: a -> Bool
@@ -159,6 +183,9 @@ class  (RealFrac a, Floating a) => RealFloat a  where
     exponent		:: a -> Int
     significand		:: a -> a
     scaleFloat		:: Int -> a -> a
+    isNaN, isInfinite, isDenormalized, isNegativeZero, isIEEE
+			:: a -> Bool
+    atan2		:: a -> a -> a
 
     exponent x		=  if m == 0 then 0 else n + floatDigits x
 			   where (m,n) = decodeFloat x
@@ -169,6 +196,32 @@ class  (RealFrac a, Floating a) => RealFloat a  where
     scaleFloat k x	=  encodeFloat m (n+k)
 			   where (m,n) = decodeFloat x
 
+    -- The IEEE predicates are computed with comparisons only, since the
+    -- runtime has no float primitives for them and SBCL traps on
+    -- overflow and division by zero.
+    isNaN x		=  x /= x
+    isInfinite x	=  not (isNaN x) && abs x > maxFinite
+			   where maxFinite = encodeFloat (floatRadix x ^ d - 1)
+							 (snd (floatRange x) - d)
+				 d = floatDigits x
+    isDenormalized x	=  x /= 0 && abs x < minNormal
+			   where minNormal = encodeFloat 1 (fst (floatRange x) - 1)
+    isNegativeZero x	=  False
+    isIEEE x		=  True
+
+    atan2 y x
+      | x > 0		=  atan (y/x)
+      | x == 0 && y > 0	=  pi/2
+      | x <  0 && y > 0	=  pi + atan (y/x)
+      | (x <= 0 && y < 0) ||
+	(x <  0 && isNegativeZero y) ||
+	(isNegativeZero x && isNegativeZero y)
+			= - atan2 (-y) x
+      | y == 0 && (x < 0 || isNegativeZero x)
+			=  pi	-- must be after the previous test on zero y
+      | x == 0 && y == 0	=  y	-- must be after the other double zero tests
+      | otherwise	=  x + y -- x or y is a NaN, return a NaN (via +)
+
 
 -- Index and Enumeration classes
 
@@ -177,12 +230,29 @@ class  (Ord a, Text a) => Ix a  where   -- This is a Yale modification
     index		:: (a,a) -> a -> Int
     inRange		:: (a,a) -> a -> Bool
 
+-- H98 drops the Ord superclass of Enum.  It is kept here because
+-- derived Enum instances only define enumFrom and enumFromThen, so the
+-- defaults for enumFromTo and enumFromThenTo must use (<=).  For the
+-- same reason, toEnum and fromEnum (and so pred) do not work for
+-- derived instances yet; succ does.
+
 class  (Ord a) => Enum a	where
+    succ, pred		:: a -> a
+    toEnum		:: Int -> a
+    fromEnum		:: a -> Int
     enumFrom		:: a -> [a]		-- [n..]
     enumFromThen	:: a -> a -> [a]	-- [n,n'..]
     enumFromTo		:: a -> a -> [a]	-- [n..m]
     enumFromThenTo	:: a -> a -> a -> [a]	-- [n,n'..m]
 
+    succ x		= case enumFrom x of
+			    (_:y:_) -> y
+			    _       -> error "succ{PreludeCore}: bad argument"
+    pred		= toEnum . (subtract 1) . fromEnum
+    toEnum _		= error "toEnum{PreludeCore}: not defined for this type"
+    fromEnum _		= error "fromEnum{PreludeCore}: not defined for this type"
+    enumFrom x		= map toEnum [fromEnum x ..]
+    enumFromThen x y	= map toEnum [fromEnum x, fromEnum y ..]
     enumFromTo          = defaultEnumFromTo
     enumFromThenTo      = defaultEnumFromThenTo
 
@@ -217,7 +287,7 @@ class  Text a  where
     showList (x:xs)
 		= showChar '[' . shows x . showl xs
 		  where showl []     = showChar ']'
-			showl (x:xs) = showString ", " . shows x . showl xs
+			showl (x:xs) = showChar ',' . shows x . showl xs
 
 
 
@@ -227,6 +297,35 @@ class  Binary a  where
     readBin		:: Bin -> (a,Bin)
     showBin		:: a -> Bin -> Bin
 
+
+-- Maybe and Either (H98).  The Text instances are written out to get
+-- the H98 output format.
+
+data  Maybe a  =  Nothing | Just a	deriving (Eq, Ord)
+
+instance  (Text a) => Text (Maybe a)  where
+    readsPrec d r =  readParen False
+			(\r -> [(Nothing,s) | ("Nothing",s) <- lex r]) r
+		  ++ readParen (d > 10)
+			(\r -> [(Just x,t) | ("Just",s) <- lex r,
+					     (x,t)	<- readsPrec 11 s]) r
+    showsPrec d Nothing  = showString "Nothing"
+    showsPrec d (Just x) = showParen (d > 10)
+			     (showString "Just " . showsPrec 11 x)
+
+data  Either a b  =  Left a | Right b	deriving (Eq, Ord)
+
+instance  (Text a, Text b) => Text (Either a b)  where
+    readsPrec d r =  readParen (d > 10)
+			(\r -> [(Left x,t) | ("Left",s) <- lex r,
+					     (x,t)	<- readsPrec 11 s]) r
+		  ++ readParen (d > 10)
+			(\r -> [(Right x,t) | ("Right",s) <- lex r,
+					      (x,t)	 <- readsPrec 11 s]) r
+    showsPrec d (Left x)  = showParen (d > 10)
+			      (showString "Left " . showsPrec 11 x)
+    showsPrec d (Right x) = showParen (d > 10)
+			      (showString "Right " . showsPrec 11 x)
 
 -- Trivial type
 
@@ -238,6 +337,21 @@ instance  Text ()  where
 					     (")",t) <- lex s ] )
     showsPrec p () = showString "()"
 
+instance  Enum ()  where
+    succ _		=  error "succ{PreludeCore}: bad argument"
+    pred _		=  error "pred{PreludeCore}: bad argument"
+    toEnum 0		=  ()
+    toEnum _		=  error "toEnum{PreludeCore}: bad argument"
+    fromEnum ()		=  0
+    enumFrom ()		=  [()]
+    enumFromThen () ()	=  repeat ()
+    enumFromTo () ()	=  [()]
+    enumFromThenTo () () () = repeat ()
+
+instance  Bounded ()  where
+    minBound		=  ()
+    maxBound		=  ()
+
 
 -- Binary type
 
@@ -248,7 +362,64 @@ instance  Text Bin  where
 
 -- Boolean type
 
-data  Bool  =  False | True	deriving (Eq, Ord, Ix, Enum, Text, Binary)
+data  Bool  =  False | True	deriving (Eq, Ord, Ix, Text, Binary)
+
+-- Enum Bool and Enum Ordering are written out because derived Enum
+-- instances do not define toEnum and fromEnum.
+
+instance  Enum Bool  where
+    succ False		=  True
+    succ True		=  error "succ{PreludeCore}: bad argument"
+    pred True		=  False
+    pred False		=  error "pred{PreludeCore}: bad argument"
+    toEnum 0		=  False
+    toEnum 1		=  True
+    toEnum _		=  error "toEnum{PreludeCore}: bad argument"
+    fromEnum False	=  0
+    fromEnum True	=  1
+    enumFrom x		=  enumFromTo x True
+    enumFromThen x y	=  enumFromThenTo x y (if fromEnum y >= fromEnum x
+						  then True else False)
+    enumFromTo x y	=  map toEnum [fromEnum x .. fromEnum y]
+    enumFromThenTo x y z =  map toEnum [fromEnum x, fromEnum y .. fromEnum z]
+
+instance  Bounded Bool  where
+    minBound		=  False
+    maxBound		=  True
+
+-- Ordering type (H98)
+
+instance  Enum Ordering  where
+    succ LT		=  EQ
+    succ EQ		=  GT
+    succ GT		=  error "succ{PreludeCore}: bad argument"
+    pred GT		=  EQ
+    pred EQ		=  LT
+    pred LT		=  error "pred{PreludeCore}: bad argument"
+    toEnum 0		=  LT
+    toEnum 1		=  EQ
+    toEnum 2		=  GT
+    toEnum _		=  error "toEnum{PreludeCore}: bad argument"
+    fromEnum LT		=  0
+    fromEnum EQ		=  1
+    fromEnum GT		=  2
+    enumFrom x		=  enumFromTo x GT
+    enumFromThen x y	=  enumFromThenTo x y (if fromEnum y >= fromEnum x
+						  then GT else LT)
+    enumFromTo x y	=  map toEnum [fromEnum x .. fromEnum y]
+    enumFromThenTo x y z =  map toEnum [fromEnum x, fromEnum y .. fromEnum z]
+
+instance  Bounded Ordering  where
+    minBound		=  LT
+    maxBound		=  GT
+
+instance  Text Ordering  where
+    readsPrec p r	=  [(LT,s) | ("LT",s) <- lex r] ++
+			   [(EQ,s) | ("EQ",s) <- lex r] ++
+			   [(GT,s) | ("GT",s) <- lex r]
+    showsPrec p LT	=  showString "LT"
+    showsPrec p EQ	=  showString "EQ"
+    showsPrec p GT	=  showString "GT"
 
 
 -- Character type
@@ -273,6 +444,14 @@ instance  Ix Char  where
     {-# range :: Inline #-}
 
 instance  Enum Char  where
+    succ c		= if c == maxChar
+			    then error "succ{PreludeCore}: bad argument"
+			    else chr (ord c + 1)
+    pred c		= if c == minChar
+			    then error "pred{PreludeCore}: bad argument"
+			    else chr (ord c - 1)
+    toEnum		= chr
+    fromEnum		= ord
     enumFrom		= charEnumFrom
     enumFromThen        = charEnumFromThen
     enumFromTo          = defaultEnumFromTo
@@ -281,6 +460,10 @@ instance  Enum Char  where
     {-# enumFromThen :: Inline #-}
     {-# enumFromTo :: Inline #-}
     {-# enumFromThenTo :: Inline #-}
+
+instance  Bounded Char  where
+    minBound		=  minChar
+    maxBound		=  maxChar
 
 charEnumFrom c		=  map chr [ord c .. ord maxChar]
 charEnumFromThen c c'	=  map chr [ord c, ord c' .. ord lastChar]
@@ -390,6 +573,14 @@ instance  Ix Integer  where
     {-# range :: Inline #-}
 
 instance  Enum Int  where
+    succ x		=  if x == maxInt
+			     then error "succ{PreludeCore}: bad argument"
+			     else x + 1
+    pred x		=  if x == minInt
+			     then error "pred{PreludeCore}: bad argument"
+			     else x - 1
+    toEnum x		=  x
+    fromEnum x		=  x
     enumFrom		=  numericEnumFrom
     enumFromThen	=  numericEnumFromThen
     enumFromTo          = defaultEnumFromTo
@@ -399,7 +590,15 @@ instance  Enum Int  where
     {-# enumFromTo :: Inline #-}
     {-# enumFromThenTo :: Inline #-}
 
+instance  Bounded Int  where
+    minBound		=  minInt
+    maxBound		=  maxInt
+
 instance  Enum Integer  where
+    succ x		=  x + 1
+    pred x		=  x - 1
+    toEnum x		=  primIntToInteger x
+    fromEnum x		=  primIntegerToInt x
     enumFrom		=  numericEnumFrom
     enumFromThen	=  numericEnumFromThen
     enumFromTo          = defaultEnumFromTo
@@ -417,10 +616,28 @@ numericEnumFromThen n m	=  iterate (+(m-n)) n
 {-# numericEnumFrom :: Inline #-}
 {-# numericEnumFromThen :: Inline #-}
 
+-- H98 semantics for Fractional enumerations: go half a step past the
+-- limit.
+numericEnumFromTo	:: (Real a, Fractional a) => a -> a -> [a]
+numericEnumFromTo n m	=  takeWhile (<= m + 1/2) (numericEnumFrom n)
+
+numericEnumFromThenTo	:: (Real a, Fractional a) => a -> a -> a -> [a]
+numericEnumFromThenTo e1 e2 e3
+			=  takeWhile p (numericEnumFromThen e1 e2)
+			   where mid = (e2 - e1) / 2
+				 p | e2 >= e1  = (<= e3 + mid)
+				   | otherwise = (>= e3 + mid)
+
 
 instance  Text Int  where
     readsPrec p		= readSigned readDec
-    showsPrec   	= showSigned showInt
+    showsPrec p n
+	| n == minInt	= showsPrec p (primIntToInteger n)  -- -minInt overflows
+	| otherwise	= showSigned showInt p n
+
+minInt, maxInt	:: Int
+minInt		=  primMinInt
+maxInt		=  primMaxInt
 
 instance  Text Integer  where
     readsPrec p 	= readSigned readDec
@@ -451,7 +668,7 @@ instance  Ord Double  where
     (>)                 =  primGtDouble
     (>=)                =  primGeDouble
     max                 =  primDoubleMax
-    min                 =  primDoubleMax
+    min                 =  primDoubleMin
 
 instance  Num Float  where
     (+)			=  primPlusFloat
@@ -553,32 +770,42 @@ floatProperFraction x
 instance  RealFloat Float  where
     floatRadix _	=  primFloatRadix
     floatDigits _	=  primFloatDigits
-    floatRange _	=  (primFloatMinExp,primFloatMaxExp)
+    floatRange _	=  (primFloatMinExp + primFloatDigits - 1, primFloatMaxExp)
     decodeFloat		=  primDecodeFloat
     encodeFloat		=  primEncodeFloat
+    isNegativeZero x	=  x == 0 && primFloatSignFloat x < 0
 
 instance  RealFloat Double  where
     floatRadix _	=  primDoubleRadix
     floatDigits	_	=  primDoubleDigits
-    floatRange _	=  (primDoubleMinExp,primDoubleMaxExp)
+    floatRange _	=  (primDoubleMinExp + primDoubleDigits - 1, primDoubleMaxExp)
     decodeFloat		=  primDecodeDouble
     encodeFloat		=  primEncodeDouble
+    isNegativeZero x	=  x == 0 && primFloatSignDouble x < 0
 
 instance  Enum Float  where
+    succ x		=  x + 1
+    pred x		=  x - 1
+    toEnum		=  fromIntegral
+    fromEnum		=  truncate
     enumFrom		=  numericEnumFrom
     enumFromThen	=  numericEnumFromThen
-    enumFromTo          = defaultEnumFromTo
-    enumFromThenTo      = defaultEnumFromThenTo
+    enumFromTo          =  numericEnumFromTo
+    enumFromThenTo      =  numericEnumFromThenTo
     {-# enumFrom :: Inline #-}
     {-# enumFromThen :: Inline #-}
     {-# enumFromTo :: Inline #-}
     {-# enumFromThenTo :: Inline #-}
 
 instance  Enum Double  where
+    succ x		=  x + 1
+    pred x		=  x - 1
+    toEnum		=  fromIntegral
+    fromEnum		=  truncate
     enumFrom		=  numericEnumFrom
     enumFromThen	=  numericEnumFromThen
-    enumFromTo          = defaultEnumFromTo
-    enumFromThenTo      = defaultEnumFromThenTo
+    enumFromTo          =  numericEnumFromTo
+    enumFromThenTo      =  numericEnumFromThenTo
     {-# enumFrom :: Inline #-}
     {-# enumFromThen :: Inline #-}
     {-# enumFromTo :: Inline #-}
@@ -586,16 +813,31 @@ instance  Enum Double  where
 
 instance  Text Float  where
     readsPrec p		= readSigned readFloat
-    showsPrec   	= showSigned showFloat
+    showsPrec		= showSignedFloat
 
 instance  Text Double  where
     readsPrec p		= readSigned readFloat
-    showsPrec   	= showSigned showFloat
+    showsPrec		= showSignedFloat
 
+
+showSignedFloat		:: (RealFloat a) => Int -> a -> ShowS
+showSignedFloat p x
+	| x < 0 || isNegativeZero x
+			= showParen (p > 6) (showChar '-' . showFloat (-x))
+	| otherwise	= showFloat x
 
 -- Lists
 
 -- data  [a]  =  [] | a : [a]  deriving (Eq, Ord, Binary)
+
+instance  (Ord a) => Ord [a]  where
+    []     <= _	=  True
+    (_:_)  <= []	=  False
+    (x:xs) <= (y:ys)	=  x < y || (x == y && xs <= ys)
+    []     <  []	=  False
+    []     <  (_:_)	=  True
+    (_:_)  <  []	=  False
+    (x:xs) <  (y:ys)	=  x < y || (x == y && xs < ys)
 
 instance  (Text a) => Text [a]  where
     readsPrec p		= readList

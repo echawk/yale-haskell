@@ -183,7 +183,7 @@ tupleShowList dicts [] = showString "[]"
 tupleShowList dicts (x:xs)
 		= showChar '[' . showsTuple x . showl xs
 		  where showl []     = showChar ']'
-			showl (x:xs) = showString ", " . showsTuple x
+			showl (x:xs) = showChar ',' . showsTuple x
 			                               . showl xs
                         showsTuple x = tupleShowsPrec dicts 0 x
 
