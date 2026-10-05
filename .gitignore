@@ -3,3 +3,7 @@ sbcl/
 !/com/sbcl/
 *.fasl
 bin/*.core
+
+# Local reference clones (see ref/README.md)
+/ref/*
+!/ref/README.md
