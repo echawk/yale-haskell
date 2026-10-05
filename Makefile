@@ -58,8 +58,18 @@ $(BUILD)/.compiler-stamp: $(COMPILER_SOURCES)
 	$(call step,compiler,$(RUN_SBCL) --load tools/build/compiler.lisp)
 	@touch $@
 
+# The compiler reports Haskell errors without failing, so the prelude
+# step also checks its log for them.
+HASKELL_ERRORS := \] (Phase error|Recoverable error|Fatal error|Internal-error) in
+
+# The prelude unit is :stable (its sources are never rechecked), so its
+# old binaries must be removed for it to be recompiled.
 $(BUILD)/%/.prelude-stamp: $(BUILD)/.compiler-stamp $$(wildcard lib/%/prelude/*)
+	@rm -rf $(BUILD)/$*/prelude
 	$(call step,$*-prelude,env $(call dialect_env,$*) $(RUN_SBCL) --load tools/build/prelude.lisp)
+	@if grep -aEq '$(HASKELL_ERRORS)' $(LOGS)/$*-prelude.log; then \
+	  grep -aE -A3 '$(HASKELL_ERRORS)' $(LOGS)/$*-prelude.log | head -40; \
+	  echo "*** $*-prelude had compile errors; full log in $(LOGS)/$*-prelude.log"; exit 1; fi
 	@touch $@
 
 $(BUILD)/%/yale-haskell: $(BUILD)/%/.prelude-stamp
