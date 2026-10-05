@@ -1,0 +1,1 @@
+bug: show (2 ^ 10 :: Int) fails with "Ambiguous context: (Integral) / No default applies" (M2 static semantics)
