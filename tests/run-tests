@@ -2,60 +2,125 @@
 #
 # run-tests -- run the Yale Haskell test suite.  See tests/README.md.
 #
-#   tests/run-tests [-v] [-t SECONDS] [PATH ...]
+#   tests/run-tests [-v] [-t SECONDS] [-j JOBS] [PATH ...]
 #
 # PATHs are test files or directories under tests/<dialect>/; the
 # default is all of tests/.  -v shows diffs and error output for
-# failures.  Exit status is 1 if any test FAILs or unexpectedly passes.
+# failures, -t sets the per-test time limit (default 120 seconds), and
+# -j runs that many tests at once (default 1).  Exit status is 1 if any
+# test FAILs or unexpectedly passes.
 
 cd "$(dirname "$0")/.." || exit 1
-verbose=0
-limit=120
+
+# run_one N HS: run test HS and write its report to $RT_TMP/N.res.  The
+# first line of the report is "pass", "xfail", "XPASS" or "FAIL"; any
+# further lines are printed as they are.
+run_one() {
+  n=$1 hs=$2
+  base=${hs%.hs}
+  res=$RT_TMP/$n.res out=$RT_TMP/$n.out err=$RT_TMP/$n.err
+  rel=${hs#tests/}
+  dialect=${rel%%/*}
+  in=/dev/null; [ -f "$base.stdin" ] && in=$base.stdin
+  want=0
+  if [ -f "$base.exit" ]; then
+    want=$(head -1 "$base.exit" | tr -cd 0-9)
+    [ -n "$want" ] || want=0
+  fi
+
+  perl -e 'alarm shift; exec @ARGV' "$RT_LIMIT" \
+    env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell "$hs" \
+    < "$in" > "$out" 2> "$err"
+  status=$?
+  why=""
+  if [ $status -ne "$want" ]; then
+    why="exit $status"
+    [ "$want" -ne 0 ] && why="exit $status, expected $want"
+    [ $status -eq 142 ] && why="timed out after ${RT_LIMIT}s"
+  elif [ -f "$base.stdout" ] && ! cmp -s "$base.stdout" "$out"; then
+    why="wrong output"
+  fi
+
+  if [ -f "$base.xfail" ]; then
+    if [ -z "$why" ]; then
+      echo "XPASS $hs  (remove $base.xfail)" > "$res"
+    else
+      echo "xfail $hs: $(head -1 "$base.xfail")" > "$res"
+    fi
+  elif [ -z "$why" ]; then
+    echo "pass  $hs" > "$res"
+  else
+    {
+      echo "FAIL  $hs  ($why)"
+      if [ "$RT_VERBOSE" -eq 1 ]; then
+        [ -f "$base.stdout" ] && diff -u "$base.stdout" "$out" | head -40
+        head -20 "$err"
+      fi
+    } > "$res"
+  fi
+  rm -f "$out" "$err"
+}
+
+# Internal entry point used by -j: run-tests --one N HS.
+if [ "$1" = "--one" ]; then
+  run_one "$2" "$3"
+  exit 0
+fi
+
+RT_VERBOSE=0 RT_LIMIT=120 jobs=1
 while [ $# -gt 0 ]; do
   case "$1" in
-    -v) verbose=1; shift ;;
-    -t) limit=$2; shift 2 ;;
+    -v) RT_VERBOSE=1; shift ;;
+    -t) RT_LIMIT=$2; shift 2 ;;
+    -j) jobs=$2; shift 2 ;;
+    -j*) jobs=${1#-j}; shift ;;
     *)  break ;;
   esac
 done
+case "$jobs" in ''|*[!0-9]*|0) echo "run-tests: bad -j value: $jobs" >&2; exit 2 ;; esac
 [ $# -eq 0 ] && set -- tests
 
-tmp=$(mktemp -d "${TMPDIR:-/tmp}/yh-tests.XXXXXX") || exit 1
-trap 'rm -rf "$tmp"' EXIT
-pass=0 fail=0 xfail=0 xpass=0 failed=""
+RT_TMP=$(mktemp -d "${TMPDIR:-/tmp}/yh-tests.XXXXXX") || exit 1
+trap 'rm -rf "$RT_TMP"' EXIT
+export RT_TMP RT_LIMIT RT_VERBOSE
 
+# Collect the tests: .hs files with a .stdout or .exit, under a dialect
+# directory.
+n=0
 for hs in $(find "$@" -name '*.hs' | sort); do
-  base=${hs%.hs}
-  [ -f "$base.stdout" ] || continue          # helper module, not a test
+  [ -f "${hs%.hs}.stdout" ] || [ -f "${hs%.hs}.exit" ] ||
+    continue                                   # helper module, not a test
   rel=${hs#tests/}
-  dialect=${rel%%/*}
-  case "$dialect" in haskell-1.2|haskell98) ;; *) continue ;; esac
-  in=/dev/null; [ -f "$base.stdin" ] && in=$base.stdin
+  case "${rel%%/*}" in haskell-1.2|haskell98) ;; *) continue ;; esac
+  n=$((n+1))
+  echo "$n $hs"
+done > "$RT_TMP/list"
 
-  perl -e 'alarm shift; exec @ARGV' "$limit" \
-    env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell "$hs" \
-    < "$in" > "$tmp/out" 2> "$tmp/err"
-  status=$?
-  if [ $status -eq 0 ] && cmp -s "$base.stdout" "$tmp/out"; then ok=1; else ok=0; fi
+# report N HS: print test N's report (all of it with -v, otherwise only
+# failures) and add its first word to the summary.
+report() {
+  r=$RT_TMP/$1.res
+  [ -f "$r" ] || echo "FAIL  $2  (no result)" > "$r"
+  tag=$(sed -n '1s/ .*//p' "$r")
+  echo "$tag" >> "$RT_TMP/summary"
+  case "$RT_VERBOSE $tag" in
+    1\ *|*\ FAIL|*\ XPASS) cat "$r" ;;
+  esac
+}
 
-  if [ -f "$base.xfail" ]; then
-    if [ $ok -eq 1 ]; then
-      echo "XPASS $hs  (remove $base.xfail)"; xpass=$((xpass+1)); failed="$failed $hs"
-    else
-      xfail=$((xfail+1))
-      [ $verbose -eq 1 ] && echo "xfail $hs: $(head -1 "$base.xfail")"
-    fi
-  elif [ $ok -eq 1 ]; then
-    pass=$((pass+1))
-    [ $verbose -eq 1 ] && echo "pass  $hs"
-  else
-    echo "FAIL  $hs  (exit $status)"; fail=$((fail+1)); failed="$failed $hs"
-    if [ $verbose -eq 1 ]; then
-      diff -u "$base.stdout" "$tmp/out" | head -40
-      head -20 "$tmp/err"
-    fi
-  fi
-done
+: > "$RT_TMP/summary"
+if [ "$jobs" -eq 1 ]; then
+  while read -r i hs; do
+    run_one "$i" "$hs" < /dev/null
+    report "$i" "$hs"
+  done < "$RT_TMP/list"
+else
+  # xargs -P is not POSIX, but GNU, BSD and busybox xargs all have it.
+  xargs -n 2 -P "$jobs" sh tests/run-tests --one < "$RT_TMP/list"
+  while read -r i hs; do report "$i" "$hs"; done < "$RT_TMP/list"
+fi
 
+count() { grep -c "^$1\$" "$RT_TMP/summary"; }
+pass=$(count pass) fail=$(count FAIL) xfail=$(count xfail) xpass=$(count XPASS)
 echo "$pass passed, $fail failed, $xfail expected failures, $xpass unexpected passes"
-[ $fail -eq 0 ] && [ $xpass -eq 0 ]
+[ "$fail" -eq 0 ] && [ "$xpass" -eq 0 ]
