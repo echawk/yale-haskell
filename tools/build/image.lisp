@@ -20,6 +20,38 @@
 ;;;
 ;;; With a file argument, compile and run its Main.main and exit;
 ;;; otherwise start the interactive command interface.
+;;;
+;;; In batch mode the program's output is the only thing on stdout;
+;;; errors go to stderr and give exit status 1.  The host compiler's
+;;; style warnings about generated code are muffled.
+
+(lisp:declaim (sb-ext:muffle-conditions lisp:style-warning
+					sb-ext:compiler-note))
+
+(define (batch-run file)
+  ;; Haskell runtime errors (error, head [], ...) normally return to the
+  ;; REPL; in batch mode they end the program with status 1.
+  (setf (lisp:symbol-function 'haskell-runtime-error)
+	(lambda (msg)
+	  (lisp:force-output)
+	  (lisp:format lisp:*error-output* "~&Haskell runtime abort.~%~a~%" msg)
+	  (lisp:finish-output lisp:*error-output*)
+	  (sb-ext:exit :code 1 :abort '#t)))
+  (let ((status
+	 (lisp:handler-case
+	     (lisp:handler-bind ((lisp:warning
+				  (lambda (c)
+				    (lisp:muffle-warning c))))
+	       (run-program file)
+	       0)
+	   (lisp:error (c)
+	     (lisp:force-output)
+	     (lisp:format lisp:*error-output* "~&yale-haskell: ~a~%" c)
+	     1))))
+    (lisp:force-output)
+    (lisp:finish-output lisp:*error-output*)
+    (sb-ext:exit :code status :abort '#t)))
+
 
 (define (haskell-toplevel)
   (setf lisp:*package* (lisp:find-package "MUMBLE-USER"))
@@ -27,9 +59,7 @@
     (if (pair? args)
 	(begin
 	  (setf *printers* '())
-	  (run-program (car args))
-	  (lisp:force-output)
-	  (sb-ext:exit :code 0))
+	  (batch-run (car args)))
 	(begin
 	  (load-init-files)
 	  (do () ('#f)

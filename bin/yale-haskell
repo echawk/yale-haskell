@@ -2,16 +2,27 @@
 #
 # yale-haskell -- run Yale Haskell (build it first with "make").
 #
-#   yale-haskell             interactive command interface
-#   yale-haskell foo.hs      compile foo.hs and run Main.main
+#   yale-haskell [--haskell98 | --haskell1.2]            interactive command interface
+#   yale-haskell [--haskell98 | --haskell1.2] foo.hs     compile foo.hs and run Main.main
+#
+# The dialect defaults to $YALE_HASKELL_DIALECT, or haskell-1.2.
+# In batch mode the exit status is 0 on success and 1 if compilation or
+# evaluation failed.
 
 HASKELL=$(cd "$(dirname "$0")/.." && pwd)
 : "${YALE_HASKELL_LISP:=sbcl}"
-BUILD=$HASKELL/build/$YALE_HASKELL_LISP
+: "${YALE_HASKELL_DIALECT:=haskell-1.2}"
+
+case "$1" in
+  --haskell98)  YALE_HASKELL_DIALECT=haskell98; shift ;;
+  --haskell1.2) YALE_HASKELL_DIALECT=haskell-1.2; shift ;;
+esac
+
+BUILD=$HASKELL/build/$YALE_HASKELL_LISP/$YALE_HASKELL_DIALECT
 Y2=$HASKELL
-PRELUDE=$HASKELL/lib/haskell-1.2/prelude
+PRELUDE=$HASKELL/lib/$YALE_HASKELL_DIALECT/prelude
 PRELUDEBIN=$BUILD/prelude
-HASKELL_LIBRARY=$HASKELL/lib/haskell-1.2
+HASKELL_LIBRARY=$HASKELL/lib/$YALE_HASKELL_DIALECT
 LIBRARYBIN=$BUILD/lib
 export HASKELL Y2 PRELUDE PRELUDEBIN HASKELL_LIBRARY LIBRARYBIN
 

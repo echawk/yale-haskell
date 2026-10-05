@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# run-tests -- run the Yale Haskell test suite.  See tests/README.md.
+#
+#   tests/run-tests [-v] [-t SECONDS] [PATH ...]
+#
+# PATHs are test files or directories under tests/<dialect>/; the
+# default is all of tests/.  -v shows diffs and error output for
+# failures.  Exit status is 1 if any test FAILs or unexpectedly passes.
+
+cd "$(dirname "$0")/.." || exit 1
+verbose=0
+limit=120
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -v) verbose=1; shift ;;
+    -t) limit=$2; shift 2 ;;
+    *)  break ;;
+  esac
+done
+[ $# -eq 0 ] && set -- tests
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/yh-tests.XXXXXX") || exit 1
+trap 'rm -rf "$tmp"' EXIT
+pass=0 fail=0 xfail=0 xpass=0 failed=""
+
+for hs in $(find "$@" -name '*.hs' | sort); do
+  base=${hs%.hs}
+  [ -f "$base.stdout" ] || continue          # helper module, not a test
+  rel=${hs#tests/}
+  dialect=${rel%%/*}
+  case "$dialect" in haskell-1.2|haskell98) ;; *) continue ;; esac
+  in=/dev/null; [ -f "$base.stdin" ] && in=$base.stdin
+
+  perl -e 'alarm shift; exec @ARGV' "$limit" \
+    env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell "$hs" \
+    < "$in" > "$tmp/out" 2> "$tmp/err"
+  status=$?
+  if [ $status -eq 0 ] && cmp -s "$base.stdout" "$tmp/out"; then ok=1; else ok=0; fi
+
+  if [ -f "$base.xfail" ]; then
+    if [ $ok -eq 1 ]; then
+      echo "XPASS $hs  (remove $base.xfail)"; xpass=$((xpass+1)); failed="$failed $hs"
+    else
+      xfail=$((xfail+1))
+      [ $verbose -eq 1 ] && echo "xfail $hs: $(head -1 "$base.xfail")"
+    fi
+  elif [ $ok -eq 1 ]; then
+    pass=$((pass+1))
+    [ $verbose -eq 1 ] && echo "pass  $hs"
+  else
+    echo "FAIL  $hs  (exit $status)"; fail=$((fail+1)); failed="$failed $hs"
+    if [ $verbose -eq 1 ]; then
+      diff -u "$base.stdout" "$tmp/out" | head -40
+      head -20 "$tmp/err"
+    fi
+  fi
+done
+
+echo "$pass passed, $fail failed, $xfail expected failures, $xpass unexpected passes"
+[ $fail -eq 0 ] && [ $xpass -eq 0 ]
