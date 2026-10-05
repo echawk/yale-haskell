@@ -1,10 +1,11 @@
--- Complex Numbers
+-- Complex Numbers (the H98 Report's libraries/code/Complex.hs, with
+-- Yale strictness annotations instead of !)
 
 module PreludeComplex where
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
-infixl  6  :+
+infix  6  :+
 
 data  (RealFloat a)     => Complex a = a {-#STRICT#-} :+ a {-#STRICT #-}
                                deriving (Eq,Binary,Text)
@@ -91,4 +92,5 @@ magnitude (x:+y) =  scaleFloat k
 		    where k  = max (exponent x) (exponent y)
 		          mk = - k
 
+phase (0:+0)	 =  0
 phase (x:+y)	 =  atan2 y x
