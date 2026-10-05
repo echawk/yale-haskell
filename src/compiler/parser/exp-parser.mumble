@@ -122,6 +122,7 @@
     (\(
      (token-case
        (\) (**con/def (core-symbol "UnitConstructor")))
+       (\, (**con/def (tuple-constructor (parse-tuple-con-commas 2))))
        ((no-advance -) (parse-exp-or-tuple))
        (varop
 	(let ((varop (varop->ast)))
@@ -224,6 +225,15 @@
 	  (else
 	   (let ((exp (parse-exp)))
 	     (make qual-filter (exp exp)))))))))
+
+;;; (,), (,,), ... as constructors (H98).  The scanner is just past the
+;;; first comma; n is the arity so far.  Returns the arity.
+
+(define (parse-tuple-con-commas n)
+  (token-case
+   (\, (parse-tuple-con-commas (1+ n)))
+   (\) n)
+   (else (signal-missing-token "`)' or `,'" "tuple constructor"))))
 
 (define (make-tuple-cons args)
   (let ((tuple-con (**con/def (tuple-constructor (length args)))))
