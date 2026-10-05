@@ -1,0 +1,20 @@
+-- SystemPrims.hi -- Lisp primitives for the System library
+--
+-- The Lisp side is src/runtime/system-prims.mumble.  Failing
+-- primitives signal an IOError (src/runtime/io-errors.mumble).
+
+interface SystemPrims where
+
+primGetArgs     :: IO [String]
+primGetProgName :: IO String
+primGetEnv      :: String -> IO String
+primSystem      :: String -> IO Int
+primExitWith    :: Int -> IO a
+
+{-#
+primGetArgs     :: LispName("prim.get-args")
+primGetProgName :: LispName("prim.get-prog-name")
+primGetEnv      :: LispName("prim.get-env")
+primSystem      :: LispName("prim.system")
+primExitWith    :: LispName("prim.exit-with")
+#-}

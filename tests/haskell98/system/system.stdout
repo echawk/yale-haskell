@@ -1,0 +1,11 @@
+args: 0
+progname: system
+PATH set: True
+exit 0: ExitSuccess
+exit 3: ExitFailure 3
+from the shell
+ExitHelper <0> <two words> <x>
+helper 0: ExitSuccess
+ExitHelper <42>
+helper 42: ExitFailure 42
+before exit
