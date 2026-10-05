@@ -97,14 +97,15 @@ length l		= foldr (\ x n -> 1 + n) 0 l
 {-# length :: Inline #-}
 
 -- List index (subscript) operator, 0-origin
-(!!)			:: (Integral a) => [b] -> a -> b
-l !! i			=  nth l (fromIntegral i)
+(!!)			:: [b] -> Int -> b
+l !! i | i < 0		=  error "Prelude.!!: negative index"
+       | otherwise	=  nth l i
 {-# (!!)  :: Inline #-}
 
 nth                     :: [b] -> Int -> b
 nth l m	= let f x g 0 = x
 	      f x g i = g (i - 1)
-	      fail _ = error "(!!){PreludeList}: index too large"
+	      fail _ = error "Prelude.!!: index too large"
 	  in foldr f fail l m
 {-# nth  :: Inline #-}
 --nth _ n  | n < 0	= error "(!!){PreludeList}: negative index"
@@ -242,8 +243,8 @@ cycle xs		=  xs' where xs' = xs ++ xs'
 -- after the first n elements, or [] if n > length xs.  splitAt n xs
 -- is equivalent to (take n xs, drop n xs).
 
-take			:: (Integral a) => a -> [b] -> [b]
-take n l		= takeInt (fromIntegral n) l
+take			:: Int -> [b] -> [b]
+take n l		= takeInt n l
 {-# take  :: Inline #-}
 
 takeInt                 :: Int -> [b] -> [b]
@@ -263,26 +264,26 @@ takeInt m l =
 -- way big since they cause an extra traversal of the list tail
 -- (except when the calls are being deforested).
 
-drop			:: (Integral a) => a -> [b] -> [b]
-drop n l		= dropInt (fromIntegral n) l
+drop			:: Int -> [b] -> [b]
+drop n l		= dropInt n l
 {-# drop  :: Inline #-}
 {-# drop  :: Strictness("S,S") #-}
 
 
 dropInt                 :: Int -> [b] -> [b]
-dropInt  0     xs	=  xs
-dropInt  _     []	=  []
-dropInt (n+1) (_:xs)	=  dropInt n xs
+dropInt n xs | n <= 0	=  xs
+dropInt _ []		=  []
+dropInt n (_:xs)	=  dropInt (n-1) xs
 {-# dropInt  :: Inline #-}
 
-splitAt			:: (Integral a) => a -> [b] -> ([b],[b])
-splitAt n l		= splitAtInt (fromIntegral n) l
+splitAt			:: Int -> [b] -> ([b],[b])
+splitAt n l		= splitAtInt n l
 {-# splitAt  :: Inline #-}
 
 splitAtInt		:: Int -> [b] -> ([b],[b])
-splitAtInt  0     xs	=  ([],xs)
-splitAtInt  _     []	=  ([],[])
-splitAtInt (n+1) (x:xs)	=  (x:xs',xs'') where (xs',xs'') = splitAtInt n xs
+splitAtInt n xs | n <= 0 =  ([],xs)
+splitAtInt _ []		=  ([],[])
+splitAtInt n (x:xs)	=  (x:xs',xs'') where (xs',xs'') = splitAtInt (n-1) xs
 {-# splitAtInt  :: Inline #-}
 
 -- takeWhile, applied to a predicate p and a list xs, returns the longest
@@ -424,6 +425,23 @@ concat xs	= build (\ c n -> foldr (\ x y -> foldr c y x) n xs)
 --concat (l:ls)           =  l ++ concat ls
 {-# concat :: Inline #-}
 
+
+-- concatMap f xs maps f over xs and concatenates the results.
+concatMap		:: (a -> [b]) -> [a] -> [b]
+concatMap f		=  concat . map f
+{-# concatMap :: Inline #-}
+
+-- replicate n x is a list of length n with x the value of every element.
+replicate		:: Int -> a -> [a]
+replicate n x		=  take n (repeat x)
+{-# replicate :: Inline #-}
+
+-- lookup key assocs looks up a key in an association list.
+lookup			:: (Eq a) => a -> [(a,b)] -> Maybe b
+lookup key []		=  Nothing
+lookup key ((x,y):xys)
+    | key == x		=  Just y
+    | otherwise		=  lookup key xys
 
 -- transpose, applied to a list of lists, returns that list with the
 -- "rows" and "columns" interchanged.  The input need not be rectangular

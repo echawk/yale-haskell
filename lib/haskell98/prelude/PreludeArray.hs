@@ -1,3 +1,7 @@
+-- Arrays.  Haskell 98 style: associations are pairs (i,e), not the
+-- Haskell 1.2 Assoc type i := e.  Assoc is still defined because the
+-- compiler knows about it, but nothing here uses it.
+
 module  PreludeArray ( Array, Assoc((:=)), array, listArray, (!), bounds,
 		     indices, elems, assocs, accumArray, (//), accum, amap,
 		     ixmap
@@ -11,6 +15,7 @@ module  PreludeArray ( Array, Assoc((:=)), array, listArray, (!), bounds,
 -- strictness.
 
 import PreludeBltinArray
+import PreludePrims(build)
 
 infixl 9  !
 infixl 9  //
@@ -21,17 +26,17 @@ data  (Ix a)    => Array a b = MkArray (a,a) {-#STRICT#-}
                                        (Vector (Box b)) {-#STRICT#-}
 				       deriving ()
 
-array		:: (Ix a) => (a,a) -> [Assoc a b] -> Array a b
+array		:: (Ix a) => (a,a) -> [(a,b)] -> Array a b
 listArray	:: (Ix a) => (a,a) -> [b] -> Array a b
 (!)		:: (Ix a) => Array a b -> a -> b
 bounds		:: (Ix a) => Array a b -> (a,a)
 indices		:: (Ix a) => Array a b -> [a]
 elems		:: (Ix a) => Array a b -> [b]
-assocs		:: (Ix a) => Array a b -> [Assoc a b]
-accumArray	:: (Ix a) => (b -> c -> b) -> b -> (a,a) -> [Assoc a c]
+assocs		:: (Ix a) => Array a b -> [(a,b)]
+accumArray	:: (Ix a) => (b -> c -> b) -> b -> (a,a) -> [(a,c)]
 			     -> Array a b
-(//)		:: (Ix a) => Array a b -> [Assoc a b] -> Array a b
-accum		:: (Ix a) => (b -> c -> b) -> Array a b -> [Assoc a c]
+(//)		:: (Ix a) => Array a b -> [(a,b)] -> Array a b
+accum		:: (Ix a) => (b -> c -> b) -> Array a b -> [(a,c)]
 			     -> Array a b
 amap		:: (Ix a) => (b -> c) -> Array a b -> Array a c
 ixmap		:: (Ix a, Ix b) => (a,a) -> (a -> b) -> Array b c
@@ -65,7 +70,7 @@ a@(MkArray b v) // ivs =
 {-# (//) :: Inline #-}
 
 updateArrayIvs b v ivs = 
-  let g (i := x) next =  strict1 (primVectorUpdate v (index b i) (MkBox x))
+  let g (i, x) next =  strict1 (primVectorUpdate v (index b i) (MkBox x))
                                  next
   in foldr g v ivs
 {-# updateArrayIvs :: Inline #-}
@@ -120,7 +125,7 @@ elems a@(MkArray b@(bmin, bmax) v) =
 assocs a@(MkArray b@(bmin, bmax) v) =
   build (\ c n ->
           let g i next j = let y = unBox (primVectorSel v j)
-                           in c (i := y) (next (j + 1))
+                           in c (i, y) (next (j + 1))
 	  in foldr g (\ _ -> n) (range b) 0)
 {-# assocs :: Inline #-}
 
@@ -146,7 +151,7 @@ accumArray f z b@(bmin, bmax) ivs =
 -- array element unless f is strict.
 
 accumArrayIvs f b v ivs =
-  let g (i := x) next = 
+  let g (i, x) next = 
         let j = index b i
 	    y = primVectorSel v j
 	in strict1
@@ -173,7 +178,7 @@ amap f a@(MkArray b@(bmin, bmax) v) =
 
 -- can't bypass the index computation here since f needs it as an argument
 
-ixmap b f a           = array b [i := a ! f i | i <- range b]
+ixmap b f a           = array b [(i, a ! f i) | i <- range b]
 {-# ixmap :: Inline #-}
 
 
@@ -185,17 +190,14 @@ instance  (Ix a, Eq b)  => Eq (Array a b)  where
 instance  (Ix a, Ord b) => Ord (Array a b)  where
     a <=  a'  	    	=  assocs a <=  assocs a'
 
+-- Text instance as in the H98 Report's Array module (arrPrec = 10).
 instance  (Ix a, Text a, Text b) => Text (Array a b)  where
-    showsPrec p a = showParen (p > 9) (
+    showsPrec p a = showParen (p > 10) (
 		    showString "array " .
-		    shows (bounds a) . showChar ' ' .
-		    shows (assocs a)                  )
+		    showsPrec 11 (bounds a) . showChar ' ' .
+		    showsPrec 11 (assocs a)                  )
 
-    readsPrec p = readParen (p > 9)
+    readsPrec p = readParen (p > 10)
 	   (\r -> [(array b as, u) | ("array",s) <- lex r,
-				     (b,t)       <- reads s,
-				     (as,u)      <- reads t   ]
-		  ++
-		  [(listArray b xs, u) | ("listArray",s) <- lex r,
-					 (b,t)           <- reads s,
-					 (xs,u)          <- reads t ])
+				     (b,t)       <- readsPrec 11 s,
+				     (as,u)      <- readsPrec 11 t   ])

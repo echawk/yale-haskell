@@ -62,6 +62,8 @@ primDoubleMaxExp :: Int
 primDoubleRange :: Double -> (Int, Int)
 primDecodeDouble :: Double -> (Integer, Int)
 primEncodeDouble :: Integer -> Int -> Double
+primFloatSignFloat :: Float -> Float
+primFloatSignDouble :: Double -> Double
 primEqInt, primNeqInt, primLeInt, primGtInt, primLsInt, primGeInt
   :: Int -> Int -> Bool
 primIntMax, primIntMin :: Int -> Int -> Int
@@ -199,6 +201,8 @@ primDoubleMaxExp :: LispName("prim.double-max-exp")
 primDoubleRange ::  LispName("prim.double-range")
 primDecodeDouble :: LispName("prim.decode-double")
 primEncodeDouble :: LispName("prim.encode-double")
+primFloatSignFloat :: LispName("lisp:float-sign"), Complexity(3)
+primFloatSignDouble :: LispName("lisp:float-sign"), Complexity(3)
 primEqInt ::        LispName("prim.eq-int"), Complexity(1)
 primNeqInt::        LispName("prim.not-eq-int"), Complexity(1)
 primLeInt ::        LispName("prim.le-int"), Complexity(1)

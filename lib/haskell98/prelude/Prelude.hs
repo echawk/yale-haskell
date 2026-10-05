@@ -1,35 +1,51 @@
 -- Standard value bindings
+--
+-- This module's symbol table is what user modules see as the Prelude
+-- (the compiler copies it whole), so it only imports the names that
+-- the Haskell 98 Prelude exports, plus the Yale extras listed below.
+-- Everything else in the prelude modules is reached through the
+-- libraries (List, Char, Numeric, Ratio, Complex, Ix, Array, ...).
 
 module Prelude (
-    PreludeCore.., PreludeRatio.., PreludeComplex.., PreludeList..,
-    PreludeArray.., PreludeText.., PreludeIO.., 
+    PreludeCore.., PreludeList.., PreludeText.., PreludeIO..,
+    -- Not in the H98 Prelude (they are in Char), kept for compatibility:
+    ord, chr, isAscii, isControl, isPrint, isSpace,
+    isUpper, isLower, isAlpha, isDigit, isAlphaNum, toUpper, toLower,
+    -- Yale's Binary class support (to be removed with Binary):
     nullBin, isNullBin, appendBin,
-    (&&), (||), not, otherwise,
-    minChar, maxChar, ord, chr, 
-    isAscii, isControl, isPrint, isSpace, 
-    isUpper, isLower, isAlpha, isDigit, isAlphanum,
-    toUpper, toLower,
-    minInt, maxInt, subtract, gcd, lcm, (^), (^^), 
-    fromIntegral, fromRealFrac, atan2,
-    fst, snd, id, const, (.), flip, ($), until, asTypeOf, error ) where
+    (&&), (||), not, otherwise, maybe, either,
+    subtract, gcd, lcm, (^), (^^), fromIntegral, realToFrac,
+    fst, snd, curry, uncurry, id, const, (.), flip, ($), until,
+    asTypeOf, error, undefined, seq, ($!) ) where
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
-import PreludePrims
+import PreludePrims(error, primNullBin, primIsNullBin, primAppendBin)
+import PreludeBltinArray(strict1)
 
 import PreludeCore
-import PreludeList
-import PreludeArray
-import PreludeRatio
-import PreludeComplex
-import PreludeText
+import PreludeList(
+    map, (++), filter, concat, concatMap,
+    head, last, tail, init, null, length, (!!),
+    foldl, foldl1, scanl, scanl1, foldr, foldr1, scanr, scanr1,
+    iterate, repeat, replicate, cycle,
+    take, drop, splitAt, takeWhile, dropWhile, span, break,
+    lines, words, unlines, unwords, reverse, and, or,
+    any, all, elem, notElem, lookup,
+    sum, product, maximum, minimum,
+    zip, zip3, zipWith, zipWith3, unzip, unzip3)
+import PreludeText(reads, shows, show, read, lex,
+		   showChar, showString, readParen, showParen)
 import PreludeIO
+import PreludeChar(ord, chr, isAscii, isControl, isPrint, isSpace,
+		   isUpper, isLower, isAlpha, isDigit, isAlphaNum,
+		   toUpper, toLower)
 
 infixr 9  .
 infixr 8  ^, ^^
 infixr 3  &&
 infixr 2  ||
-infixr 0  $
+infixr 0  $, $!, `seq`
 
 
 -- Binary functions
@@ -63,51 +79,23 @@ not False		=  True
 otherwise		:: Bool
 otherwise 		=  True
 
--- Character functions
+-- Maybe and Either
 
-minChar, maxChar	:: Char
-minChar			= '\0'
-maxChar			= '\255'
+maybe			:: b -> (a -> b) -> Maybe a -> b
+maybe n f Nothing	=  n
+maybe n f (Just x)	=  f x
 
-ord			:: Char -> Int
-ord 			=  primCharToInt
-
-chr 			:: Int -> Char
-chr 			=  primIntToChar
-
-isAscii, isControl, isPrint, isSpace		:: Char -> Bool
-isUpper, isLower, isAlpha, isDigit, isAlphanum	:: Char -> Bool
-
-isAscii c	 	=  ord c < 128
-isControl c		=  c < ' ' || c == '\DEL'
-isPrint c		=  c >= ' ' && c <= '~'
-isSpace c		=  c == ' ' || c == '\t' || c == '\n' || 
-			   c == '\r' || c == '\f' || c == '\v'
-isUpper c		=  c >= 'A' && c <= 'Z'
-isLower c		=  c >= 'a' && c <= 'z'
-isAlpha c		=  isUpper c || isLower c
-isDigit c		=  c >= '0' && c <= '9'
-isAlphanum c		=  isAlpha c || isDigit c
-
-
-toUpper, toLower	:: Char -> Char
-toUpper c | isLower c	= chr ((ord c - ord 'a') + ord 'A')
-	  | otherwise	= c
-
-toLower c | isUpper c	= chr ((ord c - ord 'A') + ord 'a')
-	  | otherwise	= c
+either			:: (a -> c) -> (b -> c) -> Either a b -> c
+either f g (Left x)	=  f x
+either f g (Right y)	=  g y
 
 -- Numeric functions
-
-minInt, maxInt	:: Int
-minInt		=  primMinInt
-maxInt		=  primMaxInt
 
 subtract	:: (Num a) => a -> a -> a
 subtract	=  flip (-)
 
 gcd		:: (Integral a) => a -> a -> a
-gcd 0 0		=  error "gcd{Prelude}: gcd 0 0 is undefined"
+gcd 0 0		=  error "Prelude.gcd: gcd 0 0 is undefined"
 gcd x y		=  gcd' (abs x) (abs y)
 		   where gcd' x 0  =  x
 			 gcd' x y  =  gcd' y (x `rem` y)
@@ -119,12 +107,12 @@ lcm x y		=  abs ((x `quot` (gcd x y)) * y)
 
 (^)		:: (Num a, Integral b) => a -> b -> a
 x ^ 0		=  1
-x ^ (n+1)	=  f x n x
+x ^ n | n > 0	=  f x (n-1) x
 		   where f _ 0 y = y
 		         f x n y = g x n  where
 			           g x n | even n  = g (x*x) (n `quot` 2)
 				         | otherwise = f x (n-1) (x*y)
-_ ^ _		= error "(^){Prelude}: negative exponent"
+_ ^ _		= error "Prelude.^: negative exponent"
 
 (^^)		:: (Fractional a, Integral b) => a -> b -> a
 x ^^ n		=  if n >= 0 then x^n else recip (x^(-n))
@@ -132,19 +120,8 @@ x ^^ n		=  if n >= 0 then x^n else recip (x^(-n))
 fromIntegral	:: (Integral a, Num b) => a -> b
 fromIntegral	=  fromInteger . toInteger
 
-fromRealFrac	:: (RealFrac a, Fractional b) => a -> b
-fromRealFrac	=  fromRational . toRational
-
-atan2		:: (RealFloat a) => a -> a -> a
-atan2 y x	=  case (signum y, signum x) of
-			( 0, 1) ->  0
-			( 1, 0) ->  pi/2
-			( 0,-1) ->  pi
-			(-1, 0) -> -pi/2
-			( _, 1) ->  atan (y/x)
-			( _,-1) ->  atan (y/x) + pi
-			( 0, 0) ->  error "atan2{Prelude}: atan2 of origin"
-
+realToFrac	:: (Real a, Fractional b) => a -> b
+realToFrac	=  fromRational . toRational
 
 -- Some standard functions:
 -- component projections for pairs:
@@ -185,3 +162,23 @@ until p f x | p x	=  x
 -- (which is usually overloaded) to have the same type as the second.
 asTypeOf		:: a -> a -> a
 asTypeOf		=  const
+
+-- curry converts an uncurried function to a curried function;
+-- uncurry converts a curried function to a function on pairs.
+curry			:: ((a, b) -> c) -> a -> b -> c
+curry f x y		=  f (x, y)
+
+uncurry			:: (a -> b -> c) -> ((a, b) -> c)
+uncurry f p		=  f (fst p) (snd p)
+
+undefined		:: a
+undefined		=  error "Prelude.undefined"
+
+-- Strict evaluation, via the strict1 primitive.
+seq			:: a -> b -> b
+seq x y			=  strict1 x y
+{-# seq :: Inline #-}
+
+($!)			:: (a -> b) -> a -> b
+f $! x			=  x `seq` f x
+{-# ($!) :: Inline #-}
