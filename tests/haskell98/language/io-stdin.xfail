@@ -1,0 +1,1 @@
+needs monadic IO: getLine, getContents and do (M4)

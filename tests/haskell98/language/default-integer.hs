@@ -2,10 +2,8 @@
 -- (Haskell 98 section 4.3.4), so these results are exact.
 module Main where
 
-big = 2 ^ 70                 -- monomorphism restriction + defaulting
-
 out :: String
-out = unlines [ show big
+out = unlines [ show (2 ^ 70)
               , show (product [1 .. 21])
               , show (10 ^ 18 * 100) ]
 

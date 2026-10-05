@@ -1,0 +1,3 @@
+P {px = 1, py = -2}
+Box {content = Just (P {px = 3, py = 4})}
+

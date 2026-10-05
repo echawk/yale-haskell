@@ -1,0 +1,1 @@
+Prelude names cannot be redefined without hiding, and there are no qualified names (M7 H98 module semantics)
