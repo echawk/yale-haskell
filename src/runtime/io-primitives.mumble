@@ -56,7 +56,7 @@
  (box
   (let ((stream (lisp:open (haskell-string->string filename)
 			   :direction :output 
-			   :if-exists :overwrite
+			   :if-exists :supersede
 			   :if-does-not-exist :create)))
     (print-haskell-string contents stream)
     (close-output-port stream)
@@ -87,7 +87,7 @@
 ; primWriteBinFile
 (define (prim.write-bin-file name contents)
   (let ((stream (lisp:open name :direction :output 
-			   :if-exists :overwrite
+			   :if-exists :supersede
 			   :if-does-not-exist :create)))
     (write (cons ':binary contents) stream)
     (close-output-port stream)
@@ -97,8 +97,9 @@
 (define (prim.append-bin-file name contents)
  (let ((bin (lisp-read name)))
    (if (and (pair? bin) (eq? (car bin) ':binary))
-       (let ((stream (lisp:open name :direction :output :if-exists :overwrite)))
+       (let ((stream (lisp:open name :direction :output :if-exists :supersede)))
 	 (write (append bin contents) stream)
+	 (close-output-port stream)
 	 (io-success))
        (io-failure "Can't open Bin file"))))
 
@@ -150,10 +151,12 @@
   (declare (ignore bin))
   (haskell-runtime-error  "WriteBinChan not implemented"))
 
-;;; %%% probably bogus
 ; primGetEnv
 (define (prim.getenv name)
-  (io-success (getenv name)))
+  (let ((value  (getenv name)))
+    (if value
+	(io-success value)
+	(io-failure (format '#f "Environment variable ~A is not set" name)))))
 
 (define (lisp-read file)
   (if (not (file-exists? file))

@@ -1,0 +1,188 @@
+;;; io-errors.mumble -- the IOError model used by the Haskell 98 libraries
+;;;
+;;; An H98 IOError is represented by a Lisp condition object of type
+;;; HASKELL-IO-ERROR.  A primitive that fails signals one (with
+;;; RAISE-IO-ERROR); PRIM.CATCH-IO runs an IO action under a handler and
+;;; passes the condition to a Haskell handler.  Haskell code sees the
+;;; condition as an abstract type (IOErr in lib/haskell98/IOPrims.hi) and
+;;; inspects it with the accessor primitives below.
+;;;
+;;; An uncaught error propagates out of the program like any Lisp error;
+;;; in batch mode (tools/build/image.lisp) that prints its report on
+;;; stderr and exits with status 1, as H98 requires.
+;;;
+;;; WARNING!!!  This file contains Common-Lisp specific code.
+
+;;; SBCL's POSIX interface, used here and in system-prims.mumble.
+#+sbcl
+(lisp:eval-when (:compile-toplevel :load-toplevel :execute)
+  (lisp:require :sb-posix))
+
+
+;;; Error kinds.  The numbers are what primIOErrorKind returns; keep
+;;; them in sync with lib/haskell98/IO.hs.
+
+(define *io-error-kinds*
+  '#((other              . "failed")
+     (already-exists     . "already exists")
+     (does-not-exist     . "does not exist")
+     (already-in-use     . "resource busy")
+     (full               . "resource exhausted")
+     (eof                . "end of file")
+     (illegal-operation  . "illegal operation")
+     (permission         . "permission denied")
+     (user               . "user error")))
+
+(define (io-error-kind-number kind)
+  (let ((n  '#f))
+    (dotimes (i (vector-length *io-error-kinds*))
+      (when (eq? (car (vector-ref *io-error-kinds* i)) kind)
+	(setf n i)))
+    (or n 0)))
+
+(define (io-error-kind-text kind)
+  (cdr (vector-ref *io-error-kinds* (io-error-kind-number kind))))
+
+(lisp:define-condition haskell-io-error (lisp:error)
+  ((kind        :initarg :kind        :reader haskell-io-error-kind)
+   (location    :initarg :location    :reader haskell-io-error-location)
+   (description :initarg :description :reader haskell-io-error-description)
+   (filename    :initarg :filename    :reader haskell-io-error-filename)
+   (handle      :initarg :handle      :reader haskell-io-error-handle))
+  (:report (lisp:lambda (c stream)
+	     (lisp:write-string (io-error-message c) stream))))
+
+;;; The message, in the style "file: location: kind (description)".
+
+(define (io-error-message c)
+  (let ((kind  (haskell-io-error-kind c))
+	(loc   (haskell-io-error-location c))
+	(desc  (haskell-io-error-description c))
+	(file  (haskell-io-error-filename c)))
+    (if (eq? kind 'user)
+	(format '#f "user error (~a)" desc)
+	(format '#f "~a~a~a~a"
+		(if file (format '#f "~a: " file) "")
+		(if (and loc (not (string=? loc ""))) (format '#f "~a: " loc) "")
+		(io-error-kind-text kind)
+		(if (and desc (not (string=? desc "")))
+		    (format '#f " (~a)" desc)
+		    "")))))
+
+(define (make-io-error kind location description filename handle)
+  (lisp:make-condition 'haskell-io-error
+		       :kind kind :location location
+		       :description description
+		       :filename filename :handle handle))
+
+(define (raise-io-error kind location description . maybe-filename)
+  (lisp:error (make-io-error kind location description
+			     (if (null? maybe-filename) '#f (car maybe-filename))
+			     '#f)))
+
+(define (raise-io-error/handle kind location description handle)
+  (lisp:error (make-io-error kind location description
+			     (handle-name-for-error handle) handle)))
+
+(predefine (handle-name-for-error h))
+
+
+;;; Host errors.  WITH-HOST-IO-ERRORS turns Lisp file and stream errors
+;;; (and, on SBCL, failed POSIX calls) signalled by BODY into
+;;; HASKELL-IO-ERRORs.  Portable CL doesn't say why a file operation
+;;; failed, so FILE-ERRORs are classified by looking at the file.
+
+(define-syntax (with-host-io-errors location filename . body)
+  (let ((c  (gensym "C")))
+    `(lisp:handler-case (begin ,@body)
+       (haskell-io-error (,c) (lisp:error ,c))
+       #+sbcl
+       (sb-posix:syscall-error (,c)
+	 (raise-errno-error (sb-posix:syscall-errno ,c) ,location ,filename))
+       (lisp:end-of-file (,c)
+	 (declare (ignore ,c))
+	 (raise-io-error 'eof ,location "" ,filename))
+       (lisp:file-error (,c)
+	 (raise-io-error (guess-file-error-kind ,filename) ,location
+			 (lisp:princ-to-string ,c) ,filename))
+       (lisp:error (,c)
+	 (raise-io-error 'other ,location (lisp:princ-to-string ,c)
+			 ,filename)))))
+
+(define (guess-file-error-kind filename)
+  (if (and filename (lisp:ignore-errors (lisp:probe-file filename)))
+      'permission
+      'does-not-exist))
+
+#+sbcl
+(define (errno-kind errno)
+  (cond ((eqv? errno sb-posix:enoent) 'does-not-exist)
+	((eqv? errno sb-posix:enotdir) 'does-not-exist)
+	((eqv? errno sb-posix:eexist) 'already-exists)
+	((eqv? errno sb-posix:enotempty) 'already-exists)
+	((eqv? errno sb-posix:ebusy) 'already-in-use)
+	((eqv? errno sb-posix:eacces) 'permission)
+	((eqv? errno sb-posix:eperm) 'permission)
+	((eqv? errno sb-posix:erofs) 'permission)
+	((eqv? errno sb-posix:enospc) 'full)
+	((eqv? errno sb-posix:edquot) 'full)
+	((eqv? errno sb-posix:emfile) 'full)
+	((eqv? errno sb-posix:enfile) 'full)
+	((eqv? errno sb-posix:eisdir) 'illegal-operation)
+	((eqv? errno sb-posix:einval) 'illegal-operation)
+	((eqv? errno sb-posix:exdev) 'illegal-operation)
+	(else 'other)))
+
+#+sbcl
+(define (raise-errno-error errno location filename)
+  (raise-io-error (errno-kind errno) location (sb-int:strerror errno)
+		  filename))
+
+
+;;; Primitives (see lib/haskell98/IOPrims.hi)
+
+;;; primCatchIO :: IO a -> (IOErr -> IO a) -> IO a
+;;; The action and handler arrive as (forced) Haskell functions taking
+;;; the system state; the result is unboxed and reboxed by the wrapper.
+
+(define (prim.catch-io action handler)
+  (let ((result
+	 (lisp:handler-case
+	     (cons '#t (force (funcall action (box 'state))))
+	   (haskell-io-error (c) (cons '#f c)))))
+    (if (car result)
+	(cdr result)
+	(force (funcall handler (box (cdr result)) (box 'state))))))
+
+;;; primIOError :: IOErr -> IO a
+(define (prim.throw-io err)
+  (lisp:error err))
+
+;;; primUserError :: String -> IOErr
+(define (prim.user-error string)
+  (make-io-error 'user "" string '#f '#f))
+
+(define (prim.io-error-kind err)
+  (io-error-kind-number (haskell-io-error-kind err)))
+
+(define (prim.io-error-string err)
+  (let ((desc  (haskell-io-error-description err)))
+    (if (or (eq? (haskell-io-error-kind err) 'user)
+	    (and desc (not (string=? desc ""))))
+	desc
+	(io-error-kind-text (haskell-io-error-kind err)))))
+
+(define (prim.io-error-message err)
+  (io-error-message err))
+
+(define (prim.io-error-has-filename err)
+  (if (haskell-io-error-filename err) '#t '#f))
+
+(define (prim.io-error-filename err)
+  (or (haskell-io-error-filename err) ""))
+
+(define (prim.io-error-has-handle err)
+  (if (haskell-io-error-handle err) '#t '#f))
+
+(define (prim.io-error-handle err)
+  (haskell-io-error-handle err))
