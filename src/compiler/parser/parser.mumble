@@ -1,54 +1,54 @@
-;;; parser.scm -- compilation unit definition for the lexer and parser
+;;; parser.mumble -- compilation unit definition for the lexer and parser
 ;;;
 ;;; author :  John
 ;;; date   :  10 Dec 1991
 ;;;
 
 (define-compilation-unit parser
-  (source-filename "$Y2/parser/")
+  (source-filename "$Y2/src/compiler/parser/")
   (require global)
   (unit parser-globals
-    (source-filename "parser-globals.scm"))
+    (source-filename "parser-globals.mumble"))
   (unit parser-macros
-    (source-filename "parser-macros.scm")
+    (source-filename "parser-macros.mumble")
     (require parser-globals))
   (unit parser-errors
-    (source-filename "parser-errors.scm")
+    (source-filename "parser-errors.mumble")
     (require parser-macros))
   (unit lexer
-    (source-filename "lexer.scm")
+    (source-filename "lexer.mumble")
     (require parser-macros))
   (unit token
-    (source-filename "token.scm")
+    (source-filename "token.mumble")
     (require parser-macros))
   (unit parser-driver
-    (source-filename "parser-driver.scm")
+    (source-filename "parser-driver.mumble")
     (require parser-macros))
   (unit module-parser
-    (source-filename "module-parser.scm")
+    (source-filename "module-parser.mumble")
     (require parser-macros))
   (unit interface-parser
-    (source-filename "interface-parser.scm")
+    (source-filename "interface-parser.mumble")
     (require parser-macros))
   (unit decl-parser
-    (source-filename "decl-parser.scm")
+    (source-filename "decl-parser.mumble")
     (require parser-macros))
   (unit type-parser
-    (source-filename "type-parser.scm")
+    (source-filename "type-parser.mumble")
     (require parser-macros))
   (unit typedecl-parser
-    (source-filename "typedecl-parser.scm")
+    (source-filename "typedecl-parser.mumble")
     (require parser-macros))
   (unit exp-parser
-    (source-filename "exp-parser.scm")
+    (source-filename "exp-parser.mumble")
     (require parser-macros))
   (unit annotation-parser
-    (source-filename "annotation-parser.scm")
+    (source-filename "annotation-parser.mumble")
     (require parser-macros))
   (unit pattern-parser
-    (source-filename "pattern-parser.scm")
+    (source-filename "pattern-parser.mumble")
     (require parser-macros))
   (unit parser-debugger
-    (source-filename "parser-debugger.scm")
+    (source-filename "parser-debugger.mumble")
     (require parser-macros)))
 

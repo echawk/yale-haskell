@@ -1,4 +1,4 @@
-;;; flic.scm -- compilation unit for flic stuff
+;;; flic.mumble -- compilation unit for flic stuff
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  7 Apr 1992
@@ -6,24 +6,24 @@
 
 
 (define-compilation-unit flic
-  (source-filename "$Y2/flic/")
+  (source-filename "$Y2/src/compiler/flic/")
   (unit flic-td
-	(source-filename "flic-td.scm"))
+	(source-filename "flic-td.mumble"))
   (unit flic-structs
-	(source-filename "flic-structs.scm")
+	(source-filename "flic-structs.mumble")
 	(require flic-td))
   (unit print-flic
-	(source-filename "print-flic.scm")
+	(source-filename "print-flic.mumble")
 	(require flic-structs printer-support))
   (unit ast-to-flic
-	(source-filename "ast-to-flic.scm")
+	(source-filename "ast-to-flic.mumble")
 	(require flic-structs ast haskell-utils))
   (unit flic-walker
-	(source-filename "flic-walker.scm"))
+	(source-filename "flic-walker.mumble"))
   (unit copy-flic
-	(source-filename "copy-flic.scm")
+	(source-filename "copy-flic.mumble")
 	(require flic-walker flic-structs))
   (unit invariant
-	(source-filename "invariant.scm")
+	(source-filename "invariant.mumble")
 	(require flic-walker flic-structs))
   )

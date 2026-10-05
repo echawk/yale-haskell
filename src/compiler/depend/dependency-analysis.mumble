@@ -1,4 +1,4 @@
-;;; depend/depend.scm     Author: John
+;;; depend/depend.mumble     Author: John
 
 ;;; This performs dependency analysis.  All module definitions are gathered
 ;;; into a single nested let/let*.

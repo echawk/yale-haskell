@@ -1,4 +1,4 @@
-;;; flic-td.scm -- define type descriptor for flic structs
+;;; flic-td.mumble -- define type descriptor for flic structs
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  6 Oct 1992

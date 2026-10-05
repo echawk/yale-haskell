@@ -1,4 +1,4 @@
-;;; strictness.scm -- strictness analyzer
+;;; strictness.mumble -- strictness analyzer
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  28 May 1992

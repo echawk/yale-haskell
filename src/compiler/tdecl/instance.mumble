@@ -1,4 +1,4 @@
-;;; tdecl/instance.scm
+;;; tdecl/instance.mumble
 
 ;;; Convert an instance decl to a definition
 

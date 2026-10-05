@@ -1,11 +1,11 @@
-;;; runtime-utils.scm -- basic runtime support
+;;; runtime-utils.mumble -- basic runtime support
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  9 Jun 1992
 ;;;
 ;;; This file contains definitions (beyond the normal mumble stuff)
 ;;; that is referenced directly in code built by the code generator.
-;;; See backend/codegen.scm.
+;;; See backend/codegen.mumble.
 ;;;
 
 

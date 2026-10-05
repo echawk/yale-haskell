@@ -1,4 +1,4 @@
-;;; backend.scm -- compilation unit for code generator stuff
+;;; backend.mumble -- compilation unit for code generator stuff
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  13 May 1992
@@ -6,16 +6,16 @@
 
 
 (define-compilation-unit backend
-  (source-filename "$Y2/backend/")
+  (source-filename "$Y2/src/compiler/backend/")
   (require flic)
   (unit optimize
-	(source-filename "optimize.scm"))
+	(source-filename "optimize.mumble"))
   (unit strictness
-	(source-filename "strictness.scm"))
+	(source-filename "strictness.mumble"))
   (unit box
-	(source-filename "box.scm"))
+	(source-filename "box.mumble"))
   (unit codegen
-	(source-filename "codegen.scm"))
+	(source-filename "codegen.mumble"))
   (unit interface-codegen
-	(source-filename "interface-codegen.scm")))
+	(source-filename "interface-codegen.mumble")))
 

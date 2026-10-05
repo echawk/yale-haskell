@@ -4,15 +4,15 @@
 ;;;
 
 (define-compilation-unit tdecl
-  (source-filename "$Y2/tdecl/")
+  (source-filename "$Y2/src/compiler/tdecl/")
   (require global)
   (unit type-declaration-analysis
-    (source-filename "type-declaration-analysis.scm"))
+    (source-filename "type-declaration-analysis.mumble"))
   (unit tdecl-utils
-    (source-filename "tdecl-utils.scm"))
+    (source-filename "tdecl-utils.mumble"))
   (unit alg-syn
-    (source-filename "alg-syn.scm"))
+    (source-filename "alg-syn.mumble"))
   (unit class
-    (source-filename "class.scm"))
+    (source-filename "class.mumble"))
   (unit instance
-    (source-filename "instance.scm")))
+    (source-filename "instance.mumble")))

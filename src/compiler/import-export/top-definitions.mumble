@@ -1,4 +1,4 @@
-;;; File: top-definitions.scm
+;;; File: top-definitions.mumble
 
 ;;; Description: This creates definitions for all top level (exportable)
 ;;;  object in a module.

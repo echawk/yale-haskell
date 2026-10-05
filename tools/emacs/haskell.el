@@ -42,10 +42,10 @@
 ;;; To use this file, set up your .emacs to autoload this file for 
 ;;; haskell-mode. For example:
 ;;; 
-;;;    (autoload 'haskell-mode "$HASKELL/emacs-tools/haskell.elc" 
+;;;    (autoload 'haskell-mode "$HASKELL/tools/emacs/haskell.elc" 
 ;;;       "Load Haskell mode" t)
 ;;;
-;;;    (autoload 'run-mode "$HASKELL/emacs-tools/haskell.elc" 
+;;;    (autoload 'run-mode "$HASKELL/tools/emacs/haskell.elc" 
 ;;;       "Load Haskell mode" t)
 ;;;
 ;;; [Note: The path name given above is Yale specific!! Modify as
@@ -121,7 +121,7 @@ needs to be reloaded.")
 
 ;;; These are used for haskell-tutorial mode.
 
-(defvar *ht-source-file* "$HASKELL/progs/tutorial/tutorial.hs")
+(defvar *ht-source-file* "$HASKELL/examples/tutorial/tutorial.hs")
 (defvar *ht-temp-buffer* nil)
 (defvar *ht-file-buffer* "Haskell-Tutorial-Master")
 

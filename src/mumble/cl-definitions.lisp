@@ -1072,7 +1072,7 @@
 
 ;;; See cl-init.lisp for initialization of *lisp-binary-file-type*.
 
-(define-mumble-constant source-file-type ".scm")
+(define-mumble-constant source-file-type ".mumble")
 (define-mumble-constant binary-file-type *lisp-binary-file-type*)
 (define-mumble-import source-file-type)
 (define-mumble-import binary-file-type)

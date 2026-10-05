@@ -1,4 +1,4 @@
-;;; ast-td.scm -- define ast type descriptor object
+;;; ast-td.mumble -- define ast type descriptor object
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  6 Oct 1992

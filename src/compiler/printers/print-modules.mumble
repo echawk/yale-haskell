@@ -1,10 +1,10 @@
-;;; print-modules.scm -- print routines for module-related AST structures
+;;; print-modules.mumble -- print routines for module-related AST structures
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  6 Jan 1992
 ;;;
 ;;;
-;;; This file corresponds to the file ast/modules.scm.
+;;; This file corresponds to the file ast/modules.mumble.
 
 ;;; Note: by default, only the module name is printed.  To print the
 ;;; full module, the function print-full-module must be called.

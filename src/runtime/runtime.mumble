@@ -1,26 +1,26 @@
-;;; runtime.scm
+;;; runtime.mumble
 ;;;
 ;;; author :  John
 ;;;
 
 
 (define-compilation-unit runtime
-  (source-filename "$Y2/runtime/")
+  (source-filename "$Y2/src/runtime/")
   (require global)
   (unit runtime-utils
-	(source-filename "runtime-utils.scm"))
+	(source-filename "runtime-utils.mumble"))
   (unit prims
 	(require runtime-utils)
-	(source-filename "prims.scm"))
+	(source-filename "prims.mumble"))
   (unit io-primitives
 	(require runtime-utils)
-	(source-filename "io-primitives.scm"))
+	(source-filename "io-primitives.mumble"))
   (unit array-prims
 	(require runtime-utils)
-	(source-filename "array-prims.scm"))
+	(source-filename "array-prims.mumble"))
   (unit debug-utils
 	(require runtime-utils)
-	(source-filename "debug-utils.scm"))
+	(source-filename "debug-utils.mumble"))
   (unit tuple-prims
         (require runtime-utils)
-	(source-filename "tuple-prims.scm")))
+	(source-filename "tuple-prims.mumble")))

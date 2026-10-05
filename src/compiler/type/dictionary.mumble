@@ -1,5 +1,5 @@
 
-;;; type/dictionary.scm
+;;; type/dictionary.mumble
 
 ;;; This function supports dictionary conversion.  It creates lambda
 ;;; variables to bind to the dictionary args needed by the context.

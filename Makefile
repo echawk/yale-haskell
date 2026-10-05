@@ -14,18 +14,17 @@ HEAP_MB  ?= 4096
 Y2       := $(CURDIR)
 BUILD    := build/$(LISP)
 LOGS     := $(BUILD)/logs
-PRELUDE  := progs/prelude
+PRELUDE  := lib/haskell-1.2/prelude
 EXE      := $(BUILD)/yale-haskell
 
 export Y2
 export HASKELL         := $(Y2)
 export PRELUDE         := $(Y2)/$(PRELUDE)
 export PRELUDEBIN      := $(Y2)/$(BUILD)/prelude
-export HASKELL_LIBRARY := $(Y2)/progs/lib
+export HASKELL_LIBRARY := $(Y2)/lib/haskell-1.2
 export LIBRARYBIN      := $(Y2)/$(BUILD)/lib
 
-COMPILER_SOURCES := $(shell find . \( -path ./build -o -path ./ref -o -path ./progs -o -path ./.git \) -prune \
-                      -o \( -name '*.scm' -o -name '*.lisp' \) -print)
+COMPILER_SOURCES := $(shell find src tools/build -name '*.mumble' -o -name '*.lisp')
 PRELUDE_SOURCES  := $(wildcard $(PRELUDE)/*.hs $(PRELUDE)/*.hi $(PRELUDE)/*.hu)
 
 RUN_SBCL = $(SBCL) --dynamic-space-size $(HEAP_MB) --non-interactive --no-userinit

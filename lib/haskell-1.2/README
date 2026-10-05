@@ -1,1 +1,10 @@
-This directory contains supported libraries for Yale Haskell.
+Haskell 1.2 libraries for Yale Haskell.
+
+prelude/   the standard prelude used by the system (with Yale changes:
+           optimizer annotations, monadic I/O primitives, Lisp primitives)
+hbc/       libraries ported from the Chalmers hbc distribution
+cl/        libraries implemented through the Haskell <-> Lisp interface
+X11/       the CLX-based X window interface (not currently built)
+
+These are kept unchanged while the Haskell 98 libraries are developed
+alongside them (see doc/REVIVAL-PLAN.md).

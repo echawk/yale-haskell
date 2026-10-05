@@ -1,4 +1,4 @@
-;;; scope.scm -- variable scoping and precedence parsing phase
+;;; scope.mumble -- variable scoping and precedence parsing phase
 ;;; 
 ;;; author :  John & Sandra
 ;;; date   :  11 Feb 1992

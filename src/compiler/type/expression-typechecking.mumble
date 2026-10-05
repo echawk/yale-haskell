@@ -78,7 +78,7 @@
 	     "List elements have different types")
 	(return-type object (**list-of element-type)))))
 
-;;; These are in the order defined in exp-structs.scm
+;;; These are in the order defined in exp-structs.mumble
 
 (define-type-checker lambda
  (with-new-tyvars

@@ -1,9 +1,9 @@
-;;; print-valdefs.scm -- print AST structures for local declarations
+;;; print-valdefs.mumble -- print AST structures for local declarations
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  14 Jan 1992
 ;;;
-;;; This file corresponds to ast/valdef-structs.scm.
+;;; This file corresponds to ast/valdef-structs.mumble.
 ;;;
 ;;;
 
@@ -17,7 +17,7 @@
     (write (signdecl-signature object) xp)))
 
 
-;;; This interacts with the layout rule stuff.  See util.scm.
+;;; This interacts with the layout rule stuff.  See util.mumble.
 
 (define-ast-printer valdef (object xp)
   (let ((lhs         (valdef-lhs object))

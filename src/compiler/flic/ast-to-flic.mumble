@@ -1,4 +1,4 @@
-;;; ast-to-flic.scm -- convert AST to flic structures.
+;;; ast-to-flic.mumble -- convert AST to flic structures.
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  3 Apr 1992

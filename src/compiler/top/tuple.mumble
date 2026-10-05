@@ -23,9 +23,9 @@
 (define (tuple-constructor-arity x)
   (con-arity x))
 
-(predefine (ast->gtype c t))          ; in util/type-utils.scm
-(predefine (**arrow-type/l args))     ; in util/constructors.scm
-(predefine (**tyvar x))               ; in util/constructors.scm
+(predefine (ast->gtype c t))          ; in util/type-utils.mumble
+(predefine (**arrow-type/l args))     ; in util/constructors.mumble
+(predefine (**tyvar x))               ; in util/constructors.mumble
 
 (define (new-tuple-tycon k)
   (cond ((eqv? k 0)

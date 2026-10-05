@@ -1,4 +1,4 @@
-;;; prec.scm -- module definition for scoping/precedence-parsing phase
+;;; prec.mumble -- module definition for scoping/precedence-parsing phase
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  13 Feb 1992
@@ -6,12 +6,12 @@
 
 
 (define-compilation-unit prec
-  (source-filename "$Y2/prec/")
+  (source-filename "$Y2/src/compiler/prec/")
   (require ast haskell-utils)
   (unit scope
-	(source-filename "scope.scm"))
+	(source-filename "scope.mumble"))
   (unit prec-parse
-	(source-filename "prec-parse.scm")))
+	(source-filename "prec-parse.mumble")))
 
 
 	

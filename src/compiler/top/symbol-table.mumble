@@ -173,7 +173,7 @@
 ;;; table.
 
 (predefine (signal-multiple-name-conflict name old-local-name def))
-    ; in import-export/ie-errors.scm
+    ; in import-export/ie-errors.mumble
 
 (define (insert-top-definition name def)
   (let ((old-definition (resolve-toplevel-name name)))

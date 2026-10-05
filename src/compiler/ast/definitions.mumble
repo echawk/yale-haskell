@@ -1,4 +1,4 @@
-;;; File: ast/definitions.scm   Author: John
+;;; File: ast/definitions.mumble   Author: John
 
 ;;; this file contains definitions for the named entities in the
 ;;; system.  These are used in both the front and back ends of the

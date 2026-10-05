@@ -179,7 +179,7 @@
 	 (**pcon/tuple pats))))
 
 
-;;; From type-structs.scm
+;;; From type-structs.mumble
 
 (define (**tycon name args)
   (make tycon (name name) (args args) (def (dynamic *undefined-def*))))

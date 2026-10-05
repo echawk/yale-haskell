@@ -47,7 +47,7 @@ main              = --echo False abort
                     )))
 
 stdlib           :: String
-stdlib            = "$HASKELL/progs/demo/prolog/stdlib"
+stdlib            = "$HASKELL/examples/demo/prolog/stdlib"
 
 interpreter      :: String -> Dialogue
 interpreter lib   = readChan stdin abort

@@ -1,4 +1,4 @@
-;;; walk-ast.scm -- general-purpose walkers for AST structures.
+;;; walk-ast.mumble -- general-purpose walkers for AST structures.
 ;;;
 ;;; author :  Sandra & John
 ;;; date   :  30 Jan 1992

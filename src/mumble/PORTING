@@ -1,3 +1,9 @@
+NOTE (2026): This file dates from 1994.  The com/<lisp>/ scripts it
+describes were replaced by the top-level Makefile and tools/build/*.lisp,
+and compiled files now go under build/<lisp>/ rather than a per-directory
+subdirectory.  The cl-support/ directory is now src/mumble/.  The steps
+about conditionalising cl-init.lisp and cl-definitions.lisp still apply.
+
 Here are the steps involved in porting to a new Common Lisp implementation.
 
 (0) Find the executable you want to use.  If possible, use an image
@@ -18,7 +24,7 @@ Here are the steps involved in porting to a new Common Lisp implementation.
     You may also need/want to add conditionals to the primitive 
     implementation files in the runtime directory.
 
-    Do not add #+/#- conditionalizations to any other random .scm
+    Do not add #+/#- conditionalizations to any other random .mumble
     files, since we want to keep this implementation-dependent stuff 
     centralized.
 
@@ -98,7 +104,7 @@ Here are the steps involved in porting to a new Common Lisp implementation.
 
 (9) If you want to use the Haskell->CLX interface, you'll have to
     mess with equivalents of the build-xlib and savesys-xlib scripts.
-    There is some system-dependent code in xlibclx.scm to set up an
+    There is some system-dependent code in xlibclx.mumble to set up an
     error handler -- make sure you have conditionalized this appropriately
     for your Lisp system.
 

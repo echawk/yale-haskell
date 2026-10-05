@@ -5,7 +5,7 @@
 
 (define *synonym-refs* '())
 
-(predefine (add-derived-instances modules)) ; in derived/derived-instances.scm
+(predefine (add-derived-instances modules)) ; in derived/derived-instances.mumble
 
 (define (process-type-declarations modules)
 ;;; Convert data & type decls to definitions

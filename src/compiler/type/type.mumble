@@ -1,32 +1,32 @@
 (define-compilation-unit type
-  (source-filename "$Y2/type/")
+  (source-filename "$Y2/src/compiler/type/")
   (require ast haskell-utils)
   (unit type-macros
-        (source-filename "type-macros.scm"))
+        (source-filename "type-macros.mumble"))
   (unit unify
 	(require type-macros)
-	(source-filename "unify.scm"))
+	(source-filename "unify.mumble"))
   (unit type-main
 	(require type-macros)
-	(source-filename "type-main.scm"))
+	(source-filename "type-main.mumble"))
   (unit type-decl
 	(require type-macros)
-	(source-filename "type-decl.scm"))
+	(source-filename "type-decl.mumble"))
   (unit dictionary
 	(require type-macros)
-	(source-filename "dictionary.scm"))
+	(source-filename "dictionary.mumble"))
   (unit default
 	(require type-macros)
-	(source-filename "default.scm"))
+	(source-filename "default.mumble"))
   (unit pattern-binding
 	(require type-macros)
-	(source-filename "pattern-binding.scm"))
+	(source-filename "pattern-binding.mumble"))
   (unit type-vars
 	(require type-macros)
-	(source-filename "type-vars.scm"))
+	(source-filename "type-vars.mumble"))
   (unit expression-typechecking
 	(require type-macros)
-	(source-filename "expression-typechecking.scm"))
+	(source-filename "expression-typechecking.mumble"))
   (unit type-error-handlers
 	(require type-macros)
-	(source-filename "type-error-handlers.scm")))
+	(source-filename "type-error-handlers.mumble")))

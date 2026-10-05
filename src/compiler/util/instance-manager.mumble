@@ -137,7 +137,7 @@
 
 ;;; This creates a new instance object and installs it.
 
-(predefine (make-new-var name))  ; in tdecl/tdecl-utils.scm
+(predefine (make-new-var name))  ; in tdecl/tdecl-utils.mumble
 
 (define (new-instance class algdata tyvars)
  (let* ((dict-name

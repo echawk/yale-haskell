@@ -1,4 +1,4 @@
-;;; flic-walker.scm -- macros for defining code walkers for flic
+;;; flic-walker.mumble -- macros for defining code walkers for flic
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  7 May 1992

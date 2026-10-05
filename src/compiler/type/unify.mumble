@@ -1,5 +1,5 @@
 
-;;; File: type/unify.scm   Author: John
+;;; File: type/unify.mumble   Author: John
 
 ;;; This is the basic unification algorithm used in type checking.
 

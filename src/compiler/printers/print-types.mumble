@@ -1,9 +1,9 @@
-;;; print-types.scm -- print type-related AST structures
+;;; print-types.mumble -- print type-related AST structures
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  15 Jan 1991
 ;;;
-;;; This file corresponds to the stuff in ast/type-structs.scm
+;;; This file corresponds to the stuff in ast/type-structs.mumble
 ;;;
 
 (define-ast-printer tyvar (object xp)

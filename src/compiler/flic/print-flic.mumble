@@ -1,4 +1,4 @@
-;;; print-flic.scm -- printers for FLIC structures
+;;; print-flic.mumble -- printers for FLIC structures
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  30 Mar 1992

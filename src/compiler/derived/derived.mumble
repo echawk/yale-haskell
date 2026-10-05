@@ -4,10 +4,10 @@
 ;;;
 
 (define-compilation-unit derived
-  (source-filename "$Y2/derived/")
+  (source-filename "$Y2/src/compiler/derived/")
   (require global)
   (unit derived-instances
-    (source-filename "derived-instances.scm"))
+    (source-filename "derived-instances.mumble"))
   (unit ast-builders
     (source-filename "ast-builders"))
   (unit eq-ord

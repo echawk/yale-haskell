@@ -1,4 +1,4 @@
-;;; optimize.scm -- flic optimizer
+;;; optimize.mumble -- flic optimizer
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  7 May 1992
@@ -778,8 +778,8 @@
 	  (else
 	   (values fn args)))))
 
-(predefine (prim.rational-to-float-aux n d))   ; in prims.scm
-(predefine (prim.rational-to-double-aux n d))  ; in prims.scm
+(predefine (prim.rational-to-float-aux n d))   ; in prims.mumble
+(predefine (prim.rational-to-double-aux n d))  ; in prims.mumble
 
 (define (optimize-rational-to-float fn args)
   (let ((arg  (car args)))

@@ -4,8 +4,8 @@
     (initialize-haskell-system/forced))
   'haskell-ready)
 
-(predefine (**tycon/def def args))  ; in util/constructors.scm
-(predefine (init-cse-structs))      ; in csys/dump-cse.scm
+(predefine (**tycon/def def args))  ; in util/constructors.mumble
+(predefine (init-cse-structs))      ; in csys/dump-cse.mumble
 
 (define (initialize-haskell-system/forced)
   (setf *haskell-initialized?* '#t)

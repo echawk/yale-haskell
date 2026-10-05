@@ -1,4 +1,4 @@
-;;; command-interface/command-utils.scm
+;;; command-interface/command-utils.mumble
 
 ;;; These are utilities used by the command interface.
 

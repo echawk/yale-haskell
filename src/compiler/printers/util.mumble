@@ -1,4 +1,4 @@
-;;; util.scm -- utilities for printing AST structures
+;;; util.mumble -- utilities for printing AST structures
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  15 Jan 1992

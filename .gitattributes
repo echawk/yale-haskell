@@ -1,0 +1,3 @@
+# mumble (see src/mumble/README.md) is a Lisp dialect hosted on Common
+# Lisp.  Classify it as Lisp for GitHub's language statistics.
+*.mumble linguist-language=Common-Lisp linguist-detectable=true

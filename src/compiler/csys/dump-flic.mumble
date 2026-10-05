@@ -1,4 +1,4 @@
-;;; dump-flic.scm -- general dump functions for flic structures
+;;; dump-flic.mumble -- general dump functions for flic structures
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  24 Feb 1993

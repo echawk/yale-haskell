@@ -1,4 +1,4 @@
-;;; depend.scm -- module definition for dependency analysis
+;;; depend.mumble -- module definition for dependency analysis
 ;;;
 ;;; author :  John
 ;;; date   :  24 Mar 1992
@@ -6,8 +6,8 @@
 
 
 (define-compilation-unit depend
-  (source-filename "$Y2/depend/")
+  (source-filename "$Y2/src/compiler/depend/")
   (require ast haskell-utils)
   (unit dependency-analysis
-	(source-filename "dependency-analysis.scm")))
+	(source-filename "dependency-analysis.mumble")))
 	

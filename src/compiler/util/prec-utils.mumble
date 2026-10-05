@@ -1,4 +1,4 @@
-;;; prec-util.scm -- utilities for precedence parsing and printing of
+;;; prec-util.mumble -- utilities for precedence parsing and printing of
 ;;;                  expressions
 ;;;
 ;;; author :  Sandra Loosemore

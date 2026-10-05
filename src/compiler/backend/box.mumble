@@ -1,4 +1,4 @@
-;;; box.scm -- determine which expressions need to be boxed
+;;; box.mumble -- determine which expressions need to be boxed
 ;;;
 ;;; author  :  Sandra Loosemore
 ;;; date    :  03 Apr 1993
@@ -73,7 +73,7 @@
 ;;;            else if cheap?
 ;;;                    then generate x                           (6)
 ;;;                    then generate (delay (force x))           (7)
-;;; See function do-codegen in codegen.scm.
+;;; See function do-codegen in codegen.mumble.
 
 
 (define (do-box-analysis object already-forced uninitialized unboxed?)

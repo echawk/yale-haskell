@@ -1,4 +1,4 @@
-;;; logop-prims.scm -- primitives for logical operations on numbers
+;;; logop-prims.mumble -- primitives for logical operations on numbers
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  19 Jun 1993

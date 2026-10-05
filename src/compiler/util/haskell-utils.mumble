@@ -1,22 +1,22 @@
 (define-compilation-unit haskell-utils
-  (source-filename "$Y2/util/")
+  (source-filename "$Y2/src/compiler/util/")
   (require global)
   (unit constructors
-    (source-filename "constructors.scm"))
+    (source-filename "constructors.mumble"))
   (unit prec-utils
-    (source-filename "prec-utils.scm"))
+    (source-filename "prec-utils.mumble"))
   (unit walk-ast
-    (source-filename "walk-ast.scm"))
+    (source-filename "walk-ast.mumble"))
   (unit pattern-vars
-    (source-filename "pattern-vars.scm")    
+    (source-filename "pattern-vars.mumble")    
     (require walk-ast))
   (unit instance-manager
-    (source-filename "instance-manager.scm"))
+    (source-filename "instance-manager.mumble"))
   (unit signature
-    (source-filename "signature.scm"))
+    (source-filename "signature.mumble"))
   (unit type-utils
-    (source-filename "type-utils.scm"))
+    (source-filename "type-utils.mumble"))
   (unit annotation-utils
-    (source-filename "annotation-utils.scm"))
+    (source-filename "annotation-utils.mumble"))
   )
 

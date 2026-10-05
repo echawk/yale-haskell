@@ -1,4 +1,4 @@
-;;; copy-flic.scm -- general copy functions for flic structures
+;;; copy-flic.mumble -- general copy functions for flic structures
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  23 Feb 1993

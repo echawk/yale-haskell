@@ -1906,7 +1906,7 @@ d5 = readChan stdin exit processInput where
                     | True     = loop (n+1) xs
  
 -- For more examples using the I/O system look in the demo programs
--- that come with haskell (in $HASKELL/progs/demo) and the report.
+-- that come with haskell (in $HASKELL/examples/demo) and the report.
 
 -- Page 23  Sections 9, 9.1, 9.2
 
@@ -2131,7 +2131,7 @@ d9 = showArray (genMatMul and (==) mat1 mat1) 6
 
 This is the end of the tutorial.  If you wish to see more examples of
 Haskell programming, Yale Haskell comes with a set of demo programs.
-These can be found in $HASKELL/progs/demo.  Once you have mastered the
+These can be found in $HASKELL/examples/demo.  Once you have mastered the
 tutorial, both the report and the user manual for Yale Haskell should
 be understandable.  Many examples of Haskell programming can be found in
 the Prelude.  The directory $HASKELL/progs/prelude contains the sources

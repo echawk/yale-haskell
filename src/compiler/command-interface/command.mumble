@@ -159,7 +159,7 @@
 
 (define-command ("?")
   ":?            Print the help file."
-  (print-file "$HASKELL/command-interface-help"))
+  (print-file "$Y2/src/compiler/command-interface/help.txt"))
 
 (define-command ("eval")
   ":eval            Evaluate current extension."
@@ -242,7 +242,7 @@
   (if *emacs-mode*
       (notify-printers (dynamic *printers*))
       (begin
-	(print-file "$HASKELL/emacs-tools/printer-help.txt")
+	(print-file "$Y2/src/compiler/command-interface/printer-help.txt")
 	(say "~&Active printers: ~A~%" (dynamic *printers*)))
     ))
 
@@ -268,7 +268,7 @@
   (if *emacs-mode*
       (notify-optimizers (dynamic *optimizers*))
       (begin
-	(print-file "$HASKELL/emacs-tools/optimizer-help.txt")
+	(print-file "$Y2/src/compiler/command-interface/optimizer-help.txt")
 	(say "~&Active optimizers: ~A~%" (dynamic *optimizers*)))
     ))
 

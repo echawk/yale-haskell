@@ -4,23 +4,28 @@ Status: exploratory (October 2026).  This document records where the
 system stands, how far it is from Haskell 98, and the work needed to
 get there.
 
+> **Paths.**  Sections 1–4 were written before the repository was
+> restructured (§5).  Compiler paths such as `parser/lexer.scm:313`
+> now live at `src/compiler/parser/lexer.mumble`; `cl-support/` and
+> `support/` are `src/mumble/`; `runtime/` is `src/runtime/`; and
+> `progs/prelude` is `lib/haskell-1.2/prelude`.  Line numbers are
+> unchanged.
+
 ## 1. Where we are
 
 The source is Yale Haskell **Y2.0.5** (1994).  It implements **Haskell
 1.2**, written in "mumble", a Scheme-like dialect hosted on Common Lisp
-(`cl-support/`).  It last built on CMU CL 16f, Lucid, Allegro,
+(now `src/mumble/`).  It last built on CMU CL 16f, Lucid, Allegro,
 LispWorks and AKCL, all on SPARC.
 
 **It runs again.**  On the `ng` branch the compiler, the Prelude and a
 saved image build under **SBCL 2.6.9 on arm64 macOS**:
 
 ```
-com/sbcl/compile          # ~117 Lisp files; style warnings only
-com/sbcl/build-prelude    # full Prelude through every phase, to native code
-com/sbcl/savesys          # bin/sbcl-haskell.core (~45 MB)
+make                      # compiler (~117 files), the Prelude, build/sbcl/yale-haskell
+make test                 # output-comparison smoke tests
 bin/yale-haskell foo.hs   # compile + run Main.main
 bin/yale-haskell          # the old ":load / :run / =expr" REPL
-tests/run-smoke           # output-comparison smoke tests
 ```
 
 The demos `queens`, `fact`, `primes` and `pascal`, plus a test that
@@ -68,10 +73,17 @@ complete, working, readable pipeline:
 Rewriting it in Haskell would throw away what makes it interesting:
 it is a Lisp-hosted Haskell with a Lisp FFI.  The plan instead:
 
-1. **Single supported host: SBCL** (fast native code, actively
-   maintained, has `sb-posix` for the H98 system libraries).
-   Optionally keep CCL/ECL building for portability.  Delete the
-   Lucid, Allegro, LispWorks, AKCL, WCL, MCL and T branches.
+1. **Main host: SBCL** (fast native code, actively maintained, has
+   `sb-posix` for the H98 system libraries).  **Long-term goal:
+   portability across implementations**, tested on at least ECL and
+   ABCL as well.  The code base is old enough (pre-ANSI, written for
+   five Lisps at once) that this should be easier than for most
+   projects.  To keep that open, all host-specific code stays in
+   `src/mumble/`, behind `#+` conditionals, and new runtime
+   primitives prefer portable CL with a thin per-host layer (e.g.
+   POSIX calls).  The `Makefile` takes a `LISP=` variable for this.
+   The Lucid, Allegro, LispWorks, AKCL, WCL, MCL and T branches can
+   go once a second modern host builds.
 2. **Modernise the build and repo** (§5) before deep language work, so
    that iteration is cheap: one command to build, one to test, CI.
 3. **Get a regression suite in place**: the demos, the tutorial, the
@@ -214,10 +226,11 @@ Each milestone ends with the smoke and regression tests passing.
 **M0 — Revival (done on `ng`).**  SBCL build, saved image,
 `bin/yale-haskell`, smoke test.
 
-**M1 — Modern repo and tooling** (§5).  Makefile, out-of-tree build
-directory, delete dead hosts, clean batch-mode errors and exit codes,
-fix the warning noise, CI on Linux and macOS, regression suite from
-`progs/`.
+**M1 — Modern repo and tooling** (§5).  *Done:* Makefile, out-of-tree
+build directory, retired scripts, directory restructure, `.mumble`
+sources.  *Remaining:* clean batch-mode errors and exit codes, fix the
+warning noise, CI on Linux and macOS, a regression suite from
+`examples/`, and a second host (ECL or ABCL).
 
 **M2 — Cheap H98 wins (S each, parallelisable).**
 - Lexer and parser:
@@ -275,66 +288,69 @@ nofib's `imaginary` and `spectral` programs).
 
 ## 5. Repository restructuring and scripts
 
-### 5.1 Scripts to rewrite, retire or keep
+### 5.1 Done
 
-| Today | Action |
-|---|---|
-| `haskell-setup`, `haskell-development` (csh, hard-coded Yale paths `/cs/licensed/...`) | **Retire.**  Replace with `com/sbcl/env.sh` (done) and later the Makefile.  No user should need to source anything. |
-| `com/{cmu,lucid,allegro,lispworks,akcl}/*` (csh heredocs into a Lisp) | **Delete** (kept in git history).  `com/sbcl/{compile,build-prelude,savesys,clean}` replace them (done, POSIX sh). |
-| `com/clean`, `com/locked`, `com/lookfor`, `com/unchecked` (RCS workflow) | **Delete.**  Git covers them. |
-| `bin/cmu-haskell`, `bin/cmu-clx-haskell` | **Delete.**  Replaced by `bin/yale-haskell` (done). |
-| `com/*/build-xlib`, `savesys-xlib`, `progs/lib/X11` | **Defer.**  Could come back via Quicklisp's CLX, but low priority. |
-| `cl-support/wcl-patches.lisp`, `#+lucid`/`#+allegro`/… branches, T references in `README` and `com/clean` | **Delete** once SBCL is the only host, or keep one second host (CCL) for honesty. |
-| `cl-support/PORTING`, `README`, `com/README` | **Rewrite** for the new build. |
-| `emacs-tools/haskell.el`, `comint.el` (+ stale `.elc`) | Update `haskell.el` for the SBCL debugger prompt (PORTING step 8), drop the vendored `comint.el`, and drop the `.elc` files. |
-| `doc/*` (`.dvi`/`.ps` only, no sources except a `.tex` in `progs`) | Keep as historical docs, converted to PDF.  Write a new user README. |
+- **Makefile.**  `make`, `make test`, `make clean`, `make ref`.  The
+  Lisp drivers are in `tools/build/` (`compiler.lisp`, `prelude.lisp`,
+  `image.lisp`).  The image is a standalone executable,
+  `build/sbcl/yale-haskell`, wrapped by `bin/yale-haskell`, which sets
+  the environment variables.  Logs go to `build/sbcl/logs/`.
+- **Retired:** `haskell-setup` and `haskell-development` (csh with
+  hard-coded Yale paths), all of `com/` (per-Lisp csh scripts and the
+  RCS helpers), `bin/cmu-*`, the duplicate `bin/magic.scm`, and the
+  stale `.elc` files.
+- **Build output out of tree.**  `support/compile.scm` (now
+  `src/mumble/compile.mumble`) maps `$Y2/<dir>/` to
+  `$Y2/build/<lisp>/<dir>/`; `cl-init.lisp` does the same for the CL
+  files; output files create their own directories.
+- **Layout:**
 
-### 5.2 Layout and build changes
+  ```
+  src/mumble/      the dialect (CL implementation + compilation-unit system)
+  src/compiler/    top ast util printers parser import-export tdecl derived
+                   prec depend type cfn flic backend csys command-interface
+                   + system.mumble (loads everything)
+  src/runtime/
+  lib/haskell-1.2/ prelude hbc cl X11     (the H98 tree will sit beside it)
+  examples/        demo tutorial
+  tools/           build emacs
+  doc/ tests/ bin/ ref/ build/
+  ```
 
-1. **Build output out of the source tree.**  Today every source
-   directory grows a `<lisp>/` subdirectory, which is why the scripts
-   need `make_bin_dirs` and `.gitignore` needs `sbcl/`.  Change
-   `compile.binary-subdir` (`support/compile.scm:22`), the
-   `*support-binary-directory*` in `cl-support/cl-init.lisp` and
-   `PRELUDEBIN` so that everything goes under `build/sbcl/<dir>/`.
-   This is a small change and removes most of the script complexity.
-2. **Top-level `Makefile`** (`make`, `make prelude`, `make image`,
-   `make test`, `make clean`) that wraps `com/sbcl`, with real
-   dependencies on the `.scm`/`.hs` sources.
-3. **Directory regrouping (optional, one mechanical commit).**  The 20
-   top-level directories could become:
+- **mumble made explicit.**  The 135 sources were renamed `.scm` →
+  `.mumble`, `source-file-type` is `.mumble` (so generated `-hci` files
+  are too), and `src/mumble/README.md` explains the dialect.
+  `.gitattributes` classifies `.mumble` as Lisp on GitHub.
+- **The 1.2 Prelude is kept** as `lib/haskell-1.2/prelude`.
+- **Reference clones** of Hugs and the H98 Report live in the untracked
+  `ref/` (`make ref`; see `ref/README.md`).
 
-   ```
-   host/        cl-support (+ support/: mumble utilities, unit system)
-   compiler/    top ast util printers parser import-export tdecl derived
-                prec depend type cfn flic backend csys command-interface
-   runtime/
-   lib/         prelude/  (was progs/prelude)
-                hbc/ cl/ X11/ (was progs/lib)
-   examples/    progs/demo, progs/tutorial
-   tools/emacs/
-   doc/  tests/  bin/  com/sbcl/ (or scripts/)
-   ```
+### 5.2 Remaining
 
-   Each unit file hard-codes `"$Y2/<dir>/"` (e.g.
-   `parser/parser.scm:8`), as do `support/system.scm` and the `.hu`
-   files under `$PRELUDE`.  A move is therefore a sed over about 25
-   unit files plus `system.scm`.  Worth doing only together with item 1.
-4. **ASDF (later).**  `support/compile.scm`'s unit system already
-   records dependencies.  An `.asd` generated from it would let the
-   compiler load into any SBCL with `(asdf:load-system :yale-haskell)`.
-   It is not needed early.
-5. **Stop unlocking `COMMON-LISP`.**  Find the definitions that
-   redeclare CL specials and rename them, then remove
-   `sb-ext:unlock-package`.
-6. **Tests.**  `tests/smoke` (done) grows into `tests/run/*.hs` with
-   expected stdout; `tests/fail/*.hs` checks for expected compile
-   errors; and an H98 conformance directory.  Run them all in CI.
-7. **Language-version switch.**  While the H98 work is in progress,
-   keep the 1.2 Prelude under `lib/prelude-1.2/`, and add a flag that
-   selects which Prelude unit is loaded.  The 1.2 demos and the
-   tutorial then keep working as regression tests until they are
-   ported.
+1. **Tests.**  Grow `tests/smoke` into `tests/run/*.hs` with expected
+   stdout, add `tests/fail/*.hs` for expected compile errors, port the
+   `examples/demo` programs, and run everything in CI.
+2. **Batch mode.**  Report compile errors cleanly and exit non-zero;
+   silence the Lisp compiler's style warnings at run time (the
+   deprecated `eval-when` names come from
+   `src/mumble/cl-definitions.lisp`).
+3. **Stop unlocking `COMMON-LISP`.**  Rename the definitions that
+   redeclare CL specials, then remove `sb-ext:unlock-package`.
+4. **Second host.**  ECL or ABCL: add their branches in `src/mumble/`
+   and `LISP=ecl` support in the Makefile and `tools/build`.
+5. **Language-version switch.**  When the H98 Prelude starts, put it in
+   `lib/haskell98/`, and add a flag selecting which Prelude unit is
+   loaded (`*prelude-unit-filename*` in
+   `src/compiler/top/globals.mumble`).
+6. **ASDF (later).**  `src/mumble/compile.mumble`'s unit system already
+   records dependencies.  A generated `.asd` would let the compiler load
+   into any Lisp with `(asdf:load-system :yale-haskell)`.
+7. **Emacs.**  Update `tools/emacs/haskell.el` for the SBCL debugger
+   prompt and drop the vendored `comint.el`.
+8. **Docs.**  The `doc/` manuals exist only as `.dvi`/`.ps`; convert
+   them to PDF and keep them as historical documentation.
+9. **X11** (`lib/haskell-1.2/X11`): deferred; it could return via
+   Quicklisp's CLX.
 
 ## 6. Open questions
 
@@ -350,5 +366,6 @@ nofib's `imaginary` and `spectral` programs).
 - **Cost of an abstract `IO`.**  The optimiser currently erases the
   `IO` plumbing because `IO` is a synonym.  It is not yet measured how
   much an abstract type costs.
-- **Second host.**  Should CCL be kept building, as a guard against
-  SBCL-isms creeping into the mumble layer?
+- **Second host.**  ECL or ABCL first?  ECL has `ext:` POSIX support
+  and C compilation; ABCL runs on the JVM, so it is the stronger
+  portability test.

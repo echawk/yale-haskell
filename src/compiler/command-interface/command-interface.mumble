@@ -1,11 +1,11 @@
-;;; csys.scm -- compilation unit definition for the compilation system
+;;; csys.mumble -- compilation unit definition for the compilation system
 
 (define-compilation-unit command-interface
-  (source-filename "$Y2/command-interface/")
+  (source-filename "$Y2/src/compiler/command-interface/")
   (require global)
   (unit command
-    (source-filename "command.scm"))
+    (source-filename "command.mumble"))
   (unit command-utils
-    (source-filename "command-utils.scm"))
+    (source-filename "command-utils.mumble"))
   (unit incremental-compiler
-    (source-filename "incremental-compiler.scm")))
+    (source-filename "incremental-compiler.mumble")))

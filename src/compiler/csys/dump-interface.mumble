@@ -1,4 +1,4 @@
-;;; dump-interface.scm -- interface file writer/loader
+;;; dump-interface.mumble -- interface file writer/loader
 ;;;
 ;;; author :  John & Sandra
 ;;; date   :  8 Jul 1992
@@ -25,7 +25,7 @@
 ;;; Use a magic macro to memoize the form to be compiled.
 
 (define *form-to-compile* '#f)
-(define *magic-file-to-compile* "$HASKELL/bin/magic.scm")
+(define *magic-file-to-compile* "$Y2/src/compiler/csys/magic.mumble")
 
 
 ;;; The output from compiling the prelude can completely overwhelm

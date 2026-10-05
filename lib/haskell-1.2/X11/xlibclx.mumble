@@ -1,4 +1,4 @@
-;;; xlibclx.scm -- Lisp support for Haskell/CLX interface
+;;; xlibclx.mumble -- Lisp support for Haskell/CLX interface
 
 ;; general
 

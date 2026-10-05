@@ -1,4 +1,4 @@
-;;; main.scm -- main entry point for CFN pass
+;;; main.mumble -- main entry point for CFN pass
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  27 Feb 1992
@@ -77,7 +77,7 @@
 
 
 ;;; These have specialized walkers:
-;;; lambda, case, valdef, list-comp  (pattern.scm)
+;;; lambda, case, valdef, list-comp  (pattern.mumble)
 ;;; list-exp, list-comp, section-l, section-r, dict-placeholder,
-;;; recursive-placeholder, save-old-exp (misc.scm)
+;;; recursive-placeholder, save-old-exp (misc.mumble)
 

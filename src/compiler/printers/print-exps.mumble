@@ -1,9 +1,9 @@
-;;; print-exps.scm -- print expression AST structures
+;;; print-exps.mumble -- print expression AST structures
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  10 Jan 1992
 ;;;
-;;; This file corresponds to ast/exp-structs.scm.
+;;; This file corresponds to ast/exp-structs.mumble.
 ;;;
 
 (define-ast-printer lambda (object xp)

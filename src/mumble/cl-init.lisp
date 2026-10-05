@@ -118,7 +118,7 @@
 ;;; host Lisp.
 
 #-mcl (progn
-        (defvar *support-directory* "cl-support/")
+        (defvar *support-directory* "src/mumble/")
         (defvar *support-binary-directory*
           (concatenate 'string
                        "build/"
@@ -167,7 +167,7 @@
 (eval-when (eval compile load)
   (setf *package* (find-package "MUMBLE-USER")))
 
-(load "$Y2/support/system")
+(load "$Y2/src/compiler/system")
 (compile-haskell)
 
 

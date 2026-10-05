@@ -7,7 +7,7 @@ structure system.  Values are:
   struct   -- Prints the raw structs (with circularity check)
   top      -- Prints top level only of the struct
 
-The file defs.scm has the basic hooks to the printer mechanism.  The
+The file defs.mumble has the basic hooks to the printer mechanism.  The
 idea is that when *print-structure* is 'haskell, the print function stored
 in the type descriptor will get used.  If there isn't a print function,
 or if *print-structure* is false, then the thing will print out in

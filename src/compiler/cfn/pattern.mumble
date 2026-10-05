@@ -1,4 +1,4 @@
-;;; pattern.scm -- cfn processing of pattern-related AST structures
+;;; pattern.mumble -- cfn processing of pattern-related AST structures
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  27 Feb 1992

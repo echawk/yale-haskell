@@ -1,4 +1,4 @@
-;;; prec-parse.scm -- do precedence parsing of expressions and patterns
+;;; prec-parse.mumble -- do precedence parsing of expressions and patterns
 ;;;
 ;;; author :  John & Sandra
 ;;; date   :  04 Feb 1992

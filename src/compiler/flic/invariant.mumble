@@ -1,4 +1,4 @@
-;;; invariant.scm -- look for invariant expressions
+;;; invariant.mumble -- look for invariant expressions
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  12 Mar 1993

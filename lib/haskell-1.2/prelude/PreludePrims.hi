@@ -1,4 +1,4 @@
--- interface.scm -- define interface to primitives
+-- interface.mumble -- define interface to primitives
 --
 -- author :  Sandra & John
 -- date   :  24 Apr 1992

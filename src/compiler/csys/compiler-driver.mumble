@@ -1,4 +1,4 @@
-;;; compiler-driver.scm -- compilation unit management
+;;; compiler-driver.mumble -- compilation unit management
 ;;;
 ;;; author :  John & Sandra
 ;;;
@@ -56,7 +56,7 @@
 (define *source-file-extensions* '(".hs" ".lhs"))
 (define *unit-file-extension* ".hu")
 (define *interface-file-extension* ".hi")
-(define *lisp-file-extensions* '(".lisp" ".scm"))
+(define *lisp-file-extensions* '(".lisp" ".mumble" ".scm"))
 
 (define (source-extension? x)
   (mem-string x *source-file-extensions*))

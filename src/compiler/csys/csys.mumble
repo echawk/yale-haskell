@@ -1,25 +1,25 @@
-;;; csys.scm -- compilation unit definition for the compilation system
+;;; csys.mumble -- compilation unit definition for the compilation system
 
 (define-compilation-unit csys
-  (source-filename "$Y2/csys/")
+  (source-filename "$Y2/src/compiler/csys/")
   (require global runtime flic)
   (unit cache-structs
-    (source-filename "cache-structs.scm"))
+    (source-filename "cache-structs.mumble"))
   (unit compiler-driver
     (require cache-structs)
-    (source-filename "compiler-driver.scm"))
+    (source-filename "compiler-driver.mumble"))
   (unit dump-params
     (require cache-structs)
-    (source-filename "dump-params.scm"))
+    (source-filename "dump-params.mumble"))
   (unit dump-macros
     (require dump-params)
-    (source-filename "dump-macros.scm"))
+    (source-filename "dump-macros.mumble"))
   (unit dump-interface
     (require dump-macros)
-    (source-filename "dump-interface.scm"))
+    (source-filename "dump-interface.mumble"))
   (unit dump-flic
     (require dump-macros)
-    (source-filename "dump-flic.scm"))
+    (source-filename "dump-flic.mumble"))
   (unit dump-cse
     (require dump-macros)
-    (source-filename "dump-cse.scm")))
+    (source-filename "dump-cse.mumble")))

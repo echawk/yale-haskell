@@ -1,4 +1,4 @@
-;;; printers.scm -- compilation unit definition for structure printers
+;;; printers.mumble -- compilation unit definition for structure printers
 ;;;
 ;;; author :  Sandra Loosemore
 ;;; date   :  3 Jan 1992
@@ -6,23 +6,23 @@
 ;;;
 
 (define-compilation-unit printer-support
-  (source-filename "$Y2/printers/")
+  (source-filename "$Y2/src/compiler/printers/")
   (require global)
   (unit util
-	(source-filename "util.scm")))
+	(source-filename "util.mumble")))
 
 (define-compilation-unit printers
-  (source-filename "$Y2/printers/")
+  (source-filename "$Y2/src/compiler/printers/")
   (require printer-support)
   (unit print-exps
-	(source-filename "print-exps.scm"))
+	(source-filename "print-exps.mumble"))
   (unit print-modules
-	(source-filename "print-modules.scm"))
+	(source-filename "print-modules.mumble"))
   (unit print-types
-	(source-filename "print-types.scm"))
+	(source-filename "print-types.mumble"))
   (unit print-ntypes
-	(source-filename "print-ntypes.scm"))
+	(source-filename "print-ntypes.mumble"))
   (unit print-valdefs
-	(source-filename "print-valdefs.scm"))
+	(source-filename "print-valdefs.mumble"))
   )
 

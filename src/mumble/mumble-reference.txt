@@ -649,7 +649,7 @@ System Interface
 source-file-type
 binary-file-type
   These constants hold appropriate default types for source and
-  compiled files.  By convention, source-file-type is ".scm" but
+  compiled files.  By convention, source-file-type is ".mumble" but
   the binary-file-type depends on the underlying Lisp system.
 
 (file-exists? filename)

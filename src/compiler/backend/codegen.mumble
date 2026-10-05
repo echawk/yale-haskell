@@ -1,4 +1,4 @@
-;;; codegen.scm -- compile flic code to Lisp
+;;; codegen.mumble -- compile flic code to Lisp
 ;;;
 ;;; Author :  Sandra Loosemore
 ;;; Date   :  29 Apr 1992
@@ -57,7 +57,7 @@
       (push (codegen-definition var (var-value var)) result))))
 
 
-;;; See box.scm for more information about this...
+;;; See box.mumble for more information about this...
 
 (define (do-codegen object)
   (let ((x               (codegen object))
