@@ -1,0 +1,10 @@
+Red
+B 3
+B (-3)
+C A (B 2)
+D [1,-2] (3,'x') "s\"q"
+E Green
+Node Leaf (-1.5) (Node Leaf 2.0 Leaf)
+[Just' A,Nothing']
+(B 1)
+

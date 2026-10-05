@@ -1,0 +1,15 @@
+?- append(X,Y,cons(a,cons(b,nil)))
+;;;
+?- reverse(cons(a,cons(b,cons(c,nil))),R)
+
+?- palindromes(cons(a,cons(b,cons(a,nil))))
+?- palindromes(cons(a,cons(b,nil)))
+parent(tom,bob).
+parent(bob,ann).
+grand(X,Z):-parent(X,Y),parent(Y,Z).
+?- grand(tom,W)
+
+?- not(parent(ann,tom))
+?- not(parent(tom,bob))
+this is not prolog
+bye

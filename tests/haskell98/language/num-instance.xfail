@@ -1,0 +1,1 @@
+Num's superclasses are Eq and Text rather than Eq and Show, and there is no Show class (M5 class hierarchy)

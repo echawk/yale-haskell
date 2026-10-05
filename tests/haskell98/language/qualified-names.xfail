@@ -1,0 +1,1 @@
+needs qualified names: . always lexes as an operator (M7)

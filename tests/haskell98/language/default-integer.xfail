@@ -1,0 +1,1 @@
+the default default is (Int, Double), not (Integer, Double), and Int overflow wraps silently (M2 static semantics)
