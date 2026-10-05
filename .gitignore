@@ -4,3 +4,6 @@
 # Local reference clones (see ref/README.md)
 /ref/*
 !/ref/README.md
+
+# Claude Code agent worktrees
+/.claude/
