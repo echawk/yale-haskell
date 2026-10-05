@@ -1,0 +1,23 @@
+Thu Jan  1 00:00:00 UTC 1970
+Sun Sep  9 01:46:40 UTC 2001
+1000000000
+A=Sunday a=Sun B=September b=Sep h=Sep C=20 d=09 e= 9 H=01 I=01 j=251 k= 1 l= 1 M=46 m=09 p=AM S=40 U=36 u=7 V=36 W=36 w=0 Y=2001 y=01 Z=UTC 
+09/09/01|01:46:40|01:46|01:46:40 AM|09/09/01|01:46:40|%|
+|	|
+(251,Sunday)
+Wed Dec 31 23:59:59 UTC 1969
+Tue Feb 29 12:00:00 UTC 2000
+Thu Mar  1 00:00:00 UTC 1900
+Tue Dec 31 23:59:59 UTC 2024 day 365
+Sun Sep  9 01:46:40 UTC 2001
+Sat Mar  3 10:00:00 UTC 2001
+Sat Oct 11 04:50:45 UTC 2003
+(1000000000,0)
+(True,True,True)
+clock non-decreasing: True
+clock after 2024: True
+local round trip: True
+local offset sane: True
+local round trip 2: True
+(("AM","PM"),"%m/%d/%y")
+

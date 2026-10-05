@@ -1,0 +1,16 @@
+-- TimePrims.hi -- Lisp primitives for the Time library
+-- (src/runtime/system-prims.mumble).  Times are Unix seconds.
+
+interface TimePrims where
+
+primGetClockTime    :: IO (Integer, Integer)
+primTimeZoneOffset  :: Integer -> IO Int
+primIsDST           :: Integer -> IO Bool
+primTimeZoneName    :: Integer -> IO String
+
+{-#
+primGetClockTime    :: LispName("prim.get-clock-time")
+primTimeZoneOffset  :: LispName("prim.time-zone-offset")
+primIsDST           :: LispName("prim.is-dst")
+primTimeZoneName    :: LispName("prim.time-zone-name")
+#-}
