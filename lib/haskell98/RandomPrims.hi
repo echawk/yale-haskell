@@ -1,0 +1,25 @@
+-- RandomPrims.hi -- mutable cells, for the Random library's global
+-- generator (src/runtime/handle-prims.mumble).
+--
+-- primNamedRef returns the same cell every time it is called with the
+-- same name, so a top-level  r = primNamedRef "..."  is a global
+-- variable.  A named cell starts out empty (primRefIsEmpty); reading an
+-- empty cell is a runtime error.  Values are stored forced to WHNF.
+
+interface RandomPrims where
+
+data Ref a
+
+primNewRef      :: a -> IO (Ref a)
+primNamedRef    :: String -> Ref a
+primRefIsEmpty  :: Ref a -> IO Bool
+primReadRef     :: Ref a -> IO a
+primWriteRef    :: Ref a -> a -> IO ()
+
+{-#
+primNewRef      :: LispName("prim.new-ref")
+primNamedRef    :: LispName("prim.named-ref")
+primRefIsEmpty  :: LispName("prim.ref-is-empty")
+primReadRef     :: LispName("prim.read-ref")
+primWriteRef    :: LispName("prim.write-ref")
+#-}
