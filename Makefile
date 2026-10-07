@@ -15,6 +15,7 @@
 LISP     ?= sbcl
 SBCL     ?= sbcl
 HEAP_MB  ?= 4096
+STACK_MB ?= 512
 DIALECTS ?= haskell-1.2 haskell98
 
 Y2       := $(CURDIR)
@@ -26,7 +27,7 @@ export HASKELL := $(Y2)
 
 COMPILER_SOURCES := $(shell find src tools/build -name '*.mumble' -o -name '*.lisp')
 
-RUN_SBCL = $(SBCL) --dynamic-space-size $(HEAP_MB) --non-interactive --no-userinit
+RUN_SBCL = $(SBCL) --dynamic-space-size $(HEAP_MB) --control-stack-size $(STACK_MB) --non-interactive --no-userinit
 
 # Environment the compiler expects for dialect $(1).
 dialect_env = PRELUDE=$(Y2)/lib/$(1)/prelude \

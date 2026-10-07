@@ -19,7 +19,10 @@
 		 (cond ((algdata? def)
 			(strip-constructors group))
 		       ((synonym? def)
-			(signal-synonym-needs-dots name (module-name mod)))
+			;; H98 names a synonym by its bare name
+			(if (haskell98?)
+			    group
+			    (signal-synonym-needs-dots name (module-name mod))))
 		       (else
 			(signal-wrong-definition
 			  "type constructor" name (module-name mod)))))
@@ -53,15 +56,26 @@
 		 (error "Bad entity ~s." entity))
 		)))))
 
+;;; Haskell 1.2 requires an entity specification to name every constructor
+;;; or method.  Haskell 98 allows a subset, T(C1), and the result is the
+;;; group restricted to the names listed.
+
 (define (match-constituents group names entity what)
   (check-duplicates names entity)
-  (dolist (n-d (cdr group))
-    (when (not (memq (tuple-2-1 n-d) names))
-      (signal-extra-constituent entity (tuple-2-1 n-d) what)))
+  (when (not (haskell98?))
+    (dolist (n-d (cdr group))
+      (when (not (memq (tuple-2-1 n-d) names))
+	(signal-extra-constituent entity (tuple-2-1 n-d) what))))
   (dolist (name names)
     (when (not (assq name (cdr group)))
       (signal-missing-constituent entity name what)))
-  group)
+  (if (haskell98?)
+      (let ((kept '()))
+	(dolist (n-d (cdr group))
+	  (when (memq (tuple-2-1 n-d) names)
+	    (push n-d kept)))
+	(cons (car group) (reverse kept)))
+      group))
 
 
 ;;; The following routine locates an entity in the current module.
@@ -80,7 +94,9 @@
 	   (cond ((algdata? def)
 		  (make-group name def))
 		 ((synonym? def)
-		  (signal-synonym-needs-dots name *module-name*))
+		  (if (haskell98?)
+		      (make-group name def)
+		      (signal-synonym-needs-dots name *module-name*)))
 		 (else
 		  (signal-wrong-definition
 		    "type constructor" name *module-name*))))

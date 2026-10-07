@@ -41,6 +41,16 @@
 			      ,dicts))))
 	      other-dicts))))
 
+;;; The layout of a dictionary is the class's methods in declaration order
+;;; followed by its superclass dictionaries (class-super*).  The position of
+;;; a superclass dictionary is computed from the class definitions rather
+;;; than being fixed here, so the Prelude may add methods to a class.
+
+(define (dict-super-slot class super)
+  (do ((l (class-super* class) (cdr l))
+       (i (class-n-methods class) (1+ i)))
+      ((eq? (car l) super) i)))
+
 (define prim.tupleEqdict
   (lambda dicts
     (tupleEqDict/l dicts)))
@@ -55,18 +65,42 @@
    (tupleOrdDict/l dicts)))
 
 (define (tupleOrdDict/l d)
-  (create-dict d
-   (|PreludeTuple:tupleLe| |PreludeTuple:tupleLeq|
-    |PreludeTuple:tupleGe| |PreludeTuple:tupleGeq|
-    |PreludeTuple:tupleMax| |PreludeTuple:tupleMin|)
-   ((tupleEqDict/l 7 6))))
+  (let ((ord (core-symbol "Ord")))
+    (if (haskell98?)
+	;; Haskell 98: compare is the last method
+	(create-dict d
+	 (|PreludeTuple:tupleLe| |PreludeTuple:tupleLeq|
+	  |PreludeTuple:tupleGe| |PreludeTuple:tupleGeq|
+	  |PreludeTuple:tupleMax| |PreludeTuple:tupleMin|
+	  |PreludeTuple:tupleCompare|)
+	 ((tupleEqDict/l (class-dict-size ord)
+			 (dict-super-slot ord (core-symbol "Eq")))))
+	(create-dict d
+	 (|PreludeTuple:tupleLe| |PreludeTuple:tupleLeq|
+	  |PreludeTuple:tupleGe| |PreludeTuple:tupleGeq|
+	  |PreludeTuple:tupleMax| |PreludeTuple:tupleMin|)
+	 ((tupleEqDict/l (class-dict-size ord)
+			 (dict-super-slot ord (core-symbol "Eq"))))))))
 
 (define prim.tupleIxDict
  (lambda dicts
-   (create-dict dicts
+   (let ((ix (core-symbol "Ix")))
+     (create-dict dicts
       (|PreludeTuple:tupleRange| |PreludeTuple:tupleIndex|
        |PreludeTuple:tupleInRange|)
-      ((tupleEqDict/l 6 3) (tupleTextDict/l 6 4) (tupleOrdDict/l 6 5)))))
+      ((tupleEqDict/l (class-dict-size ix)
+		      (dict-super-slot ix (core-symbol "Eq")))
+       (tupleTextDict/l (class-dict-size ix)
+			(dict-super-slot ix (core-symbol "Text")))
+       (tupleOrdDict/l (class-dict-size ix)
+		       (dict-super-slot ix (core-symbol "Ord"))))))))
+
+;;; Haskell 98 only.
+(define prim.tupleBoundedDict
+ (lambda dicts
+   (create-dict dicts
+    (|PreludeTuple:tupleMinBound| |PreludeTuple:tupleMaxBound|)
+    ())))
 
 (define prim.tupleTextDict
  (lambda dicts

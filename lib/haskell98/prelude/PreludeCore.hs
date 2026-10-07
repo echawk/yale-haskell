@@ -2,7 +2,7 @@
 
 module PreludeCore (
     Eq((==), (/=)),
-    Ord((<), (<=), (>=), (>), max, min), compare,
+    Ord((<), (<=), (>=), (>), max, min, compare),
     Bounded(minBound, maxBound),
     Num((+), (-), (*), negate, abs, signum, fromInteger),
     Integral(quot, rem, div, mod, quotRem, divMod, even, odd, toInteger),
@@ -30,7 +30,7 @@ module PreludeCore (
     mapM, mapM_, sequence, sequence_, (=<<),
     Char, Int, Integer, Float, Double, Bin,
     Ratio, Complex((:+)), Assoc((:=)), Array,
-    String(..), Rational(..), minInt, maxInt )  where
+    String(..), Rational(..) )  where
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
@@ -75,13 +75,21 @@ class  Eq a  where
     x /= y		=  not (x == y)
     x == y		=  not (x /= y)
 
+-- compare is the last method because the runtime builds tuple dictionaries
+-- from the method order (src/runtime/tuple-prims.mumble).  Minimal complete
+-- definition: compare or (<=).
 class  (Eq a) => Ord a  where
     (<), (<=), (>=), (>):: a -> a -> Bool
     max, min		:: a -> a -> a
+    compare		:: a -> a -> Ordering
 
-    x <	 y		=  x <= y && x /= y
-    x >= y		=  y <= x
-    x >	 y		=  y <	x
+    compare x y | x == y	=  EQ
+		| x <= y	=  LT
+		| otherwise	=  GT
+    x <	 y		=  case compare x y of { LT -> True;  _ -> False }
+    x <= y		=  case compare x y of { GT -> False; _ -> True }
+    x >	 y		=  case compare x y of { GT -> True;  _ -> False }
+    x >= y		=  case compare x y of { LT -> False; _ -> True }
 
     -- Haskell 98 defaults (total orders).
     max x y | x <= y	=  y
@@ -89,18 +97,10 @@ class  (Eq a) => Ord a  where
     min x y | x <= y	=  x
 	    | otherwise	=  y
 
--- H98: compare should be a method of Ord.  It cannot be one yet: the
--- runtime builds Ord dictionaries for tuples with a fixed layout
--- (src/runtime/tuple-prims.mumble), so it is an ordinary function.
-
 data  Ordering  =  LT | EQ | GT  deriving (Eq, Ord, Ix)
 
-compare			:: (Ord a) => a -> a -> Ordering
-compare x y | x == y	=  EQ
-	    | x <= y	=  LT
-	    | otherwise	=  GT
 
--- Bounded class (H98).  No derived instances yet.
+-- Bounded class (H98).
 
 class  Bounded a  where
     minBound, maxBound	:: a
@@ -232,13 +232,11 @@ class  (Ord a, Text a) => Ix a  where   -- This is a Yale modification
     index		:: (a,a) -> a -> Int
     inRange		:: (a,a) -> a -> Bool
 
--- H98 drops the Ord superclass of Enum.  It is kept here because
--- derived Enum instances only define enumFrom and enumFromThen, so the
--- defaults for enumFromTo and enumFromThenTo must use (<=).  For the
--- same reason, toEnum and fromEnum (and so pred) do not work for
--- derived instances yet; succ does.
+-- H98: Enum has no Ord superclass.  The defaults for enumFromTo and
+-- enumFromThenTo go through Int, as in the Report; instances for types
+-- with an ordering (Int, Integer, Char) use defaultEnumFromTo below.
 
-class  (Ord a) => Enum a	where
+class  Enum a	where
     succ, pred		:: a -> a
     toEnum		:: Int -> a
     fromEnum		:: a -> Int
@@ -255,8 +253,9 @@ class  (Ord a) => Enum a	where
     fromEnum _		= error "fromEnum{PreludeCore}: not defined for this type"
     enumFrom x		= map toEnum [fromEnum x ..]
     enumFromThen x y	= map toEnum [fromEnum x, fromEnum y ..]
-    enumFromTo          = defaultEnumFromTo
-    enumFromThenTo      = defaultEnumFromThenTo
+    enumFromTo x y	= map toEnum [fromEnum x .. fromEnum y]
+    enumFromThenTo x y z
+			= map toEnum [fromEnum x, fromEnum y .. fromEnum z]
 
 defaultEnumFromTo n m	=  takeWhile (<= m) (enumFrom n)
 defaultEnumFromThenTo n n' m

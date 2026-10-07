@@ -1,1 +1,0 @@
-Enum has Ord as a superclass, so deriving Enum alone is rejected (M5 class hierarchy)

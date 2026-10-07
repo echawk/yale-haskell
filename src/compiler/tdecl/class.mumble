@@ -81,6 +81,11 @@
 (define (find-class-kind class)
   (cond ((not (module-prelude? *module*))
 	 'other)
+	;; Haskell 98 4.3.4: defaulting is allowed when all the classes
+	;; are from the Prelude or a standard library, so the standard
+	;; classes that are not core symbols (Bounded) count too.
+	((and (haskell98?) (eq? (def-name class) '|Bounded|))
+	 'Standard)
 	((memq class
 	       (list (core-symbol "Eq") (core-symbol "Ord")
 		     (core-symbol "Text") (core-symbol "Binary")

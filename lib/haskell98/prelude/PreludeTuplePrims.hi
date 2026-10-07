@@ -29,6 +29,7 @@ tupleOrdDict :: a
 tupleIxDict :: a
 tupleTextDict :: a
 tupleBinaryDict :: a
+tupleBoundedDict :: a
 
 {-#
 tupleSize ::       LispName("prim.tupleSize"), Complexity(1)
@@ -40,6 +41,7 @@ tupleOrdDict ::    LispName("prim.tupleOrdDict")
 tupleIxDict ::     LispName("prim.tupleIxDict")
 tupleTextDict ::   LispName("prim.tupleTextDict")
 tupleBinaryDict :: LispName("prim.tupleBinaryDict")
+tupleBoundedDict :: LispName("prim.tupleBoundedDict")
 
 #-}
 

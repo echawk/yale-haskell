@@ -27,7 +27,10 @@
   (dolist (decl decls)
     (dolist (var-ref (collect-pattern-vars (valdef-lhs decl)))
      (let ((var (var-ref-var var-ref)))
-      (when (def-exported? var)
+      ;; Haskell 98 (rule 2 of the monomorphism restriction) lets a
+      ;; restricted binding be exported: its type variables are
+      ;; defaulted when the whole module has been checked.
+      (when (and (def-exported? var) (not (haskell98?)))
 	(recoverable-error 'exported-pattern-binding
            "Can't export pattern binding of ~A~%" var-ref))
       (when (not (eq? (var-signature var) '#f))

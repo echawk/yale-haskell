@@ -4,4 +4,3 @@ t0 >= 0: True
 work: 42857
 non-decreasing: True
 advanced: True
-

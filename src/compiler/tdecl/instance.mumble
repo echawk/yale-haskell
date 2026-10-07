@@ -35,7 +35,10 @@
 	  (signal-datatype-required (tycon-def simple)))
         (let ((tyvars (simple-tyvar-list simple)))
 	  (resolve-signature-aux tyvars context)
-	  (when (and (not (eq? *module-name* (def-module alg-def)))
+	  ;; Haskell 98 has no C-T rule: an instance may be declared in any
+	  ;; module (duplicates are still rejected below).
+	  (when (and (not (haskell98?))
+		     (not (eq? *module-name* (def-module alg-def)))
 		     (not (eq? *module-name* (def-module class-def))))
 	    (signal-c-t-rule-violation class-def alg-def))
 	  (let ((old-inst (lookup-instance alg-def class-def)))

@@ -13,11 +13,10 @@ hGetLine on a semi-closed handle: illegalOperation
 lines: 4, chars: 38
 after reading it all: open False, closed True
 read/write: FIRST line
-buffering: BlockBuffering 0 NoBuffering BlockBuffering 512
+buffering: BlockBuffering default NoBuffering BlockBuffering 512
 open a directory: illegalOperation
 (True,False,True)
 {handle: <stdout>} {handle: <stderr>}
 isEOF: False
 stdin: ("line one",'x',"yz\n")
 isEOF after hGetContents stdin: illegalOperation
-

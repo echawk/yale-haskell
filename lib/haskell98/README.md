@@ -50,20 +50,18 @@ rejects re-exporting an entity it gets from the Prelude.
 
 - **Still exported for compatibility:** `ord`, `chr`, `isAscii`,
   `isControl`, `isPrint`, `isSpace`, `isUpper`, `isLower`, `isAlpha`,
-  `isDigit`, `isAlphaNum`, `toUpper`, `toLower` (H98: only in `Char`);
-  `minInt`, `maxInt`, `minChar`, `maxChar`, `fromRealFrac` (used by
-  `Random.hs`; H98 uses `minBound`/`maxBound`/`realToFrac`); the
+  `isDigit`, `isAlphaNum`, `toUpper`, `toLower` (H98: only in `Char`); the
   Dialogue I/O names; `nullBin`, `isNullBin`, `appendBin`.
 - **Always in scope** (compiler core symbols in `PreludeCore`): the
-  types `Ratio`, `Complex` (with `:+`), `Array`, `Assoc` (with `:=`),
-  `Bin`, and the classes `Text` and `Binary`.  Programs cannot define
-  these names.
-- `compare` is a function, not an `Ord` method; `rangeSize` is a
-  function, not an `Ix` method.  The runtime builds tuple dictionaries
-  for `Ord` and `Ix` with a fixed layout (`src/runtime/tuple-prims.mumble`).
-- `Enum` keeps its `Ord` superclass and `Ix` its `Text` superclass;
-  derived `Enum` instances lack `toEnum`/`fromEnum` (and so `pred`);
-  there is no `deriving Bounded`.
+  types `Ratio`, `Complex` (with `:+`), `Array`, and the classes
+  `Text` and `Binary`.  Programs cannot define these names.  (`Bin`,
+  `Assoc` and `:=` are core symbols too, but user modules may define
+  them: `hidden-core-name?` in `top/symbol-table.mumble`.)
+- `rangeSize` is a function, not an `Ix` method.  The runtime builds
+  tuple dictionaries for `Ord`, `Ix` and `Bounded`; superclass slots are
+  computed from the class definitions, and `compare` is the last `Ord`
+  method (`src/runtime/tuple-prims.mumble`).
+- `Ix` keeps its `Text` superclass.
 - `Text` stands in for `Show`/`Read`; no `Functor`, `Monad` or monadic
   I/O.
 - Arrays take H98 `(i, e)` pairs (the 1.2 `i := e` form is gone).

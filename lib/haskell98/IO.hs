@@ -17,9 +17,6 @@
 --     (import Prelude hiding (IOError, stdin, stdout, stderr)).
 --   * The rest of what H98's IO re-exports from the Prelude (putStr,
 --     getLine, readFile, ...) is not available in monadic form yet.
---   * Without Maybe and Either in the Prelude, ioeGetHandle,
---     ioeGetFileName and try are missing, and BlockBuffering takes an
---     Int (0 means the default size) instead of a Maybe Int.
 --   * There is no Bounded or Show; the enumerations derive the 1.2
 --     classes (Text instead of Show/Read).
 --   * The H98 single-writer/multiple-reader file locking is not
@@ -42,8 +39,8 @@ module IO (
     isAlreadyExistsError, isDoesNotExistError, isAlreadyInUseError,
     isFullError, isEOFError,
     isIllegalOperation, isPermissionError, isUserError,
-    ioeGetErrorString,
-    bracket, bracket_
+    ioeGetErrorString, ioeGetHandle, ioeGetFileName,
+    bracket, bracket_, try
     ) where
 
 import Prelude hiding (stdin, stdout, stderr)
@@ -71,6 +68,19 @@ isUserError e          = errorKind e == 8
 
 ioeGetErrorString     :: IOError -> String
 ioeGetErrorString (IOError e) = primIOErrorString e
+
+ioeGetFileName        :: IOError -> Maybe FilePath
+ioeGetFileName (IOError e) | primIOErrorHasFile e = Just (primIOErrorFile e)
+                           | otherwise            = Nothing
+
+ioeGetHandle          :: IOError -> Maybe Handle
+ioeGetHandle (IOError e) | primIOErrorHasHandle e
+                                   = Just (Handle (primIOErrorHandle e))
+                         | otherwise = Nothing
+
+try                   :: IO a -> IO (Either IOError a)
+try a                 =  catch (a `thenIO` \v -> returnIO (Right v))
+                               (\e -> returnIO (Left e))
 
 bracket               :: IO a -> (a -> IO b) -> (a -> IO c) -> IO c
 bracket before after thing =
@@ -106,7 +116,7 @@ instance Text HandlePosn where
 data IOMode      =  ReadMode | WriteMode | AppendMode | ReadWriteMode
                     deriving (Eq, Ord, Ix, Enum, Text)
 data BufferMode  =  NoBuffering | LineBuffering
-                 |  BlockBuffering Int
+                 |  BlockBuffering (Maybe Int)
                     deriving (Eq, Ord, Text)
 data SeekMode    =  AbsoluteSeek | RelativeSeek | SeekFromEnd
                     deriving (Eq, Ord, Ix, Enum, Text)
@@ -139,7 +149,8 @@ isEOF                 =  hIsEOF stdin
 hSetBuffering         :: Handle -> BufferMode -> IO ()
 hSetBuffering (Handle h) NoBuffering        = primHSetBuffering h 0 0
 hSetBuffering (Handle h) LineBuffering      = primHSetBuffering h 1 0
-hSetBuffering (Handle h) (BlockBuffering n) = primHSetBuffering h 2 n
+hSetBuffering (Handle h) (BlockBuffering Nothing)  = primHSetBuffering h 2 0
+hSetBuffering (Handle h) (BlockBuffering (Just n)) = primHSetBuffering h 2 n
 
 hGetBuffering         :: Handle -> IO BufferMode
 hGetBuffering (Handle h) =
@@ -148,7 +159,7 @@ hGetBuffering (Handle h) =
   returnIO (case m of
               0 -> NoBuffering
               1 -> LineBuffering
-              _ -> BlockBuffering n)
+              _ -> BlockBuffering (if n == 0 then Nothing else Just n))
 
 hFlush                :: Handle -> IO ()
 hFlush (Handle h)     =  primHFlush h

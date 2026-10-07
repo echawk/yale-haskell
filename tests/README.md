@@ -28,16 +28,12 @@ tests/<dialect>/<area>/<name>.xfail     marks an expected failure; first line = 
 - **Tests that must fail.**  A `.exit` file holds the expected exit
   status on its first line, e.g. `1` for a program that must be
   rejected by the compiler or must stop with a runtime error.  The
-  `.stdout` is still compared if it exists; for a compile error, leave
-  it out, since the compiler's messages currently go to stdout.  A
+  `.stdout` is still compared if it exists; compiler diagnostics go to
+  stderr, so for a compile error it is empty.  A
   runtime-error test can keep a `.stdout` with the output produced
   before the error.
 - `.hs` files with neither `.stdout` nor `.exit` are not tests (e.g.
   helper modules).
-- **Batch mode prints one extra newline** after the program's output
-  (but not after a runtime error), so a `.stdout` ends with an empty
-  line.  If that is fixed, the expected outputs all lose their last
-  newline.
 - **Multi-module tests.**  Yale Haskell finds modules through *unit
   files* (`.hu`: one file name per line, `.hs` sources or other `.hu`
   units).  If `<name>.hu` exists next to `<name>.hs`, the compiler uses

@@ -71,8 +71,14 @@
 	  (dolist (con constr-defs)
 	    (let* ((con-type (**arrow-type/l (append (con-types con)
 						     (list simple))))
-		   (con-context (restrict-context
-				 context (tuple-2-2 (assq con all-con-vars))))
+		   ;; Haskell 98 4.2.1: the whole datatype context applies
+		   ;; to every constructor; Haskell 1.2 only to the
+		   ;; constraints on variables the constructor mentions.
+		   (con-context (if (haskell98?)
+				    context
+				    (restrict-context
+				      context
+				      (tuple-2-2 (assq con all-con-vars)))))
 		   (con-signature (ast->gtype con-context con-type)))
 	      (setf (con-signature con) con-signature)))
 	  (update-slots algdata def

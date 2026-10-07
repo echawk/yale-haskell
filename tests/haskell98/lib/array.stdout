@@ -8,4 +8,3 @@ array (1,3) [(1,'z'),(2,'y'),(3,'x')]
 (832040,True,True)
 Just (array (0,1) [(0,True),(1,False)])
 array (0,1) [(0,'p'),(1,'q')]
-

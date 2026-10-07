@@ -9,4 +9,3 @@ Just (Just Nothing)
 (Just (-2),[Nothing,Just 3])
 (Right True,Left 3)
 (Just 2,Nothing)
-

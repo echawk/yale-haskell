@@ -83,6 +83,54 @@
 ; Enum uses the Int methods since Enums are represented as Ints.
 
 (define (enum-fns algdata)
+  (if (haskell98?)
+      (append (enum-fns/from algdata) (enum-fns/98 algdata))
+      (enum-fns/from algdata)))
+
+;;; Haskell 98: Enum has no Ord superclass, so every method is defined
+;;; here (the class defaults would need (<=)), and toEnum/fromEnum are
+;;; real methods.  Enumerations are represented as Ints.
+
+(define (enum-fns/98 algdata)
+  (let ((last-number (**con-number (**con/def (last-con algdata)) algdata)))
+    (list
+     (**define '|fromEnum| '(|x|)
+       (**con-number (**var '|x|) algdata))
+     (**define '|toEnum| '(|n|)
+       (**if (**or (**< (**var '|n|) (**int 0))
+		   (**> (**var '|n|) last-number))
+	     (**app (**var/def (core-symbol "error"))
+		    (**string "toEnum{Derived}: tag out of range"))
+	     (**cast (**var '|n|))))
+     (**define '|enumFromTo| '(|x| |y|)
+       (**let
+	(list
+	 (**define '|cy| '() (**con-number (**var '|y|) algdata))
+	 (**define '|from'| '(|x'|)
+	   (**if (**> (**var '|x'|) (**var '|cy|))
+		 (**null)
+		 (**cons (**var '|x'|)
+			 (**app (**var '|from'|) (**1+ (**var '|x'|)))))))
+	(**cast (**app (**var '|from'|) (**con-number (**var '|x|) algdata)))))
+     (**define '|enumFromThenTo| '(|x| |y| |z|)
+       (**let
+	(list
+	 (**define '|cz| '() (**con-number (**var '|z|) algdata))
+	 (**define '|step| '()
+	   (**- (**con-number (**var '|y|) algdata)
+		(**con-number (**var '|x|) algdata)))
+	 (**define '|from'| '(|x'|)
+	   (**if (**if (**< (**var '|step|) (**int 0))
+		       (**< (**var '|x'|) (**var '|cz|))
+		       (**> (**var '|x'|) (**var '|cz|)))
+		 (**null)
+		 (**cons (**var '|x'|)
+			 (**app (**var '|from'|)
+				(**+ (**var '|x'|) (**var '|step|)))))))
+	(**cast (**app (**var '|from'|)
+		       (**con-number (**var '|x|) algdata))))))))
+
+(define (enum-fns/from algdata)
   (list
    (**define '|enumFrom| '(|x|)
        (**let
@@ -114,3 +162,28 @@
 (define (last-con algdata)
   (car (reverse (algdata-constrs algdata))))
 
+
+
+;;; ----------------------------------------------------------------
+;;;  Bounded (Haskell 98 only)
+;;; ----------------------------------------------------------------
+
+(define (bounded-fns algdata)
+  (if (algdata-enum? algdata)
+      (list
+       (**define '|minBound| '()
+	 (**con/def (car (algdata-constrs algdata))))
+       (**define '|maxBound| '()
+	 (**con/def (last-con algdata))))
+      (let ((con (car (algdata-constrs algdata))))
+	(list
+	 (**define '|minBound| '()
+	   (**app/l (**con/def con)
+		    (map (lambda (x)
+			   (**var/def (core-symbol "minBound")))
+			 (con-types con))))
+	 (**define '|maxBound| '()
+	   (**app/l (**con/def con)
+		    (map (lambda (x)
+			   (**var/def (core-symbol "maxBound")))
+			 (con-types con))))))))

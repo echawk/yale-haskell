@@ -1,1 +1,0 @@
-compiler bug: an ambiguous type with only a RealFrac context is not defaulted to Double (type/default.mumble)

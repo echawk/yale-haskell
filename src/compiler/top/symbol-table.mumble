@@ -256,9 +256,18 @@
   *undefined-def*)
 
 
+;;; Haskell 1.2 compiler core names that the Haskell 98 Prelude does not
+;;; export: programs outside the prelude may define them (the 98 Prelude
+;;; modules themselves still use the core definitions).
+
+(define (hidden-core-name? name)
+  (and (haskell98?)
+       (not (module-prelude? *module*))
+       (memq name '(|Bin| |Assoc| |;:=|))))
+
 (define (resolve-toplevel-name name)
   (let ((pc (table-entry *prelude-core-symbols* name)))
-    (cond ((not (eq? pc '#f))
+    (cond ((and (not (eq? pc '#f)) (not (hidden-core-name? name)))
 	   pc)
 	  ((module-uses-standard-prelude? *module*)
 	   (let ((res (table-entry *prelude-symbol-table* name)))

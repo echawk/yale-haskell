@@ -15,5 +15,7 @@ after
 openFile missing: doesNotExist
 hGetLine at EOF: eof
 hPutStr stdin: illegalOperation
+try Left: Just "/nonexistent/yale-haskell/file" Nothing
+try Right 5
+user: (Nothing,True)
 done
-

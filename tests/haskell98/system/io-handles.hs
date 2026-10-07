@@ -27,7 +27,7 @@ kind e | isEOFError e          = "eof"
 showBuffering :: BufferMode -> String
 showBuffering NoBuffering        = "NoBuffering"
 showBuffering LineBuffering      = "LineBuffering"
-showBuffering (BlockBuffering n) = "BlockBuffering " ++ show n
+showBuffering (BlockBuffering n) = "BlockBuffering " ++ maybe "default" show n
 
 -- (Shows a list of strings without depending on the Prelude's showList.)
 showAll :: [String] -> String
@@ -108,7 +108,7 @@ main =
   hGetBuffering h6 `thenIO` \b0 ->
   hSetBuffering h6 NoBuffering `thenIO_`
   hGetBuffering h6 `thenIO` \b1 ->
-  hSetBuffering h6 (BlockBuffering 512) `thenIO_`
+  hSetBuffering h6 (BlockBuffering (Just 512)) `thenIO_`
   hGetBuffering h6 `thenIO` \b2 ->
   hFlush h6 `thenIO_`
   hClose h6 `thenIO_`
