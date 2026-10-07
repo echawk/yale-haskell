@@ -2,7 +2,7 @@
 -- state, and stdin (from io-handles.stdin).
 module Main where
 
-import Prelude hiding (IOError, stdin, stdout, stderr)
+import Prelude hiding (stdin, stdout, stderr)
 import IO
 import Directory
 

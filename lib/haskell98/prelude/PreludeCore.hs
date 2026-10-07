@@ -27,6 +27,7 @@ module PreludeCore (
     Bool(True, False),
     Ordering(LT, EQ, GT), Maybe(Nothing, Just), Either(Left, Right),
     Functor(fmap), Monad((>>=), (>>), return, fail),
+    mapM, mapM_, sequence, sequence_, (=<<),
     Char, Int, Integer, Float, Double, Bin,
     Ratio, Complex((:+)), Assoc((:=)), Array,
     String(..), Rational(..), minInt, maxInt )  where
@@ -51,6 +52,7 @@ infix  4  ==, /=, <, <=, >=, >
 
 infixr 5 :
 infixl 1 >>, >>=
+infixr 1 =<<
 
 data Int = MkInt
 data Integer = MkInteger
@@ -349,6 +351,25 @@ instance  Monad []  where
     m >>= k		=  concatMap k m
     return x		=  [x]
     fail s		=  []
+
+mapM			:: Monad m => (a -> m b) -> [a] -> m [b]
+mapM f []		=  return []
+mapM f (x:xs)		=  f x >>= \y -> mapM f xs >>= \ys -> return (y:ys)
+
+mapM_			:: Monad m => (a -> m b) -> [a] -> m ()
+mapM_ f []		=  return ()
+mapM_ f (x:xs)		=  f x >> mapM_ f xs
+
+sequence		:: Monad m => [m a] -> m [a]
+sequence []		=  return []
+sequence (c:cs)		=  c >>= \x -> sequence cs >>= \xs -> return (x:xs)
+
+sequence_		:: Monad m => [m a] -> m ()
+sequence_ []		=  return ()
+sequence_ (c:cs)	=  c >> sequence_ cs
+
+(=<<)			:: Monad m => (a -> m b) -> m a -> m b
+f =<< x			=  x >>= f
 
 instance  Functor Maybe  where
     fmap f Nothing	=  Nothing

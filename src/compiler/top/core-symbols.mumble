@@ -89,9 +89,14 @@
     `(setf ,(symbol->core-var name)
 	   (make-core-synonym-definition ',name ',pc?)))
 
+;;; `IO' is a type synonym in Haskell 1.2 and a newtype later, so the
+;;; core symbol is created as a data type in those dialects.
+
 (define (make-core-synonym-definition name pc?)
   (install-core-sym
-    (make synonym (name name) (module '|*Core|) (unit '|*Core|))
+    (if (and (eq? name '|IO|) (feature? 'newtype))
+	(make algdata (name name) (module '|*Core|) (unit '|*Core|))
+	(make synonym (name name) (module '|*Core|) (unit '|*Core|)))
     name
     pc?))
 

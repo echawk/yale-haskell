@@ -7,7 +7,14 @@
 -- libraries (List, Char, Numeric, Ratio, Complex, Ix, Array, ...).
 
 module Prelude (
-    PreludeCore.., PreludeList.., PreludeText.., PreludeIO..,
+    PreludeCore.., PreludeList.., PreludeText..,
+    -- I/O.  The Dialogue names (stdin ... prints) are Yale 1.2 compatibility.
+    IOError, IO, FilePath(..), ioError, userError, catch,
+    putChar, putStr, putStrLn, print, getChar, getLine, getContents,
+    interact, readFile, writeFile, appendFile, readIO, readLn,
+    stdin, stdout, stderr, stdecho, Dialogue(..), SuccCont(..), StrCont(..),
+    StrListCont(..), FailCont(..), readChan, appendChan, done, exit, abort, prints,
+    thenIO, thenIO_, seqIO, returnIO, doneIO, SystemState, IOResult,
     -- Not in the H98 Prelude (they are in Char), kept for compatibility:
     ord, chr, isAscii, isControl, isPrint, isSpace,
     isUpper, isLower, isAlpha, isDigit, isAlphaNum, toUpper, toLower,
@@ -38,7 +45,12 @@ import PreludeList(
     zip, zip3, zipWith, zipWith3, unzip, unzip3)
 import PreludeText(reads, shows, show, read, lex,
 		   showChar, showString, readParen, showParen)
-import PreludeIO
+import PreludeIO(IOError, IO, FilePath(..), ioError, userError, catch,
+    putChar, putStr, putStrLn, print, getChar, getLine, getContents,
+    interact, readFile, writeFile, appendFile, readIO, readLn,
+    stdin, stdout, stderr, stdecho, Dialogue(..), SuccCont(..), StrCont(..),
+    StrListCont(..), FailCont(..), readChan, appendChan, done, exit, abort, prints,
+    thenIO, thenIO_, seqIO, returnIO, doneIO, SystemState, IOResult)
 import PreludeChar(ord, chr, isAscii, isControl, isPrint, isSpace,
 		   isUpper, isLower, isAlpha, isDigit, isAlphaNum,
 		   toUpper, toLower, minChar, maxChar)

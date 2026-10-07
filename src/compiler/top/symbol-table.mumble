@@ -54,8 +54,6 @@
 	 (let ((def (table-entry *core-symbols* name)))
 	   (cond ((eq? def '#f)
 		  (create-definition/non-core module name type))
-		 ((core-kind-mismatch? def type)
-		  (replace-core-definition module name type def))
 		 (else
 		  (setf (def-unit def) *unit*)
 		  (setf (def-module def) (module-name module))
@@ -67,25 +65,6 @@
 			 (setf (con-fixity def) '#f)))
 		  def))))
 	(else (create-definition/non-core module name type))))
-
-;;; A core symbol is created as a synonym or a data type by name, but the
-;;; dialects differ in which they declare (Haskell 1.2 has `type IO a =
-;;; ...', later dialects `newtype IO a = ...').  The declaration decides:
-;;; the core symbol is replaced by a definition of the declared kind.
-
-(define (core-kind-mismatch? def type)
-  (or (and (eq? type 'algdata) (synonym? def))
-      (and (eq? type 'synonym) (algdata? def))))
-
-(define (replace-core-definition module name type old)
-  (let ((new (create-definition/non-core module name type)))
-    (setf (def-core? new) '#t)
-    (setf (def-prelude? new) (def-prelude? old))
-    (setf (table-entry (dynamic *core-symbols*) name) new)
-    (when (def-prelude? old)
-      (setf (table-entry (dynamic *prelude-core-symbols*) name) new))
-    (setf (symbol-value (symbol->core-var name)) new)
-    new))
 
 ;(define (create-definition/non-core module name type)
 ;  (create-definition/new module name type)

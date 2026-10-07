@@ -5,6 +5,7 @@ PreludePrims.hu
 PreludeArrayPrims.hu
 PreludeTuplePrims.hu
 PreludeIOPrims.hu
+IOPrims.hu
 Prelude.hs
 PreludeArray.hs
 PreludeChar.hs

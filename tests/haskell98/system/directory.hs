@@ -3,7 +3,7 @@
 -- directory, under a scratch directory in /tmp.
 module Main where
 
-import Prelude hiding (IOError, stdin, stdout, stderr)
+import Prelude hiding (stdin, stdout, stderr)
 import IO
 import Directory
 import Time

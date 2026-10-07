@@ -43,30 +43,15 @@ module IO (
     isFullError, isEOFError,
     isIllegalOperation, isPermissionError, isUserError,
     ioeGetErrorString,
-    bracket, bracket_,
-    -- ...and, until the Prelude has them:
-    IOError, ioError, userError, catch
+    bracket, bracket_
     ) where
 
-import Prelude hiding (IOError, stdin, stdout, stderr)
+import Prelude hiding (stdin, stdout, stderr)
+import PreludeIO(IOError(..))
 import IOPrims
 
 -- IOErrors.  The wrappers exist because Yale requires instances to be
 -- declared in the module that defines the type.
-
-data IOError = IOError IOErrorObj
-
-instance Text IOError where
-  showsPrec _ (IOError e) = showString (primIOErrorMessage e)
-
-ioError               :: IOError -> IO a
-ioError (IOError e)   =  primThrowIO e
-
-userError             :: String -> IOError
-userError s           =  IOError (primUserError s)
-
-catch                 :: IO a -> (IOError -> IO a) -> IO a
-catch m h             =  primCatchIO m (\e -> h (IOError e))
 
 -- The kind numbers are those of *io-error-kinds* in io-errors.mumble.
 errorKind             :: IOError -> Int

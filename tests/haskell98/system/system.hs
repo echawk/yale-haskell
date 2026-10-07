@@ -1,7 +1,6 @@
 -- System: getArgs, getProgName, getEnv, system, exitWith.
 module Main where
 
-import Prelude hiding (getArgs, getProgName, getEnv)
 import System
 
 put :: String -> IO ()
