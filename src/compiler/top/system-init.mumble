@@ -15,7 +15,11 @@
   (setf *standard-module-default*
 	(make default-decl
 	      (types (list
-		      (**tycon/def (core-symbol "Int") '())
+		      ;; Haskell 98 defaults to (Integer, Double), 1.2 to (Int, Double)
+		      (**tycon/def (if (haskell98?)
+				       (core-symbol "Integer")
+				       (core-symbol "Int"))
+				   '())
 		      (**tycon/def (core-symbol "Double") '())))))
   (setf *undefined-def*
 	(make def

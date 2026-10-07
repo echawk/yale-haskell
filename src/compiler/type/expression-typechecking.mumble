@@ -145,6 +145,11 @@
 	 (decl (**valdef (**var-pat/def temp-var) '() (exp-sign-exp object)))
 	 (let-exp (**let (list decl) (**var/def temp-var)))
 	 (signature (exp-sign-signature object)))
+      ;; The new valdef must belong to the enclosing module so that
+      ;; defaulting finds that module's default declaration.
+      (when (not (null? (dynamic *enclosing-decls*)))
+	(setf (valdef-module decl)
+	      (valdef-module (car (dynamic *enclosing-decls*)))))
       (setf (var-signature temp-var)
 	    (ast->gtype (signature-context signature)
 			(signature-type signature)))
