@@ -20,4 +20,3 @@ local round trip: True
 local offset sane: True
 local round trip 2: True
 (("AM","PM"),"%m/%d/%y")
-

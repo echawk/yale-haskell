@@ -2,4 +2,3 @@ Lit 1 :+: Lit 2
 (Lit 1 :+: Lit 2) :*: Lit 3
 Lit 1 :+: Lit 2 :*: Lit 3
 Lit (-4) :*: Lit 5
-

@@ -32,6 +32,8 @@
   ;; getArgs, getProgName and exitWith (src/runtime/system-prims.mumble)
   (set-haskell-program-args file args)
   (setf *haskell-batch-mode* '#t)
+  ;; compiler diagnostics go to stderr, leaving stdout to the program
+  (setf *error-output-port* lisp:*error-output*)
   ;; Haskell runtime errors (error, head [], ...) normally return to the
   ;; REPL; in batch mode they end the program with status 1.
   (setf (lisp:symbol-function 'haskell-runtime-error)
@@ -45,8 +47,7 @@
 	     (lisp:handler-bind ((lisp:warning
 				  (lambda (c)
 				    (lisp:muffle-warning c))))
-	       (run-program file)
-	       0)
+	       (if (run-program file) 0 1))
 	   (lisp:error (c)
 	     (lisp:force-output)
 	     (lisp:format lisp:*error-output* "~&yale-haskell: ~a~%" c)

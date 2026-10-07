@@ -28,12 +28,11 @@
 ;;; The batch driver (batch-run in tools/build/image.lisp) sets these
 ;;; before running Main.main: the arguments after the program file name,
 ;;; and the program name (the file name without directory and .hs).
-;;; *haskell-batch-mode* tells exitWith that it may leave Lisp; in the
+;;; *haskell-batch-mode* (top/globals) tells exitWith that it may leave Lisp; in the
 ;;; interactive system it returns to the command loop instead.
 
 (define *haskell-program-args* '())
 (define *haskell-program-name* "haskell")
-(define *haskell-batch-mode* '#f)
 
 (define (set-haskell-program-args file args)
   (setf *haskell-program-args* args)

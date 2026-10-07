@@ -63,6 +63,10 @@
 
 (define *show-end-of-phase* '#f)
 
+;;; True when running a program from the command line (see
+;;; tools/build/image.lisp): no REPL, diagnostics on stderr.
+(define *haskell-batch-mode* '#f)
+
 ;;; This is used to configure error messages & responses.
 
 (define *emacs-mode* '#f)

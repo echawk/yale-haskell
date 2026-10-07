@@ -16,4 +16,3 @@ openFile missing: doesNotExist
 hGetLine at EOF: eof
 hPutStr stdin: illegalOperation
 done
-

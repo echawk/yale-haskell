@@ -20,4 +20,3 @@ open a directory: illegalOperation
 isEOF: False
 stdin: ("line one",'x',"yz\n")
 isEOF after hGetContents stdin: illegalOperation
-

@@ -13,21 +13,21 @@
   (funcall (car (dynamic *type-error-recovery*))))
 
 (define (type-mismatch/fixed object msg type)
-  (format '#t "While typing ~A:~%~A~%Type: ~A~%" object msg type))
+  (format *error-output-port* "While typing ~A:~%~A~%Type: ~A~%" object msg type))
 
 (define (type-mismatch object msg type1 type2)
-  (format '#t "While type checking~%~A~%~A~%Types: ~A~%       ~A~%"
+  (format *error-output-port* "While type checking~%~A~%~A~%Types: ~A~%       ~A~%"
 	  object msg type1 type2))
 
 (define (type-mismatch/list types object msg)
-  (format '#t "While typing ~A:~%~A~%Types: ~%" object msg)
+  (format *error-output-port* "While typing ~A:~%~A~%Types: ~%" object msg)
   (dolist (type types)
-     (format '#t "~A~%" type)))
+     (format *error-output-port* "~A~%" type)))
 
 ;;; Error handlers
 
 (define (signature-mismatch var)
-  (format '#t
+  (format *error-output-port*
       "Signature mismatch for ~A~%Inferred type: ~A~%Declared type: ~A~%"
       var
       (remove-type-wrapper (ntype->gtype (var-type var)))
