@@ -81,10 +81,35 @@ test: all
 clean:
 	rm -rf build
 
-ref: ref/hugs98 ref/haskell-report
+ref: ref/hugs98 ref/haskell-report ref/haskell-1.x ref/ghc-3.02
 
 ref/hugs98:
 	git clone --depth 1 https://github.com/augustss/hugs98-plus-Sep2006 $@
 
 ref/haskell-report:
 	git clone --depth 1 -b h98 https://github.com/haskell/haskell-report $@
+
+# Haskell 1.2/1.3/1.4 Reports.  PostScript is converted to PDF and text
+# when Ghostscript and pdftotext are installed.
+OLD_REPORTS := haskell-report-1.2.ps.gz haskell-report-1.3.ps.gz \
+	haskell-report-1.4.ps.gz haskell-report-1.4-html.tar.gz \
+	haskell-library-1.4.ps.gz haskell-library-1.4-html.tar.gz \
+	from12to13.html from13to14.html
+
+ref/haskell-1.x:
+	mkdir -p $@.tmp
+	cd $@.tmp && for f in $(OLD_REPORTS); do \
+	  curl -sfLO https://www.haskell.org/definition/$$f || exit 1; done
+	cd $@.tmp && for t in *.tar.gz; do tar xzf $$t; done
+	-cd $@.tmp && for p in *.ps.gz; do b=$${p%.ps.gz}; \
+	  gunzip -c $$p > $$b.ps && ps2pdf $$b.ps $$b.pdf && \
+	  pdftotext -layout $$b.pdf $$b.txt; rm -f $$b.ps; done
+	mv $@.tmp $@
+
+# GHC 3.02 (1998), a Haskell 1.4 implementation.  The tarball unpacks
+# as fptools/.
+ref/ghc-3.02:
+	mkdir -p $@.tmp
+	curl -sfL https://downloads.haskell.org/~ghc/3.02/ghc-3.02-src.tar.gz \
+	  | tar xz -C $@.tmp
+	mv $@.tmp/fptools $@ && rmdir $@.tmp

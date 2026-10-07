@@ -539,6 +539,94 @@ Only after H98 works, but keep the design open.
     Haskell and ships `base`-style libraries;
   - older GHC releases (6.x) and the `base` package for library source;
     `haskell-src` / `haskell-src-exts` for grammar coverage;
-  - nhc98 / yhc, which are smaller and more readable than GHC.
+  - nhc98 / yhc, which are smaller and more readable than GHC (read
+    only; see the licence note in `ref/README.md`).
 - FFI: on CL this means mapping `foreign import ccall` to CFFI, which
   also helps portability (§8.1).
+
+### 8.5 Haskell 1.3 and 1.4 as dialects
+
+Haskell 1.3 (1996) and 1.4 (1997) sit between the two dialects we already
+have, so they can share almost all of the compiler.  The Reports and
+change summaries are in `ref/haskell-1.x/`; a 1.4 implementation (GHC
+3.02) is in `ref/ghc-3.02/` (see `ref/README.md`).
+
+**Key observation.**  Almost all of the difference between 1.2 and 98
+comes in at 1.3: constructor classes, monadic IO and `do`, Read/Show
+replacing Text, field labels, `newtype`, strictness annotations,
+qualified names, the relaxed C-T rule, standard libraries, and a smaller
+Prelude.  So M3–M7 *are* the 1.3 work.  1.3→1.4 and 1.4→98 are each a
+handful of small changes:
+
+| Feature                               | 1.2 | 1.3 | 1.4 | 98 |
+|---------------------------------------|-----|-----|-----|----|
+| Constructor classes, monadic IO, `do` | –   | ✓   | ✓   | ✓  |
+| Text class (vs. Read/Show)            | ✓   | –   | –   | –  |
+| Dialogue/continuation IO              | ✓   | –   | –   | –  |
+| Import renaming, `M..` exports, interface files in the language | ✓ | – | – | – |
+| `Eval` class (`seq :: Eval a => …`)   | –   | ✓   | ✓   | –  |
+| `MonadZero` / `MonadPlus`; `do` failure uses `zero` | – | ✓ | ✓ | – (`fail`) |
+| Monad comprehensions                  | –   | –   | ✓   | –  |
+| Field punning                         | –   | ✓   | –   | –  |
+| Import/export of a *subset* of constructors or methods | – | – | ✓ | ✓ |
+| `Ord` superclass of `Enum`            | ✓   | ✓   | –   | –  |
+| Defaulting applies to MR-restricted variables | – | – | ✓ | ✓ |
+| Character set                         | ASCII | ISO-8859-1 | Unicode | Unicode |
+
+(Built from `from12to13.html` and `from13to14.html`; check each row
+against the Reports before implementing it.)
+
+**Strategy.**
+
+1. **Dialects become an ordered list**, `haskell-1.2 < haskell-1.3 <
+   haskell-1.4 < haskell98 (< haskell2010)`.  Replace `(haskell98?)`
+   (7 uses today, in `top/globals`, `parser/lexer` and
+   `parser/module-parser`) with named *feature predicates*, e.g.
+   `(feature? 'constructor-classes)`, `(feature? 'eval-class)`, defined
+   in one table in `top/globals.mumble` as dialect ranges.  A gate
+   then reads as the feature it is about, and a new dialect is one new
+   column, not a hunt through the source.
+2. **Features are built once, behind predicates, in whichever version
+   introduced them.**  M3–M7 land as 1.3 features that 1.4 and 98
+   inherit.  The few features that exist only in 1.3/1.4 (Eval,
+   MonadZero, monad comprehensions, punning) are small desugarings or
+   Prelude classes and should be cheap once the features they build on
+   exist.
+3. **Most differences live in `lib/<dialect>/`, not the compiler.**
+   Text vs. Read/Show, the Enum superclass, `>>=` fixity, Eval and
+   MonadZero are Prelude declarations.  The compiler only has to stop
+   hard-wiring the Prelude's shape: core symbol tables, derived
+   instances (`derived/`) and runtime dictionary layouts
+   (`runtime/tuple-prims.mumble`, see §7) must be looked up by name
+   from the Prelude rather than assumed.  This is the same work §7
+   already lists for H98 and pays off for every dialect.
+4. **Library trees.**  `lib/haskell-1.4/` starts as a copy of the 1.4
+   Report code (`standard-prelude.html` plus the library Report), the
+   same way `lib/haskell98/` was built from the 98 Report.  1.3 then
+   comes from 1.4 with the changes undone (Ord ⇒ Enum, no monad
+   comprehensions, punning).  To share code, factor common modules
+   later (e.g. `lib/common/`), but only once there are two working
+   trees to compare.
+5. **Tests.**  `tests/haskell-1.3/` and `tests/haskell-1.4/`, one
+   test per table row, run with `--haskell1.3` / `--haskell1.4`.  The
+   same program run under adjacent dialects (e.g. a monad comprehension
+   accepted by 1.4 and rejected by 98) is the cheapest check that a
+   gate is in the right place.
+
+**Ordering.**  Nothing here changes the critical path: do M3 (constructor
+classes) and M4 (monadic IO) first, as 1.3 features.  Then, in order:
+
+- introduce the feature table;
+- bring up `lib/haskell-1.4/` (closest to 98, so the most shared code);
+- add 1.3 last.
+
+1.3 and 1.4 should not delay H98, but every feature from M3 on should be
+written with its first dialect in mind.
+
+**Open points.**
+- The 1.3 Library Report is not on haskell.org; look in the Wayback
+  Machine (`haskell.cs.yale.edu/haskell-report/library.html`) or in
+  Hugs 1.3 / GHC 2.x distributions.
+- Should 1.2 also gain the shared features under a flag, or stay frozen
+  as the original system?  Frozen is simpler and keeps the 1.2 demos as
+  a fixed regression baseline.
