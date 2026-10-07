@@ -1,1 +1,0 @@
-bug: SBCL control stack exhausted at ~100000 nested calls; the image needs a larger --control-stack-size (M1 runtime)
