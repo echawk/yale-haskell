@@ -445,3 +445,100 @@ Test suite: **103 passed, 45 expected failures** (`make test`); CI in
   `IO.hs`'s `IOError`, `ioError`, `userError` and `catch`, and Prelude
   I/O is rebuilt on the handle primitives.
 - **M3 (constructor classes)** remains the critical path.
+
+## 8. Long-term direction (sketch)
+
+Goals beyond Haskell 98, recorded early so that near-term work does not
+rule them out.  None of this should start before M9; the point is
+to shape design decisions now.
+
+**North star:** a *reasonably* fast Haskell on Common Lisp that is a joy
+to work on.
+
+### 8.1 Portability across Lisp implementations
+
+SBCL stays the main host, but ECL and ABCL should be supported as well.
+The code base predates most implementation-specific idioms, so this
+should be cheaper than for most CL projects.
+
+- Keep all non-standard calls behind one layer (`src/mumble/` and the
+  `#+sbcl` primitives in `src/runtime/`); no new bare `sb-ext:` /
+  `sb-sys:` calls anywhere else.
+- Add a CI job per host once one builds: first the smoke test, then
+  `make test`.  ECL is the easier first target (POSIX, C compilation);
+  ABCL is the stronger portability test (§6).
+- Known friction points: saved images (`save-lisp-and-die` versus ECL's
+  executables versus ABCL jars), float traps (Inf/NaN, §6), control-stack
+  size (bug 4), and file system and `run-program` primitives.
+
+### 8.2 Parser: reuse a standard grammar
+
+Today's lexer and parser are hand-written recursive descent
+(`src/compiler/parser/`, about 3.6k lines), extended piece by piece for
+M2.  Longer term, a grammar-driven front end would be smaller and easier
+to keep in line with the Report.
+
+- **Candidate source:** the Hugs H98 yacc grammar (`parser.y`), or
+  the Report's own grammar (Report §9/§10).  Layout is handled
+  outside the grammar (Hugs does it in the lexer; the Report uses the
+  L function), so we would keep or rewrite the layout algorithm
+  regardless.
+- **Questions to answer:**
+  - Can a CL LALR generator (e.g. `cl-yacc`) take the Hugs
+    productions close to verbatim, with Lisp semantic actions that build
+    our existing `ast/` structs?  That gives the smallest grammar for the
+    least work.
+  - PEG parsers (`esrap`) produce good parsers but need the grammar
+    restructured by hand; only worth it if the LALR route stalls.
+  - Licensing of the Hugs grammar (BSD-style; check before copying).
+- **Approach:** prototype on expressions only, behind a flag, and diff
+  the ASTs against the current parser over `tests/` and `lib/`.
+  Switch over only when both agree everywhere.  Operator precedence stays
+  in `prec/` (fixity is resolved after parsing in both designs).
+- Every new language feature added before then (M3–M7) should keep the
+  parser change small and test-covered, so it can be carried over.
+
+### 8.3 Performance: keep it profilable
+
+Performance was reportedly part of why the original project was
+abandoned.  It is **not** to be tackled now, but nothing should make it
+harder to measure later.
+
+- Generated Lisp should keep readable, stable names (Haskell
+  module + identifier) so that `sb-sprof` and `sb-profile` output can be
+  mapped back to source.  Do not over-`gensym` new code.
+- Keep the runtime representation choices (thunks, dictionaries, `IO`)
+  each behind a small set of macros, so they can be swapped and measured
+  in isolation.
+- Add a small benchmark set early (nofib `imaginary`, the 1.2 demos)
+  and record timings in CI as numbers, not pass/fail, so regressions show
+  up.
+- Candidate later work: extend the existing strictness and boxing
+  passes (`backend/strictness.mumble`, `backend/box.mumble`), unboxed
+  `Int`/`Double` paths, dictionary specialisation, cheaper thunks, and a
+  per-module `(declare (optimize ...))` policy.
+
+### 8.4 Haskell 2010 and beyond
+
+Only after H98 works, but keep the design open.
+
+- H2010 is a small delta from H98: hierarchical module names, FFI,
+  pattern guards, `EmptyDataDecls`, relaxed dependency analysis, no
+  n+k patterns, and the
+  `Data.*`/`System.*`/`Foreign.*` library layout.
+- **Design constraints for now:**
+  - module names should be treated as dotted strings, not single
+    symbols (affects M7 and the `.hu` search path);
+  - the dialect switch (`*haskell-dialect*`) should take a third value
+    rather than becoming a boolean;
+  - `lib/` layout should be able to hold a `haskell2010/` tree.
+- **References to borrow from:**
+  - the Haskell 2010 Report (library code is given in the Report, as for
+    H98);
+  - Hugs (Sept 2006), which implements most of H2010's pieces in C and
+    Haskell and ships `base`-style libraries;
+  - older GHC releases (6.x) and the `base` package for library source;
+    `haskell-src` / `haskell-src-exts` for grammar coverage;
+  - nhc98 / yhc, which are smaller and more readable than GHC.
+- FFI: on CL this means mapping `foreign import ccall` to CFFI, which
+  also helps portability (§8.1).
