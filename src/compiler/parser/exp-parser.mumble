@@ -24,6 +24,7 @@
      (|let| (list (parse-let)))
      (|if| (list (parse-if)))
      (|case| (parse-possible-app (parse-case)))
+     (|do| (parse-possible-app (parse-do)))
      (else (let ((aexp (parse-aexp)))
 	     (parse-possible-app aexp)))))
 
@@ -194,6 +195,39 @@
    (\, (let ((exp (parse-exp))) (cons exp (parse-tuple-exp))))
    (else (signal-missing-token
 	  "`)' or `,'" "tuple or parenthesized expression"))))
+
+;;; do expressions: a layout block of statements, `let' statements
+;;; without `in', generators and expressions.
+
+(define (parse-do)
+  (trace-parser do
+   (save-parser-context
+    (let ((stmts (start-layout (function parse-stmts))))
+      (make do-exp (stmts stmts))))))
+
+(define (parse-stmts in-layout?)
+  (token-case
+    (\; (parse-stmts in-layout?))
+    ((no-advance \} $\})
+     (close-layout in-layout?)
+     '())
+    (else
+     (let ((stmt (token-case
+		  (|let| (parse-let-stmt))
+		  (else (parse-qual)))))
+       (token-case
+	(\; (cons stmt (parse-stmts in-layout?)))
+	(else (close-layout in-layout?)
+	      (list stmt)))))))
+
+;;; `let decls' is a statement; `let decls in exp' is an expression
+;;; statement.
+
+(define (parse-let-stmt)
+  (let ((qual (parse-let-qual)))
+    (if (let-qual? qual)
+	(make qual-let (decls (cdr qual)))
+	qual)))
 
 ;;; List comprehensions
 

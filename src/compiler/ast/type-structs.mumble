@@ -97,7 +97,8 @@
    (simple (type type))
    (constrs (type (list constr)))  
    (deriving (type (list class-ref)))
-   (annotations (type (list annotation-value)))))
+   (annotations (type (list annotation-value)))
+   (newtype? (type bool) (default '#f))))
 
 ;;; <constr>      -> <con> <atype> ... <atype>
 ;;;               -> <type> <conop> <type>

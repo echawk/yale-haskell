@@ -116,7 +116,21 @@
     name
     pc?))
 
+;;; Names that are core symbols only in dialects with a feature: elsewhere
+;;; they are ordinary names that programs may define.
+
+(define *feature-core-names*
+  '((constructor-classes
+     |Functor| |Monad| |MonadZero| |fmap| |>>=| |>>| |return| |fail| |zero|)))
+
+(define (core-name-active? name)
+  (every (lambda (entry)
+	   (or (not (memq name (cdr entry)))
+	       (feature? (car entry))))
+	 *feature-core-names*))
+
 (define (install-core-sym def name preludecore?)
+  (setf preludecore? (and preludecore? (core-name-active? name)))
   (setf (def-core? def) '#t)
   (when preludecore? 
     (setf (def-prelude? def) '#t))

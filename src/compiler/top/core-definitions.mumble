@@ -18,7 +18,10 @@
              "Floating"
              "Ord"
              "Real"
-             "Binary")
+             "Binary"
+             "Functor"
+             "Monad"
+             "MonadZero")
     (METHODS "fromInteger"
              "signum"
              "abs"
@@ -90,7 +93,13 @@
              "<"
              "toRational"
              "showBin"
-             "readBin")
+             "readBin"
+             "fmap"
+             ">>="
+             ">>"
+             "return"
+             "fail"
+             "zero")
     (TYPES "Char"
            "Complex"
            "Integer"

@@ -85,6 +85,7 @@
 	    (enum? enum?)
 	    (tuple? (and (not (null? constrs)) (null? (cdr constrs))))
 	    (real-tuple? '#f)
+	    (newtype? (data-decl-newtype? data-decl))
 	    (deriving derived-classes)
 	    ))
 	(process-alg-annotations def)

@@ -26,6 +26,7 @@ module PreludeCore (
 --  Trivial type: () 
     Bool(True, False),
     Ordering(LT, EQ, GT), Maybe(Nothing, Just), Either(Left, Right),
+    Functor(fmap), Monad((>>=), (>>), return, fail),
     Char, Int, Integer, Float, Double, Bin,
     Ratio, Complex((:+)), Assoc((:=)), Array,
     String(..), Rational(..), minInt, maxInt )  where
@@ -40,9 +41,7 @@ import PreludeChar(ord, chr, minChar, maxChar)
 import PreludeRatio(Ratio, Rational(..), (%))
 import PreludeComplex(Complex((:+)))
 import PreludeArray(Assoc((:=)), Array, listArray, bounds, elems)
-import PreludeIO({-Request, Response,-} IOError,
-		 Dialogue(..), SuccCont(..), StrCont(..), 
-		 StrListCont(..), BinCont(..), FailCont(..))
+import PreludeList(map, concatMap)
 
 infixr 8  **
 infixl 7  *, /, `quot`, `rem`, `div`, `mod`
@@ -51,6 +50,7 @@ infix  4  ==, /=, <, <=, >=, >
 
 
 infixr 5 :
+infixl 1 >>, >>=
 
 data Int = MkInt
 data Integer = MkInteger
@@ -326,6 +326,39 @@ instance  (Text a, Text b) => Text (Either a b)  where
 			      (showString "Left " . showsPrec 11 x)
     showsPrec d (Right x) = showParen (d > 10)
 			      (showString "Right " . showsPrec 11 x)
+
+-- Constructor classes (H98): Functor and Monad, with the instances the
+-- Prelude gives for lists and Maybe.  The IO instance is in PreludeIO.
+
+class  Functor f  where
+    fmap		:: (a -> b) -> f a -> f b
+
+class  Monad m  where
+    (>>=)		:: m a -> (a -> m b) -> m b
+    (>>)		:: m a -> m b -> m b
+    return		:: a -> m a
+    fail		:: String -> m a
+
+    m >> k		=  m >>= \_ -> k
+    fail s		=  error s
+
+instance  Functor []  where
+    fmap		=  map
+
+instance  Monad []  where
+    m >>= k		=  concatMap k m
+    return x		=  [x]
+    fail s		=  []
+
+instance  Functor Maybe  where
+    fmap f Nothing	=  Nothing
+    fmap f (Just x)	=  Just (f x)
+
+instance  Monad Maybe  where
+    (Just x) >>= k	=  k x
+    Nothing  >>= k	=  Nothing
+    return		=  Just
+    fail s		=  Nothing
 
 -- Trivial type
 

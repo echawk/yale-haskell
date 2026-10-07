@@ -156,6 +156,8 @@
    (tuple? (type bool) (bit #t) (uninitialized? #t))
    ;; true for `tuple-syntax' tuples.
    (real-tuple? (type bool) (bit #t) (uninitialized? #t))
+   ;; declared with `newtype': the constructor is erased by cfn
+   (newtype? (type bool) (bit #t) (default '#f))
    ;; instances to derive
    (deriving (type (list class)) (uninitialized? #t))
    (export-to-lisp? (type bool) (default '#f) (bit #t))

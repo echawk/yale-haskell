@@ -194,12 +194,27 @@
 (define-ast-to-flic app (object)
   (ast-to-flic-app-aux object '()))
 
+;;; A newtype constructor is erased: `C e a1 .. an' is `e a1 .. an'.
+
+(define (newtype-con? con)
+  (and (con? con)
+       (algdata? (con-alg con))
+       (algdata-newtype? (con-alg con))))
+
+(define (newtype-con-ref? exp)
+  (and (con-ref? exp) (newtype-con? (con-ref-con exp))))
+
 (define (ast-to-flic-app-aux object args)
-  (if (is-type? 'app object)
-      (ast-to-flic-app-aux
-        (app-fn object)
-	(cons (ast-to-flic-1 (app-arg object)) args))
-      (make-flic-app (ast-to-flic-1 object) args '#f)))
+  (cond ((is-type? 'app object)
+	 (ast-to-flic-app-aux
+	  (app-fn object)
+	  (cons (ast-to-flic-1 (app-arg object)) args)))
+	((and (newtype-con-ref? object) (not (null? args)))
+	 (if (null? (cdr args))
+	     (car args)
+	     (make-flic-app (car args) (cdr args) '#f)))
+	(else
+	 (make-flic-app (ast-to-flic-1 object) args '#f))))
 
 
 ;;; References
@@ -208,7 +223,10 @@
   (make-flic-ref (var-ref-var object)))
 
 (define-ast-to-flic con-ref (object)
-  (make-flic-pack (con-ref-con object)))
+  (if (newtype-con? (con-ref-con object))
+      (let ((v (create-temp-var 'newtype)))
+	(ast-to-flic-1 (**lambda/pat (list (**var-pat/def v)) (**var/def v))))
+      (make-flic-pack (con-ref-con object))))
 
 
 ;;; Constants
@@ -249,15 +267,19 @@
     (ast-to-flic-1 (con-number-value object))))
 
 (define-ast-to-flic sel (object)
-  (make-flic-sel
-    (sel-constructor object)
-    (sel-slot object)
-    (ast-to-flic-1 (sel-value object))))
+  (if (newtype-con? (sel-constructor object))
+      (ast-to-flic-1 (sel-value object))
+      (make-flic-sel
+        (sel-constructor object)
+        (sel-slot object)
+        (ast-to-flic-1 (sel-value object)))))
 
 (define-ast-to-flic is-constructor (object)
-  (make-flic-is-constructor
-    (is-constructor-constructor object)
-    (ast-to-flic-1 (is-constructor-value object))))
+  (if (newtype-con? (is-constructor-constructor object))
+      (ast-to-flic-1 (**con/def (core-symbol "True")))
+      (make-flic-is-constructor
+        (is-constructor-constructor object)
+        (ast-to-flic-1 (is-constructor-value object)))))
 
 (define-ast-to-flic void (object)
   (declare (ignore object))

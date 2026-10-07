@@ -726,7 +726,7 @@
   (with-new-def (dexp alg *number-types-dumped*)
     (dump-def-slots alg algdata dexp
 		    (arity n-constr constrs context tyvars signature
-			   enum? tuple? real-tuple? implemented-by-lisp?))))
+			   enum? tuple? real-tuple? newtype? implemented-by-lisp?))))
 
 (define-walker-method dump synonym (syn)
   (dump-synonym/n syn))

@@ -225,6 +225,23 @@
   (slots
    (exp (type exp))))
 
+;;; `let decls' as a statement of a do expression.
+(define-struct qual-let
+  (include qual)
+  (slots
+   (decls (type (list decl)))))
+
+;;; <do-exp> -> do { <stmt> ; ... ; <exp> }
+;;; <stmt>   -> <pat> <- <exp> | <exp> | let <decls>
+;;; Statements are quals.  The scope phase rewrites a do expression into
+;;; applications of >>= and >> (prec/do-exp.mumble); later phases never
+;;; see one.
+
+(define-struct do-exp
+  (include aexp)
+  (slots
+   (stmts (type (list qual)))))
+
 
 ;;; This is used as the guard slot in a guarded-rhs to represent lack of a
 ;;; guard.  This is the same as True.

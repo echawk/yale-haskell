@@ -389,6 +389,89 @@
   (setf (list-comp-exp object) (scope-ast-1 (list-comp-exp object) env))
   object)
 
+;;; do expressions are translated here, after parsing and before their
+;;; parts are scoped, because the translation depends on whether a
+;;; generator's pattern can fail, which needs the constructors resolved
+;;; (report 3.14):
+;;;   do {e}                = e
+;;;   do {e; stmts}         = e >> do {stmts}
+;;;   do {p <- e; stmts}    = e >>= \p -> do {stmts}          p failure-free
+;;;                         = e >>= \v -> case v of
+;;;                              p -> do {stmts}; _ -> fail "..."  otherwise
+;;;   do {let decls; stmts} = let decls in do {stmts}
+;;; `fail' is a method of Monad in Haskell 98; before that the failure
+;;; case is `zero' of class MonadZero (feature monad-fail).
+
+(define-walker-method scope do-exp (object env)
+  (scope-ast-1 (desugar-do (do-exp-stmts object)) env))
+
+(define (desugar-do stmts)
+  (cond ((null? stmts)
+	 (signal-bad-do "A do expression has no statements.")
+	 (**con/def (core-symbol "UnitConstructor")))
+	((null? (cdr stmts))
+	 (if (is-type? 'qual-filter (car stmts))
+	     (qual-filter-exp (car stmts))
+	     (begin
+	       (signal-bad-do "The last statement of a do expression must be an expression.")
+	       (**con/def (core-symbol "UnitConstructor")))))
+	(else
+	 (let ((stmt (car stmts))
+	       (rest (desugar-do (cdr stmts))))
+	   (cond ((is-type? 'qual-filter stmt)
+		  (**app (**var/def (core-symbol ">>")) (qual-filter-exp stmt) rest))
+		 ((is-type? 'qual-let stmt)
+		  (**let (qual-let-decls stmt) rest))
+		 (else
+		  (desugar-do-bind (qual-generator-pat stmt)
+				   (qual-generator-exp stmt)
+				   rest)))))))
+
+(define (desugar-do-bind pat exp rest)
+  (let ((pat (massage-pattern pat))
+	(bind (**var/def (core-symbol ">>="))))
+    (if (failure-free-pattern? pat)
+	(**app bind exp (make lambda (pats (list pat)) (body rest)))
+	(let ((v1 (make var-ref (name '|do-v|) (infix? '#f)
+			(var *undefined-def*)))
+	      (v2 (make var-ref (name '|do-v|) (infix? '#f)
+			(var *undefined-def*))))
+	  (**app bind exp
+		 (make lambda
+		       (pats (list (make var-pat (var v1))))
+		       (body (**case v2
+				     (list (**alt/simple pat rest)
+					   (**alt/simple
+					    (**wildcard-pat)
+					    (do-failure-exp)))))))))))
+
+(define (do-failure-exp)
+  (if (feature? 'monad-fail)
+      (**app (**var/def (core-symbol "fail"))
+	     (**string "Pattern match failure in do expression"))
+      (**var/def (core-symbol "zero"))))
+
+;;; A failure-free pattern can be refuted only by bottom: irrefutable
+;;; patterns, and constructors of single-constructor types applied to
+;;; failure-free patterns.
+
+(define (failure-free-pattern? pat)
+  (cond ((or (var-pat? pat) (wildcard-pat? pat) (is-type? 'irr-pat pat))
+	 '#t)
+	((is-type? 'as-pat pat)
+	 (failure-free-pattern? (as-pat-pattern pat)))
+	((pcon? pat)
+	 (let ((con (pcon-con pat)))
+	   (or (eq? con (core-symbol "UnitConstructor"))
+	       (and (con? con)
+		    (algdata? (con-alg con))
+		    (eqv? (algdata-n-constr (con-alg con)) 1)
+		    (every (function failure-free-pattern?) (pcon-pats pat))))))
+	(else '#f)))
+
+(define (signal-bad-do message)
+  (phase-error 'bad-do "~A" message))
+
 (define-walker-method scope pp-exp-list (object env)
   (massage-pp-exp-list (scope-ast/list (pp-exp-list-exps object) env)))
 

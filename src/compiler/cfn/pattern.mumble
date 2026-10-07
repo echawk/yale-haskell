@@ -286,6 +286,13 @@
 ;;; if and when necessary.
 
 (define (match-pcon pat exp pats exps alt block-name)
+  (if (newtype-con? (pcon-con pat))
+      ;; A newtype constructor matches by matching its field.
+      (match-pattern (cons exp exps) (append (pcon-pats pat) pats)
+		     alt block-name)
+      (match-pcon-1 pat exp pats exps alt block-name)))
+
+(define (match-pcon-1 pat exp pats exps alt block-name)
   (let* ((var?    (is-type? 'var-ref exp))
 	 (var     (if var?
 		      (var-ref-var exp)

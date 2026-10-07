@@ -116,6 +116,8 @@
 
 (define (is-dialogue? type)
   (let ((type (expand-ntype-synonym type)))
+    (or (and (ntycon? type)
+	     (eq? (ntycon-tycon type) (core-symbol "IO")))   ; abstract IO
     (and (ntycon? type)
 	 (eq? (ntycon-tycon type) (core-symbol "Arrow"))
 	 (let* ((args (ntycon-args type))
@@ -125,7 +127,7 @@
 	    (ntycon? a1)
 	    (eq? (ntycon-tycon a1) (core-symbol "SystemState"))
 	    (ntycon? a2)
-	    (eq? (ntycon-tycon a2) (core-symbol "IOResult")))))))
+	    (eq? (ntycon-tycon a2) (core-symbol "IOResult"))))))))
 
 (define (is-list-of? type con)
   (and (ntycon? type)
