@@ -84,16 +84,38 @@
 
 (define prim.tupleIxDict
  (lambda dicts
-   (let ((ix (core-symbol "Ix")))
-     (create-dict dicts
-      (|PreludeTuple:tupleRange| |PreludeTuple:tupleIndex|
-       |PreludeTuple:tupleInRange|)
-      ((tupleEqDict/l (class-dict-size ix)
-		      (dict-super-slot ix (core-symbol "Eq")))
-       (tupleTextDict/l (class-dict-size ix)
-			(dict-super-slot ix (core-symbol "Text")))
-       (tupleOrdDict/l (class-dict-size ix)
-		       (dict-super-slot ix (core-symbol "Ord"))))))))
+   (let* ((ix (core-symbol "Ix"))
+	  (dict-vector (box (list->vector dicts)))
+	  (methods (list (delay (funcall (dynamic |PreludeTuple:tupleRange|)
+					 dict-vector))
+			 (delay (funcall (dynamic |PreludeTuple:tupleIndex|)
+					 dict-vector))
+			 (delay (funcall (dynamic |PreludeTuple:tupleInRange|)
+					 dict-vector))))
+	  (supers
+	   (map (lambda (super)
+		  (let ((fn (tuple-super-dict-fn super))
+			(size (class-dict-size ix))
+			(slot (dict-super-slot ix super)))
+		    (delay (funcall fn (map (lambda (d)
+					      (dict-component (force d) size slot))
+					    dicts)))))
+		(class-super* ix))))
+     (list->vector (append methods supers)))))
+
+;;; The dictionary builder for a superclass of Ix.
+
+(define (tuple-super-dict-fn class)
+  (cond ((eq? class (core-symbol "Eq")) (function tupleEqDict/l))
+	((eq? class (core-symbol "Ord")) (function tupleOrdDict/l))
+	((eq? class (core-symbol "Text")) (function tupleTextDict/l))
+	((eq? class (core-symbol "Show")) (function tupleShowDict/l))
+	(else (error "No tuple dictionary for superclass ~A" class))))
+
+(define (dict-component d size i)
+  (cond ((eqv? size 1) d)
+	((eqv? size 2) (if (eqv? i 0) (car d) (cdr d)))
+	(else (vector-ref d i))))
 
 ;;; Haskell 98 only.
 (define prim.tupleBoundedDict
@@ -118,3 +140,25 @@
     (|PreludeTuple:tupleReadBin| |PreludeTuple:tupleShowBin|)
     ())))
 
+
+;;; Show and Read (Haskell 1.3 and later).  H98's Show also has `show'.
+
+(define prim.tupleShowDict
+ (lambda dicts
+   (tupleShowDict/l dicts)))
+
+(define (tupleShowDict/l d)
+  (if (feature? 'show-method)
+      (create-dict d
+       (|PreludeTuple:tupleShowsPrec| |PreludeTuple:tupleShow|
+	|PreludeTuple:tupleShowList|)
+       ())
+      (create-dict d
+       (|PreludeTuple:tupleShowsPrec| |PreludeTuple:tupleShowList|)
+       ())))
+
+(define prim.tupleReadDict
+ (lambda dicts
+   (create-dict dicts
+    (|PreludeTuple:tupleReadsPrec| |PreludeTuple:tupleReadList|)
+    ())))

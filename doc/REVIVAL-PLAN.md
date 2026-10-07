@@ -630,3 +630,51 @@ written with its first dialect in mind.
 - Should 1.2 also gain the shared features under a flag, or stay frozen
   as the original system?  Frozen is simpler and keeps the 1.2 demos as
   a fixed regression baseline.
+
+## 9. Status after the constructor-class / monad round (2026-10-06)
+
+Test suite: **141 passed, 15 expected failures** (`make test`).
+
+### Landed (branch `constructor-classes`, which includes the `cheap-wins` merge)
+
+- **Constructor classes (M3).**  `tyapp`/`ntyapp` types: a type variable
+  may be applied; unification binds the head to a partially applied tycon
+  (`unify-app-con`, `unify-apps`); constraints on `f a` wait on the head
+  variable (`ntyvar-app-contexts`) until it is instantiated; instance heads
+  may be partial (`Maybe`, `Either e`, `(->) r`, `[]`).  No kind inference:
+  a kind mismatch shows up as an arity/unification error.
+- **`do` (M4).**  Lexed under `(feature? 'do-notation)`, desugared in the
+  scope phase (`prec/scope.mumble`): failure-free patterns use `>>=` with a
+  lambda, others go through `case` with `fail` (98) or `zero` (1.3/1.4).
+- **`newtype`.**  Erased in `ast-to-flic` and in cfn pattern matching
+  (`algdata-newtype?`).  Deriving works unchanged.
+- **Monadic IO.**  `IO` is a newtype over the state-passing representation
+  (the core symbol `IO` is created as a data type when the dialect has
+  `newtype`); `instance Monad IO`; `IOError`, `ioError`, `catch`,
+  `putStr`... live in `PreludeIO`; `IOPrims.hi` moved into the Prelude.
+  The 1.2 Dialogue names that clash (`readFile`, `getArgs`...) are gone
+  from the H98 Prelude; `appendChan`, `stdout`, `done`... remain as
+  compatibility.
+- **Dialect feature table** (`top/globals.mumble`): ordered dialects
+  `haskell-1.2 < 1.3 < 1.4 < haskell98`, `(feature? 'name)`.  Features
+  `show-read` / `show-method` exist but are not used yet.
+- Everything from `cheap-wins` (defaulting, batch mode, deriving
+  Enum/Bounded, C-T rule, partial exports, float traps, 512 MB stack).
+
+### Unfinished: Show/Read split (M5), then Haskell 1.4
+
+Compiler groundwork is in (core classes `Show`/`Read`, tuple dictionaries
+`tupleShowDict`/`tupleReadDict`, derived Show/Read, generic Ix tuple
+dictionary) but the Prelude still has `Text`.  Next steps:
+
+1. Rewrite `lib/haskell98/prelude` (`PreludeCore`, `PreludeText`,
+   `PreludeTuple` (`tupleShow`), `PreludeArray/Ratio/Complex/IO`, the
+   libraries and tests) from `Text` to `Show` + `Read`; drop `Binary`/`Bin`;
+   `Num` and `Ix` lose their `Text` superclass.  Re-enable the `show`
+   method (it cannot be a core symbol: 1.2 defines `show` as a function).
+2. `lib/haskell-1.4/`: Report Prelude (`Functor(map)`, `MonadZero`,
+   `MonadPlus((++))`, `Eval`, `>>=` infixl 1, `filter`/`concat` generalised),
+   `--haskell1.4` in `bin/yale-haskell`, `DIALECTS` in the Makefile.
+   Compiler side: `Eval` contexts ignored, monad comprehensions (feature
+   `monad-comprehensions`, translation in Report 3.11).
+3. Records (M6), qualified names (M7); then 1.3 from 1.4.

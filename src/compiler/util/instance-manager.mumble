@@ -28,6 +28,10 @@
 	 (get-tuple-ix-instance alg-def))
 	((eq? class-def (core-symbol "Text"))
 	 (get-tuple-text-instance alg-def))
+	((eq? class-def (core-symbol "Show"))
+	 (get-tuple-show-instance alg-def))
+	((eq? class-def (core-symbol "Read"))
+	 (get-tuple-read-instance alg-def))
 	((eq? class-def (core-symbol "Binary"))
 	 (get-tuple-binary-instance alg-def))
 	((and (haskell98?) (eq? class-def (core-symbol "Bounded")))
@@ -39,6 +43,8 @@
 (define *saved-ix-instances* '())
 (define *saved-text-instances* '())
 (define *saved-binary-instances* '())
+(define *saved-show-instances* '())
+(define *saved-read-instances* '())
 (define *saved-bounded-instances* '())
 
 (define (get-tuple-eq-instance tpl)
@@ -75,6 +81,24 @@
 	(let ((inst (make-tuple-instance
 		     tpl (core-symbol "Text") (core-symbol "tupleTextDict"))))
 	  (push (tuple tpl inst) *saved-text-instances*)
+	  inst))))
+
+(define (get-tuple-show-instance tpl)
+  (let ((res (assq tpl *saved-show-instances*)))
+    (if (not (eq? res '#f))
+	(tuple-2-2 res)
+	(let ((inst (make-tuple-instance
+		     tpl (core-symbol "Show") (core-symbol "tupleShowDict"))))
+	  (push (tuple tpl inst) *saved-show-instances*)
+	  inst))))
+
+(define (get-tuple-read-instance tpl)
+  (let ((res (assq tpl *saved-read-instances*)))
+    (if (not (eq? res '#f))
+	(tuple-2-2 res)
+	(let ((inst (make-tuple-instance
+		     tpl (core-symbol "Read") (core-symbol "tupleReadDict"))))
+	  (push (tuple tpl inst) *saved-read-instances*)
 	  inst))))
 
 (define (get-tuple-binary-instance tpl)

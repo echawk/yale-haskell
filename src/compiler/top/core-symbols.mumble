@@ -126,7 +126,8 @@
 
 (define *feature-core-names*
   '((constructor-classes
-     |Functor| |Monad| |MonadZero| |fmap| |>>=| |>>| |return| |fail| |zero|)))
+     |Functor| |Monad| |MonadZero| |fmap| |>>=| |>>| |return| |fail| |zero|)
+    (show-read |Show| |Read|)))
 
 (define (core-name-active? name)
   (every (lambda (entry)

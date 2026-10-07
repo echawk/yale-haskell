@@ -89,6 +89,7 @@
 	((memq class
 	       (list (core-symbol "Eq") (core-symbol "Ord")
 		     (core-symbol "Text") (core-symbol "Binary")
+		     (core-symbol "Show") (core-symbol "Read")
 		     (core-symbol "Ix") (core-symbol "Enum")))
 	 'Standard)
 	((memq class

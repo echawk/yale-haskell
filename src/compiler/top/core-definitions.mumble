@@ -21,7 +21,9 @@
              "Binary"
              "Functor"
              "Monad"
-             "MonadZero")
+             "MonadZero"
+             "Show"
+             "Read")
     (METHODS "fromInteger"
              "signum"
              "abs"
@@ -153,7 +155,8 @@
     "foldr" "build" "inlineFoldr" "inlineBuild" 
     "primAppend" "primStringEq"
     "dictSel" "tupleEqDict" "tupleOrdDict" "tupleIxDict"
-    "tupleTextDict" "tupleBinaryDict" "tupleBoundedDict")))
+    "tupleTextDict" "tupleBinaryDict" "tupleBoundedDict"
+    "tupleShowDict" "tupleReadDict")))
 
 
 
