@@ -19,8 +19,11 @@
 		  (lambda (con vars)
 		     (declare (ignore vars))
 		     (**showString (**string (con-string con))))))
-   (**define '|readsPrec| '(|d| |str|)
-     (**listcomp
+   (**define '|readsPrec| '(|d| |str0|)
+    (**let
+     (list
+      (**define '|readVal| '(|str|)
+       (**listcomp
       (**var '|s|)
       (list
        (**gen '(tuple |tok| |rest|) (**lex (**var '|str|)))
@@ -32,7 +35,11 @@
 				  (**list (**tuple2 (**con/def con)
 						    (**var '|rest|)))))
 			       (algdata-constrs algdata))
-			,(**alt/simple (**pat '_) (**null))))))))))
+			,(**alt/simple (**pat '_) (**null)))))))))
+     ;; H98 reads redundant parentheses around a nullary constructor
+     (if (haskell98?)
+	 (**readParen (**false) (**var '|readVal|) (**var '|str0|))
+	 (**app (**var '|readVal|) (**var '|str0|)))))))
 
 ;;; This has been hacked to split up the read function for large
 ;;; data types to avoid choking the lisp compiler.
@@ -65,10 +72,13 @@
 	    (**showsPrec (**int rp) (**var (cadr vars)))))))
 
 (define (show-prefix con vars)
-  (**showParen
-   (**<= (**int 10) (**var '|d|))
-   (**dot/l (**showString (**string (con-string con)))
-	    (show-fields vars))))
+  (if (and (haskell98?) (null? vars))
+      ;; H98: a nullary constructor is never parenthesised
+      (**showString (**string (con-string con)))
+      (**showParen
+       (**<= (**int 10) (**var '|d|))
+       (**dot/l (**showString (**string (con-string con)))
+		(show-fields vars)))))
 
 (define (show-fields vars)
   (if (null? vars)
@@ -125,7 +135,9 @@
 	  (**gen `(tuple ,(con-string con) |rest|)
 		 (**lex (**var '|r|)))
 	  (read-fields vars svars (cdr svars))))))
-     (**readParen (**< (**int 9) (**var '|d|))
+     (**readParen (if (and (haskell98?) (eqv? arity 0))
+		      (**false)
+		      (**< (**int 9) (**var '|d|)))
 		  (**var '|readVal|) (**var '|str|)))))
 
 (define (read-fields vars s0 s1)
