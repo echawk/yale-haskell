@@ -20,6 +20,10 @@ kinds e = concat [ n | (p, n) <- [ (isAlreadyExistsError, " alreadyExists")
                                  , (isUserError,          " user") ],
                              p e ]
 
+fmap' :: (a -> b) -> Maybe a -> Maybe b
+fmap' _ Nothing  = Nothing
+fmap' f (Just x) = Just (f x)
+
 report :: String -> IOError -> IO ()
 report what e = say (what ++ ":" ++ kinds e)
 
@@ -50,4 +54,15 @@ main =
   catch (hGetLine stdin `thenIO` \l -> say ("read " ++ l))
         (report "hGetLine at EOF") `thenIO_`
   catch (hPutStr stdin "x") (report "hPutStr stdin") `thenIO_`
+  try (openFile "/nonexistent/yale-haskell/file" ReadMode) `thenIO` \r ->
+  (case r of
+     Left e  -> say ("try Left: " ++ show (ioeGetFileName e) ++ " "
+                     ++ show (fmap' (const ()) (ioeGetHandle e)))
+     Right _ -> say "try Right") `thenIO_`
+  try (returnIO 5) `thenIO` \r5 ->
+  say (case r5 of { Left _ -> "left"; Right v -> "try Right " ++ show (v :: Int) }) `thenIO_`
+  try (ioError (userError "u")) `thenIO` \ru ->
+  say (case ru of
+         Left e  -> "user: " ++ show (ioeGetFileName e, isUserError e)
+         Right () -> "no error") `thenIO_`
   say "done"

@@ -50,9 +50,7 @@ rejects re-exporting an entity it gets from the Prelude.
 
 - **Still exported for compatibility:** `ord`, `chr`, `isAscii`,
   `isControl`, `isPrint`, `isSpace`, `isUpper`, `isLower`, `isAlpha`,
-  `isDigit`, `isAlphaNum`, `toUpper`, `toLower` (H98: only in `Char`);
-  `minInt`, `maxInt`, `minChar`, `maxChar`, `fromRealFrac` (used by
-  `Random.hs`; H98 uses `minBound`/`maxBound`/`realToFrac`); the
+  `isDigit`, `isAlphaNum`, `toUpper`, `toLower` (H98: only in `Char`); the
   Dialogue I/O names; `nullBin`, `isNullBin`, `appendBin`.
 - **Always in scope** (compiler core symbols in `PreludeCore`): the
   types `Ratio`, `Complex` (with `:+`), `Array`, and the classes

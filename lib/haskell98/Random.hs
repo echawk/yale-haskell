@@ -48,7 +48,7 @@
 --   * do-notation rewritten with thenIO; IORef/unsafePerformIO replaced
 --     by a named global cell (RandomPrims.hi).
 --   * minBound/maxBound replaced by minInt/maxInt and minChar/maxChar,
---     realToFrac by fromRealFrac (the 1.2 Prelude has no Bounded).
+--     realToFrac by realToFrac (the 1.2 Prelude has no Bounded).
 --     Int has the Lisp fixnum range, so random :: Int covers more than
 --     32 bits.
 --   * The Show/Read instances of StdGen are one Text instance.
@@ -68,7 +68,7 @@ class RandomGen g where
    next     :: g -> (Int, g)
    split    :: g -> (g, g)
    genRange :: g -> (Int, Int)
-   genRange g = (minInt, maxInt)
+   genRange g = (minBound, maxBound)
 
 data StdGen = StdGen Int Int
 
@@ -138,13 +138,13 @@ class Random a where
 
 instance Random Int where
   randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
-  random g        = randomR (minInt,maxInt) g
+  random g        = randomR (minBound, maxBound) g
 
 instance Random Char where
   randomR (a,b) g =
       case (randomIvalInteger (toInteger (ord a), toInteger (ord b)) g) of
         (x,g) -> (chr x, g)
-  random g        = randomR (minChar,maxChar) g
+  random g        = randomR (minBound,maxBound) g
 
 instance Random Bool where
   randomR (a,b) g =
@@ -161,7 +161,7 @@ instance Random Bool where
 
 instance Random Integer where
   randomR ival g = randomIvalInteger ival g
-  random g       = randomR (toInteger minInt, toInteger maxInt) g
+  random g       = randomR (toInteger (minBound :: Int), toInteger (maxBound :: Int)) g
 
 instance Random Double where
   randomR ival g = randomIvalDouble ival id g
@@ -169,8 +169,8 @@ instance Random Double where
 
 -- hah, so you thought you were saving cycles by using Float?
 instance Random Float where
-  random g        = randomIvalDouble (0::Double,1) fromRealFrac g
-  randomR (a,b) g = randomIvalDouble (fromRealFrac a, fromRealFrac b) fromRealFrac g
+  random g        = randomIvalDouble (0::Double,1) realToFrac g
+  randomR (a,b) g = randomIvalDouble (realToFrac a, realToFrac b) realToFrac g
 
 mkStdRNG :: Integer -> IO StdGen
 mkStdRNG o =
@@ -198,7 +198,7 @@ randomIvalDouble :: (RandomGen g, Fractional a) => (Double, Double) -> (Double -
 randomIvalDouble (l,h) fromDouble rng
   | l > h     = randomIvalDouble (h,l) fromDouble rng
   | otherwise =
-       case (randomIvalInteger (toInteger minInt, toInteger maxInt) rng) of
+       case (randomIvalInteger (toInteger (minBound :: Int), toInteger (maxBound :: Int)) rng) of
          (x, rng') ->
             let
              scaled_x =
@@ -209,7 +209,7 @@ randomIvalDouble (l,h) fromDouble rng
             (scaled_x, rng')
 
 intRange :: Integer
-intRange  = toInteger maxInt - toInteger minInt
+intRange  = toInteger (maxBound :: Int) - toInteger (minBound :: Int)
 
 iLogBase :: Integer -> Integer -> Integer
 iLogBase b i = if i < b then 1 else 1 + iLogBase b (i `div` b)

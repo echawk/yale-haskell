@@ -1,6 +1,6 @@
 -- I/O functions and definitions
 
-module PreludeIO(stdin,stdout,stderr,stdecho,{-Request(..),Response(..),-}
+module PreludeIO(FilePath,stdin,stdout,stderr,stdecho,{-Request(..),Response(..),-}
                  IOError(..),Dialogue(..),IO(..),SystemState,IOResult,
                  SuccCont(..),StrCont(..),
                  StrListCont(..),BinCont(..),FailCont(..),
@@ -46,6 +46,8 @@ doneIO = returnIO ()
 
 
 -- File and channel names:
+
+type FilePath = String
 
 stdin	    =  "stdin"
 stdout      =  "stdout"
