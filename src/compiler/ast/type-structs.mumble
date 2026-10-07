@@ -39,6 +39,16 @@
    (def (type def))
    (args (type (list type)))))
 
+;;; A type variable applied to arguments: `m a b'.  (Constructor classes.)
+;;; The function is always a tyvar; applications of a tycon are tycons
+;;; with fewer arguments than their arity, where that is allowed.
+(define-struct tyapp
+  (include type)
+  (predicate tyapp?)
+  (slots
+   (fun (type type))
+   (args (type (list type)))))
+
 ;;; <signature> -> [<context> =>] <type>
 ;;;
 ;;; <context> -> <class>

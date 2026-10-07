@@ -41,24 +41,91 @@
  "Type signature cannot be used: monomorphic type variables present."))
 		 (else
 		  (instantiate-tyvar type1 type2)
-		  (let ((classes (ntyvar-context type1)))
-		    (if (null? classes)
-			'OK
-			(propagate-contexts/ntype type1 type2 classes))))))
+		  (let ((classes (ntyvar-context type1))
+			(pending (ntyvar-app-contexts type1)))
+		    (when (not (null? pending))
+		      (setf (ntyvar-app-contexts type1) '()))
+		    (when (not (null? classes))
+		      (propagate-contexts/ntype type1 type2 classes))
+		    ;; Constraints on applications headed by this variable
+		    ;; can now be checked.
+		    (dolist (p pending)
+		      (propagate-contexts/ntype
+		       type1 (tuple-2-1 p) (tuple-2-2 p)))
+		    'OK))))
 	  ((ntyvar? type2)
 	   (unify-1 type2 type1))
-	  ((eq? (ntycon-tycon type1) (ntycon-tycon type2))
-	   (unify-list (ntycon-args type1) (ntycon-args type2)))
 	  (else
-	   (let ((etype1 (expand-ntype-synonym type1))
-		 (etype2 (expand-ntype-synonym type2)))
-	    (if (same-tycon? (ntycon-tycon etype1) (ntycon-tycon etype2))
-		(unify-list (ntycon-args etype1) (ntycon-args etype2))
-		;; This error message should probably show both the original
-		;; and the expanded types for clarity.
-		(type-error
-		      "Type conflict: type ~A does not match ~A"
-			    etype1 etype2))))))
+	   (unify-nonvar type1 type2))))
+
+;;; Neither type is a variable.  Each is a tycon application or an
+;;; application of a type variable.
+
+(define (unify-nonvar type1 type2)
+  (cond ((and (ntycon? type1) (ntycon? type2))
+	 (if (eq? (ntycon-tycon type1) (ntycon-tycon type2))
+	     (unify-args type1 type2)
+	     (unify-expanded type1 type2)))
+	((and (ntyapp? type1) (ntyapp? type2))
+	 (unify-apps type1 type2))
+	((ntyapp? type1)
+	 (if (synonym? (ntycon-tycon type2))
+	     (unify-expanded type1 type2)
+	     (unify-app-con type1 type2)))
+	(else
+	 (if (synonym? (ntycon-tycon type1))
+	     (unify-expanded type1 type2)
+	     (unify-app-con type2 type1)))))
+
+(define (unify-args type1 type2)
+  (if (eqv? (length (ntycon-args type1)) (length (ntycon-args type2)))
+      (unify-list (ntycon-args type1) (ntycon-args type2))
+      (type-error "Type conflict: type ~A does not match ~A (kind mismatch)"
+		  type1 type2)))
+
+(define (unify-expanded type1 type2)
+  (let ((etype1 (if (ntycon? type1) (expand-ntype-synonym type1) type1))
+	(etype2 (if (ntycon? type2) (expand-ntype-synonym type2) type2)))
+    (cond ((and (ntycon? etype1) (ntycon? etype2))
+	   (if (same-tycon? (ntycon-tycon etype1) (ntycon-tycon etype2))
+	       (unify-args etype1 etype2)
+	       ;; This error message should probably show both the original
+	       ;; and the expanded types for clarity.
+	       (type-error "Type conflict: type ~A does not match ~A"
+			   etype1 etype2)))
+	(else
+	 (unify-1 (prune etype1) (prune etype2))))))
+
+;;; f a1 .. an  against  T b1 .. bm  with m >= n:  f = T b1 .. b(m-n)
+;;; and the remaining arguments pair up.
+
+(define (unify-app-con app con)
+  (let* ((n (length (ntyapp-args app)))
+	 (cargs (ntycon-args con))
+	 (m (length cargs)))
+    (if (< m n)
+	(type-error "Type conflict: type ~A does not match ~A" app con)
+	(begin
+	  (unify-list (ntyapp-args app) (list-tail cargs (- m n)))
+	  (unify (ntyapp-fun app)
+		 (**ntycon (ntycon-tycon con) (list-head cargs (- m n))))))))
+
+(define (unify-apps app1 app2)
+  (let* ((args1 (ntyapp-args app1))
+	 (args2 (ntyapp-args app2))
+	 (n1 (length args1))
+	 (n2 (length args2)))
+    (cond ((eqv? n1 n2)
+	   (unify-list args1 args2)
+	   (unify (ntyapp-fun app1) (ntyapp-fun app2)))
+	  ((> n1 n2)
+	   (unify-list (list-tail args1 (- n1 n2)) args2)
+	   (unify (apply-ntype (ntyapp-fun app1) (list-head args1 (- n1 n2)))
+		  (ntyapp-fun app2)))
+	  (else
+	   (unify-list args1 (list-tail args2 (- n2 n1)))
+	   (unify (ntyapp-fun app1)
+		  (apply-ntype (ntyapp-fun app2) (list-head args2 (- n2 n1))))))))
 
 
 (define-integrable (instantiate-tyvar tyvar val)
@@ -107,6 +174,8 @@
 
 (define (propagate-contexts/inner type classes)
  (let ((type (prune type)))
+  (if (ntyapp? type)
+      (propagate-contexts/app type classes)
   (if (ntyvar? type)
       (if (ntyvar-read-only? type)
 	  (if (context-implies? (ntyvar-context type) classes)
@@ -118,7 +187,22 @@
 	      (setf (ntyvar-context type) classes)
 	      (setf (ntyvar-context type)
 		    (merge-contexts classes (ntyvar-context type)))))
-      (propagate-contexts-1 (expand-ntype-synonym type) classes))))
+      (propagate-contexts-1 (expand-ntype-synonym type) classes)))))
+
+;;; A constraint on `f a' where f is a type variable cannot be resolved
+;;; yet.  It is remembered with f and re-examined when f is instantiated.
+
+(define (propagate-contexts/app type classes)
+  (let ((head (prune (ntyapp-fun type))))
+    (cond ((and (ntyvar? head) (ntyvar-read-only? head))
+	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
+	   (type-error
+	    "Signature context is too general: no instance for ~A" type))
+	  ((ntyvar? head)
+	   (setf (ntyvar-app-contexts head)
+		 (cons (tuple type classes) (ntyvar-app-contexts head))))
+	  (else
+	   (propagate-contexts/inner (prune type) classes)))))
 
 ;;; The type has now been expanded.  This propagates each class constraint
 ;;; in turn.
@@ -139,6 +223,10 @@
 	   ;; error message better.
 	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
 	   (type-error "Type ~A is not in class ~A" type class))
+	  ((not (eqv? (length (instance-gcontext instance))
+		      (length (ntycon-args type))))
+	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
+	   (type-error "Kind mismatch: ~A cannot be in class ~A" type class))
 	  (else
 	   ;; The instance contains a list of class constraints for
 	   ;; each argument.  This loop pairs the argument to the

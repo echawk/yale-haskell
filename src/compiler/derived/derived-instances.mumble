@@ -131,6 +131,13 @@
 		      (augment-context (instance-context inst) class
 				       (tyvar-name type)))
 		'#t)))
+	((tyapp? type)
+	 ;; Needs a context on an application of a type variable.
+	 (signal-cannot-derive-instance
+	   (instance-class inst) (instance-algdata inst))
+	 (setf (instance-ok? inst) '#f)
+	 (setf *di-context-changed* '#t)
+	 '#f)
 	((synonym? (tycon-def type))
 	 (propagate-type-context inst class (expand-synonym type)))
 	(else
@@ -206,13 +213,18 @@
     (copy-synonym-body body alist))))
 
 (define (copy-synonym-body type alist)
-  (if (tyvar? type)
-      (tuple-2-2 (assq (tyvar-name type) alist))
-      (make tycon (def (tycon-def type))
-	          (name (tycon-name type))
-		  (args (map (lambda (ty)
-			       (copy-synonym-body ty alist))
-			     (tycon-args type))))))
+  (cond ((tyvar? type)
+	 (tuple-2-2 (assq (tyvar-name type) alist)))
+	((tyapp? type)
+	 (apply-ast-type (copy-synonym-body (tyapp-fun type) alist)
+			 (map (lambda (ty) (copy-synonym-body ty alist))
+			      (tyapp-args type))))
+	(else
+	 (make tycon (def (tycon-def type))
+	             (name (tycon-name type))
+		     (args (map (lambda (ty)
+				  (copy-synonym-body ty alist))
+				(tycon-args type)))))))
 
 ;;; This fills in the body decls for an instance function.
 

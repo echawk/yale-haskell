@@ -5,11 +5,31 @@
 ;;; It returns an uninstantiated type variable or a type constructor.
 
 (define-integrable (prune ntype)
-  (if (ntyvar? ntype)
-      (if (instantiated? ntype)
-	  (prune-1 (ntyvar-value ntype))
-	  ntype)
-      ntype))
+  (cond ((ntyvar? ntype)
+	 (if (instantiated? ntype)
+	     (prune-1 (ntyvar-value ntype))
+	     ntype))
+	((ntyapp? ntype)
+	 (prune-app ntype))
+	(else ntype)))
+
+;;; An application whose function has been instantiated is normalized: a
+;;; tycon takes the arguments, an application of an application is
+;;; flattened.
+
+(define (prune-app type)
+  (let ((fun (prune (ntyapp-fun type))))
+    (if (eq? fun (ntyapp-fun type))
+	type
+	(apply-ntype fun (ntyapp-args type)))))
+
+(define (apply-ntype fun args)
+  (cond ((null? args) fun)
+	((ntycon? fun)
+	 (**ntycon (ntycon-tycon fun) (append (ntycon-args fun) args)))
+	((ntyapp? fun)
+	 (**ntyapp (ntyapp-fun fun) (append (ntyapp-args fun) args)))
+	(else (**ntyapp fun args))))
 
 ;;; This is because lucid can't hack inlining recursive fns.
 
@@ -75,11 +95,16 @@
 	(else (get-gtyvar-context n (cdr gcontext)))))
 
 (define (type->gtype type env)
-  (if (tyvar? type)
-      (mlet (((n env1) (ast->gtyvar (tyvar-name type) env)))
-	(values (**gtyvar n) env1))
-      (mlet (((types env1) (type->gtype/l (tycon-args type) env)))
-	(values (**ntycon (tycon-def type) types) env1))))
+  (cond ((tyvar? type)
+	 (mlet (((n env1) (ast->gtyvar (tyvar-name type) env)))
+	   (values (**gtyvar n) env1)))
+	((tyapp? type)
+	 (mlet (((fun env1) (type->gtype (tyapp-fun type) env))
+		((types env2) (type->gtype/l (tyapp-args type) env1)))
+	   (values (**ntyapp fun types) env2)))
+	(else
+	 (mlet (((types env1) (type->gtype/l (tycon-args type) env)))
+	   (values (**ntycon (tycon-def type) types) env1)))))
 
 (define (type->gtype/l types env)
   (if (null? types)
@@ -117,7 +142,11 @@
 	(cons tyvar (create-new-tyvars (cdr ctxts))))))
 
 (define (copy-gtype g env)
-  (cond ((ntycon? g)
+  (cond ((ntyapp? g)
+	 (apply-ntype (prune (copy-gtype (ntyapp-fun g) env))
+		      (map (lambda (g1) (copy-gtype g1 env))
+			   (ntyapp-args g))))
+	((ntycon? g)
 	 (**ntycon (ntycon-tycon g)
 		   (map (lambda (g1) (copy-gtype g1 env))
 			(ntycon-args g))))
@@ -144,11 +173,23 @@
       type))
 
 (define (expand-ntype-synonym-1 type env)
-  (if (tyvar? type)
-      (tuple-2-2 (assq (tyvar-name type) env))
-      (**ntycon (tycon-def type)
-		(map (lambda (ty) (expand-ntype-synonym-1 ty env))
-		     (tycon-args type)))))
+  (cond ((tyvar? type)
+	 (tuple-2-2 (assq (tyvar-name type) env)))
+	((tyapp? type)
+	 (apply-ntype (prune (expand-ntype-synonym-1 (tyapp-fun type) env))
+		      (map (lambda (ty) (expand-ntype-synonym-1 ty env))
+			   (tyapp-args type))))
+	(else
+	 (**ntycon (tycon-def type)
+		   (map (lambda (ty) (expand-ntype-synonym-1 ty env))
+			(tycon-args type))))))
+
+;;; The first n elements of a list.
+
+(define (list-head l n)
+  (if (eqv? n 0)
+      '()
+      (cons (car l) (list-head (cdr l) (1- n)))))
 
 ;;; This is used in generalization.  Note that ntyvars will remain when
 ;;; non-generic tyvars are encountered.
@@ -169,6 +210,10 @@
   (cond ((ntycon? ntype)
 	 (mlet (((args env1) (ntype->gtype/l (ntycon-args ntype) env)))
 	   (values (**ntycon (ntycon-tycon ntype) args) env1)))
+	((ntyapp? ntype)
+	 (mlet (((fun env1) (ntype->gtype-1 (ntyapp-fun ntype) env))
+		((args env2) (ntype->gtype/l (ntyapp-args ntype) env1)))
+	   (values (**ntyapp fun args) env2)))
 	(else
 	 (ntyvar->gtyvar ntype env)))))
 
@@ -269,9 +314,13 @@
 
 (define (occurs-in-type tyvar type) ; Cardelli algorithm
   (let ((type (prune type)))
-    (if (ntyvar? type)
-	(eq? type tyvar)
-	(occurs-in-type/l tyvar (ntycon-args type)))))
+    (cond ((ntyvar? type)
+	   (eq? type tyvar))
+	  ((ntyapp? type)
+	   (or (occurs-in-type tyvar (ntyapp-fun type))
+	       (occurs-in-type/l tyvar (ntyapp-args type))))
+	  (else
+	   (occurs-in-type/l tyvar (ntycon-args type))))))
 
 ; Does a tyvar occur in a list of types?
 (define (occurs-in-type/l tyvar types)
@@ -288,11 +337,15 @@
 
 (define (collect-tyvars-1 ntype vars)
  (let ((ntype (prune ntype)))
-  (if (ntyvar? ntype)
-      (if (or (memq ntype vars) (non-generic? ntype))
-	  vars
-	  (cons ntype vars))
-      (collect-tyvars/l-1 (ntycon-args ntype) vars))))
+  (cond ((ntyvar? ntype)
+	 (if (or (memq ntype vars) (non-generic? ntype))
+	     vars
+	     (cons ntype vars)))
+	((ntyapp? ntype)
+	 (collect-tyvars/l-1 (ntyapp-args ntype)
+			     (collect-tyvars-1 (ntyapp-fun ntype) vars)))
+	(else
+	 (collect-tyvars/l-1 (ntycon-args ntype) vars)))))
 
 (define (collect-tyvars/l types)
   (collect-tyvars/l-1 types '()))

@@ -783,6 +783,14 @@
   `(**context ,(dump-object (context-class o))
 	      ,(dump-object (context-tyvar o))))
 
+(define-walker-method dump tyapp (o)
+  `(**tyapp ,(dump-object (tyapp-fun o))
+	    ,(dump-object (tyapp-args o))))
+
+(define-walker-method dump ntyapp (o)
+  `(**ntyapp ,(dump-object (ntyapp-fun o))
+	     ,(dump-object (ntyapp-args o))))
+
 (define-walker-method dump tycon (o)
   `(**tycon/def ,(dump-object (tycon-def o))
 		,(dump-object (tycon-args o))))

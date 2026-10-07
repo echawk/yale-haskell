@@ -228,12 +228,17 @@
 	       env2))))
 
 (define (rename-type-vars type env)
-  (if (tyvar? type)
-      (mlet (((tyvar env1)
-	      (rename-sig-tyvar (tyvar-name type) env)))
-	 (values (**tyvar tyvar) env1))
-      (mlet (((new-types env1) (rename-type-vars/l (tycon-args type) env)))
-        (values (**tycon/def (tycon-def type) new-types) env1))))
+  (cond ((tyvar? type)
+	 (mlet (((tyvar env1)
+		 (rename-sig-tyvar (tyvar-name type) env)))
+	   (values (**tyvar tyvar) env1)))
+	((tyapp? type)
+	 (mlet (((fun env1) (rename-type-vars (tyapp-fun type) env))
+		((new-types env2) (rename-type-vars/l (tyapp-args type) env1)))
+	   (values (**tyapp fun new-types) env2)))
+	(else
+	 (mlet (((new-types env1) (rename-type-vars/l (tycon-args type) env)))
+	   (values (**tycon/def (tycon-def type) new-types) env1)))))
 
 (define (rename-type-vars/l types env)
   (if (null? types)

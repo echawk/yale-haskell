@@ -134,6 +134,11 @@
 	 (dump-gtyvar g))
 	((ntyvar? g)
 	 (dump-gtype-1 (prune g)))
+	((ntyapp? g)
+	 (let* ((fun (dump-gtype-1 (ntyapp-fun g)))
+		(args (dump-gtype-list (ntyapp-args g))))
+	   (remember-dumped-object
+	    `(**ntyapp ,(cse-ref-code fun) ,(cse-ref-code args)))))
 	(else
 	 (dump-gtycon g))))
 

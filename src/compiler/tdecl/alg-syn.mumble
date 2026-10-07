@@ -187,7 +187,7 @@
   (with-slots synonym-decl (simple body) synonym-decl
     (let* ((def (tycon-def simple))
 	   (tyvars (simple-tyvar-list simple))
-	   (tyvars-referenced (resolve-type body)))
+	   (tyvars-referenced (resolve-type-1 body '() '#t)))
       (dolist (v tyvars)
 	(if (not (memq v tyvars-referenced))
 	  (signal-unreferenced-synonym-arg v)))
@@ -215,6 +215,8 @@
 (define (gather-synonyms type acc)
   (cond ((tyvar? type)
 	 acc)
+	((tyapp? type)
+	 (gather-synonyms/list (tyapp-args type) acc))
 	((and (synonym? (tycon-def type))
 	      (eq? *unit* (def-unit (tycon-def type))))
 	 (gather-synonyms/list (tycon-args type)

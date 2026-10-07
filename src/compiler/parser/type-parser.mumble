@@ -13,8 +13,17 @@
 		 (tycon-args (parse-atype-list)))
 	    (setf (tycon-args tycon) tycon-args)
 	    tycon))
+   (tyvar (let* ((var (tyvar->ast))
+		 (args (parse-atype-list)))
+	    (if (null? args)
+		var
+		(**tyapp var args))))
    (else
-    (parse-atype))))
+    (let* ((type (parse-atype))
+	   (args (parse-atype-list)))
+      (if (and (not (null? args)) (tycon? type))
+	  (apply-ast-type type args)   ; `(->) r', `[] a', `(,) a b'
+	  type)))))
 
 (define (parse-atype-list)
   (token-case
@@ -29,6 +38,10 @@
     (tycon (tycon->ast))
     (\( (token-case
 	  (\) (**tycon/def (core-symbol "UnitType") '()))
+	  (-> (require-token \) (signal-missing-token "`)'" "type expression"))
+	      (**tycon/def (core-symbol "Arrow") '()))
+	  (\, (let ((n 2))
+		(token-case-loop-commas n)))
 	  (else
 	    (let ((type (parse-type)))
 	      (token-case
@@ -37,11 +50,21 @@
 		     (**tycon/def (tuple-tycon (length types)) types)))
 	       (else
 		(signal-missing-token "`)' or `,'" "type expression")))))))
-    (\[ (let ((type (parse-type)))
-	  (require-token \] (signal-missing-token "`]'" "type expression"))
-	  (**tycon/def (core-symbol "List") (list type))))
+    (\[ (token-case
+	  (\] (**tycon/def (core-symbol "List") '()))
+	  (else
+	   (let ((type (parse-type)))
+	     (require-token \] (signal-missing-token "`]'" "type expression"))
+	     (**tycon/def (core-symbol "List") (list type))))))
     (else
      (signal-invalid-syntax "an atype"))))
+
+;;; `(,' has been read; count the commas up to the `)' of `(,,)'.
+(define (token-case-loop-commas n)
+  (token-case
+    (\, (token-case-loop-commas (1+ n)))
+    (\) (**tycon/def (tuple-tycon n) '()))
+    (else (signal-missing-token "`)' or `,'" "type expression"))))
 
 (define (parse-type-list)
   (let ((type (parse-type)))
