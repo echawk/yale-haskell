@@ -114,6 +114,9 @@
 ;;; compiler.
 
 (define *haskell-noncore-vars* '(
+  ;; Haskell 98 only (deriving Bounded); not reserved names in 1.2.
+  (classes "Bounded")
+  (methods "minBound" "maxBound")
   (types 
      "List"
      "Arrow"
@@ -141,7 +144,7 @@
     "foldr" "build" "inlineFoldr" "inlineBuild" 
     "primAppend" "primStringEq"
     "dictSel" "tupleEqDict" "tupleOrdDict" "tupleIxDict"
-    "tupleTextDict" "tupleBinaryDict")))
+    "tupleTextDict" "tupleBinaryDict" "tupleBoundedDict")))
 
 
 

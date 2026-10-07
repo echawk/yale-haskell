@@ -30,6 +30,8 @@
 	 (get-tuple-text-instance alg-def))
 	((eq? class-def (core-symbol "Binary"))
 	 (get-tuple-binary-instance alg-def))
+	((and (haskell98?) (eq? class-def (core-symbol "Bounded")))
+	 (get-tuple-bounded-instance alg-def))
 	(else '#f)))
 
 (define *saved-eq-instances* '())
@@ -37,6 +39,7 @@
 (define *saved-ix-instances* '())
 (define *saved-text-instances* '())
 (define *saved-binary-instances* '())
+(define *saved-bounded-instances* '())
 
 (define (get-tuple-eq-instance tpl)
   (let ((res (assq tpl *saved-eq-instances*)))
@@ -82,6 +85,16 @@
 		     tpl (core-symbol "Binary")
 		     (core-symbol "tupleBinaryDict"))))
 	  (push (tuple tpl inst) *saved-binary-instances*)
+	  inst))))
+
+(define (get-tuple-bounded-instance tpl)
+  (let ((res (assq tpl *saved-bounded-instances*)))
+    (if (not (eq? res '#f))
+	(tuple-2-2 res)
+	(let ((inst (make-tuple-instance
+		     tpl (core-symbol "Bounded")
+		     (core-symbol "tupleBoundedDict"))))
+	  (push (tuple tpl inst) *saved-bounded-instances*)
 	  inst))))
 
 (define (make-tuple-instance algdata class dict)

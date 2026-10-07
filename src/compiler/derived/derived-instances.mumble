@@ -49,9 +49,20 @@
 		(if (algdata-enum? alg)
 		    (setf insts (add-derivable-instance insts alg class '#f))
 		    (signal-cant-derive-enum alg)))
+	       ((and (haskell98?) (eq? class (core-symbol "Bounded")))
+		(if (or (algdata-enum? alg)
+			(algdata-tuple? alg))
+		    (setf insts (add-derivable-instance insts alg class '#f))
+		    (signal-cant-derive-bounded alg)))
 	       (else
 		(signal-not-derivable class)))))
     insts))
+
+(define (signal-cant-derive-bounded alg)
+  (phase-error 'cant-derive-Bounded
+    "A Bounded instance for ~A cannot be derived.  It is neither an~%~
+     enumeration nor a single-constructor datatype."
+    alg))
 
 
 (define (signal-cant-derive-ix alg)
@@ -227,6 +238,8 @@
 	   (add-instance inst (ix-fns alg)))
 	  ((eq? class (core-symbol "Enum"))
 	   (add-instance inst (enum-fns alg)))
+	  ((eq? class (core-symbol "Bounded"))
+	   (add-instance inst (bounded-fns alg)))
 	  ((eq? class (core-symbol "Text"))
 	   (add-instance inst (text-fns alg (instance-suppress-readers? inst))))
 	  ((eq? class (core-symbol "Binary"))

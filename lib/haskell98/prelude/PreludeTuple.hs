@@ -211,3 +211,37 @@ tupleReadBin dicts bin = (listToTuple t,b) where
      (ts,b') = tRB' b'' (i+1)
 
 readBin' x = readBin x
+
+-- Ord: compare (the method added by H98)
+
+tupleCompare :: TupleDicts -> Tuple -> Tuple -> Ordering
+{-#  tupleCompare :: Strictness("S,S,S") #-}
+tupleCompare dicts x y = tupleCompare1 0 where
+  tupleCompare1 i | i == size = EQ
+                  | otherwise =
+                      case (dictSel (cmpCompare dicts i)) x' y' of
+                        EQ -> tupleCompare1 (i+1)
+                        r  -> r
+      where
+        x' = tupleSel x i size
+        y' = tupleSel y i size
+  size = tupleSize dicts
+
+cmpCompare :: Ord a => a -> a -> Ordering
+cmpCompare x y = compare x y
+
+-- Bounded (H98)
+
+tupleMinBound, tupleMaxBound :: TupleDicts -> Tuple
+tupleMinBound dicts = listToTuple (tMin 0) where
+  tMin i | i == size = []
+         | otherwise = dictSel (minBound' dicts i) : tMin (i+1)
+  size = tupleSize dicts
+tupleMaxBound dicts = listToTuple (tMax 0) where
+  tMax i | i == size = []
+         | otherwise = dictSel (maxBound' dicts i) : tMax (i+1)
+  size = tupleSize dicts
+
+minBound', maxBound' :: Bounded a => a
+minBound' = minBound
+maxBound' = maxBound

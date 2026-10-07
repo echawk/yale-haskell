@@ -59,12 +59,11 @@ rejects re-exporting an entity it gets from the Prelude.
   `Text` and `Binary`.  Programs cannot define these names.  (`Bin`,
   `Assoc` and `:=` are core symbols too, but user modules may define
   them: `hidden-core-name?` in `top/symbol-table.mumble`.)
-- `compare` is a function, not an `Ord` method; `rangeSize` is a
-  function, not an `Ix` method.  The runtime builds tuple dictionaries
-  for `Ord` and `Ix` with a fixed layout (`src/runtime/tuple-prims.mumble`).
-- `Enum` keeps its `Ord` superclass and `Ix` its `Text` superclass;
-  derived `Enum` instances lack `toEnum`/`fromEnum` (and so `pred`);
-  there is no `deriving Bounded`.
+- `rangeSize` is a function, not an `Ix` method.  The runtime builds
+  tuple dictionaries for `Ord`, `Ix` and `Bounded`; superclass slots are
+  computed from the class definitions, and `compare` is the last `Ord`
+  method (`src/runtime/tuple-prims.mumble`).
+- `Ix` keeps its `Text` superclass.
 - `Text` stands in for `Show`/`Read`; no `Functor`, `Monad` or monadic
   I/O.
 - Arrays take H98 `(i, e)` pairs (the 1.2 `i := e` form is gone).
