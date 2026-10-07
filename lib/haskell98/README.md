@@ -55,9 +55,10 @@ rejects re-exporting an entity it gets from the Prelude.
   `Random.hs`; H98 uses `minBound`/`maxBound`/`realToFrac`); the
   Dialogue I/O names; `nullBin`, `isNullBin`, `appendBin`.
 - **Always in scope** (compiler core symbols in `PreludeCore`): the
-  types `Ratio`, `Complex` (with `:+`), `Array`, `Assoc` (with `:=`),
-  `Bin`, and the classes `Text` and `Binary`.  Programs cannot define
-  these names.
+  types `Ratio`, `Complex` (with `:+`), `Array`, and the classes
+  `Text` and `Binary`.  Programs cannot define these names.  (`Bin`,
+  `Assoc` and `:=` are core symbols too, but user modules may define
+  them: `hidden-core-name?` in `top/symbol-table.mumble`.)
 - `compare` is a function, not an `Ord` method; `rangeSize` is a
   function, not an `Ix` method.  The runtime builds tuple dictionaries
   for `Ord` and `Ix` with a fixed layout (`src/runtime/tuple-prims.mumble`).
