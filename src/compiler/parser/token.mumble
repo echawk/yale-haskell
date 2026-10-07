@@ -12,7 +12,7 @@
 	 (push (list 'col *start-col*) *tokens*)))
   (push (cons type args) *tokens*)
   (setf *on-new-line?* '#f)
-  (setf *save-col?* (memq type '(|where| |of| |let|))))
+  (setf *save-col?* (memq type '(|where| |of| |let| |do|))))
 
 (define (emit-token/string type string-as-list)
   (emit-token type (list->string string-as-list)))

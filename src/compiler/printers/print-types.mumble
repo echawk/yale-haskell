@@ -16,16 +16,30 @@
   (print-general-tycon (tycon-def object) (tycon-args object) object xp))
 
 (define (print-general-tycon def args object xp)
-    (cond ((eq? def (core-symbol "Arrow"))
+    (cond ((and (eq? def (core-symbol "Arrow")) (eqv? (length args) 2))
 	   (write-arrow-tycon args xp))
 	  ((eq? def (core-symbol "UnitType"))
 	   (write-unit-tycon xp))
-	  ((eq? def (core-symbol "List"))
+	  ((and (eq? def (core-symbol "List")) (eqv? (length args) 1))
 	   (write-list-tycon args xp))
-	  ((is-tuple-tycon? def)
+	  ((and (is-tuple-tycon? def)
+		(eqv? (length args) (tycon-def-arity def)))
 	   (write-tuple-tycon args xp))
+	  ((and (eq? def (core-symbol "List")) (null? args))
+	   (write-string "[]" xp))
+	  ((and (eq? def (core-symbol "Arrow")) (null? args))
+	   (write-string "(->)" xp))
 	  (else
 	   (write-ordinary-tycon def args object xp))))
+
+(define-ast-printer tyapp (object xp)
+  (write-type-application (tyapp-fun object) (tyapp-args object) xp))
+
+(define (write-type-application fun args xp)
+  (with-ast-block (xp)
+    (write-atype fun xp)
+    (write-whitespace xp)
+    (write-delimited-list args xp (function write-atype) "" "" "")))
 
 (define (write-arrow-tycon args xp)
   (with-ast-block (xp)

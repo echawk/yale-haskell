@@ -78,20 +78,38 @@
 (define *prelude-inverted-symbol-table* '())
 
 
-;;; The language dialect: 'haskell-1.2 or 'haskell98.  The compiler is
-;;; shared by both dialects; this flag gates the few places where Haskell
-;;; 98 is not a pure extension of Haskell 1.2 (lexing of `-' and `~'
-;;; inside operators and of `--' comments, the headerless-module export
-;;; list).  It is set when the compiler is loaded, from $PRELUDE: the
-;;; Makefile and bin/yale-haskell point that at lib/<dialect>/prelude.
-;;; The prelude build and the saved image both load the compiler with
-;;; it set, so each dialect's image keeps its own value.
+;;; The language dialect, one of *dialect-order*.  The compiler is shared
+;;; by all dialects; each saved image has one dialect, taken from $PRELUDE
+;;; (the Makefile and bin/yale-haskell point that at lib/<dialect>/prelude).
+;;; The prelude build and the saved image both load the compiler with it
+;;; set, so each dialect's image keeps its own value.
+;;;
+;;; Code that differs between dialects asks about a *feature*, not the
+;;; dialect: (feature? 'do-notation).  A dialect is an element of the
+;;; ordered list below; a feature holds from its first dialect to its last
+;;; (#f = the last one).  A new dialect is a new column, not a hunt
+;;; through the source.
+
+(define *dialect-order* '(haskell-1.2 haskell-1.3 haskell-1.4 haskell98))
+
+(define *dialect-features*
+  '(;; syntax and the type system
+    (constructor-classes haskell-1.3 #f)
+    (do-notation         haskell-1.3 #f)
+    (newtype             haskell-1.3 #f)
+    (monad-fail          haskell98 #f)   ; else MonadZero(zero)
+    ;; lexical differences of Haskell 98
+    (h98-lexing          haskell98 #f)
+    (headerless-main     haskell98 #f)
+    (fixity-anywhere     haskell98 #f)))
 
 (define (dialect-from-environment)
   (let ((p (getenv "PRELUDE")))
-    (if (and (string? p) (string-contains? p "haskell98"))
-	'haskell98
-	'haskell-1.2)))
+    (cond ((not (string? p)) 'haskell-1.2)
+	  ((string-contains? p "haskell98") 'haskell98)
+	  ((string-contains? p "haskell-1.4") 'haskell-1.4)
+	  ((string-contains? p "haskell-1.3") 'haskell-1.3)
+	  (else 'haskell-1.2))))
 
 (define (string-contains? s sub)
   (let ((n (string-length s))
@@ -103,6 +121,22 @@
 	(setf found? '#t)))))
 
 (define *haskell-dialect* (dialect-from-environment))
+
+(define (dialect-index d)
+  (let ((tail (memq d *dialect-order*)))
+    (- (length *dialect-order*) (length tail))))
+
+(define (dialect>=? d)
+  (>= (dialect-index *haskell-dialect*) (dialect-index d)))
+
+(define (feature? name)
+  (let ((entry (assq name *dialect-features*)))
+    (when (eq? entry '#f)
+      (error "Unknown dialect feature ~A" name))
+    (and (dialect>=? (cadr entry))
+	 (or (eq? (caddr entry) '#f)
+	     (<= (dialect-index *haskell-dialect*)
+		 (dialect-index (caddr entry)))))))
 
 (define (haskell98?)
   (eq? *haskell-dialect* 'haskell98))

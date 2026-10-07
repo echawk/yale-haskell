@@ -16,7 +16,6 @@ module System (
     getArgs, getProgName, getEnv, system, exitWith, exitFailure
   ) where
 
-import Prelude hiding (getArgs, getProgName, getEnv)
 import SystemPrims
 
 data ExitCode = ExitSuccess | ExitFailure Int

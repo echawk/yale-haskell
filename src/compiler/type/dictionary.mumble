@@ -58,6 +58,12 @@
     (cond ((ntycon? type)
 	   (process-instantiated-tyvar
 	    (expand-ntype-synonym type) p deferred decls))
+	  ((ntyapp? type)
+	   (if (non-generic-app? type)
+	       (cons p deferred)
+	       (begin
+		 (signal-unresolved-app-constraint type p)
+		 deferred)))
 	  ((non-generic? type)
 	   (cons p deferred))
 	  ((not (null? (ntyvar-dict-params type)))
@@ -173,6 +179,13 @@
 		    instance ntype deferred decls edecls var)))
 	      (setf dict (**app dict code))
 	      (setf deferred dv1)))
+	 ((ntyapp? ntype)
+	  (if (non-generic-app? ntype)
+	      (let ((p (**dict-placeholder class ntype edecls var)))
+		(setf dict (**app dict p))
+		(push p deferred))
+	      (signal-unresolved-app-constraint
+	       ntype (**dict-placeholder class ntype edecls var))))
 	 ((non-generic? ntype)
 	  (let ((p (**dict-placeholder
 		    class ntype edecls var)))
@@ -227,3 +240,21 @@
 	(else
 	 (search-enclosing-decls (cdr decl-list) decls))))
 
+
+
+;;; A constraint on an application of a type variable (`Show (m a)') that
+;;; is not tied to an enclosing monomorphic variable cannot be turned into
+;;; a dictionary parameter.
+
+(define (non-generic-app? type)
+  (let ((head (prune (ntyapp-fun type))))
+    (and (ntyvar? head) (non-generic? head))))
+
+(define (signal-unresolved-app-constraint type p)
+  (phase-error 'unresolved-app-constraint
+    "Cannot resolve the constraint ~A on the type ~A~%~
+     (a context on an application of a type variable)."
+    (if (dict-placeholder? p)
+	(dict-placeholder-class p)
+	(method-var-class (method-placeholder-method p)))
+    type))

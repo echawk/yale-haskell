@@ -29,6 +29,14 @@
 		    (constrs constrs) (deriving deriving)
 		    (annotations annotations))))))
 
+(define (check-newtype-decl decl)
+  (let ((constrs (data-decl-constrs decl)))
+    (when (not (and (pair? constrs)
+		    (null? (cdr constrs))
+		    (eqv? (length (constr-types (car constrs))) 1)))
+      (parser-error 'bad-newtype
+	"A newtype declaration needs exactly one constructor with one field."))))
+
 (define (signal-missing-constructors)
   (parser-error 'missing-constructors
 		"Data type definition requires constructors"))

@@ -18,6 +18,9 @@
 	(write-string "<Bogus tycon>" xp)
 	(print-general-tycon tycon (ntycon-args object) object xp))))
 
+(define-ast-printer ntyapp (object xp)
+  (write-type-application (ntyapp-fun object) (ntyapp-args object) xp))
+
 (define-ast-printer gtype (object xp)
   (let ((var 0)
 	(res '()))

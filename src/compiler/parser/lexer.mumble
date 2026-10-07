@@ -137,8 +137,8 @@
      (advance-char)
      (lex-one-token))
     (#\- (char-case *peek-char*
-	    (#\- (if (haskell98?) (lex-varsym) (lex-comment)))
-	    (#\> (cond ((haskell98?)
+	    (#\- (if (feature? 'h98-lexing) (lex-varsym) (lex-comment)))
+	    (#\> (cond ((feature? 'h98-lexing)
 			(lex-varsym))
 		       (else
 			(advance-char)
@@ -373,6 +373,12 @@
 
 (define (lex-varid)
   (let ((sym (scan-var-con)))
+   (cond
+    ((and (feature? 'do-notation) (string=/list? sym "do"))
+     (emit-token '|do|))
+    ((and (feature? 'newtype) (string=/list? sym "newtype"))
+     (emit-token '|newtype|))
+    (else
     (parse-reserved sym varid
        "case" "class"
        "data" "default" "deriving"
@@ -384,21 +390,21 @@
        "of"
        "renaming"
        "then" "to" "type"
-       "where")))
+       "where")))))
 
 (define (lex-conid)
   (let ((sym (scan-var-con)))
     (emit-token/string 'conid sym)))
 
 (define (lex-consym)
-  (let ((sym (if (haskell98?) (scan-symbol-98) (scan-symbol))))
+  (let ((sym (if (feature? 'h98-lexing) (scan-symbol-98) (scan-symbol))))
     (cond ((string=/list? (cdr sym) ":")
 	   (emit-token '\:\:))
 	  (else
 	   (emit-token/string 'consym sym)))))
 
 (define (lex-varsym)
-  (if (haskell98?)
+  (if (feature? 'h98-lexing)
       (lex-varsym-98)
       (lex-varsym-1.2)))
 

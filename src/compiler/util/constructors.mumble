@@ -204,6 +204,12 @@
 (define (**ntyvar)
   (make ntyvar (value '#f) (context '()) (dict-params '())))
 
+(define (**tyapp fun args)
+  (make tyapp (fun fun) (args args)))
+
+(define (**ntyapp fun args)
+  (make ntyapp (fun fun) (args args)))
+
 (define (**ntycon tycon args)
   (make ntycon (tycon tycon) (args args)))
 

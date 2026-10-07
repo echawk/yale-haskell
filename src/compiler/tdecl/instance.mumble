@@ -27,7 +27,7 @@
  (recover-errors '#f
   (remember-context inst-decl
     (with-slots instance-decl (context class simple decls) inst-decl
-      (resolve-type simple)
+      (resolve-type-1 simple '() '#t)
       (resolve-class class)
       (let ((alg-def (tycon-def simple))
 	    (class-def (class-ref-class class)))

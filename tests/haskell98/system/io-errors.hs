@@ -2,7 +2,7 @@
 -- errors raised by the System library.
 module Main where
 
-import Prelude hiding (IOError, stdin, stdout, stderr, getArgs, getProgName, getEnv)
+import Prelude hiding (stdin, stdout, stderr)
 import IO
 import System
 

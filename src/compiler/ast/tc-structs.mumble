@@ -23,7 +23,20 @@
    (context (type (list class)) (default ()))
    (read-only? (type bool) (default #f) (bit #t))
    (dict-params (type (list (tuple valdef (list (tuple class var))))))
+   ;; Constraints (ntyapp . classes) on applications headed by this
+   ;; variable, waiting for it to be instantiated.
+   (app-contexts (type (list (tuple ntype (list class)))) (default '()))
    ))
+
+;;; A type variable (or other non-tycon) applied to arguments.  Pruning
+;;; normalizes: once the function is a tycon the result is a tycon with
+;;; more arguments.
+(define-struct ntyapp
+  (include ntype)
+  (predicate ntyapp?)
+  (slots
+   (fun (type ntype))
+   (args (type (list ntype)))))
 
 ;;; This is used only at the top level of a type during letrec type
 ;;; checking.

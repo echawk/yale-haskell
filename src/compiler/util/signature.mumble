@@ -21,25 +21,36 @@
       (resolve-class class))))
 
 (define (resolve-type type)
-  (resolve-type-1 type '()))
+  (resolve-type-1 type '() '#f))
 
-(define (resolve-type-1 type vars)
+;;; Partial applications of a tycon are allowed only in argument position
+;;; (`partial-ok?'), where a higher-kinded parameter may be supplied.  Kinds
+;;; are not otherwise checked; a mismatch shows up as a unification or
+;;; instance error.
+
+(define (resolve-type-1 type vars partial-ok?)
   (cond ((tyvar? type)
 	 (cons (tyvar-name type) vars))
+	((tyapp? type)
+	 (resolve-type/list (tyapp-args type)
+			    (resolve-type-1 (tyapp-fun type) vars '#f)))
 	(else
 	 (resolve-tycon type)
 	 (with-slots tycon (name def args) type
 	   (when (not (eq? def *undefined-def*))
-	     (if (eqv? (tycon-def-arity def) -1)
-		 (setf (tycon-def-arity def) (length args))
-		 (when (not (eqv? (length args) (tycon-def-arity def)))
-		     (signal-tycon-arity name type))))
+	     (cond ((eqv? (tycon-def-arity def) -1)
+		    (setf (tycon-def-arity def) (length args)))
+		   ((> (length args) (tycon-def-arity def))
+		    (signal-tycon-arity name type))
+		   ((and (< (length args) (tycon-def-arity def))
+			 (or (not partial-ok?) (synonym? def)))
+		    (signal-tycon-arity name type))))
 	   (resolve-type/list args vars)))))
 
 (define (resolve-type/list args vars)
   (if (null? args)
       vars
-      (resolve-type/list (cdr args) (resolve-type-1 (car args) vars))))
+      (resolve-type/list (cdr args) (resolve-type-1 (car args) vars '#t))))
 
 ;;; This returns the names of the tyvars in a simple tycon
 
@@ -51,6 +62,18 @@
 	(signal-non-linear-type-vars simple))
       res)))
 
+;;; Apply an ast type to more arguments, normalizing: a tycon takes them
+;;; as extra arguments, a tyvar becomes a tyapp.
+
+(define (apply-ast-type fun args)
+  (cond ((null? args) fun)
+	((tyapp? fun)
+	 (**tyapp (tyapp-fun fun) (append (tyapp-args fun) args)))
+	((tycon? fun)
+	 (make tycon (name (tycon-name fun)) (def (tycon-def fun))
+		     (args (append (tycon-args fun) args))))
+	(else (**tyapp fun args))))
+
 ;;; This is used to build the class dictionary signature.
 
 (define (substitute-tyvar type tyvar new)
@@ -58,6 +81,11 @@
 	 (if (eq? (tyvar-name type) tyvar)
 	     new
 	     (**tyvar (tyvar-name type))))
+	((tyapp? type)
+	 (let ((fun (substitute-tyvar (tyapp-fun type) tyvar new))
+	       (args (map (lambda (x) (substitute-tyvar x tyvar new))
+			  (tyapp-args type))))
+	   (apply-ast-type fun args)))
 	((tycon? type)
 	 (with-slots tycon (name def args) type
 	   (make tycon (name name) (def def)
