@@ -22,6 +22,21 @@
 
 
 ;;;=====================================================================
+;;; Floating point
+;;;=====================================================================
+
+;;; Haskell 98 programs expect IEEE results (Infinity, NaN) rather than
+;;; Lisp arithmetic errors, so a program runs with the host's float traps
+;;; masked.  (Haskell 1.2 programs keep the host's behaviour.)
+
+(define (call-with-ieee-floats thunk)
+  #+sbcl
+  (sb-int:with-float-traps-masked (:overflow :invalid :divide-by-zero :inexact)
+    (funcall thunk))
+  #-sbcl
+  (funcall thunk))
+
+;;;=====================================================================
 ;;; Program arguments and exit
 ;;;=====================================================================
 

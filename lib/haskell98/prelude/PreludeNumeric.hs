@@ -9,8 +9,7 @@
 --   copied and distributed for any purpose, provided that the modified
 --   version is clearly presented as such, and that it does not claim to
 --   be a definition of the language Haskell 98.
--- Modified for Yale Haskell: module name and imports; readFloat does not
--- accept "NaN" and "Infinity" (SBCL traps on 0/0 and 1/0).
+-- Modified for Yale Haskell: module name and imports.
 
 module PreludeNumeric (fromRat,
                showSigned, showIntAtBase,
@@ -332,7 +331,9 @@ floatToDigits base x =
 
 readFloat     :: (RealFrac a) => ReadS a
 readFloat r    = [(fromRational ((n%1)*10^^(k-d)),t) | (n,d,s) <- readFix r,
-                                                       (k,t)   <- readExp s]
+                                                       (k,t)   <- readExp s] ++
+               [ (0/0, t) | ("NaN",t)      <- lex r] ++
+               [ (1/0, t) | ("Infinity",t) <- lex r]
                where 
                  readFix r = [(read (ds++ds'), length ds', t)
                              | (ds,d) <- lexDigits r,

@@ -515,14 +515,31 @@
 
 (define (lex-decimal)
   (let ((int-part (lex-integer 10)))
-    (if (and (char=? *char* #\.)
-	     (char->digit *peek-char* 10))
-	(lex-float int-part)
-	(emit-token 'integer int-part))))
+    (cond ((and (char=? *char* #\.)
+		(char->digit *peek-char* 10))
+	   (lex-float int-part))
+	  ;; Haskell 98 allows an exponent without a fraction: 1e10, 2E-3
+	  ((and (haskell98?) (exponent-follows?))
+	   (lex-float-tail int-part 1))
+	  (else
+	   (emit-token 'integer int-part)))))
+
+(define (exponent-follows?)
+  (char-case *char*
+    (exponent
+     (char-case *peek-char*
+       (digit '#t)
+       ((#\+ #\-) (and (char->digit (peek-char-2) 10) '#t))
+       (else '#f)))
+    (else '#f)))
 
 (define (lex-float int-part)
   (advance-char)
   (multiple-value-bind (numerator denominator) (lex-fraction int-part 1)
+    (lex-float-tail numerator denominator)))
+
+(define (lex-float-tail numerator denominator)
+  (begin
     (let ((no-exponent
 	   (lambda () (emit-token 'float numerator denominator 0))))
       (char-case *char*

@@ -721,6 +721,7 @@ instance  Floating Float  where
     exp			=  primExpFloat
     log			=  primLogFloat
     sqrt		=  primSqrtFloat
+    (**)		=  primPowFloat
     sin			=  primSinFloat
     cos			=  primCosFloat
     tan			=  primTanFloat
@@ -739,6 +740,7 @@ instance  Floating Double  where
     exp			=  primExpDouble
     log			=  primLogDouble
     sqrt		=  primSqrtDouble
+    (**)		=  primPowDouble
     sin			=  primSinDouble
     cos			=  primCosDouble
     tan			=  primTanDouble

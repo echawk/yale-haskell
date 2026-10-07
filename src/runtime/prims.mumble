@@ -145,9 +145,9 @@
 (define-syntax (prim.exp-float f)
   `(the-single-float (lisp:exp (the-single-float ,f))))
 (define-syntax (prim.log-float f)
-  `(the-single-float (lisp:log (the-single-float ,f))))
+  `(the-single-float (real-log (the-single-float ,f))))
 (define-syntax (prim.sqrt-float f)
-  `(the-single-float (lisp:sqrt (the-single-float ,f))))
+  `(the-single-float (real-sqrt (the-single-float ,f))))
 (define-syntax (prim.sin-float f)
   `(the-single-float (lisp:sin (the-single-float ,f))))
 (define-syntax (prim.cos-float f)
@@ -155,9 +155,9 @@
 (define-syntax (prim.tan-float f)
   `(the-single-float (lisp:tan (the-single-float ,f))))
 (define-syntax (prim.asin-float f)
-  `(the-single-float (lisp:asin (the-single-float ,f))))
+  `(the-single-float (real-asin (the-single-float ,f))))
 (define-syntax (prim.acos-float f)
-  `(the-single-float (lisp:acos (the-single-float ,f))))
+  `(the-single-float (real-acos (the-single-float ,f))))
 (define-syntax (prim.atan-float f)
   `(the-single-float (lisp:atan (the-single-float ,f))))
 (define-syntax (prim.sinh-float f)
@@ -169,17 +169,92 @@
 (define-syntax (prim.asinh-float f)
   `(the-single-float (lisp:asinh (the-single-float ,f))))
 (define-syntax (prim.acosh-float f)
-  `(the-single-float (lisp:acosh (the-single-float ,f))))
+  `(the-single-float (real-acosh (the-single-float ,f))))
 (define-syntax (prim.atanh-float f)
-  `(the-single-float (lisp:atanh (the-single-float ,f))))
+  `(the-single-float (real-atanh (the-single-float ,f))))
 
+
+;;; Haskell's Floating methods are total on the reals: outside its domain
+;;; a function returns NaN (or an infinity), where Common Lisp would return
+;;; a complex number or signal an error.  Float traps are masked while a
+;;; Haskell 98 program runs (call-with-ieee-floats in system-prims.mumble).
+
+(define (float-nan-like x)
+  #+sbcl
+  (if (lisp:typep x 'lisp:double-float)
+      (sb-kernel:make-double-float 2146959360 0)
+      (sb-kernel:make-single-float 2143289344))
+  #-sbcl
+  (let ((z (lisp:- x x))) (lisp:/ z z)))
+
+(define (float-infinity-like x)
+  #+sbcl
+  (if (lisp:typep x 'lisp:double-float)
+      sb-ext:double-float-positive-infinity
+      sb-ext:single-float-positive-infinity)
+  #-sbcl
+  (lisp:/ x 0))
+
+(define (float-nan? x)
+  (not (lisp:= x x)))
+
+(define (real-sqrt x)
+  (if (lisp:< x 0) (float-nan-like x) (lisp:sqrt x)))
+
+(define (real-log x)
+  (cond ((float-nan? x) x)
+	((lisp:< x 0) (float-nan-like x))
+	((lisp:= x 0) (lisp:- (float-infinity-like x)))
+	(else (lisp:log x))))
+
+(define (real-asin x)
+  (if (lisp:<= (lisp:abs x) 1) (lisp:asin x) (float-nan-like x)))
+
+(define (real-acos x)
+  (if (lisp:<= (lisp:abs x) 1) (lisp:acos x) (float-nan-like x)))
+
+(define (real-acosh x)
+  (if (lisp:>= x 1) (lisp:acosh x) (float-nan-like x)))
+
+(define (real-atanh x)
+  (cond ((lisp:= x 1) (float-infinity-like x))
+	((lisp:= x -1) (lisp:- (float-infinity-like x)))
+	((lisp:< (lisp:abs x) 1) (lisp:atanh x))
+	(else (float-nan-like x))))
+
+;;; x ** y, as C's pow: real-valued, NaN for a negative base and a
+;;; fractional exponent.
+
+(define (real-pow x y)
+  (cond ((lisp:= y 0) (lisp:float 1 x))
+	((or (float-nan? x) (float-nan? y)) (float-nan-like x))
+	((lisp:> (lisp:abs y) 1d15)	; huge or infinite: an even integer
+	 (let ((ax (lisp:abs x)))
+	   (cond ((lisp:= ax 1) (lisp:float 1 x))
+		 ((eq? (lisp:> ax 1) (lisp:> y 0))
+		  (float-infinity-like x))
+		 (else (lisp:float 0 x)))))
+	((and (lisp:< x 0) (not (lisp:= y (lisp:ffloor y))))
+	 (float-nan-like x))
+	((lisp:= x 0)
+	 (if (lisp:< y 0)
+	     (float-infinity-like x)
+	     (lisp:float 0 x)))
+	(else
+	 (let ((r (lisp:expt x y)))
+	   (if (lisp:complexp r) (float-nan-like x) r)))))
+
+(define-syntax (prim.pow-float f1 f2)
+  `(the-single-float (real-pow (the-single-float ,f1) (the-single-float ,f2))))
+(define-syntax (prim.pow-double f1 f2)
+  `(the-double-float (real-pow (the-double-float ,f1) (the-double-float ,f2))))
 
 (define-syntax (prim.exp-double f)
   `(the-double-float (lisp:exp (the-double-float ,f))))
 (define-syntax (prim.log-double f)
-  `(the-double-float (lisp:log (the-double-float ,f))))
+  `(the-double-float (real-log (the-double-float ,f))))
 (define-syntax (prim.sqrt-double f)
-  `(the-double-float (lisp:sqrt (the-double-float ,f))))
+  `(the-double-float (real-sqrt (the-double-float ,f))))
 (define-syntax (prim.sin-double f)
   `(the-double-float (lisp:sin (the-double-float ,f))))
 (define-syntax (prim.cos-double f)
@@ -187,9 +262,9 @@
 (define-syntax (prim.tan-double f)
   `(the-double-float (lisp:tan (the-double-float ,f))))
 (define-syntax (prim.asin-double f)
-  `(the-double-float (lisp:asin (the-double-float ,f))))
+  `(the-double-float (real-asin (the-double-float ,f))))
 (define-syntax (prim.acos-double f)
-  `(the-double-float (lisp:acos (the-double-float ,f))))
+  `(the-double-float (real-acos (the-double-float ,f))))
 (define-syntax (prim.atan-double f)
   `(the-double-float (lisp:atan (the-double-float ,f))))
 (define-syntax (prim.sinh-double f)
@@ -201,9 +276,9 @@
 (define-syntax (prim.asinh-double f)
   `(the-double-float (lisp:asinh (the-double-float ,f))))
 (define-syntax (prim.acosh-double f)
-  `(the-double-float (lisp:acosh (the-double-float ,f))))
+  `(the-double-float (real-acosh (the-double-float ,f))))
 (define-syntax (prim.atanh-double f)
-  `(the-double-float (lisp:atanh (the-double-float ,f))))
+  `(the-double-float (real-atanh (the-double-float ,f))))
 
 
 (define-integrable prim.pi-float (lisp:coerce lisp:pi 'lisp:single-float))
@@ -222,8 +297,8 @@
 
 (define (prim.rational-to-float-aux n d)
   (declare (type integer n d))
-  (/ (lisp:coerce n 'lisp:single-float)
-     (lisp:coerce d 'lisp:single-float)))
+  ;; coerce the exact ratio: correctly rounded, and no overflow of n or d
+  (lisp:coerce (lisp:/ n d) 'lisp:single-float))
 
 (define (prim.rational-to-double x)
   (let ((n (tuple-select 2 0 x))
@@ -234,8 +309,7 @@
 
 (define (prim.rational-to-double-aux n d)
   (declare (type integer n d))
-  (/ (lisp:coerce n 'lisp:double-float)
-     (lisp:coerce d 'lisp:double-float)))
+  (lisp:coerce (lisp:/ n d) 'lisp:double-float))
 
 (define (prim.float-to-rational x)
   (let ((r  (lisp:rational (the lisp:single-float x))))
@@ -320,17 +394,21 @@
       (lisp:integer-length m)
       (lisp:ceiling (lisp:log m prim.float-radix))))
 
-(define (prim.decode-float f)
+;;; The significand is always normalised (floatDigits bits), also for
+;;; denormal numbers, which integer-decode-float returns with fewer bits.
+
+(define (decode-float-normalised f digits)
   (multiple-value-bind (m e s)
-      (lisp:integer-decode-float (the-single-float f))
-    (make-haskell-tuple2 (* (the-integer m) (the-fixnum s))
-			 (the-fixnum e))))
+      (lisp:integer-decode-float f)
+    (let ((shift (if (eqv? m 0) 0 (- digits (lisp:integer-length m)))))
+      (make-haskell-tuple2 (* (the-integer (lisp:ash m shift)) (the-fixnum s))
+			   (the-fixnum (if (eqv? m 0) 0 (- e shift)))))))
+
+(define (prim.decode-float f)
+  (decode-float-normalised (the-single-float f) prim.float-digits))
 
 (define (prim.decode-double f)
-  (multiple-value-bind (m e s)
-      (lisp:integer-decode-float (the-double-float f))
-    (make-haskell-tuple2 (* (the-integer m) (the-fixnum s))
-			 (the-fixnum e))))
+  (decode-float-normalised (the-double-float f) prim.double-digits))
 
 (define (prim.encode-float m e)
   (lisp:scale-float (lisp:coerce m 'lisp:single-float) (the-fixnum e)))

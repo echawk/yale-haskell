@@ -1,0 +1,15 @@
+Infinity
+-Infinity
+NaN
+(True,True,False,False)
+(False,False,True)
+Infinity
+NaN
+NaN
+10000000000
+Infinity
+(1.0e-320,True)
+(True,-0.0)
+-Infinity
+(1.4142135623730951,1.0)
+(100.0,1.0e-2,5.0)

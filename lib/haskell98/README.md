@@ -66,4 +66,5 @@ rejects re-exporting an entity it gets from the Prelude.
   I/O.
 - Arrays take H98 `(i, e)` pairs (the 1.2 `i := e` form is gone).
 - `Char` is Latin-1; the character predicates follow Latin-1.
-- `readFloat` does not accept `NaN`/`Infinity` (SBCL traps on `0/0`).
+- Programs run with the host's float traps masked, so `1/0` is `Infinity`
+  and `0/0` is `NaN`, as in H98.

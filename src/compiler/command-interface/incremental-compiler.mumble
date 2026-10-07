@@ -140,10 +140,14 @@
 	     (lambda ()
 	       (let/cc x
 		 (setf *runtime-abort* (lambda () (funcall x 'error)))
-		 (let ((fn (eval (fullname var))))
-		   (unless (var-strict? var)
-		       (setf fn (force fn)))
-		   (funcall fn (box 'state))))))))
+		 (let ((run (lambda ()
+			      (let ((fn (eval (fullname var))))
+				(unless (var-strict? var)
+				  (setf fn (force fn)))
+				(funcall fn (box 'state))))))
+		   (if (haskell98?)
+		       (call-with-ieee-floats run)
+		       (funcall run))))))))
       ;; The interactive interface separates program output from its
       ;; prompt; a batch run prints exactly the program's output.
       (when (not *haskell-batch-mode*)

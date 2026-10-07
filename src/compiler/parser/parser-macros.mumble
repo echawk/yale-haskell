@@ -32,7 +32,8 @@
       #\\ #\^ #\|)
     (presymbol #\- #\~)
     (exponent #\e #\E)
-    (graphic large small digit
+    (latin1 161 - 255)  ; the printable ISO 8859-1 characters above ASCII
+    (graphic large small digit latin1
              #\! #\" #\# #\$ #\% #\& #\' #\( #\) #\* #\+
              #\, #\- #\. #\/ #\: #\; #\< #\= #\> #\? #\@
 	     #\[ #\\ #\] #\^ #\_ #\` #\{ #\| #\} #\~)
@@ -109,9 +110,6 @@
 	   (if new-test
 	       (gather-char-tests (append (cdr new-test) (cdr tests)))
 	       (error "Unknown character class: ~A~%" (car tests)))))
-	((integer? (car tests))
-	 (cons (integer->char (car tests))
-	       (gather-char-tests (cdr tests))))
 	((and (pair? (cdr tests)) (eq? '- (cadr tests)))
 	 (letrec ((fn (lambda (a z)
 			(if (char>? a z)
@@ -119,7 +117,17 @@
 			    (cons a (funcall
 				      fn (integer->char
 					 (+ 1 (char->integer a))) z))))))
-	   (funcall fn (car tests) (caddr tests))))
+	   ;; the ends of a range may be characters or char codes
+	   (funcall fn
+		    (if (integer? (car tests))
+			(integer->char (car tests))
+			(car tests))
+		    (if (integer? (caddr tests))
+			(integer->char (caddr tests))
+			(caddr tests)))))
+	((integer? (car tests))
+	 (cons (integer->char (car tests))
+	       (gather-char-tests (cdr tests))))
 	((char? (car tests))
 	 (cons (car tests) (gather-char-tests (cdr tests))))
 	(else

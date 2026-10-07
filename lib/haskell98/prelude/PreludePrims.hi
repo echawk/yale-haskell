@@ -42,6 +42,8 @@ primExpDouble, primLogDouble, primSqrtDouble, primSinDouble, primCosDouble,
   primTanDouble, primAsinDouble, primAcosDouble, primAtanDouble, primSinhDouble,
   primCoshDouble, primTanhDouble, primAsinhDouble, primAcoshDouble, primAtanhDouble
   :: Double -> Double
+primPowFloat :: Float -> Float -> Float
+primPowDouble :: Double -> Double -> Double
 primPiFloat :: Float
 primPiDouble :: Double
 primRationalToFloat :: Rational -> Float
@@ -181,6 +183,8 @@ primTanhDouble  ::  LispName("prim.tanh-double")
 primAsinhDouble ::  LispName("prim.asinh-double")
 primAcoshDouble ::  LispName("prim.acosh-double")
 primAtanhDouble ::  LispName("prim.atanh-double")
+primPowFloat ::     LispName("prim.pow-float")
+primPowDouble ::    LispName("prim.pow-double")
 primPiFloat ::      LispName("prim.pi-float")
 primPiDouble ::     LispName("prim.pi-double")
 primRationalToFloat  :: LispName("prim.rational-to-float"), Complexity(3)
