@@ -1,0 +1,12 @@
+[12.0,12.0,0.0]
+["c","r"]
+Rect {name = "renamed", w = 4.0, h = 10.0}
+[Circle {name = "x", radius = 2.0},Rect {name = "x", w = 4.0, h = 3.0}]
+"p"
+Pair {pfst = [1,2,3], psnd = 'z'}
+Pair {pfst = "poly", psnd = 'a'}
+Outer {inner = Pair {pfst = 1, psnd = 'r'}, tag = 7}
+True
+Rect {name = "q", w = 1.5, h = 2.0}
+True
+"ab"

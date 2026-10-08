@@ -342,16 +342,28 @@
    (var (let ((name (var->symbol)))
 	  (token-case
 	   (\) (list name))
-	   (\, (cons name (parse-var-list)))
+	   (\, (cons name (if (feature? 'records)
+			     (parse-con-list)
+			     (parse-var-list))))
 	   (else
 	    (signal-missing-token "`)' or `,'" "class entity")))))
    (else (signal-missing-token "<var>" "class entity"))))
 
+;;; Constructors and (records) field names: T(C1, f, C2).
+
 (define (parse-con-list)
-  (token-case
-   (con (let ((name (con->symbol)))
-	  (token-case
-	   (\) (list name))
-	   (\, (cons name (parse-con-list)))
-	   (else (signal-missing-token "`)' or `,'" "datatype entity")))))
-   (else (signal-missing-token "<con>" "datatype entity"))))
+  (let ((name (token-case
+	       (con (con->symbol))
+	       (else
+		(if (feature? 'records)
+		    (token-case
+		     (var (var->symbol))
+		     (else (signal-missing-token "<con> or <var>" "entity")))
+		    (signal-missing-token "<con>" "datatype entity"))))))
+    (token-case
+     (\) (list name))
+     (\, (cons name (parse-con-list)))
+     (else (signal-missing-token "`)' or `,'" "datatype entity")))))
+
+;;; T(f, ...) names class methods, or record fields and constructors of a
+;;; datatype; which one is decided when T is resolved (locate-entity).

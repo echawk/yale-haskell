@@ -195,6 +195,17 @@
   (include apat)
   (predicate wildcard-pat?))
 
+;;; con { field = pat, ... }: a list of (tuple var-ref pattern).  CON is
+;;; a pcon with no arguments; massage-pattern (prec/prec-parse.mumble)
+;;; fills in its arguments and returns it in place of the record-pat.
+
+(define-struct record-pat
+  (include apat)
+  (predicate record-pat?)
+  (slots
+   (con (type pcon))
+   (fields (type (list (tuple var-ref pattern))))))
+
 (define-struct const-pat  ;; literal
   (include apat)
   (predicate const-pat?)

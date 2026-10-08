@@ -72,6 +72,36 @@
 	    (**showsPrec (**int rp) (**var (cadr vars)))))))
 
 (define (show-prefix con vars)
+  (cond ((not (null? (con-field-labels con)))
+	 (show-record con vars))
+	(else (show-prefix-1 con vars))))
+
+;;; Records (report 10.4): showsPrec d (C {f1 = x1, ...}) shows
+;;; "C {f1 = x1, f2 = x2}", the fields at precedence 0, parenthesised
+;;; when d >= 11.
+
+(define (show-record con vars)
+  (**showParen
+   (**< (**int 10) (**var '|d|))
+   (**dot/l (**showString (**string (string-append (con-string con) " {")))
+	    (append (show-record-fields (con-field-labels con) vars "")
+		    (list (**showString (**string "}")))))))
+
+(define (show-record-fields labels vars sep)
+  (if (null? labels)
+      '()
+      `(,(**showString (**string (string-append sep (field-string (car labels))
+						" = ")))
+	,(**showsPrec (**int 0) (**var (car vars)))
+	,@(show-record-fields (cdr labels) (cdr vars) ", "))))
+
+(define (field-string field)
+  (let ((s (symbol->string (def-name field))))
+    (if (or (char-alphabetic? (string-ref s 0)) (char=? (string-ref s 0) #\_))
+	s
+	(string-append "(" s ")"))))
+
+(define (show-prefix-1 con vars)
   (if (and (feature? 'show-read) (null? vars))
       ;; Show (1.3 on): a nullary constructor is never parenthesised
       (**showString (**string (con-string con)))
@@ -128,7 +158,50 @@
 	  (setf (module-decls *module*) (cons def (module-decls *module*)))
 	  new-code))))))
 
+;;; Records: lex the constructor, {, then field = value for each field
+;;; (read at precedence 0) separated by commas, then }; readParen (d > 11).
+
+(define (read-record con)
+  (let* ((labels (con-field-labels con))
+	 (vars (temp-vars "x" (con-arity con)))
+	 (n-states (+ 2 (* 4 (length labels))))
+	 (svars (cons '|r| (temp-vars "s" n-states)))
+	 (gens '())
+	 (s svars)
+	 (lex-token
+	  (lambda (str)
+	    (push (**gen `(tuple ,str ,(cadr s)) (**lex (**var (car s)))) gens)
+	    (setf s (cdr s)))))
+    (funcall lex-token (con-string con))
+    (funcall lex-token "{")
+    (do ((ls labels (cdr ls))
+	 (vs vars (cdr vs)))
+	((null? ls))
+      (when (not (eq? ls labels))
+	(funcall lex-token ","))
+      (funcall lex-token (field-string (car ls)))
+      (funcall lex-token "=")
+      (push (**gen `(tuple ,(car vs) ,(cadr s))
+		   (**readsprec (**int 0) (**var (car s))))
+	    gens)
+      (setf s (cdr s)))
+    (funcall lex-token "}")
+    (**let
+     (list
+      (**define '|readVal| '(|r|)
+	(**listcomp
+	 (**tuple2 (**app/l (**con/def con) (map (function **var) vars))
+		   (**var (car s)))
+	 (reverse gens))))
+     (**readParen (**< (**int 11) (**var '|d|))
+		  (**var '|readVal|) (**var '|str|)))))
+
 (define (read-prefix-1 con)
+  (if (null? (con-field-labels con))
+      (read-prefix-2 con)
+      (read-record con)))
+
+(define (read-prefix-2 con)
   (let* ((arity (con-arity con))
 	 (vars (temp-vars "x" arity))
 	 (svars (cons '|rest| (temp-vars "s" arity))))

@@ -75,6 +75,8 @@
 	((is-type? 'plus-pat pat)
 	 (setf (plus-pat-pattern pat) (massage-pattern (plus-pat-pattern pat)))
 	 pat)
+	((is-type? 'record-pat pat)
+	 (massage-pattern (desugar-record-pat pat)))
 	((is-type? 'pcon pat)
 	 (when (eq? (pcon-con pat) *undefined-def*)
 	   (setf (pcon-con pat) (lookup-toplevel-name (pcon-name pat))))

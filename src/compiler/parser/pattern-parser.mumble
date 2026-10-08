@@ -17,8 +17,11 @@
 (define (parse-pat/list)
   (token-case
     (con (let ((pcon (pcon->ast)))
-	   (setf (pcon-pats pcon) (parse-apat-list))
-	   (cons pcon (parse-pat/tail))))
+	   (if (record-pattern-follows?)
+	       (cons (parse-record-pat pcon) (parse-pat/tail))
+	       (begin
+		 (setf (pcon-pats pcon) (parse-apat-list))
+		 (cons pcon (parse-pat/tail))))))
     (-n
      (advance-token) ; past -
      (token-case
@@ -48,6 +51,18 @@
        (cons pcon (parse-pat/tail))))
     (else (let ((apat (parse-apat)))
 	    (cons apat (parse-pat/tail))))))
+
+;;; con { field = pat, ... } (report 3.17.1); the scanner is at the `{'.
+
+(define (record-pattern-follows?)
+  (and (eq? *token* '\{) (feature? 'records)))
+
+(define (parse-record-pat pcon)
+  (advance-token)
+  (make record-pat
+	(con pcon)
+	(fields (parse-field-bindings
+		 (function parse-pat) "`='" "record pattern"))))
 
 ;;; (,), (,,), ... as constructors (H98).  The scanner is at the `('.
 
@@ -82,7 +97,10 @@
 	      (let ((pattern (parse-apat)))
 		(make as-pat (var var) (pattern pattern))))
 	     (else (make var-pat (var var))))))
-     (con (pcon->ast))
+     (con (let ((pcon (pcon->ast)))
+	    (if (record-pattern-follows?)
+		(parse-record-pat pcon)
+		pcon)))
      (literal (let ((value (literal->ast)))
 		(make const-pat (value value))))
      (_ (make wildcard-pat))

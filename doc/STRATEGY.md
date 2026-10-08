@@ -99,8 +99,11 @@ pointing at `lib/<dialect>/prelude`.
   and `Bin` are gone from H98 (`*feature-retired-names*` in
   `top/core-symbols.mumble`); derived Show/Read use Report precedences
 
+- Records (M6): field declarations, selectors, construction, update,
+  record patterns, `C {}`, derived Show/Read, `T(C, f)` export lists;
+  translated in the scope phase (`prec/scope.mumble`), feature `records`
+
 **Remaining major work:**
-- `LG-RECORDS` — Record fields (M6, not started)
 - `LG-QUALIFIED` — Qualified names (M7, not started)
 - `LG-POLYREC` — Polymorphic recursion (M9, not started)
 - `LG-UNICODE` — Unicode Char (M9, not started)
@@ -307,9 +310,15 @@ class Read a where
 
 ---
 
-### LG-RECORDS: Records (construction, update, selection, patterns)  *(M6 — NOT STARTED)*
+### LG-RECORDS: Records (construction, update, selection, patterns)  *(M6)*
 
-**Status:** ❌ Missing.  This is a large feature (effort L).
+**Status:** ✅ Landed (2026-10-07).  As built, unlike the plan below:
+record expressions and patterns are *translated* in the scope phase
+(Report 3.15's translation), so the type checker and cfn are untouched;
+labels are `constr-field-labels` (parser) and `con-field-labels` (vars,
+per argument); a field's selector var has `var-field-alg`; selectors are
+generated in `tdecl/alg-syn.mumble`; both are dumped in interfaces.  The
+plan's notes are kept for reference.
 
 **Where (all need changes):**
 - **Lexer:** `src/compiler/parser/lexer.mumble` — no changes needed for
@@ -1123,7 +1132,7 @@ The critical path is M3 → M4 → M5.  M3 and M4 are done.
 | M3 — Constructor classes | ✅ | M4, M5 (Functor/Monard/Show/Read) |
 | M4 — Monadic IO | ✅ | M5 (Prelude I/O rebuild) |
 | M5 — Show/Read split | ✅ | — |
-| M6 — newtype, then records | newtype ✅; records ❌ | — |
+| M6 — newtype, then records | ✅ | — |
 | M7 — Qualified names, module system | ❌ | — |
 | M8 — System libraries | ✅ (follow-ups remain) | — |
 | M9 — Polymorphic recursion, Unicode, conformance | ❌ | — |

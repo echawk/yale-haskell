@@ -1,0 +1,5 @@
+Config {verbose = True, level = 3, label = "default"}
+custom@1
+[1,9]
+(0,Point {px = 5, py = 0})
+not RecordLib's py

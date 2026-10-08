@@ -85,6 +85,8 @@
    (fn-referenced    (type int)               (default 0))
    (arg-invariant-value  (type (maybe flic-exp))  (default '#f))
    (arg-invariant?   (type bool)              (default '#f) (bit #t))
+   ;; For the selector function of a record field: its datatype.
+   (field-alg        (type (maybe algdata))   (default '#f))
    ))
   
 
@@ -116,6 +118,9 @@
    ;; Assigned during import-export phase
    (fixity (type (maybe fixity)) (default '#f))
    (lisp-fns (type t) (default '()))
+   ;; The field (selector var) of each argument, or '() when the
+   ;; constructor has no field labels.
+   (field-labels (type (list var)) (default '()))
    ))
 
 

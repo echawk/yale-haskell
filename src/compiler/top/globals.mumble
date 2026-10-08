@@ -106,7 +106,9 @@
     (fixity-anywhere     haskell98 #f)
     ;; monomorphism restriction rule 2: an exported restricted (pattern)
     ;; binding is allowed but not generalised (H98 4.5.5); 1.2 rejects it.
-    (mr2-export          haskell98 #f)))
+    (mr2-export          haskell98 #f)
+    ;; field labels: declaration, construction, update, patterns
+    (records             haskell-1.3 #f)))
 
 (define (dialect-from-environment)
   (let ((p (getenv "PRELUDE")))

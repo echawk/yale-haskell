@@ -38,3 +38,9 @@
   (as-pat irr-pat var-pat wildcard-pat const-pat plus-pat pcon list-pat
 	  pp-pat-list pp-pat-plus pp-pat-negated)
   collect-pattern-vars-processor)
+
+;;; con { field = pat, ... } binds the variables of its field patterns.
+
+(define-walker-method collect-pattern-vars record-pat (object vars-so-far)
+  (collect-pattern-vars/list (map (function tuple-2-2) (record-pat-fields object))
+			     vars-so-far))

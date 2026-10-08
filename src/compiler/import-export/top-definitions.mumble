@@ -39,17 +39,47 @@
       (let* ((alg-name (tycon-name simple))
 	     (def (create-top-definition alg-name 'algdata)))
 	(setf (tycon-def simple) def)
-	(let ((constr-group
-	       (map (lambda (constr) 
-		     (let* ((con-ref (constr-constructor constr))
-			    (con-name (con-ref-name con-ref))
-			    (con-def (create-top-definition con-name 'con)))
-		        (setf (con-ref-con con-ref) con-def)
-			(tuple con-name con-def)))
-		    constrs)))
+	(let* ((constr-group
+		(map (lambda (constr) 
+		      (let* ((con-ref (constr-constructor constr))
+			     (con-name (con-ref-name con-ref))
+			     (con-def (create-top-definition con-name 'con)))
+			 (setf (con-ref-con con-ref) con-def)
+			 (tuple con-name con-def)))
+		     constrs))
+	       (field-group (create-field-definitions def constrs)))
 	  (setf (algdata-constrs def) (map (function tuple-2-2) constr-group))
 	  (setf (tycon-def-arity def) (length (tycon-args simple)))
-	  (add-new-group alg-name def constr-group))))))
+	  (add-new-group alg-name def (append constr-group field-group)))))))
+
+;;; Record fields: one selector var per distinct label of the datatype,
+;;; shared by the constructors that have it (report 3.15.1).  Each
+;;; constructor's con-field-labels lists the var of every argument.
+;;; Returns the (name def) group entries of the fields.
+
+(define (create-field-definitions alg constrs)
+  (let ((fields '()))
+    (dolist (constr constrs)
+      (let ((labels (constr-field-labels constr)))
+	(check-duplicate-field-labels labels)
+	(setf (con-field-labels (con-ref-con (constr-constructor constr)))
+	      (map (lambda (label)
+		     (let ((old (assq label fields)))
+		       (if old
+			   (tuple-2-2 old)
+			   (let ((var (create-top-definition label 'var)))
+			     (setf (var-field-alg var) alg)
+			     (push var (module-vars *module*))
+			     (push (tuple label var) fields)
+			     var))))
+		   labels))))
+    (reverse fields)))
+
+(define (check-duplicate-field-labels labels)
+  (let ((dups (find-duplicates labels)))
+    (when (not (null? dups))
+      (phase-error 'duplicate-field-label
+	"The field ~A appears more than once in a constructor." (car dups)))))
 
 (define (create-class-definitions class-decl)
   (remember-context class-decl

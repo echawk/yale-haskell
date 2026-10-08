@@ -242,6 +242,24 @@
   (slots
    (stmts (type (list qual)))))
 
+;;; Record construction and update (report 3.15):
+;;;   <con> { <fbind> , ... }      <aexp> { <fbind> , ... }
+;;;   <fbind> -> <var> = <exp>
+;;; A field binding is a (tuple var-ref exp).  The scope phase translates
+;;; both into constructor applications and case expressions.
+
+(define-struct record-con
+  (include aexp)
+  (slots
+   (con (type con-ref))
+   (fields (type (list (tuple var-ref exp))))))
+
+(define-struct record-update
+  (include aexp)
+  (slots
+   (exp (type exp))
+   (fields (type (list (tuple var-ref exp))))))
+
 
 ;;; This is used as the guard slot in a guarded-rhs to represent lack of a
 ;;; guard.  This is the same as True.

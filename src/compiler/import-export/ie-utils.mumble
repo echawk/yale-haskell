@@ -65,9 +65,12 @@
 	  (car renamings)
 	  (locate-renaming name (cdr renamings)))))
 
+;;; A datatype's group holds its constructors and record fields.
+
 (define (gather-algdata-group name def)
   (cons (tuple name def)
-	(gather-group (algdata-constrs def))))
+	(gather-group (append (algdata-constrs def)
+			      (algdata-field-vars def)))))
 
 (define (gather-class-group name def)
   (cons (tuple name def)

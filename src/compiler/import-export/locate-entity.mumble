@@ -41,10 +41,15 @@
 			(signal-wrong-definition
 			  "class or datatype" name (module-name mod)))))
 		((is-type? 'entity-class entity)
-		 (if (class? def)
-		     (match-constituents group (entity-class-methods entity)
-					 entity "method")
-		     (signal-wrong-definition "class" name (module-name mod))))
+		 (cond ((class? def)
+			(match-constituents group (entity-class-methods entity)
+					    entity "method"))
+		       ;; T(f, ...): record fields of a datatype
+		       ((and (algdata? def) (feature? 'records))
+			(match-constituents group (entity-class-methods entity)
+					    entity "constructor or field"))
+		       (else
+			(signal-wrong-definition "class" name (module-name mod)))))
 		((is-type? 'entity-datatype entity)
 		 (if (algdata? def)
 		     (match-constituents group
@@ -112,13 +117,20 @@
 		  (signal-wrong-definition
 		    "type constructor or class" name *module-name*))))
 	  ((is-type? 'entity-class entity)
-	   (if (class? def)
-	       (match-group-names
-		 (gather-class-group name def)
-		 (entity-class-methods entity)
-		 entity
-		 "method")
-	       (signal-wrong-definition "class" name *module-name*)))
+	   (cond ((class? def)
+		  (match-group-names
+		   (gather-class-group name def)
+		   (entity-class-methods entity)
+		   entity
+		   "method"))
+		 ;; T(f, ...): record fields of a datatype
+		 ((and (algdata? def) (feature? 'records))
+		  (match-group-names
+		   (require-complete-algdata (gather-algdata-group name def))
+		   (entity-class-methods entity)
+		   entity "constructor or field"))
+		 (else
+		  (signal-wrong-definition "class" name *module-name*))))
 	  ((is-type? 'entity-datatype entity)
 	   (if (algdata? def)
 	       (match-group-names
@@ -134,9 +146,11 @@
       'not-found
       group))
 
+;;; Returns the group restricted to NAMES (Haskell 98 partial exports).
+
 (define (match-group-names group names entity what)
-  (when (not (eq? group 'not-found))
-    (match-constituents group names entity what))
-  group)
+  (if (eq? group 'not-found)
+      group
+      (match-constituents group names entity what)))
 
 

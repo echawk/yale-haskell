@@ -107,11 +107,51 @@
 (define (parse-prefix-constr)
   (token-case
    (con
-    (let* ((con (con->ast))
-	   (types (parse-constr-type-list)))
-      (make constr (constructor con) (types types))))
+    (let ((con (con->ast)))
+      (if (and (eq? *token* '\{) (feature? 'records))
+	  (begin
+	    (advance-token)
+	    (parse-record-constr con))
+	  (make constr (constructor con) (types (parse-constr-type-list))))))
    (else
     (signal-missing-token "<con>" "constrs list"))))
+
+;;; con { var1, ..., varn :: type, ... }, after the {.  Each label gets
+;;; its own entry in types; the labels are parallel to the types.
+
+(define (parse-record-constr con)
+  (let ((types '())
+	(labels '()))
+    (token-case
+     (\} '())
+     (else
+      (do ((more? '#t))
+	  ((not more?))
+	(let ((vars (parse-field-label-list)))
+	  (require-token \:\:
+	    (signal-missing-token "`::'" "field declaration"))
+	  (let ((t+a (if (at-strictness-flag?)
+			 (parse-strict-atype)
+			 (let* ((type (parse-type))
+				(anns (parse-constr-annotations)))
+			   (tuple type anns)))))
+	    (dolist (v vars)
+	      (push v labels)
+	      (push t+a types))))
+	(token-case
+	 (\, '#t)
+	 (\} (setf more? '#f))
+	 (else (signal-missing-token "`,' or `}'" "record declaration"))))))
+    (make constr (constructor con) (types (reverse types))
+	  (field-labels (reverse labels)))))
+
+(define (parse-field-label-list)
+  (token-case
+   (var (let ((name (var->symbol)))
+	  (token-case
+	   (\, (cons name (parse-field-label-list)))
+	   (else (list name)))))
+   (else (signal-missing-token "<var>" "field declaration"))))
 
 (define (parse-constr-type-list)
   (token-case

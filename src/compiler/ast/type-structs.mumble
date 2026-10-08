@@ -107,7 +107,10 @@
   (include ast-node)
   (slots
    (constructor (type con-ref))  ; this con-ref has an infix? flag.
-   (types (type (list (tuple type (list annotation-value)))))))
+   (types (type (list (tuple type (list annotation-value)))))
+   ;; Record syntax: the field label of each of `types' (a symbol), or
+   ;; '() for a constructor declared without field labels.
+   (field-labels (type (list symbol)) (default '()))))
 
 
 ;;; <class-decl> -> class [<context> => ] <class> [where { <cbody> [;] } ]

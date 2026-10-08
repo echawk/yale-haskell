@@ -114,7 +114,51 @@
        (\| (cons res (parse-guarded-alt-rhs)))
        (else (list res))))))
 
+;;; Record construction and update bind tighter than application
+;;; (report 3.15): f r {x = 1} is f (r {x = 1}).
+
 (define (parse-aexp)
+  (parse-record-suffixes (parse-aexp-1)))
+
+(define (parse-record-suffixes exp)
+  (if (and (eq? *token* '\{) (feature? 'records))
+      (begin
+	(advance-token)
+	(let ((fields (parse-field-bindings
+		       (function parse-exp) "`='" "record expression")))
+	  (parse-record-suffixes
+	   (if (and (con-ref? exp) (not (con-ref-infix? exp)))
+	       (make record-con (con exp) (fields fields))
+	       (begin
+		 (when (null? fields)
+		   (parser-error 'empty-record-update
+		     "A record update must name at least one field."))
+		 (make record-update (exp exp) (fields fields)))))))
+      exp))
+
+;;; field = item, ..., after the {.  Returns a list of (tuple var-ref item).
+;;; Used for expressions and (with parse-pat) patterns.
+
+(define (parse-field-bindings parse-item eq-name what)
+  (token-case
+   (\} '())
+   (else
+    (let ((bindings '()))
+      (do ((more? '#t))
+	  ((not more?))
+	(token-case
+	 (var
+	  (let ((field (var->ast)))
+	    (require-token = (signal-missing-token eq-name what))
+	    (push (tuple field (funcall parse-item)) bindings)))
+	 (else (signal-missing-token "<var>" what)))
+	(token-case
+	 (\, '#t)
+	 (\} (setf more? '#f))
+	 (else (signal-missing-token "`,' or `}'" what))))
+      (reverse bindings)))))
+
+(define (parse-aexp-1)
  (trace-parser aexp
   (token-case
     (var (save-parser-context (var->ast)))

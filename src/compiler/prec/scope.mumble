@@ -475,3 +475,150 @@
 (define-walker-method scope pp-exp-list (object env)
   (massage-pp-exp-list (scope-ast/list (pp-exp-list-exps object) env)))
 
+
+;;; Records (report 3.15).  Construction, update and record patterns are
+;;; translated here, once constructors and field names can be resolved;
+;;; the type checker sees only the translation.
+;;;   C {f = e, ...}   = C e1 ... en, where ei is the value given for the
+;;;                      field at position i, or an error for a missing one
+;;;   e {f = v, ...}   = case e of C x1 ... xn -> C x1 ... v ... xn; ...
+;;;                      for each constructor C that has all the fields
+;;;   C {f = p, ...}   = C _ ... p ... _   (a pattern)
+;;; Field names are top-level names; local variables do not hide them.
+
+(define-walker-method scope record-con (object env)
+  (scope-ast-1 (desugar-record-con object) env))
+
+(define-walker-method scope record-update (object env)
+  (scope-ast-1 (desugar-record-update object) env))
+
+(define (desugar-record-con object)
+  (let* ((con-ref (record-con-con object))
+	 (con (lookup-toplevel-name (con-ref-name con-ref)))
+	 (binds (resolve-field-bindings (record-con-fields object))))
+    (if (not (con? con))
+	(**abort "Bad record construction")
+	(begin
+	  (check-fields-of-con binds con)
+	  (**app/l (**con/def con)
+		   (record-con-args con binds))))))
+
+(define (record-con-args con binds)
+  (let ((labels (con-field-labels con))
+	(strict (con-slot-strict? con))
+	(args '()))
+    (dotimes (i (con-arity con))
+      (let* ((field (if (null? labels) '#f (list-ref labels i)))
+	     (bind (and field (assq field binds))))
+	(push (cond (bind (tuple-2-2 bind))
+		    (else
+		     (when (and (pair? strict) (list-ref strict i))
+		       (phase-error 'missing-strict-field
+			 "The strict field ~A of ~A is missing in a record construction."
+			 (if field (def-name field) i)
+			 (remove-con-prefix (symbol->string (def-name con)))))
+		     (**abort
+		      (format '#f "Missing field ~A in record construction ~A"
+			      (if field (def-name field) "")
+			      (remove-con-prefix (symbol->string (def-name con)))))))
+	      args)))
+    (reverse args)))
+
+(define (desugar-record-update object)
+  (let* ((binds (resolve-field-bindings (record-update-fields object)))
+	 (alg (fields-algdata binds)))
+    (if (eq? alg '#f)
+	(**abort "Bad record update")
+	(let ((alts '())
+	      (complete? '#t))
+	  (dolist (con (algdata-constrs alg))
+	    (if (every (lambda (b) (field-position (tuple-2-1 b) con)) binds)
+		(let ((vars (update-vars (con-arity con))))
+		  (push (**alt/simple
+			 (**pcon/def con (map (function **pat) vars))
+			 (**app/l (**con/def con)
+				  (update-args con vars binds)))
+			alts))
+		(setf complete? '#f)))
+	  (when (null? alts)
+	    (phase-error 'no-constructor-with-fields
+	      "No constructor of ~A has all the fields of a record update."
+	      (def-name alg)))
+	  (when (not complete?)
+	    (push (**alt/simple (**wildcard-pat)
+				(**abort "No match in record update"))
+		  alts))
+	  (**case (record-update-exp object) (reverse alts))))))
+
+(define (update-vars n)
+  (do ((i n (1- i))
+       (vars '() (cons (string->symbol (format '#f "upd%~A" i)) vars)))
+      ((eqv? i 0) vars)))
+
+(define (update-args con vars binds)
+  (let ((labels (con-field-labels con)))
+    (map (lambda (v label)
+	   (let ((bind (assq label binds)))
+	     (if bind (tuple-2-2 bind) (**var v))))
+	 vars labels)))
+
+;;; The datatype of the fields being updated; they must all belong to one.
+
+(define (fields-algdata binds)
+  (let ((alg '#f))
+    (dolist (b binds)
+      (let ((a (var-field-alg (tuple-2-1 b))))
+	(cond ((eq? alg '#f) (setf alg a))
+	      ((not (eq? alg a))
+	       (phase-error 'mixed-record-update
+		 "The fields of a record update belong to different types.")))))
+    alg))
+
+;;; Resolve the field names of (tuple var-ref item) bindings: returns a
+;;; list of (tuple field-var item).  Unknown names and duplicates are
+;;; errors (and are dropped).
+
+(define (resolve-field-bindings bindings)
+  (let ((result '()))
+    (dolist (b bindings)
+      (let* ((name (var-ref-name (tuple-2-1 b)))
+	     (def (lookup-toplevel-name name)))
+	(cond ((eq? def *undefined-def*))
+	      ((not (and (var? def) (var-field-alg def)))
+	       (phase-error 'not-a-field "~A is not a record field." name))
+	      ((assq def result)
+	       (phase-error 'duplicate-field
+		 "The field ~A is given more than once." name))
+	      (else
+	       (push (tuple def (tuple-2-2 b)) result)))))
+    (reverse result)))
+
+(define (check-fields-of-con binds con)
+  (dolist (b binds)
+    (when (not (field-position (tuple-2-1 b) con))
+      (phase-error 'field-not-in-constructor
+	"The constructor ~A has no field ~A."
+	(remove-con-prefix (symbol->string (def-name con)))
+	(def-name (tuple-2-1 b))))))
+
+;;; C {f = p, ...} as a pattern; called by massage-pattern.  The field
+;;; patterns are massaged by the caller.
+
+(define (desugar-record-pat pat)
+  (let* ((pcon (record-pat-con pat))
+	 (con (if (eq? (pcon-con pcon) *undefined-def*)
+		  (lookup-toplevel-name (pcon-name pcon))
+		  (pcon-con pcon)))
+	 (binds (resolve-field-bindings (record-pat-fields pat))))
+    (setf (pcon-con pcon) con)
+    (when (con? con)
+      (check-fields-of-con binds con)
+      (setf (pcon-pats pcon)
+	    (let ((labels (con-field-labels con))
+		  (pats '()))
+	      (dotimes (i (con-arity con))
+		(let ((bind (and (pair? labels)
+				 (assq (list-ref labels i) binds))))
+		  (push (if bind (tuple-2-2 bind) (**wildcard-pat)) pats)))
+	      (reverse pats))))
+    pcon))

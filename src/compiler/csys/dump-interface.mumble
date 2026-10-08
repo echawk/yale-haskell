@@ -663,6 +663,9 @@
       (push `(setf (var-complexity var) ,complexity) code))
     (when fixity
       (push `(setf (var-fixity var) ,(dump-object fixity)) code))
+    (when (var-field-alg var)
+      (push `(setf (var-field-alg var) ,(dump-object (var-field-alg var)))
+	    code))
     ;; Save values of simple variables to permit inlining.
     ;; Save values of structured constants to permit folding of flic-sel
     ;; operations -- this is necessary to optimize dictionary lookups.
@@ -713,6 +716,10 @@
 	 ,@(if (eq? (con-lisp-fns con) '())
 	       '()
 	       `((setf (con-lisp-fns con) ',(con-lisp-fns con))))
+	 ,@(if (null? (con-field-labels con))
+	       '()
+	       `((setf (con-field-labels con)
+		       ,(dump-object (con-field-labels con)))))
 	 con))))
 
 ;;; *** Could define similar init functions for other defs instead

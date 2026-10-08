@@ -95,7 +95,61 @@
 	    (deriving derived-classes)
 	    ))
 	(process-alg-annotations def)
+	(when (not (eq? (module-type *module*) 'interface))
+	  (add-field-selectors def))
 	def))))
+
+;;; Record fields (report 3.15.1): the selector for field f is
+;;;   f x = case x of { C1 ... v ... -> v; ...; _ -> error "..." }
+;;; with an alternative for each constructor that has f.
+
+(define (add-field-selectors alg)
+  (dolist (field (algdata-field-vars alg))
+    (setf (module-decls *module*)
+	  (cons (field-selector-decl alg field) (module-decls *module*)))))
+
+(define (algdata-field-vars alg)
+  (let ((fields '()))
+    (dolist (con (algdata-constrs alg))
+      (dolist (f (con-field-labels con))
+	(when (not (memq f fields))
+	  (push f fields))))
+    (reverse fields)))
+
+(define (field-selector-decl alg field)
+  (let* ((alts '())
+	 (complete? '#t))
+    (dolist (con (algdata-constrs alg))
+      (let ((i (field-position field con)))
+	(if (eq? i '#f)
+	    (setf complete? '#f)
+	    (push (**alt/simple
+		   (**pcon/def con
+		     (field-pats i (con-arity con) (**pat '|sel%v|)))
+		   (**var '|sel%v|))
+		  alts))))
+    (when (not complete?)
+      (push (**alt/simple
+	     (**wildcard-pat)
+	     (**abort (format '#f "No match in record selector ~A"
+			      (def-name field))))
+	    alts))
+    (**define field '(|sel%x|) (**case (**var '|sel%x|) (reverse alts)))))
+
+;;; Wildcards for the N arguments of a constructor, with PAT at position I.
+
+(define (field-pats i n pat)
+  (do ((j (1- n) (1- j))
+       (pats '() (cons (if (eqv? i j) pat (**wildcard-pat)) pats)))
+      ((< j 0) pats)))
+
+;;; The argument position of FIELD in constructor CON, or #f.
+
+(define (field-position field con)
+  (do ((labels (con-field-labels con) (cdr labels))
+       (i 0 (1+ i)))
+      ((or (null? labels) (eq? (car labels) field))
+       (if (null? labels) '#f i))))
 
 
 (define (process-alg-strictness-annotation anns)
