@@ -496,6 +496,35 @@ generated eval to the whole-program mode.
 > were not needed by any benchmark profile and remain open.
 > Results: bench/RESULTS.md.
 
+### 5.4a Optimisation backlog (status 2026-10-08)
+
+The suggestions of doc/GEMINI-GRIN-OPTIMIZATIONS.md and §5.4, with where
+each stands.  Measure with `make profile FILE=…` and bench/ before
+building any of them; P5 showed the profile is a better guide than the
+list.
+
+| Optimisation | Status |
+|---|---|
+| Strictness analysis | FLIC (Consel), before GRIN |
+| Worker/wrapper, unboxed arguments | Partial: strict `Int`/`Char`/`Double`/`Float` parameters of top-level functions are declared (§9 minimum).  Next: local functions, unboxed `Double` across calls, results |
+| Uncurrying / arity | Done: eval/apply (P2), direct `/OPT` calls; arity raising (§5.4 item 5) open |
+| Deforestation | foldr/build in the FLIC optimizer |
+| Join points | `block`/`return-from`, `labels`; self-calls of top-level functions are local `labels` calls |
+| Eval elimination | Box analysis + inline `eval`; 34 redundant evals left in the Prelude |
+| Speculation (cheap eagerness) | Done (P5) |
+| Update omission | Open; saves one write per thunk on this runtime |
+| Case-of-case | Open; SBCL already folds `(if (if …))` |
+| Heap-to-stack, unboxed returns | Open; needs a returned-node analysis.  No benchmark profile shows it yet |
+| SpecConstr | Open |
+| Specialisation of overloaded code | Open (§9); matters for `Num a =>` code |
+| HPT, dead field elimination, generated eval | Whole-program (P6), assessed not worth it yet |
+
+**LGRIN's deferred items (§5.2).**  None blocks the work above:
+A-normal form, lambda-lifted F-nodes and unboxed reps on variables are
+prerequisites of HPT/generated eval (P6) and of returning unboxed
+values; do them with the first optimisation that needs them.  The GRIN
+passes are mumble; new ones could be plain CL (the todo's direction).
+
 ### 5.5 Lowering FLIC → GRIN
 
 Lowering runs after `strictness` (which includes box analysis), using its
