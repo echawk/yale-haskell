@@ -381,9 +381,111 @@
   `(and ,@(do-codegen-list (flic-and-exps object))))
 
 (define-codegen flic-if (object)
-  `(if ,(do-codegen (flic-if-test-exp object))
-       ,(do-codegen (flic-if-then-exp object))
-       ,(do-codegen (flic-if-else-exp object))))
+  (codegen-if-or-case
+    `(if ,(do-codegen (flic-if-test-exp object))
+	 ,(do-codegen (flic-if-then-exp object))
+	 ,(do-codegen (flic-if-else-exp object)))))
+
+
+;;; Case recovery (phase P3 of doc/EVAL-APPLY-GRIN.md, sections 5.5 and
+;;; 6.5).  The optimizer leaves a match on one scrutinee as a chain of
+;;; ifs, each comparing it with a constant: a constructor tag, an
+;;; enumeration value, an Int or a Char.  A chain of *min-case-tests* or
+;;; more tests becomes a CL case on the fixnum, which SBCL compiles to a
+;;; jump table.  Ifs are generated inside out, so the else branch of a
+;;; chain may already be a case on the same scrutinee; it is merged.
+
+(define *min-case-tests* 3)
+
+(define (codegen-if-or-case code)
+  (mlet (((scrutinee clauses default) (if-chain code)))
+    (if (and (not (eq? scrutinee '#f))
+	     (>= (length clauses) *min-case-tests*))
+	`(lisp:case (the fixnum ,scrutinee)
+	   ,@clauses
+	   (lisp:otherwise ,default))
+	code)))
+
+;;; Returns the scrutinee (or #f), the case clauses for the tests on it in
+;;; order, and the code for when none matches.  A key tested twice keeps
+;;; its first clause, as in the chain.
+
+(define (if-chain code)
+  (let ((scrutinee  '#f)
+	(clauses    '())
+	(keys       '())
+	(form       code)
+	(done?      '#f))
+    (do () (done?)
+      (mlet (((s k then else) (if-chain-test form)))
+	(cond ((and (not (eq? s '#f))
+		    (or (eq? scrutinee '#f) (equal? s scrutinee)))
+	       (setf scrutinee s)
+	       (when (not (memv k keys))
+		 (push k keys)
+		 (push `((,k) ,then) clauses))
+	       (setf form else))
+	      ((and (not (eq? scrutinee '#f))
+		    (case-on? form scrutinee))
+	       (dolist (c (cddr form))
+		 (if (eq? (car c) 'lisp:otherwise)
+		     (setf form (cadr c))
+		     (when (not (memv (caar c) keys))
+		       (push (caar c) keys)
+		       (push c clauses))))
+	       (setf done? '#t))
+	      (else
+	       (setf done? '#t)))))
+    (values scrutinee (reverse clauses) form)))
+
+;;; FORM is (if test then else) with test comparing a simple expression
+;;; with a fixnum constant: returns the expression, the constant, then and
+;;; else; otherwise #f.
+
+(define (if-chain-test form)
+  (if (and (pair? form) (eq? (car form) 'if) (eqv? (length form) 4))
+      (let ((test  (cadr form)))
+	(mlet (((s k) (fixnum-test test)))
+	  (if (and (not (eq? s '#f)) (simple-scrutinee? s))
+	      (values s k (caddr form) (cadddr form))
+	      (values '#f '#f '#f '#f))))
+      (values '#f '#f '#f '#f)))
+
+(define (fixnum-test test)
+  (cond ((not (and (pair? test) (eqv? (length test) 3)))
+	 (values '#f '#f))
+	((eq? (car test) 'eqv?)
+	 ;; (eqv? (the fixnum s) (the fixnum k)), from codegen-flic-is-constructor-aux
+	 (let ((a (the-fixnum-arg (cadr test)))
+	       (b (the-fixnum-arg (caddr test))))
+	   (if (and (not (eq? a '#f)) (fixnum? b))
+	       (values a b)
+	       (values '#f '#f))))
+	((memq (car test) '(prim.eq-int prim.eq-char))
+	 (cond ((fixnum? (cadr test)) (values (caddr test) (cadr test)))
+	       ((fixnum? (caddr test)) (values (cadr test) (caddr test)))
+	       (else (values '#f '#f))))
+	(else
+	 (values '#f '#f))))
+
+(define (the-fixnum-arg x)
+  (if (and (pair? x) (eq? (car x) 'the) (eq? (cadr x) 'fixnum))
+      (caddr x)
+      '#f))
+
+;;; Evaluating it once instead of once per test must not matter.
+
+(define (simple-scrutinee? x)
+  (or (symbol? x)
+      (and (pair? x)
+	   (memq (car x) '(constructor-number force unbox))
+	   (eqv? (length x) 2)
+	   (simple-scrutinee? (cadr x)))))
+
+(define (case-on? form scrutinee)
+  (and (pair? form)
+       (eq? (car form) 'lisp:case)
+       (equal? (cadr form) `(the fixnum ,scrutinee))))
 
 (define-codegen flic-sel (object)
   (codegen-flic-sel-aux
