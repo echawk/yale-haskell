@@ -1167,7 +1167,7 @@ constructor classes, List/Char/Maybe/Ix/Numeric all matched):
 | 4 | The H98 Prelude exports 1.2 Dialogue I/O names (`appendChan`, `stdin`, `stdout`, `stderr`, `exit`, `done`, `abort`, …): `import IO` clashes, and defining those names is rejected.  Many of our own H98 tests still use them, so they need moving to a library (or rewriting) | Prelude export list; tests | M |
 | 5 | Defining a top-level name the Prelude exports is rejected; H98 5.5.2 allows it, an unqualified use is ambiguous (`prelude-name-clash` xfail) | import-export (PRELUDE-REDEFINITION) | M |
 | 6 | Polymorphic recursion with a signature (LG-POLYREC, `polymorphic-recursion` xfail) | type checker | M |
-| 7 | Unicode `Char` beyond 255 (LG-UNICODE, `unicode-chars` xfail); the todo notes a cl-unicode conflict | lexer, `*max-char*`, Char predicates, I/O encoding | M–L |
+| 7 | Unicode `Char` beyond 255 (LG-UNICODE, `unicode-chars` xfail).  cl-unicode (via ocicl, `ocicl.csv`) loads into the same image as mumble and Yale Haskell in either order, and programs still run (checked 2026-10-08): the old conflict came from mumble's global readtable and unlocked CL, both gone since the ASDF work.  Use it for the Char predicates and case mappings | lexer, `*max-char*`, Char predicates, I/O encoding | M |
 | 8 | M7 deviations (LG-QUALIFIED): ambiguity reported at import instead of use; `module M` re-exports qualified-only imports; `M..` | import-export | S–M |
 
 All are front-end or library work; nothing needs the back end.  Order:

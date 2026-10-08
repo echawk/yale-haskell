@@ -1,0 +1,17 @@
+alexandria, ghcr.io/ocicl/alexandria@sha256:407634b0781b2d8fc3e55a30432bcb5d0c042af2feb2d1d72de825940b0fb0df, alexandria-20260812-f283e25/alexandria.asd
+bobbin, ghcr.io/ocicl/bobbin@sha256:7368d88e9f1d8a94b9bddf5e1887e384ef738235570142dd1cfe98c90077cc13, bobbin-20240503-b454e82/bobbin.asd
+cl-ppcre, ghcr.io/ocicl/cl-ppcre@sha256:bf073924cf4fd5957a4fd961a95d446ed0e53fa32a5002cbd2d52182874f45e5, cl-ppcre-20250606-a2ea581/cl-ppcre.asd
+cl-ppcre-unicode, ghcr.io/ocicl/cl-ppcre@sha256:bf073924cf4fd5957a4fd961a95d446ed0e53fa32a5002cbd2d52182874f45e5, cl-ppcre-20250606-a2ea581/cl-ppcre-unicode.asd
+cl-reexport, ghcr.io/ocicl/cl-reexport@sha256:c795feb3e3727a19e61797187eb31bac1e855b1332335d26752200a28e9b9da8, cl-reexport-20240503-03ad7a0/cl-reexport.asd
+cl-reexport-test, ghcr.io/ocicl/cl-reexport@sha256:c795feb3e3727a19e61797187eb31bac1e855b1332335d26752200a28e9b9da8, cl-reexport-20240503-03ad7a0/cl-reexport-test.asd
+cl-unicode, ghcr.io/ocicl/cl-unicode@sha256:d98f12c1271fb3c1812a27d64dfbe95b0bc5bcfd545b71b8101874e61270b120, cl-unicode-20240503-07e7ff5/cl-unicode.asd
+clingon, ghcr.io/ocicl/clingon@sha256:27d1426613e66fd28223c737bd7886dfdd4f20df742212bd0903c2fc6791871f, clingon-20260807-e7e936b/clingon.asd
+clingon.demo, ghcr.io/ocicl/clingon@sha256:27d1426613e66fd28223c737bd7886dfdd4f20df742212bd0903c2fc6791871f, clingon-20260807-e7e936b/clingon.demo.asd
+clingon.intro, ghcr.io/ocicl/clingon@sha256:27d1426613e66fd28223c737bd7886dfdd4f20df742212bd0903c2fc6791871f, clingon-20260807-e7e936b/clingon.intro.asd
+clingon.test, ghcr.io/ocicl/clingon@sha256:27d1426613e66fd28223c737bd7886dfdd4f20df742212bd0903c2fc6791871f, clingon-20260807-e7e936b/clingon.test.asd
+flexi-streams, ghcr.io/ocicl/flexi-streams@sha256:95005b06a8a95c82780c75ead53810bcb273d07fcf5fe76b527f1856df9923f2, flexi-streams-20240503-4951d57/flexi-streams.asd
+flexi-streams-test, ghcr.io/ocicl/flexi-streams@sha256:95005b06a8a95c82780c75ead53810bcb273d07fcf5fe76b527f1856df9923f2, flexi-streams-20240503-4951d57/flexi-streams-test.asd
+split-sequence, ghcr.io/ocicl/split-sequence@sha256:3a37662eedd99c42995587b9d443c4631f25c4c523091bcca31a27b880585b8e, split-sequence-2.0.1/split-sequence.asd
+trivial-gray-streams, ghcr.io/ocicl/trivial-gray-streams@sha256:9d702556e5973fd18e67642b18bd5a2f901972ef7d5b134615e2f5fd77396bb9, trivial-gray-streams-20260818-257d73e/trivial-gray-streams.asd
+trivial-gray-streams-test, ghcr.io/ocicl/trivial-gray-streams@sha256:9d702556e5973fd18e67642b18bd5a2f901972ef7d5b134615e2f5fd77396bb9, trivial-gray-streams-20260818-257d73e/trivial-gray-streams-test.asd
+with-user-abort, ghcr.io/ocicl/with-user-abort@sha256:c19560034f9909a7afb4110b5efd939a9f1e829d9ef9887797b98679f290c480, with-user-abort-20240503-a3db02e/with-user-abort.asd
