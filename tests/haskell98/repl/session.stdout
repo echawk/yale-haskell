@@ -40,4 +40,12 @@ square :: Int -> Int
 Main> area :: Shape -> Double
   -- defined in module Main
 Main> [1,4,9,16,25]
+Main> 
+Phase GRIN:
+(VAL |<interactive-51>:repl_it_18| 97)
+Main> 
+Phase CODEGEN:
+
+Codegen of <interactive-52>:repl_it_19
+(DEFINE |<interactive-52>:repl_it_19| 97)
 Main> Leaving Yale Haskell.

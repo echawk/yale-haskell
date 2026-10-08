@@ -92,8 +92,16 @@
 ;;; The inverted symbol table is not necessary since the module contains
 ;;; no imports.
 
+;;; Extension modules are named <interactive-N> rather than with a gensym,
+;;; so names in printed code and messages are readable and the same in
+;;; every session.
+
+(define *extension-counter* 0)
+
 (define (fragment-initialize new old)
-  (setf (module-name new) (gensym))
+  (incf *extension-counter*)
+  (setf (module-name new)
+	(string->symbol (lisp:format lisp:nil "<interactive-~A>" *extension-counter*)))
   (setf (module-type new) 'extension)
   (setf (module-unit new) (module-unit old))
   (setf (module-uses-standard-prelude? new)

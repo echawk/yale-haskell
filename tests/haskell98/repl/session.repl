@@ -27,4 +27,6 @@ map area [Circle 1, Rect 2 3]
 :browse
 :info area
 main
+:grin 'a'
+:lisp 'a'
 :quit

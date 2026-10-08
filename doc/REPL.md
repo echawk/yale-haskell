@@ -64,7 +64,7 @@ Any unique prefix works, as in GHCi: `:t`, `:l`, `:r`, `:q`, `:b`, `:i`, `:m`.
 |---|---|
 | `:grin EXPR` | the GRIN intermediate code (LGRIN, doc/EVAL-APPLY-GRIN.md) for an expression |
 | `:lisp EXPR` | the Common Lisp generated for it |
-| `:flic EXPR` | the optimised FLIC code, with strictness information |
+| `:flic EXPR` | the optimised FLIC code (the `optimize` printer) |
 | `:set backend grin` / `flic` | the code generator for what is compiled next |
 | `:set printers P ...` | print these compiler passes for everything compiled (`:set printers` alone turns them off); the pass names are those of `--printers` and `*all-printers*` (`parse`, `type`, `flic`, `optimize`, `strictness`, `grin`, `codegen`, `phase-time`, ...) |
 | `:set optimizers O ...` | the FLIC optimizer passes (`foldr inline constant lisp`); `:set noopt` turns them off, `:unset noopt` on |

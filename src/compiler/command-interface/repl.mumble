@@ -216,13 +216,23 @@
 ;;; Compiles TEXT as an extension of the current module; its code is
 ;;; loaded.  Returns the extension module, or #f after reporting errors.
 
+;;; compile-fragment prints nothing for an extension unless EXTENSION is
+;;; among the printers, so the printers asked for (:set printers, :grin,
+;;; :lisp, :flic) are passed on with it.
+
 (define (repl-compile text)
   (repl-ensure-module)
-  (let ((ext  (compile-fragment *repl-module* text "<interactive>")))
+  (let ((ext  (dynamic-let ((*printers* (if (null? (dynamic *printers*))
+					    '()
+					    (cons 'extension (dynamic *printers*)))))
+		(compile-fragment *repl-module* text "<interactive>"))))
     (if (eq? ext 'error) '#f ext)))
 
+;;; A trial compile (is it an IO action?): no errors, no printers.
+
 (define (repl-compile/quiet text)
-  (dynamic-let ((*error-output-port* (lisp:make-broadcast-stream)))
+  (dynamic-let ((*error-output-port* (lisp:make-broadcast-stream))
+		(*printers* '()))
     (repl-compile text)))
 
 ;;; A definition is kept for later input.  Entering a name again (as with
@@ -575,7 +585,7 @@
 
 (define-repl-command ("flic") (rest)
   ":flic <expr>              show the optimised FLIC code for an expression"
-  (repl-show-pass rest '(strictness)))
+  (repl-show-pass rest '(optimize)))
 
 (define-repl-command ("profile") (rest)
   ":profile <expr>           evaluate under the statistical profiler"
@@ -682,7 +692,8 @@
 	(repl-say "~&Not in scope: ~A~%" name)
 	(begin
 	  (repl-describe def)
-	  (when (and (def-module def) (not (gensym? (def-module def))))
+	  (when (and (def-module def)
+		     (not (string-starts? "<interactive" (symbol->string (def-module def)))))
 	    (repl-say "  -- defined in module ~A~%" (def-module def)))))))
 
 (define (repl-lookup name)
