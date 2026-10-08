@@ -286,6 +286,33 @@ Locale and Random.
 conformance pass against the Report (e.g. the Hugs test suite and
 nofib's `imaginary` and `spectral` programs).
 
+**M10 — Command line and interactive system (planned 2026-10-08).**
+Today `bin/yale-haskell` is a shell wrapper around an image saved by
+`tools/build/image.lisp`, and the interactive system is the 1993
+command interface: definitions go into an "extension" that `:eval`
+compiles, expressions cannot be typed at the prompt, and options are
+`:p=`-style commands.  Plan:
+
+- *Executable.*  An ASDF system `yale-haskell/cli` (plain CL, not
+  mumble) whose `program-op` builds the executable with
+  `uiop:dump-image`/`save-lisp-and-die` and an `:entry-point`,
+  replacing `image.lisp` and most of the shell wrapper.  Lisp
+  dependencies are installed with ocicl (`ocicl install clingon`).
+- *Arguments* with clingon: `yale-haskell run FILE [-- ARGS]` (also
+  the bare `yale-haskell FILE` the test runner uses), `repl [FILES]`,
+  `compile UNIT`, and options `--dialect`, `--backend flic|grin`,
+  `--printers`, `--no-optimize`, `--profile`.
+- *REPL*, GHCi-like on top of the incremental compiler: an expression
+  is evaluated and shown (`show`, or run if it is an `IO` action);
+  `:type`, `:load`, `:reload`, `:browse`, `:module`, `:set`,
+  `:quit`, multi-line `:{ … :}`, and definitions at the prompt.  An
+  expression becomes an extension binding (`it = expr`) whose type
+  decides print vs run.  Line editing and history through a small CL
+  line editor, or `rlwrap` as a documented fallback.
+- *Keep:* one image per dialect, batch-mode output and exit codes
+  (tests/run-tests), the old command interface reachable during the
+  transition.
+
 ## 5. Repository restructuring and scripts
 
 ### 5.1 Done

@@ -538,10 +538,10 @@ renaming = 42
 
 ### LG-DERIVING: Deriving Bounded, H98 Enum, Show/Read for records
 
-**Status:** 🔄 Partial.  Bounded deriving landed
-(`derived/ix-enum.mumble`: `bounded-fns`).  H98 Enum deriving landed
-(`enum-fns/98`).  Remaining: Show/Read for records (blocked on LG-RECORDS),
-nullary-constructor parenthesisation bug.
+**Status:** ✅ Done (verified 2026-10-08).  Bounded, H98 Enum, record
+Show/Read (M6) and nullary-constructor parenthesisation (M5) landed;
+tests `derived-show`, `derived-show-read-nullary`.  The notes below are
+historical.
 
 **Where:**
 - All deriving: `src/compiler/derived/derived.mumble` (dispatcher),
@@ -637,9 +637,8 @@ f (Nest _ rest) = 1 + f rest  -- f is called at type Nested [a],
 
 ### LG-MR2: Monomorphism restriction rule 2
 
-**Status:** 🔄 Bug.  Exporting a pattern binding reports "Can't export
-pattern binding" instead of allowing it (or giving the correct H98 error).
-Open bug 3 (`mr-exported`).
+**Status:** ✅ Fixed (feature `mr2-export`; tests `mr-exported`,
+`mr-exported-pattern`).  The notes below are historical.
 
 **Where:**
 - `src/compiler/type/pattern-binding.mumble` (lines ~26–35) — the MR
@@ -917,7 +916,7 @@ main = print (ord 'λ', chr 955)  -- λ = U+03BB = 955
 | Numeric | ✅ | `showHex`, `showOct`, `showEFloat`, etc. |
 | Char | ✅ | `isHexDigit` bug fixed |
 | List, Maybe | ✅ | Report code |
-| Monad | ✅ | Report code |
+| Monad | ❌ | Missing: no `lib/haskell98/Monad.hs` (found 2026-10-08; see M9) |
 | IO | ✅ | Handles, IOError, `catch`, `bracket` |
 | System | ✅ | `getArgs`, `exitWith`, `system` |
 | Directory | ✅ | All operations via `sb-posix` |
@@ -1152,7 +1151,28 @@ The critical path is M3 → M4 → M5.  M3 and M4 are done.
 | M6 — newtype, then records | ✅ | — |
 | M7 — Qualified names, module system | ✅ (deviations in LG-QUALIFIED) | — |
 | M8 — System libraries | ✅ | — |
-| M9 — Polymorphic recursion, Unicode, conformance | ❌ | — |
+| M9 — Polymorphic recursion, Unicode, conformance | 🔄 (gaps verified, see below) | — |
+
+### M9 — verified gaps (2026-10-08)
+
+Found by probe programs compared with GHC 9.14 (records, derived
+Read/Show with infix constructors, n+k patterns, `default`,
+constructor classes, List/Char/Maybe/Ix/Numeric all matched):
+
+| # | Gap | Where | Effort |
+|---|---|---|---|
+| 1 | Layout rule `parse-error(t)`: `main = do …` then `where` at the statements' column is a parse error | parser (implicit block close on a parse error) | M |
+| 2 | `renaming`, `to`, `interface` are keywords in H98 mode (LG-IMPTEXP) | lexer/parser keyword table, gated on `h98-lexing` | S |
+| 3 | No `Monad` library module | `lib/haskell98/Monad.hs` from the Report | S |
+| 4 | The H98 Prelude exports 1.2 Dialogue I/O names (`appendChan`, `stdin`, `stdout`, `stderr`, `exit`, `done`, `abort`, …): `import IO` clashes, and defining those names is rejected.  Many of our own H98 tests still use them, so they need moving to a library (or rewriting) | Prelude export list; tests | M |
+| 5 | Defining a top-level name the Prelude exports is rejected; H98 5.5.2 allows it, an unqualified use is ambiguous (`prelude-name-clash` xfail) | import-export (PRELUDE-REDEFINITION) | M |
+| 6 | Polymorphic recursion with a signature (LG-POLYREC, `polymorphic-recursion` xfail) | type checker | M |
+| 7 | Unicode `Char` beyond 255 (LG-UNICODE, `unicode-chars` xfail); the todo notes a cl-unicode conflict | lexer, `*max-char*`, Char predicates, I/O encoding | M–L |
+| 8 | M7 deviations (LG-QUALIFIED): ambiguity reported at import instead of use; `module M` re-exports qualified-only imports; `M..` | import-export | S–M |
+
+All are front-end or library work; nothing needs the back end.  Order:
+2, 3 (small), 1, 4+5 together (both are about what the Prelude
+exports), 6, 8, 7.
 
 **Recommended next milestone:** Complete M5 (Show/Read split).  This
 unblocks the `Num ⇐ Eq, Show` superclass fix, removes `Text`/`Binary`/

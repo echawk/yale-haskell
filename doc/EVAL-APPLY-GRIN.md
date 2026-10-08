@@ -519,6 +519,28 @@ list.
 | Specialisation of overloaded code | Open (§9); matters for `Num a =>` code |
 | HPT, dead field elimination, generated eval | Whole-program (P6), assessed not worth it yet |
 
+**Observed, not yet acted on** (from profiles and the GHC comparison,
+bench/RESULTS.md):
+
+- *queens* (2.7× GHC): a thunk per element of the list comprehension
+  (`REST` in `iterate'`) and 676 MB allocated; candidates are
+  SpecConstr-style specialisation of the generator loop or element
+  strictness, not local GRIN rewrites.
+- *nfib* (2.2×): the generated Lisp already runs at hand-written fixnum
+  SBCL speed; the gap is SBCL's non-tail call/return cost.  Ideas:
+  fixnum result declarations (`ftype`) so returns skip boxing checks;
+  unboxed returns.
+- *ioloop* (3.7×): after the fast `read`, `lines` (`span` per line) and
+  per-character output (`OUTPUT-CHAR-UTF-8`) dominate: a primitive
+  `lines` over the lazy input chunks and string output by chunks.
+- *tree* (1.5×): lazy `Node` fields; strictness only helps with `!`.
+- Representation types reach only top-level functions without class
+  contexts; local functions (`labels` from FLIC lets) and `Double`
+  results are next.  Dictionary specialisation (`Num a =>`) is untested
+  by any benchmark: add one (e.g. a polymorphic `sum`).
+- `force`'s blackhole bookkeeping (three writes per thunk) is a
+  candidate for update omission on thunks proven single-entry.
+
 **LGRIN's deferred items (§5.2).**  None blocks the work above:
 A-normal form, lambda-lifted F-nodes and unboxed reps on variables are
 prerequisites of HPT/generated eval (P6) and of returning unboxed
