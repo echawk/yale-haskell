@@ -651,7 +651,7 @@ uses:
    - (more work) run both checkers on the same programs and compare the
      inferred types.  This needs an AST bridge, so only if the cheaper
      options leave real doubt.
-   Copying code needs attribution under its licence (§1.4 policy).
+   Copying code needs attribution under its licence (see "Licensing" in §3).
 2. **Emitting Coalton instead of plain CL (experiment).**  After type
    checking we know every binding's type, so a back end could emit
    Coalton.  Coalton would then re-check the translation (a form of
