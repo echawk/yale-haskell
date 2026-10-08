@@ -1,6 +1,7 @@
 -- Ordering and compare: derived compare, matching on LT/EQ/GT, and an
 -- Ord instance that defines only compare, used via <, max and a sort.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Size = Small | Large deriving (Eq, Ord)
 

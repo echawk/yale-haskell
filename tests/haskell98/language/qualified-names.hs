@@ -2,6 +2,7 @@
 -- qualified operators in sections and backquotes, and Main.f for a
 -- top-level name shadowed by a local one.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 f :: Int
 f = 10

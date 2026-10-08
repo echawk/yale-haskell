@@ -2,6 +2,7 @@
 -- patterns, wildcards, guards in alternatives, top-to-bottom matching,
 -- case on tuples, nested case.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Shape = Circle Int | Rect Int Int | Tri Int Int Int
 

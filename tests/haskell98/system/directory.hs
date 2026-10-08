@@ -2,6 +2,7 @@
 -- directories, permissions, modification times and the current
 -- directory, under a scratch directory in /tmp.
 module Main where
+import Dialogue (thenIO, thenIO_, returnIO)
 
 import Prelude hiding (stdin, stdout, stderr)
 import IO

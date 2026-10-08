@@ -1,6 +1,7 @@
 -- Haskell 98 has no C-T rule: this module defines neither the class
 -- Describe nor the type Box, but may still declare the instance.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import CtClass
 import CtType

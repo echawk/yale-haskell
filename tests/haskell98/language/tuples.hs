@@ -1,6 +1,7 @@
 -- Tuples: construction and matching up to seven components, nested
 -- tuples, fst/snd, zip/unzip, and tuple equality and ordering.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 seven :: (Int, Char, Bool, String, Int, Char, Bool)
 seven = (1, 'b', True, "four", 5, '6', False)

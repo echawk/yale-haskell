@@ -1,6 +1,7 @@
 -- Tail recursion runs in constant stack: a million-iteration loop
 -- whose accumulator is forced by a guard each step.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 loop :: Int -> Int -> Int
 loop acc n | n == 0    = acc

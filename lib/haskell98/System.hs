@@ -15,6 +15,7 @@ module System (
     getArgs, getProgName, getEnv, system, exitWith, exitFailure
   ) where
 
+import PreludeIO (thenIO, returnIO)
 import SystemPrims
 
 data ExitCode = ExitSuccess | ExitFailure Int

@@ -1,5 +1,6 @@
 -- Type synonyms, with and without parameters, nested in each other.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 type Name     = String
 type Pair a   = (a, a)

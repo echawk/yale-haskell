@@ -2,6 +2,7 @@
 -- parentheses, arguments parenthesised at precedence 11, negative
 -- numbers parenthesised, lists, tuples and strings inside.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Color = Red | Green deriving Show
 data T = A | B Int | C T T | D [Int] (Int, Char) String | E Color

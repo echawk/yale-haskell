@@ -1,6 +1,7 @@
 -- Guarded case alternatives with their own where clause, and guarded
 -- pattern bindings (Haskell 98 sections 3.13 and 4.4.3).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 classify :: [Int] -> String
 classify xs = case xs of

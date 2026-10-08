@@ -1,6 +1,7 @@
 -- Fixity declarations in let, where and class bodies, and anywhere among
 -- the topdecls (H98 report 4.4.2).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 -- where: <+> is right associative, so 100 <+> 10 <+> 1 = 100 - (10 - 1)
 whereFix :: Int

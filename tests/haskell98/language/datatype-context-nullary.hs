@@ -1,6 +1,7 @@
 -- The datatype context applies to every constructor, including the
 -- nullary one, so `Empty` below needs Eq a.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data (Eq a) => Box a = Empty | Full a
 

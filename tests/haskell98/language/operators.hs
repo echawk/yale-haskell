@@ -3,6 +3,7 @@
 -- backquoted functions with and without a fixity, constructor
 -- operators in expressions and patterns.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 infixr 5 +++
 infixl 6 <^>

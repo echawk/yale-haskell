@@ -1,6 +1,7 @@
 -- Guards in function equations and case alternatives, 'otherwise', and
 -- falling through to the next equation when every guard fails.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 classify :: Int -> String
 classify n

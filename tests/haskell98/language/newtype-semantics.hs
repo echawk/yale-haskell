@@ -1,6 +1,7 @@
 -- Matching a newtype constructor does not force the value (Haskell 98
 -- section 4.2.3), unlike a data constructor with one field.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 newtype N = N Int
 data    D = D Int

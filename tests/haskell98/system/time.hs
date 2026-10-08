@@ -1,6 +1,7 @@
 -- Time and Locale: calendar conversion, formatting, arithmetic, and
 -- the clock (checked for consistency, not printed).
 module Main where
+import Dialogue (stdout, appendChan, done, abort, thenIO, thenIO_)
 
 import Time
 import Locale

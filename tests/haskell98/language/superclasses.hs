@@ -2,6 +2,7 @@
 -- superclass's methods given only the subclass constraint, and an
 -- instance with a context.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 class (Eq a) => Named a where
   nameOf :: a -> String

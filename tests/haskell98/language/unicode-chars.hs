@@ -1,6 +1,7 @@
 -- Char is Unicode (Haskell 98 section 6.1.2): character codes above
 -- 255 in escapes, toEnum and fromEnum.  The output is ASCII only.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 lambda, euro :: Char
 lambda = '\955'

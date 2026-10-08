@@ -1,4 +1,5 @@
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 inf, nan :: Double
 inf = 1 / 0

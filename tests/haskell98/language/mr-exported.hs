@@ -3,6 +3,7 @@
 -- the module is complete, and may be exported ('module Main where'
 -- exports everything).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 limit = 100
 

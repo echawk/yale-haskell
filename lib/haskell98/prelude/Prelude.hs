@@ -8,16 +8,11 @@
 
 module Prelude (
     PreludeCore.., PreludeList.., PreludeText..,
-    -- I/O.  The Dialogue names (stdin ... prints) are Yale 1.2 compatibility.
+    -- I/O.  Haskell 1.2's Dialogue I/O (appendChan, stdout, done, ...)
+    -- is in the Dialogue library; the character functions are in Char.
     IOError, IO, FilePath(..), ioError, userError, catch,
     putChar, putStr, putStrLn, print, getChar, getLine, getContents,
     interact, readFile, writeFile, appendFile, readIO, readLn,
-    stdin, stdout, stderr, stdecho, Dialogue(..), SuccCont(..), StrCont(..),
-    StrListCont(..), FailCont(..), readChan, appendChan, done, exit, abort, prints,
-    thenIO, thenIO_, seqIO, returnIO, doneIO, SystemState, IOResult,
-    -- Not in the H98 Prelude (they are in Char), kept for compatibility:
-    ord, chr, isAscii, isControl, isPrint, isSpace,
-    isUpper, isLower, isAlpha, isDigit, isAlphaNum, toUpper, toLower,
     (&&), (||), not, otherwise, maybe, either,
     subtract, gcd, lcm, (^), (^^), fromIntegral, realToFrac,
     fst, snd, curry, uncurry, id, const, (.), flip, ($), until,

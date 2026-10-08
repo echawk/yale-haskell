@@ -2,6 +2,7 @@
 -- part of a larger operator symbol, and `-' and `~' may appear anywhere
 -- in an operator.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 infixr 1 -->
 infixl 6 |--, +-, ~~, <--

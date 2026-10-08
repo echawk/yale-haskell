@@ -1,6 +1,7 @@
 -- Instances of a constructor class for partially applied type
 -- constructors: a two-parameter data type and the function arrow.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 class Mappable f where
   over :: (a -> b) -> f a -> f b

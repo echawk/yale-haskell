@@ -1,5 +1,6 @@
 -- The Array library, with H98 (index, value) pair associations.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import Array
 

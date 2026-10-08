@@ -1,6 +1,7 @@
 -- import Prelude hiding (...) lets the program define names the
 -- Prelude also exports.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import Prelude hiding (words, filter)
 

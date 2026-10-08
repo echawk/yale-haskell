@@ -1,6 +1,7 @@
 -- Mutually recursive functions (top level and local) and mutually
 -- recursive data types.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 isEven, isOdd :: Int -> Bool
 isEven 0 = True

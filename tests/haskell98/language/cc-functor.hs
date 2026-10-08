@@ -1,6 +1,7 @@
 -- The Prelude's Functor class: fmap on lists and an instance for a
 -- user-defined tree.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Tree a = Leaf a | Branch (Tree a) (Tree a)
 

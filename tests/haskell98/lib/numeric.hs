@@ -1,6 +1,7 @@
 -- The Numeric library.  (Rounding ties are avoided: the Report rounds
 -- half up, GHC rounds half to even.)
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import Numeric
 import Char (intToDigit)

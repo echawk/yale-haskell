@@ -1,6 +1,7 @@
 -- show for lists, nested lists, tuples, strings and characters
 -- (Haskell 98 Prelude): no spaces after commas.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 out :: String
 out = unlines [ show [1, 2, 3 :: Int]

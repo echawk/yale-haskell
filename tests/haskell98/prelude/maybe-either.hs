@@ -1,5 +1,6 @@
 -- Maybe, Either, maybe, either and their Show/Read/Eq/Ord instances.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 safeDiv :: Int -> Int -> Maybe Int
 safeDiv _ 0 = Nothing

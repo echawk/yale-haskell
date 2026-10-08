@@ -2,6 +2,7 @@
 -- shortest-digits floating point, negative numbers in parentheses,
 -- strings and characters, tuples, Rational.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 main = appendChan stdout (unlines [
   show [1, 2, 3 :: Int],

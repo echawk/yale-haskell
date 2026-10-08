@@ -1,6 +1,7 @@
 -- IO: file handles, reading and writing, seeking, buffering, handle
 -- state, and stdin (from io-handles.stdin).
 module Main where
+import Dialogue (thenIO, thenIO_, returnIO)
 
 import Prelude hiding (stdin, stdout, stderr)
 import IO

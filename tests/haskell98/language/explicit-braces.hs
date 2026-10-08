@@ -1,6 +1,7 @@
 -- A module body written entirely with explicit braces and semicolons,
 -- with no layout (Haskell 98 section 2.7).
 module Main where {
+import Dialogue (stdout, appendChan, done, abort);
   f :: Int -> Int;
   f x = case x of { 0 -> 1; n -> n * f (n - 1) };
 

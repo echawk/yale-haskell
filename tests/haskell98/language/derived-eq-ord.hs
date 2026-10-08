@@ -1,6 +1,7 @@
 -- Derived Eq and Ord: constructor order, lexicographic comparison of
 -- fields, recursive and parameterised types.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Color = Red | Green | Blue deriving (Eq, Ord)
 

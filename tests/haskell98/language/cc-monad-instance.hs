@@ -3,6 +3,7 @@
 -- instance head.  Uses >>=, >> and return directly (no do).
 -- (Modern GHC also needs Functor and Applicative instances.)
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data State s a = State (s -> (a, s))
 

@@ -2,6 +2,7 @@
 -- single-constructor type, plus the Prelude instances for Char, Bool
 -- and tuples.  (maxBound :: Char depends on Unicode, so it is left out.)
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Suit = Clubs | Diamonds | Hearts | Spades deriving (Eq, Enum, Bounded)
 data Pair = Pair Bool Suit deriving Bounded

@@ -2,6 +2,7 @@
 -- call other methods, instances overriding some defaults, and a pair
 -- of mutually defined defaults (as in Eq) where each instance gives one.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 class Shape a where
   area     :: a -> Int

@@ -405,17 +405,30 @@
 
 
 ;;; These globals save the Prelude symbol table to avoid copying it
-;;; into all modules which use the Prelude.
-
-;;; Danger!  This assumes that every local symbol in the Prelude is
-;;; exported.
+;;; into all modules which use the Prelude.  It holds the names the
+;;; Prelude exports (its export table), not all the names in scope in it:
+;;; the Haskell 98 Prelude has names in scope (from PreludeIO, PreludeChar)
+;;; that it does not export.
 
 (define *prelude-initialized* '#f)
+
+(define (prelude-exported-symbol-table pmod)
+  (let ((table  (make-table)))
+    (table-for-each
+     (lambda (name group)
+       (declare (ignore name))
+       (dolist (entry group)
+	 ;; core names are found through *prelude-core-symbols*; leaving
+	 ;; them out keeps hidden ones (hidden-core-name?) free to define
+	 (when (not (def-prelude? (tuple-2-2 entry)))
+	   (setf (table-entry table (tuple-2-1 entry)) (tuple-2-2 entry)))))
+     (module-export-table pmod))
+    table))
 
 (define (init-prelude-globals)
   (when (not *prelude-initialized*)
     (let ((pmod (locate-module '|Prelude|)))
-      (setf *prelude-symbol-table* (module-symbol-table pmod))
+      (setf *prelude-symbol-table* (prelude-exported-symbol-table pmod))
       (setf *prelude-fixity-table* (module-fixity-table pmod))
       (when (eq? (module-inverted-symbol-table pmod) '#f)
 	(let ((table (make-table)))

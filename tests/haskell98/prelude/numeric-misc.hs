@@ -1,4 +1,5 @@
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import Numeric
 import Char

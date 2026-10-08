@@ -2,6 +2,7 @@
 -- a simple pattern binding without a signature, so it is not
 -- generalised, and using it at both Int and Double is a type error.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 plus = (+)
 

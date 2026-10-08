@@ -1,6 +1,7 @@
 -- In Haskell 98, Enum has no superclass, so a type can derive Enum
 -- without Eq or Ord and still be used in arithmetic sequences.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Step = One | Two | Three deriving Enum
 

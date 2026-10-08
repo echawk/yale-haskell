@@ -1,6 +1,7 @@
 -- Higher-kinded type parameters without any classes: kind inference
 -- must find f :: * -> * in App and Fix (Haskell 98 section 4.6).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data App f a  = App (f a)
 data Fix f    = In (f (Fix f))

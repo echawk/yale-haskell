@@ -1,6 +1,7 @@
 -- do notation outside IO, in the list monad: a failed pattern match in
 -- a binding calls fail, which for lists is [] (Haskell 98 section 3.14).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 pairs :: [(Int, Char)]
 pairs = do

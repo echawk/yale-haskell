@@ -1,5 +1,6 @@
 -- As-patterns, including nested ones and one combined with ~.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 dupHead :: String -> String
 dupHead s@(c:_) = c : s

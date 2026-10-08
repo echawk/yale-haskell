@@ -1,6 +1,7 @@
 -- Functor and Monad for Maybe and lists, and the Prelude's monadic
 -- utilities (pure code; no IO).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 half :: Int -> Maybe Int
 half n = if even n then Just (n `div` 2) else Nothing

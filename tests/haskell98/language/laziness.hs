@@ -1,6 +1,7 @@
 -- Non-strict semantics: infinite and self-referential lists, unused
 -- arguments that are errors, short-circuiting.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 primes :: [Int]
 primes = sieve [2..] where sieve (p:xs) = p : sieve [x | x <- xs, x `mod` p /= 0]

@@ -2,6 +2,7 @@
 -- numeric literals in expressions and patterns, a method used at two
 -- types in one expression, and polymorphic functions with contexts.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 class Def a where
   def :: a

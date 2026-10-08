@@ -1,6 +1,7 @@
 -- Names that the Haskell 1.2 Prelude exports but the Haskell 98
 -- Prelude does not are free for programs to define.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 type Assoc k v = [(k, v)]
 

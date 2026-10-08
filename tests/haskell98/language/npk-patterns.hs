@@ -1,6 +1,7 @@
 -- n+k patterns (Haskell 98 section 3.17.2): they match only when the
 -- argument is >= k, and bind n to the argument minus k.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 fact :: Integer -> Integer
 fact 0       = 1

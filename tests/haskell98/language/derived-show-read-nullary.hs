@@ -1,6 +1,7 @@
 -- Derived Show and Read: nullary constructors are not
 -- parenthesised when shown, and are read back without parentheses.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Tree a = Leaf | Node (Tree a) a (Tree a) deriving (Eq, Show, Read)
 

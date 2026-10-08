@@ -1,6 +1,7 @@
 -- import qualified ... as, together with hiding: the program defines
 -- its own map and filter and reaches the Prelude's through P.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import Prelude hiding (map, filter)
 import qualified Prelude as P

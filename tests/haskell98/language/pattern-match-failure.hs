@@ -1,6 +1,7 @@
 -- Applying a function to a value none of its equations match is a
 -- runtime error (Haskell 98 section 4.4.3).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Color = Red | Green | Blue
 

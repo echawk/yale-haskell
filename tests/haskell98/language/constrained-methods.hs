@@ -2,6 +2,7 @@
 -- other than the class variable (Haskell 98 section 4.3.1), and a
 -- method that is itself polymorphic.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 class Store s where
   holds  :: (Eq a) => s -> (s -> [a]) -> a -> Bool

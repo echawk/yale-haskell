@@ -2,6 +2,7 @@
 -- (- e) is negation rather than a section; unary minus binds less
 -- tightly than ^.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 showInts :: [Int] -> String
 showInts = unwords . map show

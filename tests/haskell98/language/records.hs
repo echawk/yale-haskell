@@ -2,6 +2,7 @@
 -- order, selector functions, update of one and several fields, field
 -- patterns, and positional construction of a record type.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Person = Person { name :: String, age :: Int, city :: String }
 

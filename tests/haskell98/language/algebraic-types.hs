@@ -2,6 +2,7 @@
 -- an option type, a sum of two types, constructors used as functions
 -- and partially applied.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Tree a  = Leaf | Node (Tree a) a (Tree a)
 data Opt a   = None | Some a

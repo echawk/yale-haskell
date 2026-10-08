@@ -1,6 +1,7 @@
 -- The monomorphism restriction does not apply to bindings with a type
 -- signature or to function bindings, so these are used at two types.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 plus :: (Num a) => a -> a -> a
 plus = (+)

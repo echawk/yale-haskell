@@ -1,6 +1,7 @@
 -- newtype declarations: construction, pattern matching, a
 -- parameterised newtype, and deriving Eq and Ord.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 newtype Age = Age Int deriving (Eq, Ord)
 newtype Wrap a = Wrap a

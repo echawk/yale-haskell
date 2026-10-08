@@ -2,6 +2,7 @@
    braces inside an implicit block, the parse-error(t) rule that closes
    a let block before 'in', and {- nested -} comments. -}
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 f :: Int -> Int
 f x = case x of

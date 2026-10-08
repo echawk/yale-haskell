@@ -1,6 +1,7 @@
 -- A chain of three modules found without .hu files:
 -- Main -> ChainB -> ChainC.  Main also imports ChainC directly.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import ChainB
 import ChainC (c)

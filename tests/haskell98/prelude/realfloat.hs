@@ -1,6 +1,7 @@
 -- The RealFloat class: the H98 predicates and the atan2 method.
 -- (SBCL traps on overflow and 0/0, so no NaN or infinity is created.)
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 big :: Double
 big = encodeFloat 1 1000

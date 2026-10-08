@@ -1,6 +1,7 @@
 -- Derived Enum (Haskell 98 section 10.2): succ, pred, toEnum,
 -- fromEnum, and enumerations from, then and to constructors.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Day = Mon | Tue | Wed | Thu | Fri | Sat | Sun deriving (Eq, Ord, Enum)
 

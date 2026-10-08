@@ -1,6 +1,7 @@
 -- Derived Show for infix constructors uses their fixity to decide on
 -- parentheses (Haskell 98 section 10.4).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 infixl 6 :+:
 infixl 7 :*:

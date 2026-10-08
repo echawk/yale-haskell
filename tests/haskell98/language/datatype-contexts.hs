@@ -1,6 +1,7 @@
 -- A context on a data declaration (Haskell 98 section 4.2.1):
 -- constructing or matching the type requires the constraint.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data (Eq a) => Set a = Set [a]
 

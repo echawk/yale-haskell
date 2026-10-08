@@ -57,6 +57,8 @@ module Random (
         getStdRandom, getStdGen, setStdGen, newStdGen
   ) where
 
+import PreludeIO (thenIO, thenIO_, returnIO)
+import Char (ord, chr, isDigit, isSpace)
 import CPUTime (getCPUTime)
 import TimePrims (primGetClockTime)
 import RandomPrims

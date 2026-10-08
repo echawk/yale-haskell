@@ -1,6 +1,7 @@
 -- A user-defined constructor class: the class variable f is applied to
 -- types in the method signatures, with instances for [] and a user type.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 class Container f where
   empty  :: f a

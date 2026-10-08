@@ -2,6 +2,7 @@
 -- name and arguments, then exits with the code given as the first
 -- argument.
 module Main where
+import Dialogue (stdout, appendChan, abort, thenIO)
 
 import System
 

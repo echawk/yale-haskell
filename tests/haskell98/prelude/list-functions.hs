@@ -1,6 +1,7 @@
 -- H98 list functions: Int-typed take/drop/splitAt/!!, and the
 -- additions concatMap, replicate, lookup.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 main = appendChan stdout (unlines [
   show (take 3 "haskell", drop 4 "haskell", splitAt 2 [1, 2, 3 :: Int]),

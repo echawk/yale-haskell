@@ -2,6 +2,7 @@
 -- function bindings with guards, explicit braces and semicolons, and a
 -- local type signature.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 hyp :: Int -> Int -> Int
 hyp a b = let sq x = x * x

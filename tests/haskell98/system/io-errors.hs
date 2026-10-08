@@ -1,6 +1,7 @@
 -- IO: catch, ioError, userError, the IOError predicates, bracket, and
 -- errors raised by the System library.
 module Main where
+import Dialogue (thenIO, thenIO_, returnIO)
 
 import Prelude hiding (stdin, stdout, stderr)
 import IO

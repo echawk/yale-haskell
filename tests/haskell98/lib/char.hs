@@ -1,5 +1,6 @@
 -- The Char library (ASCII and Latin-1 behaviour).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import Char
 

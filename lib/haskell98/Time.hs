@@ -38,6 +38,8 @@ module Time (
         calendarTimeToString, formatCalendarTime
         ) where
 
+import PreludeIO (thenIO, returnIO)
+import Char (ord, chr)
 import Locale
 import TimePrims
 

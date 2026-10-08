@@ -1,5 +1,6 @@
 -- Hexadecimal and octal integer literals (H98 report 2.5).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 nums :: [Int]
 nums = [0x1F, 0X1f, 0xff, 0XABCDEF, 0x0, 0o17, 0O17, 0o777, 0o0, 0x10 + 0o10]

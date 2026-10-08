@@ -1,6 +1,7 @@
 -- A module with no header is `module Main(main) where' (H98 report 5.1).
 -- Besides main it may define any other names.
 
+import Dialogue (stdout, appendChan, done, abort)
 helper :: Int -> Int
 helper n = n * 6
 

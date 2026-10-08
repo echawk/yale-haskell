@@ -1,5 +1,6 @@
 -- The Ordering type, compare, and the H98 max/min defaults.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data T = A | B | C deriving (Eq, Ord)
 

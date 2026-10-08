@@ -1,6 +1,7 @@
 -- A user-defined Num instance (superclasses Eq and Show in Haskell
 -- 98); numeric literals at the new type go through fromInteger.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data V = V Int Int deriving (Eq, Show)
 

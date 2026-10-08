@@ -1,6 +1,7 @@
 -- Defaulting applies to type variables that are ambiguous inside an
 -- expression with a type signature: the exponents of ^ below.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 out :: String
 out = unlines [ show (2 ^ 10 :: Int)

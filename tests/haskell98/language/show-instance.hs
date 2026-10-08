@@ -1,6 +1,7 @@
 -- A hand-written Show instance using showsPrec and showParen, used
 -- inside a derived Show instance and in a list.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data V = V Int Int
 

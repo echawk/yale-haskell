@@ -8,7 +8,7 @@ this one.
 | Path | Contents |
 |---|---|
 | `prelude/` | the Prelude.  It started as a copy of the 1.2 Prelude and is being moved towards the H98 Report's Standard Prelude as the compiler gains the language features it needs. |
-| `<Module>.hs`, `<Module>.hu` | the H98 standard libraries: `List`, `Char`, `Maybe`, `Numeric`, `Ratio`, `Complex`, `Ix`, `Array`, `IO`, `System`, `Directory`, `Time`, `Locale`, `CPUTime`, `Random`, `Monad` |
+| `<Module>.hs`, `<Module>.hu` | the H98 standard libraries: `List`, `Char`, `Maybe`, `Numeric`, `Ratio`, `Complex`, `Ix`, `Array`, `IO`, `System`, `Directory`, `Time`, `Locale`, `CPUTime`, `Random`, `Monad`; and `Dialogue` (Yale: Haskell 1.2 stream I/O, `appendChan stdout ... abort done`) |
 
 Reference material: the Report (`ref/haskell-report`, branch `h98`) is
 the specification; Hugs (`ref/hugs98`, `libraries/hugsbase/Hugs/Prelude.hs`

@@ -1,6 +1,7 @@
 -- A newtype is a distinct type: it can have class instances that
 -- differ from those of the type it wraps.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 class Describe a where
   describe :: a -> String

@@ -1,5 +1,6 @@
 -- Derived Bounded instances, and Bounded for tuples.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Suit = Clubs | Diamonds | Hearts | Spades deriving (Eq, Ord, Enum, Bounded)
 

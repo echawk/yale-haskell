@@ -1,6 +1,7 @@
 -- Local bindings, lambda arguments and patterns may shadow Prelude
 -- names.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 count :: [a] -> Int
 count map = length map

@@ -4,6 +4,7 @@
 -- RealFrac gives truncate.  (Modern GHC needs (Eq a, Show a) added to
 -- describe's context; the expected output was checked that way.)
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 describe :: (Num a) => a -> String
 describe x = if x == 0 then "zero" else show (x + 1)

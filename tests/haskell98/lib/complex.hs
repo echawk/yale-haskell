@@ -1,6 +1,7 @@
 -- The Complex library.  Outputs avoid the last few digits, which
 -- depend on the libm.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import Complex
 

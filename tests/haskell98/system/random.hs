@@ -2,6 +2,7 @@
 -- The expected values come from an independent transliteration of the
 -- L'Ecuyer generator and Hugs's randomIvalInteger.
 module Main where
+import Dialogue (stdout, appendChan, done, abort, thenIO, thenIO_)
 
 import Random
 

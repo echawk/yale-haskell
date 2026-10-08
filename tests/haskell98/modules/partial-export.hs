@@ -2,6 +2,7 @@
 -- datatype or class with only some of its constituents (Shape(Circle),
 -- Pretty(pretty)).  Square and prettyList stay hidden.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import PartialExp (Syn, Shape(Circle), Pretty(pretty), area)
 

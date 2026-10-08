@@ -1,6 +1,7 @@
 -- An Ord instance that defines only compare (the H98 minimal complete
 -- definition alternative to (<=)).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Version = Version Int Int deriving Eq
 

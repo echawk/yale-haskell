@@ -1,6 +1,7 @@
 -- A non-tail recursion 100000 calls deep, which any H98 implementation
 -- is expected to handle.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 count :: [Int] -> Int
 count []       = 0

@@ -3,6 +3,7 @@
 -- defaulted once module type inference is complete.  (Haskell 1.2
 -- rejects exporting a restricted pattern binding; see mr-exported.)
 module Main (first, second, main) where
+import Dialogue (stdout, appendChan, done, abort)
 
 (first, second) = (10 :: Int, 20 :: Int)
 

@@ -2,6 +2,7 @@
 -- ambiguous numeric types: here to Integer, so 2^70 does not overflow,
 -- and to Double for Fractional.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 default (Integer, Double)
 

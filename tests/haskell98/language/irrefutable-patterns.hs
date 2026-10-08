@@ -1,6 +1,7 @@
 -- Irrefutable (lazy) patterns, and the laziness of let/where pattern
 -- bindings: the match is only forced when a variable is used.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 lazyArg :: (Int, Int) -> Int
 lazyArg ~(a, b) = 1

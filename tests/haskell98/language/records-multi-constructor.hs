@@ -2,6 +2,7 @@
 -- field, and C {} patterns, which work for any constructor, record or
 -- not (Haskell 98 section 3.17.1).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Shape = Circle { label :: String, radius :: Int }
            | Rect   { label :: String, width :: Int, height :: Int }

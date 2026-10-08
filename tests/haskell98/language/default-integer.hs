@@ -1,6 +1,7 @@
 -- Without a default declaration the default is (Integer, Double)
 -- (Haskell 98 section 4.3.4), so these results are exact.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 out :: String
 out = unlines [ show (2 ^ 70)

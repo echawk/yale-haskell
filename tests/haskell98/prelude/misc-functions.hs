@@ -1,6 +1,7 @@
 -- curry, uncurry, undefined, seq, ($!), realToFrac, until, asTypeOf,
 -- gcd/lcm/(^)/(^^), and the Integral/RealFrac methods.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 lazyPair :: (Int, Int)
 lazyPair = (1, undefined)

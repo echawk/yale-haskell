@@ -1,6 +1,7 @@
 -- Arithmetic sequences on Int, Char and Double: [a..], [a..b],
 -- [a,b..c], descending and empty ranges.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 showInts :: [Int] -> String
 showInts = unwords . map show

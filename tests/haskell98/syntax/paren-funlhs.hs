@@ -1,6 +1,7 @@
 -- Parenthesised function left-hand sides (H98 report 4.4.3):
 --   funlhs -> var apat {apat} | pat varop pat | ( funlhs ) apat {apat}
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 infixr 9 .:
 infixl 5 <+>

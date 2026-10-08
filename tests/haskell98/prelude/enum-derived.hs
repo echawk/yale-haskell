@@ -1,5 +1,6 @@
 -- toEnum, fromEnum and pred on a derived Enum instance.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Day = Mon | Tue | Wed | Thu | Fri deriving (Eq, Ord, Enum)
 

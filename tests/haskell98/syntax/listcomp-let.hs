@@ -1,5 +1,6 @@
 -- `let' qualifiers in list comprehensions (H98 report 3.11).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 doubledOdd :: [Int] -> [Int]
 doubledOdd xs = [ y | x <- xs, let y = x * 2, odd x ]

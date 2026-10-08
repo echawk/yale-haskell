@@ -1,6 +1,7 @@
 -- let- and where-bound functions without signatures are generalised
 -- and can be used at several types in the body.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 pairUp :: (Int, Char)
 pairUp = let ident x = x in (ident 3, ident 'c')

@@ -1,6 +1,7 @@
 -- where bindings: scope over all guards, pattern bindings, nested
 -- where, and shadowing of a top-level name.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 divide :: Int -> Int -> String
 divide a b

@@ -1,6 +1,7 @@
 -- (,), (,,), ... and () as constructors in expressions and patterns
 -- (H98 report 3.8, 3.17).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 pair :: a -> b -> (a, b)
 pair = (,)

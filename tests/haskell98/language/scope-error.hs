@@ -1,5 +1,6 @@
 -- A where-bound name is not in scope outside its equation.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 f :: Int -> Int
 f x = y + x where y = 1

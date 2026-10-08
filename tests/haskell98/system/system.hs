@@ -1,5 +1,6 @@
 -- System: getArgs, getProgName, getEnv, system, exitWith.
 module Main where
+import Dialogue (stdout, appendChan, done, exit, abort, thenIO, thenIO_)
 
 import System
 

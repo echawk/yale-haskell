@@ -1,6 +1,7 @@
 -- Hand-written instances with contexts for parameterised types, and
 -- instances for lists, tuples, unit and function types.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Tree a = Leaf | Node (Tree a) a (Tree a)
 

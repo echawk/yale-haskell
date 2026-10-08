@@ -1,5 +1,6 @@
 -- Using == on a type with no Eq instance is a static error.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data T = A | B
 

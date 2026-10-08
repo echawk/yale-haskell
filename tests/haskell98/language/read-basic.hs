@@ -1,6 +1,7 @@
 -- read and reads at standard types, through an explicit type
 -- (works through the Haskell 1.2 Text class today).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 total :: [Int] -> Int
 total = sum

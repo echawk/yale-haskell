@@ -2,6 +2,7 @@
 -- escapes, decimal codes, control characters, \& and string gaps,
 -- checked by comparing characters so the output stays printable.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 out :: String
 out = unlines [ show ('\65' == 'A', "\66\67" == "BC", '\'' == '\39', '"' == '\34')

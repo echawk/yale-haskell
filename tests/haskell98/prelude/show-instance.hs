@@ -1,5 +1,6 @@
 -- A Show instance that defines only show, and one with showsPrec.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Colour = Red | Green
 

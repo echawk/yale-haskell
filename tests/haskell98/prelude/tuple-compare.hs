@@ -3,6 +3,7 @@
 -- The runtime builds the dictionary from the class definition; this
 -- locks in that `compare' is included as the last Ord method.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 out :: String
 out = unlines

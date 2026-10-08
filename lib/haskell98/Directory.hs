@@ -24,6 +24,7 @@ module Directory (
     getPermissions, setPermissions,
     getModificationTime ) where
 
+import PreludeIO (thenIO, returnIO)
 import Time
 import DirectoryPrims
 

@@ -1,6 +1,7 @@
 -- CPUTime: getCPUTime is non-negative and non-decreasing, and grows
 -- by at least cpuTimePrecision over a busy loop.
 module Main where
+import Dialogue (stdout, appendChan, done, abort, thenIO, thenIO_)
 
 import CPUTime
 

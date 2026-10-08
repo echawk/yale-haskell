@@ -2,6 +2,7 @@
 -- 2.4): <->, |-|, =>>, @@, ~~ and ::: are ordinary operators even
 -- though they start with a reserved operator (<-, |, =>, @, ~, ::).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 infixl 6 <->, |-|
 infixr 5 :::

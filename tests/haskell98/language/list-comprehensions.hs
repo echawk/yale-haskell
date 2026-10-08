@@ -2,6 +2,7 @@
 -- guards, nested comprehensions, and generators whose pattern can fail
 -- (the element is skipped).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 pythag :: Int -> [(Int, Int, Int)]
 pythag n = [(a, b, c) | c <- [1..n], b <- [1..c], a <- [1..b], a*a + b*b == c*c]

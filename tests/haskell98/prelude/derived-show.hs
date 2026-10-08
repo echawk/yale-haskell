@@ -1,6 +1,7 @@
 -- Derived Show and Read: nullary constructors are not parenthesised,
 -- infix constructors use their fixity.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 infixr 5 :::
 

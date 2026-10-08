@@ -1,5 +1,6 @@
 -- The List library.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 import List
 

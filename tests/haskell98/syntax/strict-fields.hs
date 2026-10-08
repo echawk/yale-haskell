@@ -1,5 +1,6 @@
 -- Strictness flags on constructor fields (H98 report 4.2.1).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data T = T !Int Int
 

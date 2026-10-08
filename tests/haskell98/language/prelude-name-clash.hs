@@ -3,6 +3,7 @@
 -- the program refers to its own definition as Main.lookup
 -- (Haskell 98 section 5.5.2).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 lookup :: String
 lookup = "my lookup"

@@ -2,6 +2,7 @@
 -- signature (Haskell 98 section 4.4.1): depth calls itself at type
 -- Nested [a].
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Nested a = Flat a | Nest (Nested [a])
 

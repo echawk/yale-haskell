@@ -1,6 +1,7 @@
 -- Lambda abstractions: several arguments, tuple and list patterns,
 -- nesting and capture of enclosing variables.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 adders :: [Int -> Int]
 adders = map (\n -> \x -> x + n) [1, 10, 100]

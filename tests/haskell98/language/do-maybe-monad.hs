@@ -1,6 +1,7 @@
 -- do notation in the Maybe monad: a Nothing anywhere short-circuits,
 -- and a failed pattern match gives Nothing via fail.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 safeDiv :: Int -> Int -> Maybe Int
 safeDiv _ 0 = Nothing

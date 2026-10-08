@@ -1,6 +1,7 @@
 -- Derived Read parses what derived Show prints, with extra spaces and
 -- parentheses allowed (Haskell 98 section 10.4).
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Color = Red | Green | Blue deriving (Show, Read, Eq)
 data Tree a = Leaf | Node (Tree a) a (Tree a) deriving (Show, Read)

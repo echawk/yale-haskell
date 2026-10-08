@@ -1,6 +1,7 @@
 -- The H98 Enum methods (succ, pred, toEnum, fromEnum) and Bounded for
 -- the Prelude types, and Fractional enumerations.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data Colour = Red | Green | Blue deriving (Eq, Ord, Enum)
 

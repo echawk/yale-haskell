@@ -2,6 +2,7 @@
 -- not (they live in List, Array, Ratio, Complex, Numeric) can be
 -- defined by a program without hiding anything.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 nub :: [Int] -> [Int]
 nub (x:y:xs) | x == y = nub (y:xs)

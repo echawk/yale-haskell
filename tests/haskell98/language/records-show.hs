@@ -1,6 +1,7 @@
 -- Derived Show for records uses record syntax, and fields are shown at
 -- precedence 0, so negative numbers are not parenthesised.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 data P = P { px :: Int, py :: Int } deriving Show
 data Box = Box { content :: Maybe P } deriving Show

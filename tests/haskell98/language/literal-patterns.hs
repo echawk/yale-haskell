@@ -1,6 +1,7 @@
 -- Literal patterns: negative integers, floating-point, characters,
 -- strings, large Integer literals and the unit pattern.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 sign :: Int -> String
 sign (-1) = "minus one"

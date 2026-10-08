@@ -4,6 +4,7 @@
 -- accepted; unknown pragmas are ignored like comments.  Yale's own
 -- annotations ({-# f :: Inline #-}, {-#STRICT#-}) keep working.
 module Main where
+import Dialogue (stdout, appendChan, done, abort)
 
 {-# INLINE square #-}
 square :: Int -> Int

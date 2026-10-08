@@ -7,6 +7,7 @@
 module PreludeList (PreludeList.., foldr, build) where
 
 import PreludePrims(build, foldr)
+import PreludeChar(isSpace)
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
