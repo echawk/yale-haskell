@@ -12,7 +12,9 @@
 ;;; First load the files containing module definitions.
 ;;; *** Add more files to the end of this list.  
 
-(load "$Y2/src/mumble/support")
+;;; mumble's library; already loaded when mumble came from ASDF (mumble.asd).
+(if (not (lisp:member ':mumble lisp:*features*))
+    (load "$Y2/src/mumble/support"))
 (load "$Y2/src/compiler/ast/ast")
 (load "$Y2/src/compiler/top/top")
 (load "$Y2/src/compiler/util/haskell-utils")

@@ -40,17 +40,18 @@
 
 
 ;;; External variables.  These may be specially bound by user code.
+;;; Those shared with Common Lisp are already defined there; redefining
+;;; them violates the host's package lock, so they are only assigned.
 
-(define *print-escape*           '#t)
-(define *print-circle*           '#f)
-(define *print-level*            '#f)
-(define *print-length*           '#f)
-(define *print-base*             10)
-(define *print-radix*            '#f)
-
+(setf *print-escape*           '#t)
+(setf *print-circle*           '#f)
+(setf *print-level*            '#f)
+(setf *print-length*           '#f)
+(setf *print-base*             10)
+(setf *print-radix*            '#f)
+(setf *print-pretty*           '#f)
 
 (define *print-shared*           '#f)
-(define *print-pretty*           '#f)
 (define *print-right-margin*     '#f)
 (define *print-miser-width*      40)
 (define *print-lines*            '#f)

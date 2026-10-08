@@ -7,6 +7,9 @@
 
 (in-package :mumble-user)
 
+;;; Read the rest of this file with mumble's #t/#f syntax.
+(lisp:setq lisp:*readtable* mumble-implementation:*mumble-readtable*)
+
 (setf lisp:*load-verbose* '#f)
 (setf lisp:*compile-verbose* '#f)
 (setf *printers* '(compiling loading))
@@ -59,6 +62,7 @@
 
 (define (haskell-toplevel)
   (setf lisp:*package* (lisp:find-package "MUMBLE-USER"))
+  (setf lisp:*readtable* mumble-implementation:*mumble-readtable*)
   (let ((args (cdr sb-ext:*posix-argv*)))
     (if (pair? args)
 	(begin

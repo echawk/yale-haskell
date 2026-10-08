@@ -1,0 +1,5 @@
+;;; units.mumble -- the list of compilation units (src/mumble/compile.mumble).
+;;; support.mumble defines it for the Makefile build; mumble.asd loads this
+;;; file instead, before compile.mumble.
+
+(define compilation-units '())

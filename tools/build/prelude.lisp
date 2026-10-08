@@ -4,6 +4,9 @@
 
 (in-package :mumble-user)
 
+;;; Read the rest of this file with mumble's #t/#f syntax.
+(lisp:setq lisp:*readtable* mumble-implementation:*mumble-readtable*)
+
 (setf *printers* '(phase-time))
 (setf *optimizers* *all-optimizers*)
 (setf *code-chunk-size* 300)

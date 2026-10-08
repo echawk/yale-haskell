@@ -4,6 +4,8 @@
 ;;; date   :  19 Aug 1992
 ;;;
 
+(in-package "MUMBLE-IMPLEMENTATION")
+
 
 ;;;====================================================================
 ;;; Basic structure types

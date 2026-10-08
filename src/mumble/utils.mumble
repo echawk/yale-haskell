@@ -405,4 +405,7 @@
 ;;; This reads stuff from a string.  (Better error checks needed!)
 
 (define (read-lisp-object str)
-  (call-with-input-string str (lambda (port) (read port))))
+  (call-with-input-string str
+    (lambda (port)
+      (dynamic-let ((lisp:*readtable* mumble-implementation:*mumble-readtable*))
+	(read port)))))

@@ -5,6 +5,9 @@
 ;;;
 
 
+(in-package "MUMBLE-IMPLEMENTATION")
+
+
 ;;; Export CL symbols for type names
 
 (define-mumble-import t)

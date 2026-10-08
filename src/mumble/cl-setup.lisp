@@ -21,12 +21,9 @@
     (rename-package "COMMON-LISP" "COMMON-LISP"
 		    (cons "LISP" (package-nicknames "COMMON-LISP")))))
 
-;;; The mumble code redeclares some CL specials (e.g. *print-escape*);
-;;; that trips SBCL's package locks.
-;;; *** Should fix the offending definitions instead.
-
-#+sbcl
-(sb-ext:unlock-package "COMMON-LISP")
+;;; COMMON-LISP stays locked: mumble never redefines its symbols (see
+;;; dynamic-let in cl-definitions.lisp and the printer variables in
+;;; pprint.mumble).
 
 (unless (find-package "MUMBLE")
   (make-package "MUMBLE" :use nil))

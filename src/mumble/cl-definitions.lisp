@@ -139,21 +139,31 @@
 (define-mumble-import flet)
 (define-mumble-import labels)
 
+;;; COMMON-LISP's variables are already special, and declaring them
+;;; special again violates SBCL's package lock, so they are left out of
+;;; the declarations.
+
+(defun special-declaration (names)
+  `(declare (special ,@(remove-if #'(lambda (name)
+				       (eq (symbol-package name)
+					   (find-package "COMMON-LISP")))
+				   names))))
+
 (define-mumble-macro mumble::dynamic-let (bindings &rest body)
   `(let ,bindings
-     (declare (special ,@(mapcar #'car bindings)))
+     ,(special-declaration (mapcar #'car bindings))
      ,@body))
 
 (define-mumble-macro mumble::dynamic (name)
-  `(locally (declare (special ,name)) ,name))
+  `(locally ,(special-declaration (list name)) ,name))
 
 (define-setf-method mumble::dynamic (name)
   (let ((store  (gensym)))
     (values nil
 	    nil
 	    (list store)
-	    `(locally (declare (special ,name)) (setf ,name ,store))
-	    `(locally (declare (special ,name)) ,name))))
+	    `(locally ,(special-declaration (list name)) (setf ,name ,store))
+	    `(locally ,(special-declaration (list name)) ,name))))
 
 
 (define-mumble-macro mumble::begin (&rest body)
@@ -990,6 +1000,10 @@
 ;;; name extensions.
 
 (define-mumble-function mumble::load (filename)
+  (let ((*readtable* *mumble-readtable*))
+    (mumble-load-1 filename)))
+
+(defun mumble-load-1 (filename)
   (setq filename (expand-filename filename))
   (if (string= (mumble::filename-type filename) "")
       (let ((source-file  (build-source-filename filename))
@@ -1060,6 +1074,10 @@
 ;;; should prevent it from doing anything.
 
 (define-mumble-function mumble::compile-file (filename &optional binary)
+  (let ((*readtable* *mumble-readtable*))
+    (mumble-compile-file-1 filename binary)))
+
+(defun mumble-compile-file-1 (filename binary)
   (if *code-quality* (code-quality-hack *code-quality*))
   (setq filename (expand-filename filename))
   (if (string= (mumble::filename-type filename) "")
@@ -1286,12 +1304,14 @@
 ;;;=====================================================================
 
 
-;;; Make the default readtable recognize #f and #t.
-;;; CMUCL's loader rebinds *readtable* when loading file, so can't
-;;; setq it here; hack the default readtable instead.
+;;; Mumble source reads #f and #t with a private readtable, so the
+;;; standard readtable stays untouched and other CL systems can be loaded
+;;; into the same image.  mumble::load and mumble::compile-file bind
+;;; *readtable* to it; files loaded with the host's LOAD (tools/build/*)
+;;; switch to it themselves.
 
 #+(or sbcl cmu mcl allegro lispworks)
-(defparameter *mumble-readtable* *readtable*)
+(defparameter *mumble-readtable* (copy-readtable nil))
 
 #+(or lucid akcl wcl)
 (progn
@@ -1314,12 +1334,16 @@
 (set-dispatch-macro-character #\# #\f
     #'(lambda (stream subchar arg)
 	(declare (ignore stream subchar arg))
-	nil))
+	nil)
+    *mumble-readtable*)
 
 (set-dispatch-macro-character #\# #\t
     #'(lambda (stream subchar arg)
 	(declare (ignore stream subchar arg))
-	t))
+	t)
+    *mumble-readtable*)
+
+(export '*mumble-readtable*)
 
 
 

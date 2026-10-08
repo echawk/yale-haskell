@@ -163,7 +163,9 @@
       'error
       (call-with-input-file file
         (lambda (port)
-	  (lisp:read port '#f 'error '#f)))))
+	  (dynamic-let ((lisp:*readtable*
+			 mumble-implementation:*mumble-readtable*))
+	    (lisp:read port '#f 'error '#f))))))
 
 (define-integrable (prim.returnio x s)
   (declare (ignore s))
