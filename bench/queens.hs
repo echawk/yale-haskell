@@ -9,5 +9,5 @@ queens n = go n
 
 main :: IO ()
 main = do
-  print (length (queens 11))
-  print (head (queens 11))
+  print (length (queens 12))
+  print (head (queens 12))

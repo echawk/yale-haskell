@@ -13,7 +13,7 @@
 (setf lisp:*load-verbose* '#f)
 (setf lisp:*compile-verbose* '#f)
 (setf *printers* '(compiling loading))
-(setf *optimizers* '())
+(setf *optimizers* *all-optimizers*)
 (setf *compile-interface* '#f)
 
 (compile/load *prelude-unit-filename*)

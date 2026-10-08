@@ -25,3 +25,32 @@ Expected outputs were also cross-checked against an independent Python
 implementation (nfib, queens count, primes, Hamming, Integer results,
 Simpson integral).  Timings vary by up to about 25% run to run (nfib,
 ioloop, sieve, queens); use several runs.
+
+## Optimizer enabled for user programs (2026-10-08)
+
+Until this change `tools/build/image.lisp` compiled user programs with
+`*optimizers* '()`: no inlining, no strictness-based unboxing, and every
+overloaded operation through a dictionary (only the prelude was
+optimized).  The baseline above therefore measured unoptimized code.
+With `*all-optimizers*` the test suite passes unchanged, and nfib(32)
+went from about 1.2 s to 0.05 s; queens(11) from 1.7 s to 0.04 s.  nfib
+and queens were enlarged (nfib 40, queens 12) so they still measure
+something; the other programs are unchanged.
+
+- Commit: optimizer change on `ng` (after e9ac14d), SBCL 2.6.9, Apple M4
+- The machine was noticeably slower than on 2026-10-07 during this run
+  (the old baseline image also ran ~1.5x slower then), so compare
+  numbers taken in the same session only.
+
+```
+runs per program: 3;  fixed overhead (hello world): min 0.113 s, median 0.119 s
+program           min   median    min-ovh  med-ovh  check
+bigint          1.282    1.284      1.169    1.165  ok
+integrate       0.360    0.374      0.247    0.255  ok
+ioloop          2.961    3.082      2.848    2.963  ok
+nfib            0.956    1.041      0.843    0.922  ok
+queens          1.122    1.145      1.009    1.026  ok
+sieve           1.405    2.157      1.292    2.038  ok
+tree            0.984    0.986      0.871    0.867  ok
+wheel           0.806    0.846      0.693    0.727  ok
+```
