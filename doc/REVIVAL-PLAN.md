@@ -631,6 +631,45 @@ written with its first dialect in mind.
   as the original system?  Frozen is simpler and keeps the 1.2 demos as
   a fixed regression baseline.
 
+### 8.6 Coalton: a reference type checker, and a possible target
+
+[Coalton](https://github.com/coalton-lang/coalton) (MIT licence) is a
+statically typed, Haskell-like language embedded in Common Lisp.  Its
+type checker is reported to follow Jones's *Typing Haskell in Haskell*
+(THIH); **verify this in its repository before relying on it**.  Two
+uses:
+
+1. **A source of truth for the type checker.**  THIH is the reference
+   description of Haskell 98 type inference: kinds, type classes,
+   defaulting, the monomorphism restriction and binding groups.  A
+   maintained CL implementation of it is a useful cross-check for
+   `src/compiler/type/`, which predates THIH and has no kind inference
+   (STRATEGY LG-CCONSTRUCTOR).  Possible uses, cheapest first:
+   - read its kind inference and binding-group handling when doing kind
+     inference and polymorphic recursion (M9);
+   - port THIH-derived test cases as Yale tests;
+   - (more work) run both checkers on the same programs and compare the
+     inferred types.  This needs an AST bridge, so only if the cheaper
+     options leave real doubt.
+   Copying code needs attribution under its licence (§1.4 policy).
+2. **Emitting Coalton instead of plain CL (experiment).**  After type
+   checking we know every binding's type, so a back end could emit
+   Coalton.  Coalton would then re-check the translation (a form of
+   translation validation) and supply its own dictionary passing and
+   optimisations.  Caveats to settle first:
+   - Coalton is **strict**: laziness would have to be explicit in the
+     emitted code (thunks as data, `force` calls), which is exactly what
+     the GRIN-style IR makes explicit (doc/EVAL-APPLY-GRIN.md §5).  So
+     GRIN, or FLIC after box analysis, is the natural input for such a
+     back end, not the typed front-end AST;
+   - the type systems differ in places (defaulting, the monomorphism
+     restriction, class hierarchy details), so emitted code should carry
+     explicit types rather than rely on Coalton's inference;
+   - it adds a dependency (now loadable: ASDF-PORTING.md) and ties
+     generated code to Coalton's runtime representation.
+   Treat it as an experiment beside the Lisp back end, not a replacement.
+   Do it after GRIN P4, when there is an explicit IR to translate from.
+
 ## 9. Status after the constructor-class / monad round (2026-10-06)
 
 Test suite: **141 passed, 15 expected failures** (`make test`).
