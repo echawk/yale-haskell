@@ -662,12 +662,12 @@
   ;; k and z are nonstrict, l is strict
   (if (null? l)
       (force z)
-      (funcall (force k)
+      (apply-2 (force k)
 	       (car l)
 	       (delay (prim.foldr k z (force (cdr l)))))))
 
 (define (prim.build g)
   ;; g is strict
-  (funcall g
-	   (box (function make-cons-constructor))
+  (apply-2 g
+	   (box *cons-constructor*)
 	   (box '())))

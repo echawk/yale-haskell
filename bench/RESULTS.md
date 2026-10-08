@@ -79,3 +79,24 @@ sieve       0.956 ->  0.766  (-20%)
 tree        0.704 ->  0.544  (-23%)
 wheel       0.734 ->  0.534  (-27%)
 ```
+
+## P2 eval/apply (2026-10-08)
+
+Function values became `fun` structs (arity + fixed-arity entry), unknown
+calls `apply-1`..`apply-4`/`apply-n` instead of `&rest` closures,
+constructors as values and nullary constructors preallocated.  Measured
+against `0ad4c55`, alternating old and new images, total minus
+overhead, median of 3, two rounds each (the machine was slower than in
+the previous session):
+
+```
+             base (2 rounds)    P2 (2 rounds)
+bigint       1.612  1.570       1.351  1.444   (-10%)
+integrate    0.334  0.347       0.344  0.443   (noise; 5-run repeats go both ways)
+ioloop       2.875  3.143       2.330  2.616   (-15%)
+nfib         1.120  1.180       1.116  1.168   (same)
+queens       1.055  1.058       0.940  1.034   (-3% in 5-run repeats)
+sieve        2.139  2.290       1.386  1.398   (-37%)
+tree         1.534  1.490       1.285  1.298   (-15%)
+wheel        1.277  1.251       0.759  0.748   (-40%)
+```

@@ -103,6 +103,24 @@ points.
 
 Replace `make-curried-fn` closures with an explicit object carrying arity:
 
+> **As built (P2, 2026-10-08):** one struct, `fun` (arity, entry), in
+> `src/runtime/runtime-utils.mumble`; there is no separate `pap`.  A
+> partial application is a `fun` of the remaining arity whose entry
+> closes over the supplied arguments (`make-pap`; fixed-arity closures
+> for the common shapes, `&rest` beyond them), so `apply-k` tests one
+> type.  `apply-1`…`apply-4` are macros: the exact-arity test and
+> `funcall` of the entry are inline, and the slow path (PAP,
+> over-saturation) is out of line; `apply-n` takes a list.  The
+> standard entry is generated per function by `codegen-curried-fn`
+> (`backend/codegen.mumble`) as a lambda that forces the strict
+> arguments and calls the `/OPT` worker; it is not a separate `/STD`
+> defun.  Constructors used as values, and nullary tagged constructors,
+> are built once with `load-time-value`.  A plain Lisp function is also
+> accepted by `apply-k` and called with the arguments as given: the
+> tuple dictionary builders (`tuple-prims.mumble`) are variadic Lisp
+> functions that the compiler applies to the component dictionaries.
+> The sketch below is kept for reference.
+
 ```lisp
 ;;; src/runtime/eval-apply.lisp (new; plain CL, not mumble — see §8)
 (defstruct (fun (:constructor make-fun (arity entry)))
@@ -283,8 +301,7 @@ of unknown calls, dictionary methods).
 
 Every place that builds or inspects the cons representation:
 
-- `delay`, `box`, `unbox`, `forced?`, `force`, `force-inline`,
-  `funcall-force-N` and the curried-function helpers
+- `delay`, `box`, `unbox`, `forced?`, `force`, `force-inline`
   (`runtime-utils.mumble`);
 - `delay?` (`debug-utils.mumble`);
 - `prim.strict1`, `prim.force`, `prim.getres`, `prim.returnio`, the
@@ -711,7 +728,7 @@ passing, and benchmark numbers recorded.
 |---|---|---|
 | **P0 Benchmarks** ✅ | `bench/` with nofib-style programs: nfib, queens, primes/sieve, wheel-sieve, an Integer-heavy one, an IO loop, `Data.Map`-style tree code.  A `make bench` target timing each with the H98 image | Baseline numbers committed in `bench/RESULTS.md` |
 | **P1 Thunks** ✅ | `thunk` struct, blackholing with catch-scoped restore, closure clearing, constant boxes become plain values (§4) on the *current* codegen | Tests green; a `<<loop>>` test; memory of a long lazy-list program reduced |
-| **P2 Eval/apply** | `fun`, `pap`, `apply-1…4/n`, `/STD` entries, preallocated nullary constructors; codegen emits `apply-k` for unknown calls (§3) | Tests green; no `&rest` in the runtime's call path; higher-order benchmarks faster |
+| **P2 Eval/apply** ✅ | `fun`, `pap`, `apply-1…4/n`, `/STD` entries, preallocated nullary constructors; codegen emits `apply-k` for unknown calls (§3) | Tests green; no `&rest` in the runtime's call path; higher-order benchmarks faster |
 | **P3 Case** | Recover `case` from match chains and emit CL `case` (§5.5, §6.5) — still in the old codegen | Tests green; dispatch-heavy benchmarks faster |
 | **P4 GRIN IR** | `src/compiler/grin/` structs, printer, FLIC→GRIN lowering, GRIN→CL emission reproducing P1–P3 output; `*backend*` switch; the `grin` printer in `*printers*` | Both backends pass all tests; output equivalent |
 | **P5 GRIN optimisations** | §5.4 items 1–3 (eval inlining, update elimination, unboxed returns), then 4–5 with representation types (§9) | Each with tests and benchmark deltas recorded.  The GRIN path stays in the repository on its merits (it is the base for later optimisations and other back ends), not only if it wins on the benchmarks; the old codegen is removed once GRIN is correct everywhere and not slower by more than noise |

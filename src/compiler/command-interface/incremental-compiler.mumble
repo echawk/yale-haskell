@@ -150,9 +150,9 @@
 				;; command loop, so thunks it left blackholed are
 				;; restored; a batch run ends at the error.
 				(if (dynamic *haskell-batch-mode*)
-				    (funcall fn (box 'state))
+				    (apply-1 fn (box 'state))
 				    (with-blackhole-restore
-				      (funcall fn (box 'state))))))))
+				      (apply-1 fn (box 'state))))))))
 		   (if (haskell98?)
 		       (call-with-ieee-floats run)
 		       (funcall run))))))))

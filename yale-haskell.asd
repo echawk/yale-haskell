@@ -112,7 +112,7 @@
   :description "Yale Haskell: a Haskell 1.2 / Haskell 98 compiler written in mumble, a Scheme-like dialect hosted on Common Lisp."
   :author "Yale Haskell Group (revived for SBCL)"
   :license "Free to copy and use with attribution to Yale University CS Dept."
-  :version "2.0.5"
+  :version "2.0.6"
   :depends-on (:mumble)
   :components ((:file "tools/asdf/api"))
   :perform (load-op :after (o c)

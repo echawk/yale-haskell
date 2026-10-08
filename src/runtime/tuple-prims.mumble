@@ -32,7 +32,7 @@
   `(let ((dict-vector (box (list->vector ,dicts))))
      (make-tuple
        ,@(map (lambda (v)
-		`(delay (funcall (dynamic ,v) dict-vector)))
+		`(delay (apply-1 (force (dynamic ,v)) dict-vector)))
 	   vars)
        ,@(map (lambda (sd)
 		`(delay (,(car sd)
@@ -92,11 +92,11 @@
  (lambda dicts
    (let* ((ix (core-symbol "Ix"))
 	  (dict-vector (box (list->vector dicts)))
-	  (methods (list (delay (funcall (dynamic |PreludeTuple:tupleRange|)
+	  (methods (list (delay (apply-1 (force (dynamic |PreludeTuple:tupleRange|))
 					 dict-vector))
-			 (delay (funcall (dynamic |PreludeTuple:tupleIndex|)
+			 (delay (apply-1 (force (dynamic |PreludeTuple:tupleIndex|))
 					 dict-vector))
-			 (delay (funcall (dynamic |PreludeTuple:tupleInRange|)
+			 (delay (apply-1 (force (dynamic |PreludeTuple:tupleInRange|))
 					 dict-vector))))
 	  (supers
 	   (map (lambda (super)

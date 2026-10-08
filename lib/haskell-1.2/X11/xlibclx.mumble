@@ -93,13 +93,13 @@
 (define (x-handle-error handler body)
   (lisp:catch 'x-error-handle
 	      (lcl:handler-bind ((lisp:error (mk-handler handler)))
-				(force (funcall body (box 'state))))))
+				(force (apply-1 body (box 'state))))))
 
 #+(or cmu allegro lispworks)
 (define (x-handle-error handler body)
   (lisp:catch 'x-error-handle
 	      (lisp:handler-bind ((lisp:error (mk-handler handler)))
-				 (force (funcall body (box 'state))))))
+				 (force (apply-1 body (box 'state))))))
 
 #+akcl
 (define (x-handle-error handler body)
@@ -108,7 +108,7 @@
 (define (mk-handler handler)
   (lambda (c) 
     (lisp:throw 'x-error-handle 
-		(force (funcall handler 
+		(force (apply-2 handler 
 				(box c)
 				(box 'state))))))
 
@@ -1252,11 +1252,12 @@
      (lisp:coerce lisp:internal-time-units-per-second 'lisp:single-float)))
 
 (define (prim.thenio---1 x fn)
-  (lambda (state)
-    (declare (ignore state))
-    (let ((res (funcall x (box 'state))))
-      (format '#t "~A~%" res)
-      (funcall fn res (box 'state)))))
+  (make-fun 1
+    (lambda (state)
+      (declare (ignore state))
+      (let ((res (apply-1 x (box 'state))))
+	(format '#t "~A~%" res)
+	(apply-2 fn res (box 'state))))))
 
 (define-attribute-setter wm name)
 (define-attribute-setter wm icon-name)

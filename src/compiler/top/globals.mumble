@@ -4,7 +4,7 @@
 
 (define *prelude-unit-filename* "$PRELUDE/Prelude.hu")
 
-(define *haskell-compiler-version* "Y2.0.5")
+(define *haskell-compiler-version* "Y2.0.6")
 (define *haskell-compiler-update* "")
 
 

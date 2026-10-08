@@ -8,20 +8,14 @@
 ;;;         optimized entry points
 ;;;
 ;;; The code generated here uses the following helper functions:
-;;; (make-curried-fn opt-fn strictness)
-;;;   make a curried function that calls opt-fn after collecting the
-;;;   arguments and processing them according to strictness.  Both
-;;;   the arguments are evaluated.
-;;; (make-tuple-constructor arity)
-;;;   return a function that makes an untagged data structure with "arity" 
-;;;   slots.  "arity" is a constant.
+;;; (make-fun arity entry)
+;;;   a function value: ENTRY takes ARITY boxed arguments.
+;;; (apply-1 f a) ... (apply-4 f a b c d), (apply-n f . args)
+;;;   apply an evaluated function value to boxed arguments.
 ;;; (make-tuple . args)
-;;;   uncurried version of the above
-;;; (make-tagged-data-constructor n arity)
-;;;   return a function that makes a data structure with tag "n" and
-;;;   "arity" slots.
+;;;   an untagged data structure with one slot per argument.
 ;;; (make-tagged-data n . args)
-;;;   uncurried version of the above
+;;;   a data structure with tag "n" and one slot per argument.
 ;;; (tuple-select arity i object)
 ;;;   extract component "i" from untagged "object"
 ;;; (tagged-data-select arity i object)
@@ -132,15 +126,35 @@
 (define (codegen-lambda-list vars)
   (map (function fullname) vars))
 
-(define (codegen-curried-fn opt-fn strictness)
-  (if (null? (cdr strictness))
-      ;; one-argument special cases
-      (if (car strictness)
-	  `(make-curried-fn-1-strict ,opt-fn)
-	  `(make-curried-fn-1-nonstrict ,opt-fn))
-      ;; general case
-      `(make-curried-fn ,opt-fn ',strictness)))
+;;; A function value (a FUN, runtime-utils.mumble) whose standard entry
+;;; takes one boxed argument per element of STRICTNESS, forces the strict
+;;; ones and calls OPT-FN, a (function name) or lambda form.
 
+(define (codegen-curried-fn opt-fn strictness)
+  (let ((temps  (map (lambda (s) (declare (ignore s)) (gensym "A")) strictness)))
+    `(make-fun ,(length strictness)
+	       (lambda ,temps
+		 (funcall ,opt-fn
+			  ,@(map (lambda (temp strict?)
+				   (if strict? `(force ,temp) temp))
+				 temps strictness))))))
+
+;;; A constructor as a function value: the entry forces the strict
+;;; slots.  It has no free variables, so it is made once, at load time.
+
+(define (codegen-constructor-fn con)
+  (let* ((strictness  (con-slot-strict? con))
+	 (temps       (map (lambda (s) (declare (ignore s)) (gensym "A"))
+			   strictness)))
+    `(lisp:load-time-value
+      (make-fun ,(length strictness)
+		(lambda ,temps
+		  ,(codegen-constructor-app-aux
+		    con
+		    (map (lambda (temp strict?)
+			   (if strict? `(force ,temp) temp))
+			 temps strictness))))
+      lisp:t)))
 
 ;;; Curry lambdas.  Functions always return an unboxed value.
 
@@ -271,14 +285,16 @@
 		  (argcode (do-codegen-list args)))
 	     `(,optname ,@argcode)))
 	  (else
-	   ;; Have to make a curried call to standard entry point.
-	   (let ((fncode   (do-codegen fn))
-		 (argcode  (do-codegen-list args)))
-	     (if (and (pair? fncode)
-		      (eq? (car fncode) 'force))
-		 `(funcall-force ,(cadr fncode) ,@argcode)
-		 `(funcall ,fncode ,@argcode))))
+	   ;; An unknown call: generic apply on the function value.
+	   (codegen-apply (do-codegen fn) (do-codegen-list args)))
 	  )))
+
+;;; FNCODE evaluates to a function value (a FUN), ARGCODE to boxed values.
+
+(define (codegen-apply fncode argcode)
+  (let ((entry  (assv (length argcode)
+		      '((1 . apply-1) (2 . apply-2) (3 . apply-3) (4 . apply-4)))))
+    `(,(if entry (cdr entry) 'apply-n) ,fncode ,@argcode)))
 
 (define (codegen-constructor-app-aux con argcode)
   (let ((alg  (con-alg con)))
@@ -333,33 +349,20 @@
 	  ((eq? con (core-symbol "False"))
 	   ''#f)
 	  ((eq? con (core-symbol ":"))
-	   '(function make-cons-constructor))
+	   (codegen-constructor-fn con))
 	  ((algdata-implemented-by-lisp? alg)
-	   (let ((fn (cadr (con-lisp-fns con))))
-	     (if (eqv? (con-arity con) 0)
-		 fn
-		 (codegen-curried-fn
-		  (if (and (pair? fn) (eq? (car fn) 'lambda))
-		      fn
-		      `(function ,fn))
-		  strictness))))
+	   (if (eqv? arity 0)
+	       (cadr (con-lisp-fns con))
+	       (codegen-constructor-fn con)))
 	  ((algdata-enum? alg)
 	   ;; All constructors have 0 arity; represent them just
 	   ;; by numbers.
 	   index)
-	  (tuple?
-	   ;; Only a single constructor for this type.
-	   (codegen-curried-fn
-	     `(make-tuple-constructor ,arity)
-	     strictness))
 	  ((eqv? arity 0)
-	   ;; No arguments to this constructor.
-	   `(make-tagged-data ,index))
+	   ;; No arguments to this constructor: one shared object.
+	   `(lisp:load-time-value (make-tagged-data ,index) lisp:t))
 	  (else
-	   ;; General case.
-	   (codegen-curried-fn
-	    `(make-tagged-data-constructor ,index ,arity)
-	    strictness))
+	   (codegen-constructor-fn con))
 	  )))
 
 

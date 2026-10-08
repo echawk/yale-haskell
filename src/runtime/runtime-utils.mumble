@@ -149,120 +149,124 @@
   (force-inline object))
 
 
-;;; (make-curried-fn opt-fn strictness)
-;;; The basic idea is to compare the number of arguments received against
-;;; the number expected.
-;;; If the same, call the optimized entry point opt-fn.
-;;; If more, apply the result of calling the optimized entry to the
-;;;   leftover arguments.
-;;; If less, make a closure that accepts the additional arguments.
+;;; Function values (phase P2 of doc/EVAL-APPLY-GRIN.md, section 3).
+;;;
+;;; A Haskell function value is a FUN: its arity and its standard entry,
+;;; a Lisp function of exactly ARITY boxed arguments that returns an
+;;; unboxed (WHNF) value.  The code generator builds the entry of a
+;;; function with an optimized entry point as a wrapper that forces the
+;;; strict arguments and calls it.  A partial application is a FUN of
+;;; the remaining arity whose entry closes over the arguments supplied so
+;;; far.
+;;;
+;;; An unknown call goes through (apply-1 f a) ... (apply-4 f a b c d) or
+;;; (apply-n f . args), where F is an evaluated function value.  When the
+;;; number of arguments is the arity (the common case) the entry is called
+;;; directly, with no consing; otherwise the out-of-line slow path builds
+;;; a partial application or applies the result to the leftover arguments.
 
-(define (make-curried-fn opt-fn strictness)
-  (lambda args
-    (curried-fn-body '() args opt-fn strictness)))
+(lisp:defstruct (fun (:constructor make-fun (arity entry))
+		     (:predicate fun?)
+		     (:copier lisp:nil))
+  (arity 1 :type lisp:fixnum :read-only lisp:t)
+  (entry (function lisp:identity) :type lisp:function :read-only lisp:t))
 
-(define (curried-fn-body previous-args args opt-fn strictness)
-  (multiple-value-bind
-      (saturated? actual-args leftover-args leftover-strictness)
-      (process-curried-fn-args strictness args '())
-    (setf actual-args (append previous-args actual-args))
-    (if saturated?
-	(if (null? leftover-args)
-	    (apply opt-fn actual-args)
-	    (apply (apply opt-fn actual-args) leftover-args))
-	(lambda more-args
-	  (curried-fn-body actual-args more-args opt-fn leftover-strictness)))
-    ))
+#+sbcl
+(lisp:declaim (sb-ext:freeze-type fun))
 
-(define (process-curried-fn-args strictness args actual-args)
-  (cond ((null? strictness)
-	 ;; At least as many arguments as expected.
-	 (values '#t (nreverse actual-args) args strictness))
-	((null? args)
-	 ;; Not enough arguments supplied.
-  	 (values '#f (nreverse actual-args) args strictness))
-	(else
-	 ;; Process the next argument.
-	 (if (car strictness)
-	     (push (force-inline (car args)) actual-args)
-	     (push (car args) actual-args))
- 	 (process-curried-fn-args (cdr strictness) (cdr args) actual-args))
-	))
+;;; A plain Lisp function is also accepted as a function value and
+;;; called with whatever arguments it is given: some primitives (the
+;;; tuple dictionary builders in tuple-prims.mumble) are variadic.
+
+(define-syntax (define-apply name slow . args)
+  `(define-syntax (,name f ,@args)
+     (let ((fv (gensym)))
+       `(let ((,fv ,f))
+	  (if (and (fun? ,fv) (lisp:eql (fun-arity ,fv) ,,(length args)))
+	      (funcall (fun-entry ,fv) ,,@args)
+	      (,',slow ,fv ,,@args))))))
+
+(define-apply apply-1 apply-1-slow a)
+(define-apply apply-2 apply-2-slow a b)
+(define-apply apply-3 apply-3-slow a b c)
+(define-apply apply-4 apply-4-slow a b c d)
+
+(define-syntax (apply-n f . args)
+  `(apply-list ,f (list ,@args)))
+
+;;; Under-saturated: F (arity n) applied to ARGS, fewer than n of them.
+;;; The common shapes get a fixed-arity entry; the rest use &rest.
+
+(define (make-pap f args)
+  (let* ((e  (fun-entry f))
+	 (k  (length args))
+	 (n  (- (the fixnum (fun-arity f)) (the fixnum k))))
+    (declare (type function e) (type fixnum k n))
+    (make-fun
+     n
+     (cond ((eqv? k 1)
+	    (let ((a (car args)))
+	      (cond ((eqv? n 1) (lambda (b) (funcall e a b)))
+		    ((eqv? n 2) (lambda (b c) (funcall e a b c)))
+		    ((eqv? n 3) (lambda (b c d) (funcall e a b c d)))
+		    (else (lambda more (apply e a more))))))
+	   ((eqv? k 2)
+	    (let ((a (car args))
+		  (b (cadr args)))
+	      (cond ((eqv? n 1) (lambda (c) (funcall e a b c)))
+		    ((eqv? n 2) (lambda (c d) (funcall e a b c d)))
+		    (else (lambda more (apply e a b more))))))
+	   (else
+	    (lambda more (apply e (append args more))))))))
+
+;;; The slow paths: F is not a FUN, or ARGS is not its arity.
+
+(define (apply-1-slow f a)
+  (if (fun? f)
+      (make-pap f (list a))
+      (funcall (the function f) a)))
+
+(define (apply-2-slow f a b)
+  (cond ((not (fun? f)) (funcall (the function f) a b))
+	((eqv? (fun-arity f) 1) (apply-1 (funcall (fun-entry f) a) b))
+	(else (make-pap f (list a b)))))
+
+(define (apply-3-slow f a b c)
+  (if (fun? f)
+      (let ((n  (fun-arity f)))
+	(cond ((eqv? n 1) (apply-2 (funcall (fun-entry f) a) b c))
+	      ((eqv? n 2) (apply-1 (funcall (fun-entry f) a b) c))
+	      (else (make-pap f (list a b c)))))
+      (funcall (the function f) a b c)))
+
+(define (apply-4-slow f a b c d)
+  (apply-list f (list a b c d)))
+
+;;; ARGS is a fresh list of at least one argument.
+
+(define (apply-list f args)
+  (if (not (fun? f))
+      (apply (the function f) args)
+      (let ((n  (fun-arity f))
+	    (k  (length args)))
+	(declare (type fixnum n k))
+	(cond ((eqv? n k)
+	       (apply (fun-entry f) args))
+	      ((< k n)
+	       (make-pap f args))
+	      (else
+	       (let ((rest  (list-tail args n)))
+		 (setf (cdr (list-tail args (1- n))) '())
+		 (apply-list (apply (fun-entry f) args) rest)))))))
 
 
-;;; Special cases of the above.
+;;; The (:) constructor as a function value.
 
-(define (make-curried-fn-1-strict opt-fn)
-  (lambda (arg1 . moreargs)
-    (setf arg1 (force-inline arg1))
-    (if (null? moreargs)
-	(funcall opt-fn arg1)
-	(apply (funcall opt-fn arg1) moreargs))))
-
-(define (make-curried-fn-1-nonstrict opt-fn)
-  (lambda (arg1 . moreargs)
-    (if (null? moreargs)
-	(funcall opt-fn arg1)
-	(apply (funcall opt-fn arg1) moreargs))))
-
-
-;;; Here's a similar helper function used for making data constructors.
-
-(define (constructor-body previous-args args arity fn)
-  (declare (type fixnum arity))
-  (let ((n  (length args)))
-    (declare (type fixnum n))
-    (setf args (append previous-args args))
-    (cond ((eqv? n arity)
-	   (apply fn args))
-	  ((< n arity)
-	   (lambda more-args
-	     (constructor-body args more-args (- arity n) fn)))
-	  (else
-	   (error "Too many arguments supplied to constructor.")))))
-
-
-;;; Special case for cons constructor
-
-(define (make-cons-constructor . args)
-  (constructor-body '() args 2 (function cons)))
-
-
-;;; (make-tuple-constructor arity)
-;;;   return a function that makes an untagged data structure with "arity" 
-;;;   slots.  "arity" is a constant.
-
-(define-integrable *max-predefined-tuple-arity* 10)
-
-(define (make-tuple-constructor-aux arity)
-  (cond ((eqv? arity 0)
-	 ;; Actually, should never happen -- this is the unit constructor
-	 0)
-	((eqv? arity 1)
-	 (lambda args
-	   (constructor-body '() args 2 (lambda (x) x))))
-	((eqv? arity 2)
-	 (lambda args
-	   (constructor-body '() args 2 (function cons))))
-	(else
-	 (lambda args
-	   (constructor-body '() args arity (function vector))))))
-
-(define *predefined-tuple-constructors*
-  (let ((result  '()))
-    (dotimes (i *max-predefined-tuple-arity*)
-      (push (make-tuple-constructor-aux i) result))
-    (list->vector (nreverse result))))
-
-(define-syntax (make-tuple-constructor arity)
-  (declare (type fixnum arity))
-  (if (< arity *max-predefined-tuple-arity*)
-      `(vector-ref *predefined-tuple-constructors* ,arity)
-      `(make-tuple-constructor-aux ,arity)))
+(define *cons-constructor* (make-fun 2 (lambda (a b) (cons a b))))
 
 
 ;;; (make-tuple . args)
-;;;   uncurried version of the above
+;;;   an untagged data structure with one slot per argument
 
 (define-syntax (make-tuple . args)
   (let ((arity  (length args)))
@@ -277,39 +281,8 @@
 	   `(vector ,@args)))))
 
 
-;;; (make-tagged-data-constructor n arity)
-;;;   return a function that makes a data structure with tag "n" and
-;;;   "arity" slots.
-
-(define-integrable *max-predefined-tagged-data-tag* 10)
-(define-integrable *max-predefined-tagged-data-arity* 10)
-
-(define (make-tagged-data-constructor-aux n arity)
-  (if (eqv? arity 0)
-      (vector n)
-      (lambda args
-	(constructor-body (list n) args arity (function vector)))))
-
-(define *predefined-tagged-data-constructors*
-  (let ((result  '()))
-    (dotimes (i *max-predefined-tagged-data-arity*)
-      (let ((inner-result  '()))
-	(dotimes (j *max-predefined-tagged-data-tag*)
-	  (push (make-tagged-data-constructor-aux j i) inner-result))
-	(push (list->vector (nreverse inner-result)) result)))
-    (list->vector (nreverse result))))
-
-(define-syntax (make-tagged-data-constructor n arity)
-  (declare (type fixnum arity n))
-  (if (and (< arity *max-predefined-tagged-data-arity*)
-	   (< n *max-predefined-tagged-data-tag*))
-      `(vector-ref (vector-ref *predefined-tagged-data-constructors* ,arity)
-		   ,n)
-      `(make-tagged-data-constructor-aux ,n ,arity)))
-
-
 ;;; (make-tagged-data n . args)
-;;;   uncurried version of the above
+;;;   a data structure with tag "n" and one slot per argument
 
 (define-syntax (make-tagged-data n . args)
   `(vector ,n ,@args))
@@ -343,24 +316,6 @@
 (define-syntax (constructor-number object)
   `(vector-ref (the vector ,object) 0))
 
-(define-syntax (funcall-force fn . args)
-  (let* ((n    (length args))
-	 (junk (assv n '((1 . funcall-force-1)
-			 (2 . funcall-force-2)
-			 (3 . funcall-force-3)
-			 (4 . funcall-force-4)))))
-    `(,(if junk (cdr junk) 'funcall-force-n) ,fn ,@args)))
-
-(define (funcall-force-1 fn a1)
-  (funcall (force-inline fn) a1))
-(define (funcall-force-2 fn a1 a2)
-  (funcall (force-inline fn) a1 a2))
-(define (funcall-force-3 fn a1 a2 a3)
-  (funcall (force-inline fn) a1 a2 a3))
-(define (funcall-force-4 fn a1 a2 a3 a4)
-  (funcall (force-inline fn) a1 a2 a3 a4))
-(define-syntax (funcall-force-n fn . args)
-  `(funcall (force ,fn) ,@args))
 
 
 ;;; (make-haskell-string string)

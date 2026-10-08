@@ -151,13 +151,13 @@
 	   ;; protected action are restored before the handler runs.
 	   (lisp:handler-case
 	       (dynamic-let ((*track-blackholes* '#t))
-		 (cons '#t (force (funcall action (box 'state)))))
+		 (cons '#t (force (apply-1 action (box 'state)))))
 	     (haskell-io-error (c)
 	       (restore-blackholes mark)
 	       (cons '#f c))))))
     (if (car result)
 	(cdr result)
-	(force (funcall handler (box (cdr result)) (box 'state))))))
+	(force (apply-2 handler (box (cdr result)) (box 'state))))))
 
 ;;; primIOError :: IOErr -> IO a
 (define (prim.throw-io err)
