@@ -14,7 +14,7 @@
 module PreludeNumeric (fromRat,
                showSigned, showIntAtBase,
                showInt, showOct, showHex,
-               readSigned, readInt,
+               readSigned, readSignedDec, readInt,
                readDec, readOct, readHex,
                floatToDigits,
                showEFloat, showFFloat, showGFloat, showFloat,
@@ -22,7 +22,7 @@ module PreludeNumeric (fromRat,
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
-import PreludeChar ( isDigit, isOctDigit, isHexDigit
+import PreludeChar ( isDigit, isOctDigit, isHexDigit, isSpace, ord
                    , digitToInt, intToDigit )
 import PreludeRatio ( (%), numerator, denominator )
 import PreludeArray ( (!), Array, array )
@@ -134,6 +134,30 @@ readSigned readPos = readParen False read'
                            read'' r = [(n,s)  | (str,s) <- lex r,
                                                 (n,"")  <- readPos str]
 
+
+-- readSignedDec is readSigned readDec (the Read Int and Integer
+-- instances) with a fast path for the common case: optional spaces, an
+-- optional '-' and decimal digits, followed by something that cannot
+-- continue a number token.  Anything else (parentheses, "- 5", a
+-- fraction or exponent, a following 'e') takes readSigned readDec, so
+-- the results are the same.  (Yale Haskell addition.)
+
+readSignedDec :: (Integral a) => ReadS a
+readSignedDec r =
+    case dropWhile isSpace r of
+      ('-':s@(c:_)) | isDigit c -> fast negate s
+      s@(c:_)       | isDigit c -> fast id s
+      _                         -> readSigned readDec r
+  where
+    fast sign s = case span isDigit s of
+                    (ds,t) | numberEnds t -> [(sign (decValue 0 ds), t)]
+                           | otherwise    -> readSigned readDec r
+    numberEnds ('.':c:_) = not (isDigit c)
+    numberEnds (e:_)     = e /= 'e' && e /= 'E'
+    numberEnds []        = True
+    decValue n []        = n
+    decValue n (d:ds)    = let n' = n * 10 + fromIntegral (ord d - ord '0')
+                           in n' `seq` decValue n' ds
 
 -- readInt reads a string of digits using an arbitrary base.  
 -- Leading minus signs must be handled elsewhere.

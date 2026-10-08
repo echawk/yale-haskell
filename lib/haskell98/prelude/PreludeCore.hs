@@ -36,7 +36,7 @@ module PreludeCore (
 
 import PreludePrims
 import PreludeText
-import PreludeNumeric(readSigned, showSigned, readDec, showInt,
+import PreludeNumeric(readSigned, readSignedDec, showSigned, readDec, showInt,
 		      readFloat, showFloat)
 import PreludeChar(ord, chr, minChar, maxChar)
 import PreludeRatio(Ratio, Rational(..), (%))
@@ -705,7 +705,7 @@ instance  Show Int  where
 	| otherwise		= primShowsInt n r
 
 instance  Read Int  where
-    readsPrec p		= readSigned readDec
+    readsPrec p		= readSignedDec
 
 minInt, maxInt	:: Int
 minInt		=  primMinInt
@@ -717,7 +717,7 @@ instance  Show Integer  where
 	| otherwise		= primShowsInteger n r
 
 instance  Read Integer  where
-    readsPrec p 	= readSigned readDec
+    readsPrec p 	= readSignedDec
 
 
 -- Standard Floating types

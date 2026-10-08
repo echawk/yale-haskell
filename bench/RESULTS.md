@@ -228,3 +228,14 @@ Compute benchmarks are within 1.5-2.6x of GHC -O2 (integrate is faster,
 thanks to speculation); the one large gap is ioloop (6.7x), which is I/O,
 `lines` and `read` in the libraries, not something whole-program
 analysis addresses.
+
+## Fast decimal read for Int/Integer (2026-10-08)
+
+ioloop was the one large gap to GHC (6.7x).  Its profile was dominated
+by the Report's `readSigned readDec` (general `lex`, several list
+comprehensions per number).  `readSignedDec` (PreludeNumeric) takes a
+fast path for spaces, an optional `-` and decimal digits when nothing
+can continue the number token, and otherwise the Report definition;
+tests/haskell98/prelude/read-integral.hs checks they agree.  ioloop
+allocation 2.16 GB -> 0.91 GB; CPU, alternating with a984b68:
+1.00 0.99 1.01 -> 0.49 0.48 0.51 (2x).
