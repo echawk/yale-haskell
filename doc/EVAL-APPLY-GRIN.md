@@ -386,6 +386,33 @@ Representation types come from:
   currently ignores types.  It is needed to know that a `whnf` value is
   an `Int` and can be a `fixnum` (§9).
 
+> **As built (P4, 2026-10-08):** `src/compiler/grin/`: structs
+> (`grin-structs.mumble`, with a `grin-td` walker descriptor like FLIC's),
+> lowering (`grin-lower.mumble`), emission (`grin-emit.mumble`) and the
+> `grin` printer (`:p= grin`, `grin-print.mumble`).  It is the default
+> back end; `$YALE_HASKELL_BACKEND=flic` (or `*backend*`) selects the old
+> code generator.  Deliberate departures from the grammar above, each to
+> be revisited in P5 when an optimisation needs it:
+>
+> - **Not in A-normal form.**  Arguments are nested expressions,
+>   evaluated left to right, not atoms; the binder `grin-bind` exists
+>   but lowering does not introduce temporaries yet.
+> - **F-nodes hold an expression.**  `delay` wraps an LGRIN expression
+>   (a closure), not a call of a lifted function, and local functions
+>   stay local (`grin-fundef`, emitted as `labels`/`flet`).
+> - **Join points.**  `block`/`exit`/`and` keep FLIC's pattern-match
+>   fall-through next to `case`.
+> - **Reps** are `ptr`, `whnf` and `bool` only (on variables); unboxed
+>   reps wait for §9.
+>
+> Lowering makes box analysis explicit (`eval`, `evaluated`, `delay`;
+> boxing is the identity) and builds `case` from test chains (P3 moved
+> here from a Lisp-level pass).  Emission reuses codegen's representation
+> helpers, so the data layout is shared.  Verified: the generated Lisp
+> is the same as the FLIC back end's for all 200 test and benchmark
+> programs (modulo the identity `box`), and the suite passes with each
+> back end.
+
 Define it as mumble structs in `src/compiler/grin/grin-structs.mumble`,
 following the `define-flic` pattern (BOA constructors, a walker macro and
 a printer), so the existing tooling idioms carry over.
@@ -740,7 +767,7 @@ passing, and benchmark numbers recorded.
 | **P1 Thunks** ✅ | `thunk` struct, blackholing with catch-scoped restore, closure clearing, constant boxes become plain values (§4) on the *current* codegen | Tests green; a `<<loop>>` test; memory of a long lazy-list program reduced |
 | **P2 Eval/apply** ✅ | `fun`, `pap`, `apply-1…4/n`, `/STD` entries, preallocated nullary constructors; codegen emits `apply-k` for unknown calls (§3) | Tests green; no `&rest` in the runtime's call path; higher-order benchmarks faster |
 | **P3 Case** ✅ | Recover `case` from match chains and emit CL `case` (§5.5, §6.5) — still in the old codegen | Tests green; dispatch-heavy benchmarks faster |
-| **P4 GRIN IR** | `src/compiler/grin/` structs, printer, FLIC→GRIN lowering, GRIN→CL emission reproducing P1–P3 output; `*backend*` switch; the `grin` printer in `*printers*` | Both backends pass all tests; output equivalent |
+| **P4 GRIN IR** ✅ | `src/compiler/grin/` structs, printer, FLIC→GRIN lowering, GRIN→CL emission reproducing P1–P3 output; `*backend*` switch; the `grin` printer in `*printers*` | Both backends pass all tests; output equivalent |
 | **P5 GRIN optimisations** | §5.4 items 1–3 (eval inlining, update elimination, unboxed returns), then 4–5 with representation types (§9) | Each with tests and benchmark deltas recorded.  The GRIN path stays in the repository on its merits (it is the base for later optimisations and other back ends), not only if it wins on the benchmarks; the old codegen is removed once GRIN is correct everywhere and not slower by more than noise |
 | **P6 Whole-program (optional)** | Link-time GRIN over all modules' FLIC with generated eval and points-to | Only if P5 leaves a large gap |
 

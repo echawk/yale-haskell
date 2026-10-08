@@ -204,12 +204,26 @@
 (predefine (codegen-exported-types x)) ; "
 (predefine (codegen-prim-entries x))  ; ditto
 
+(predefine (grin-lower-top x))  ; in grin/grin-lower.mumble
+(predefine (grin-emit-top x))   ; in grin/grin-emit.mumble
+(predefine (print-grin-prog x)) ; in grin/grin-print.mumble
+
 (define (haskell-codegen big-let mods)
-  (phase-body codegen
-    `(begin
-       ,(codegen-exported-types mods)
-       ,(codegen-top big-let))
-    #f))
+  (let ((grin  (if (eq? (current-backend) 'grin)
+		   (haskell-grin big-let)
+		   '#f)))
+    (phase-body codegen
+      `(begin
+	 ,(codegen-exported-types mods)
+	 ,(if (eq? grin '#f)
+	      (codegen-top big-let)
+	      (grin-emit-top grin)))
+      #f)))
+
+(define (haskell-grin big-let)
+  (phase-body grin
+    (grin-lower-top big-let)
+    (function print-grin-prog)))
 
 	       
 ;;; This is for interface modules.

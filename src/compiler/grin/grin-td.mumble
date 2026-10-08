@@ -1,0 +1,9 @@
+;;; grin-td.mumble -- type descriptor for LGRIN structs (grin-structs.mumble)
+;;;
+;;; One walker slot per LGRIN walker (define-grin-walker).
+
+(define-struct grin-td
+  (include type-descriptor)
+  (slots
+    (grin-emit-walker (type (maybe procedure)) (default '#f))
+    (grin->sexp-walker (type (maybe procedure)) (default '#f))))

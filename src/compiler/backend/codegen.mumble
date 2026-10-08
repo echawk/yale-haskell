@@ -336,8 +336,10 @@
 ;;; See flic-app for handling of saturated constructor calls.
 
 (define-codegen flic-pack (object)
-  (let* ((con        (flic-pack-con object))
-	 (arity      (con-arity con))
+  (codegen-pack-value (flic-pack-con object)))
+
+(define (codegen-pack-value con)
+  (let* ((arity      (con-arity con))
 	 (alg        (con-alg con))
 	 (tuple?     (algdata-tuple? alg))
 	 (strictness (con-slot-strict? con))
@@ -540,8 +542,10 @@
 
 
 (define-codegen flic-con-number (object)
-  (let ((type   (flic-con-number-type object))
-	(exp    (do-codegen (flic-con-number-exp object))))
+  (codegen-con-number-aux (flic-con-number-type object)
+			  (do-codegen (flic-con-number-exp object))))
+
+(define (codegen-con-number-aux type exp)
     `(the fixnum
 	  ,(cond ((eq? type (core-symbol "Bool"))
 		  `(if ,exp 1 0))
@@ -565,8 +569,7 @@
 		  exp)
 		 (else
 		  `(constructor-number ,exp))
-		 ))
-    ))
+		 )))
 
 
 

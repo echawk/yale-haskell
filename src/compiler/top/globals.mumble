@@ -34,8 +34,21 @@
   '(phase-time time compiling loading reading extension
     parse import type-decl scope depend
     type cfn depend2
-    flic optimize optimize-extra strictness codegen codegen-flic
+    flic optimize optimize-extra strictness grin codegen codegen-flic
     dumper dump-stat))
+
+;;; The back end: FLIC (backend/codegen.mumble) generates Lisp from
+;;; FLIC; GRIN (grin/) lowers FLIC to LGRIN and generates Lisp from that
+;;; (doc/EVAL-APPLY-GRIN.md).  $YALE_HASKELL_BACKEND, if set to flic or
+;;; grin, overrides it.
+
+(define *backend* 'grin)
+
+(define (current-backend)
+  (let ((env  (getenv "YALE_HASKELL_BACKEND")))
+    (cond ((and env (string=? env "grin")) 'grin)
+	  ((and env (string=? env "flic")) 'flic)
+	  (else (dynamic *backend*)))))
 
 ;;; Global context stuff 
 ;;; ***This variable is actually only used by the parser.

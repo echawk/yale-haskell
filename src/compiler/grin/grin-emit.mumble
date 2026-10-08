@@ -1,0 +1,219 @@
+;;; grin-emit.mumble -- generate Lisp from LGRIN
+;;;
+;;; Data and function representations are the FLIC code generator's: the
+;;; helpers in backend/codegen.mumble build constructors, selectors,
+;;; tests, function values and generic applications for both back ends
+;;; (doc/EVAL-APPLY-GRIN.md section 6).
+
+
+(define-grin-walker grin-emit (object))
+
+(define (grin-emit-list objects)
+  (map (function grin-emit) objects))
+
+(define (grin-emit-top prog)
+  (do ((defs    (grin-prog-defs prog) (cdr defs))
+       (result  '())
+       (decls   '()))
+      ((null? defs) `(begin ,@(nreverse decls) ,@(nreverse result)))
+    (let* ((def   (car defs))
+	   (code  (grin-emit-def def)))
+      (when (memq 'codegen (dynamic *printers*))
+	(format '#t "~%Codegen of ~A~%" (grin-def-name def))
+	(pprint* code))
+      (push `(predefine ,(grin-def-name def)) decls)
+      (push code result))))
+
+;;; As codegen-definition: a function gets its /OPT entry and, unless it
+;;; is a selector, a function value.
+
+(define (grin-emit-def def)
+  (if (eq? (grin-def-kind def) 'value)
+      `(define ,(grin-def-name def) ,(grin-emit (grin-def-body def)))
+      (let ((opt  `(define (,(grin-def-optname def) ,@(grin-def-params def))
+		     ,@(grin-ignore-declarations (grin-def-ignored def))
+		     ,(grin-emit (grin-def-body def)))))
+	(if (grin-def-selector? def)
+	    opt
+	    `(begin
+	       ,opt
+	       (define ,(grin-def-name def)
+		 ,(maybe-make-box-value
+		   (codegen-curried-fn `(function ,(grin-def-optname def))
+				       (grin-def-strictness def))
+		   (grin-def-strict? def))))))))
+
+(define (grin-ignore-declarations ignored)
+  (if (null? ignored)
+      '()
+      `((declare (ignore ,@ignored)))))
+
+(define (grin-emit-lambda params ignored body)
+  `(lambda ,params
+     ,@(grin-ignore-declarations ignored)
+     ,(grin-emit body)))
+
+
+;;;; Atoms
+
+(define-grin-emit grin-var (object)
+  (grin-var-name object))
+
+(define-grin-emit grin-lit (object)
+  (grin-lit-value object))
+
+(define-grin-emit grin-lisp (object)
+  (grin-lisp-form object))
+
+
+;;;; Simple expressions
+
+(define-grin-emit grin-call (object)
+  `(,(grin-call-fn object) ,@(grin-emit-list (grin-call-args object))))
+
+(define-grin-emit grin-apply (object)
+  (codegen-apply (grin-emit (grin-apply-fn object))
+		 (grin-emit-list (grin-apply-args object))))
+
+(define-grin-emit grin-eval (object)
+  (if (grin-eval-known-evaluated? object)
+      `(unbox ,(grin-emit (grin-eval-arg object)))
+      `(force ,(grin-emit (grin-eval-arg object)))))
+
+(define-grin-emit grin-delay (object)
+  `(delay ,(grin-emit (grin-delay-body object))))
+
+(define-grin-emit grin-store (object)
+  (codegen-constructor-app-aux (grin-store-con object)
+			       (grin-emit-list (grin-store-args object))))
+
+(define-grin-emit grin-fetch (object)
+  (codegen-flic-sel-aux (grin-fetch-con object) (grin-fetch-i object)
+			(grin-emit (grin-fetch-arg object))))
+
+(define-grin-emit grin-is-con (object)
+  (codegen-flic-is-constructor-aux (grin-is-con-con object)
+				   (grin-emit (grin-is-con-arg object))))
+
+(define-grin-emit grin-tag (object)
+  (codegen-con-number-aux (grin-tag-alg object)
+			  (grin-emit (grin-tag-arg object))))
+
+(define-grin-emit grin-con-value (object)
+  (codegen-pack-value (grin-con-value-con object)))
+
+(define-grin-emit grin-lambda (object)
+  (codegen-curried-fn
+   (grin-emit-lambda (grin-lambda-params object) (grin-lambda-ignored object)
+		     (grin-lambda-body object))
+   (grin-lambda-strictness object)))
+
+
+;;;; Expressions
+
+(define-grin-emit grin-bind (object)
+  (add-let-binding (list (grin-bind-name object)
+			 (grin-emit (grin-bind-rhs object)))
+		   (grin-emit (grin-bind-body object))))
+
+(define-grin-emit grin-letrec (object)
+  (if (grin-letrec-recursive? object)
+      (grin-emit-letrec (grin-letrec-bindings object) (grin-letrec-body object))
+      (grin-emit-let* (grin-letrec-bindings object) (grin-letrec-body object))))
+
+;;; The function value of a local function: through its optimized entry
+;;; when it has one, else with the lambda as its entry.
+
+(define (grin-fundef-value f)
+  (maybe-make-box-value
+   (codegen-curried-fn
+    (if (grin-fundef-opt? f)
+	`(function ,(grin-fundef-optname f))
+	(grin-emit-lambda (grin-fundef-params f) (grin-fundef-ignored f)
+			  (grin-fundef-body f)))
+    (grin-fundef-strictness f))
+   (grin-fundef-strict? f)))
+
+(define (grin-fundef-labels-binding f)
+  `(,(grin-fundef-optname f) ,(grin-fundef-params f)
+    ,@(grin-ignore-declarations (grin-fundef-ignored f))
+    ,(grin-emit (grin-fundef-body f))))
+
+;;; As codegen-letrec: functions in the function namespace (labels),
+;;; values (and function values) bound by letrec.
+
+(define (grin-emit-letrec bindings body)
+  (let ((let-bindings     '())
+	(labels-bindings  '()))
+    (dolist (b bindings)
+      (if (grin-fundef? b)
+	  (begin
+	    (when (grin-fundef-std? b)
+	      (push (list (grin-fundef-name b) (grin-fundef-value b))
+		    let-bindings))
+	    (when (grin-fundef-opt? b)
+	      (push (grin-fundef-labels-binding b) labels-bindings)))
+	  (push (list (grin-valbind-name b) (grin-emit (grin-valbind-rhs b)))
+		let-bindings)))
+    (setf let-bindings (nreverse let-bindings))
+    (setf labels-bindings (nreverse labels-bindings))
+    (cond ((null? let-bindings)
+	   `(labels ,labels-bindings ,(grin-emit body)))
+	  ((null? labels-bindings)
+	   `(letrec ,let-bindings ,(grin-emit body)))
+	  (else
+	   `(let ,(map (lambda (b) `(,(car b) '#f)) let-bindings)
+	      (labels ,labels-bindings
+		,@(map (lambda (b) `(setf ,@b)) let-bindings)
+		,(grin-emit body)))))))
+
+;;; As codegen-let*.
+
+(define (grin-emit-let* bindings body)
+  (if (null? bindings)
+      (grin-emit body)
+      (let ((b     (car bindings))
+	    (code  (grin-emit-let* (cdr bindings) body)))
+	(if (grin-fundef? b)
+	    (begin
+	      (when (grin-fundef-std? b)
+		(setf code (add-let-binding
+			    (list (grin-fundef-name b) (grin-fundef-value b))
+			    code)))
+	      (when (grin-fundef-opt? b)
+		(setf code `(flet (,(grin-fundef-labels-binding b)) ,code)))
+	      code)
+	    (add-let-binding (list (grin-valbind-name b)
+				   (grin-emit (grin-valbind-rhs b)))
+			     code)))))
+
+;;; A CL case on the fixnum tag or literal, which SBCL compiles to a jump
+;;; table.
+
+(define-grin-emit grin-case (object)
+  (let ((scrutinee  (grin-emit (grin-case-scrutinee object))))
+    `(lisp:case ,(if (eq? (grin-case-kind object) 'tag)
+		     (codegen-con-number-aux (grin-case-alg object) scrutinee)
+		     `(the fixnum ,scrutinee))
+       ,@(map (lambda (alt)
+		`((,(tuple-2-1 alt)) ,(grin-emit (tuple-2-2 alt))))
+	      (grin-case-alts object))
+       (lisp:otherwise ,(grin-emit (grin-case-default object))))))
+
+(define-grin-emit grin-if (object)
+  `(if ,(grin-emit (grin-if-test object))
+       ,(grin-emit (grin-if-then object))
+       ,(grin-emit (grin-if-else object))))
+
+(define-grin-emit grin-block (object)
+  `(block ,(grin-block-label object) ,@(grin-emit-list (grin-block-exps object))))
+
+(define-grin-emit grin-exit (object)
+  `(return-from ,(grin-exit-label object) ,(grin-emit (grin-exit-exp object))))
+
+(define-grin-emit grin-and (object)
+  `(and ,@(grin-emit-list (grin-and-exps object))))
+
+(define-grin-emit grin-void (object)
+  (declare (ignore object))
+  ''#f)

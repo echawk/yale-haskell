@@ -1,0 +1,125 @@
+;;; grin-print.mumble -- print LGRIN (the GRIN printer, :p= grin)
+;;;
+;;; LGRIN is printed as S-expressions in GRIN's vocabulary:
+;;;   (fun f/OPT (x y) body)  (val x exp)    top-level definitions
+;;;   (call f a b)  (apply f a b)            known and unknown calls
+;;;   (eval x)  (evaluated x)                force; known to be evaluated
+;;;   (delay e)                              suspension (an F-node)
+;;;   (store (C a b))  (fetch C i x)         build / read a node
+;;;   (is C x)  (tag x)  (case ...)          test / dispatch on a node
+
+(define-grin-walker grin->sexp (object))
+
+(define (grin->sexp-list objects)
+  (map (function grin->sexp) objects))
+
+(define (print-grin-prog prog)
+  (dolist (def (grin-prog-defs prog))
+    (pprint* (grin-def->sexp def))))
+
+(define (grin-def->sexp def)
+  (if (eq? (grin-def-kind def) 'value)
+      `(val ,(grin-def-name def) ,(grin->sexp (grin-def-body def)))
+      `(fun ,(grin-def-optname def)
+	    ,(map (lambda (p s) (if s p `(lazy ,p)))
+		  (grin-def-params def) (grin-def-strictness def))
+	    ,(grin->sexp (grin-def-body def)))))
+
+(define (con-name con)
+  (string->symbol (remove-con-prefix (symbol->string (def-name con)))))
+
+(define (tag->con alg tag)
+  (do ((cons (algdata-constrs alg) (cdr cons)))
+      ((or (null? cons) (eqv? (con-tag (car cons)) tag))
+       (if (null? cons) tag (car cons)))))
+
+(define-grin->sexp grin-var (object)
+  (grin-var-name object))
+
+(define-grin->sexp grin-lit (object)
+  (grin-lit-value object))
+
+(define-grin->sexp grin-lisp (object)
+  `(lisp ,(grin-lisp-form object)))
+
+(define-grin->sexp grin-call (object)
+  `(call ,(grin-call-fn object) ,@(grin->sexp-list (grin-call-args object))))
+
+(define-grin->sexp grin-apply (object)
+  `(apply ,(grin->sexp (grin-apply-fn object))
+	  ,@(grin->sexp-list (grin-apply-args object))))
+
+(define-grin->sexp grin-eval (object)
+  `(,(if (grin-eval-known-evaluated? object) 'evaluated 'eval)
+    ,(grin->sexp (grin-eval-arg object))))
+
+(define-grin->sexp grin-delay (object)
+  `(delay ,(grin->sexp (grin-delay-body object))))
+
+(define-grin->sexp grin-store (object)
+  `(store (,(con-name (grin-store-con object))
+	   ,@(grin->sexp-list (grin-store-args object)))))
+
+(define-grin->sexp grin-fetch (object)
+  `(fetch ,(con-name (grin-fetch-con object)) ,(grin-fetch-i object)
+	  ,(grin->sexp (grin-fetch-arg object))))
+
+(define-grin->sexp grin-is-con (object)
+  `(is ,(con-name (grin-is-con-con object)) ,(grin->sexp (grin-is-con-arg object))))
+
+(define-grin->sexp grin-tag (object)
+  `(tag ,(grin->sexp (grin-tag-arg object))))
+
+(define-grin->sexp grin-con-value (object)
+  (con-name (grin-con-value-con object)))
+
+(define-grin->sexp grin-lambda (object)
+  `(lambda ,(map (lambda (p s) (if s p `(lazy ,p)))
+		 (grin-lambda-params object) (grin-lambda-strictness object))
+     ,(grin->sexp (grin-lambda-body object))))
+
+(define-grin->sexp grin-bind (object)
+  `(bind ,(grin-bind-name object) ,(grin->sexp (grin-bind-rhs object))
+	 ,(grin->sexp (grin-bind-body object))))
+
+(define-grin->sexp grin-letrec (object)
+  `(,(if (grin-letrec-recursive? object) 'letrec 'let)
+    ,(map (lambda (b)
+	    (if (grin-fundef? b)
+		`(fun ,(grin-fundef-optname b)
+		      ,(map (lambda (p s) (if s p `(lazy ,p)))
+			    (grin-fundef-params b) (grin-fundef-strictness b))
+		      ,(grin->sexp (grin-fundef-body b)))
+		`(val ,(grin-valbind-name b) ,(grin->sexp (grin-valbind-rhs b)))))
+	  (grin-letrec-bindings object))
+    ,(grin->sexp (grin-letrec-body object))))
+
+(define-grin->sexp grin-case (object)
+  `(case ,(grin->sexp (grin-case-scrutinee object))
+     ,@(map (lambda (alt)
+	      (let ((key  (tuple-2-1 alt)))
+		`(,(if (eq? (grin-case-kind object) 'tag)
+		       (let ((con (tag->con (grin-case-alg object) key)))
+			 (if (con? con) (con-name con) con))
+		       key)
+		  ,(grin->sexp (tuple-2-2 alt)))))
+	    (grin-case-alts object))
+     (_ ,(grin->sexp (grin-case-default object)))))
+
+(define-grin->sexp grin-if (object)
+  `(if ,(grin->sexp (grin-if-test object))
+       ,(grin->sexp (grin-if-then object))
+       ,(grin->sexp (grin-if-else object))))
+
+(define-grin->sexp grin-block (object)
+  `(block ,(grin-block-label object) ,@(grin->sexp-list (grin-block-exps object))))
+
+(define-grin->sexp grin-exit (object)
+  `(exit ,(grin-exit-label object) ,(grin->sexp (grin-exit-exp object))))
+
+(define-grin->sexp grin-and (object)
+  `(and ,@(grin->sexp-list (grin-and-exps object))))
+
+(define-grin->sexp grin-void (object)
+  (declare (ignore object))
+  'void)

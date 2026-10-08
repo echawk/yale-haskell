@@ -1,0 +1,248 @@
+;;; grin-lower.mumble -- lower FLIC to LGRIN
+;;;
+;;; Runs after strictness and box analysis and makes their decisions
+;;; explicit (doc/EVAL-APPLY-GRIN.md section 5.5): an expression box
+;;; analysis left unboxed becomes WHNF (EVAL of a PTR when needed), a boxed
+;;; one becomes a PTR (DELAY of a computation when it is not cheap).  The
+;;; table is the one in codegen.mumble's do-codegen.  A chain of ifs
+;;; testing one variable against constructors or literals becomes a CASE.
+
+
+(define (grin-lower-top big-let)
+  (make-grin-prog (map (function grin-lower-def) (flic-let-bindings big-let))))
+
+(define (grin-lower-def var)
+  (let ((exp  (var-value var)))
+    (if (not (flic-lambda? exp))
+	(make-grin-def 'value (fullname var) '#f '() '() '() '#f '#f
+		       (grin-lower exp))
+	(let ((vars  (flic-lambda-vars exp)))
+	  (make-grin-def 'fun (fullname var) (optname var)
+			 (map (function fullname) vars)
+			 (grin-ignored-params vars)
+			 (var-strictness var)
+			 (var-selector-fn? var)
+			 (var-strict? var)
+			 (grin-lower (flic-lambda-body exp)))))))
+
+(define (grin-ignored-params vars)
+  (let ((ignored  '()))
+    (dolist (v vars)
+      (when (eqv? (var-referenced v) 0)
+	(push (fullname v) ignored)))
+    ignored))
+
+
+;;; The box table (box.mumble): X is the expression's own value, WHNF
+;;; when it has a strict result and a PTR otherwise.
+
+(define (grin-lower object)
+  (let ((x               (grin-lower-raw object))
+	(unboxed?        (flic-exp-unboxed? object))
+	(strict-result?  (flic-exp-strict-result? object))
+	(cheap?          (flic-exp-cheap? object)))
+    (if unboxed?
+	(if strict-result?
+	    x
+	    (make-grin-eval x cheap?))
+	(if strict-result?
+	    (if cheap? x (make-grin-delay x))
+	    (if cheap? x (make-grin-delay (make-grin-eval x '#f)))))))
+
+(define (grin-lower-list objects)
+  (map (function grin-lower) objects))
+
+(define (grin-lower-raw object)
+  (cond ((flic-ref? object)
+	 (let ((var  (flic-ref-var object)))
+	   (make-grin-var (fullname var) (if (var-strict? var) 'whnf 'ptr))))
+	((flic-app? object)
+	 (grin-lower-app object))
+	((flic-if? object)
+	 (grin-lower-if object))
+	((flic-const? object)
+	 (grin-lower-const (flic-const-value object)))
+	((flic-pack? object)
+	 (make-grin-con-value (flic-pack-con object)))
+	((flic-sel? object)
+	 (make-grin-fetch (flic-sel-con object) (flic-sel-i object)
+			  (grin-lower (flic-sel-exp object))))
+	((flic-is-constructor? object)
+	 (make-grin-is-con (flic-is-constructor-con object)
+			   (grin-lower (flic-is-constructor-exp object))))
+	((flic-con-number? object)
+	 (make-grin-tag (flic-con-number-type object)
+			(grin-lower (flic-con-number-exp object))))
+	((flic-let? object)
+	 (grin-lower-let object))
+	((flic-lambda? object)
+	 (let ((vars  (flic-lambda-vars object)))
+	   (make-grin-lambda (map (function fullname) vars)
+			     (grin-ignored-params vars)
+			     (map (function var-strict?) vars)
+			     (grin-lower (flic-lambda-body object)))))
+	((flic-case-block? object)
+	 (make-grin-block (flic-case-block-block-name object)
+			  (grin-lower-list (flic-case-block-exps object))))
+	((flic-return-from? object)
+	 (make-grin-exit (flic-return-from-block-name object)
+			 (grin-lower (flic-return-from-exp object))))
+	((flic-and? object)
+	 (make-grin-and (grin-lower-list (flic-and-exps object))))
+	((flic-void? object)
+	 (make-grin-void))
+	(else
+	 (error "grin-lower: unknown FLIC node ~s." object))))
+
+(define (grin-lower-const value)
+  (cond ((string? value)
+	 (make-grin-lisp `(make-haskell-string ,value) 'whnf))
+	((char? value)
+	 (make-grin-lit (char->integer value)))
+	((number? value)
+	 (make-grin-lit value))
+	(else
+	 ;; A ratio: represented as a pair, as rationals are (codegen.mumble).
+	 (make-grin-lisp `(make-tuple ,(car value) ,(cadr value)) 'whnf))))
+
+(define (grin-lower-app object)
+  (let ((fn    (flic-app-fn object))
+	(args  (grin-lower-list (flic-app-args object))))
+    (cond ((and (flic-app-saturated? object) (flic-pack? fn))
+	   (make-grin-store (flic-pack-con fn) args))
+	  ((and (flic-app-saturated? object) (flic-ref? fn))
+	   (make-grin-call (optname (flic-ref-var fn)) args))
+	  (else
+	   (make-grin-apply (grin-lower fn) args)))))
+
+
+;;; Lets.  A non-recursive let of several bindings is a nest of
+;;; single-binding lets, as codegen-let* generates.
+
+(define (grin-lower-let object)
+  (let ((bindings  (flic-let-bindings object))
+	(body      (flic-let-body object)))
+    (if (flic-let-recursive? object)
+	(make-grin-letrec (grin-lower-bindings bindings) (grin-lower body) '#t)
+	(grin-lower-let* bindings body))))
+
+(define (grin-lower-let* bindings body)
+  (if (null? bindings)
+      (grin-lower body)
+      (make-grin-letrec (grin-lower-bindings (list (car bindings)))
+			(grin-lower-let* (cdr bindings) body)
+			'#f)))
+
+(define (grin-lower-bindings vars)
+  (map (lambda (var)
+	 (let ((value  (var-value var)))
+	   (if (flic-lambda? value)
+	       (let ((params  (flic-lambda-vars value)))
+		 (make-grin-fundef (fullname var) (optname var)
+				   (map (function fullname) params)
+				   (grin-ignored-params params)
+				   (var-strictness var)
+				   (var-strict? var)
+				   (var-optimized-refs? var)
+				   (var-standard-refs? var)
+				   (grin-lower (flic-lambda-body value))))
+	       (make-grin-valbind (fullname var) (grin-lower value)))))
+       vars))
+
+
+;;; Case recovery (P3, doc/EVAL-APPLY-GRIN.md sections 5.5 and 6.5).
+;;; The optimizer leaves a match on one variable as a chain of ifs, each
+;;; testing it against a constructor (of an enumeration or a tagged sum
+;;; type) or against an Int or Char literal.  A chain of *min-case-tests*
+;;; (codegen.mumble) or more becomes a CASE; a key tested twice keeps its
+;;; first alternative, as in the chain.  The scrutinee is the first
+;;; test's expression, evaluated once.
+
+(define (grin-lower-if object)
+  (mlet (((kind alg scrutinee alts default) (flic-if-chain object)))
+    (if (and (not (eq? kind '#f))
+	     (>= (length alts) (dynamic *min-case-tests*)))
+	(make-grin-case kind alg (grin-lower scrutinee)
+			(map (lambda (alt)
+			       (tuple (tuple-2-1 alt) (grin-lower (tuple-2-2 alt))))
+			     alts)
+			(grin-lower default))
+	(make-grin-if (grin-lower (flic-if-test-exp object))
+		      (grin-lower (flic-if-then-exp object))
+		      (grin-lower (flic-if-else-exp object))))))
+
+;;; Returns the kind (TAG, LIT or #f), the algebraic type for TAG, the
+;;; first scrutinee expression, the alternatives (key . then-exp) and
+;;; the expression for when no test succeeds.
+
+(define (flic-if-chain object)
+  (let ((kind       '#f)
+	(alg        '#f)
+	(var        '#f)
+	(scrutinee  '#f)
+	(alts       '())
+	(keys       '())
+	(form       object)
+	(done?      '#f))
+    (do () (done?)
+      (mlet (((k a e key) (if (flic-if? form)
+			      (flic-case-test (flic-if-test-exp form))
+			      (values '#f '#f '#f '#f))))
+	(if (and (not (eq? k '#f))
+		 (or (eq? var '#f)
+		     (and (eq? (flic-ref-var e) var) (eq? k kind))))
+	    (begin
+	      (when (eq? var '#f)
+		(setf kind k)
+		(setf alg a)
+		(setf var (flic-ref-var e))
+		(setf scrutinee e))
+	      (when (not (memv key keys))
+		(push key keys)
+		(push (tuple key (flic-if-then-exp form)) alts))
+	      (setf form (flic-if-else-exp form)))
+	    (setf done? '#t))))
+    (values kind alg scrutinee (reverse alts) form)))
+
+;;; A test usable in a CASE: returns the kind, the algebraic type, the
+;;; tested expression (a variable reference) and the key; or #f.
+
+(define (flic-case-test test)
+  (cond ((and (flic-is-constructor? test)
+	      (flic-ref? (flic-is-constructor-exp test))
+	      (case-dispatchable-alg? (con-alg (flic-is-constructor-con test))))
+	 (let ((con  (flic-is-constructor-con test)))
+	   (values 'tag (con-alg con) (flic-is-constructor-exp test)
+		   (con-tag con))))
+	((and (flic-app? test)
+	      (flic-app-saturated? test)
+	      (flic-ref? (flic-app-fn test))
+	      (memq (var-optimized-entry (flic-ref-var (flic-app-fn test)))
+		    '(prim.eq-int prim.eq-char))
+	      (eqv? (length (flic-app-args test)) 2))
+	 (let ((a  (car (flic-app-args test)))
+	       (b  (cadr (flic-app-args test))))
+	   (cond ((and (flic-literal-key a) (flic-ref? b))
+		  (values 'lit '#f b (flic-literal-key a)))
+		 ((and (flic-literal-key b) (flic-ref? a))
+		  (values 'lit '#f a (flic-literal-key b)))
+		 (else
+		  (values '#f '#f '#f '#f)))))
+	(else
+	 (values '#f '#f '#f '#f))))
+
+;;; Types whose is-constructor test compares a fixnum tag (enumerations:
+;;; the value; other sums: constructor-number).
+
+(define (case-dispatchable-alg? alg)
+  (not (or (eq? alg (core-symbol "Bool"))
+	   (eq? alg (core-symbol "List"))
+	   (algdata-implemented-by-lisp? alg)
+	   (algdata-tuple? alg))))
+
+(define (flic-literal-key exp)
+  (and (flic-const? exp)
+       (let ((v  (flic-const-value exp)))
+	 (cond ((char? v) (char->integer v))
+	       ((fixnum? v) v)
+	       (else '#f)))))

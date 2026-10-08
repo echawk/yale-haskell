@@ -1,0 +1,210 @@
+;;; grin-structs.mumble -- the LGRIN intermediate language
+;;;
+;;; LGRIN is GRIN (Boquist 1999) adapted to a Lisp target and to separate
+;;; compilation; see doc/EVAL-APPLY-GRIN.md section 5.2.  Laziness is
+;;; explicit: a suspension is DELAY, forcing is EVAL, and constructing,
+;;; reading and dispatching on data are STORE, FETCH, TAG and CASE.
+;;; Unlike published GRIN:
+;;;   * an F-node (DELAY) holds an LGRIN expression, not a call of a
+;;;     lifted function, and local functions stay local (FUNDEF):
+;;;     lambda-lifting is a later pass;
+;;;   * arguments may be nested expressions, evaluated left to right,
+;;;     rather than atoms (no A-normal form yet);
+;;;   * BLOCK / EXIT / AND keep FLIC's structured pattern-match
+;;;     fall-through (join points), next to CASE.
+;;;
+;;; Every node yields a value in one representation (REP): PTR, a
+;;; possibly unevaluated value (a thunk or a value); WHNF, an evaluated
+;;; value; or BOOL, a Lisp boolean.  These are the only types needed so
+;;; far; unboxed fixnum and double reps come later (section 9).
+
+(define-struct grin-node
+  (type-template grin-td))
+
+(define-local-syntax (define-grin name . slots)
+  (let* ((maker  (symbol-append 'make- name))
+	 (pred   (symbol-append name '?))
+	 (args   (map (function car) slots))
+	 (inits  (map (lambda (x) (list x x)) args)))
+    `(begin
+       (define-struct ,name
+	 (include grin-node)
+	 (predicate ,pred)
+	 (slots ,@slots))
+       (define (,maker ,@args) (make ,name ,@inits))
+       ',name)))
+
+(define-syntax (define-grin-walker name args)
+  (let ((accessor-name (symbol-append 'grin-td- name '-walker))
+	(definer-name  (symbol-append 'define- name)))
+    `(begin
+       (define-walker ,name ,accessor-name)
+       (define-local-syntax (,definer-name type args . body)
+	 `(define-walker-method ,',name ,type ,args ,@body))
+       (define (,name ,@args)
+	 (call-walker ,name ,@args)))))
+
+
+;;;; Programs
+
+;;; A module: its top-level definitions, in order.
+(define-grin grin-prog
+  (defs (type (list grin-def))))
+
+;;; A top-level definition.  KIND is FUN (a function: an /OPT entry
+;;; taking PARAMS, and unless SELECTOR? a function value NAME whose
+;;; standard entry forces the strict arguments) or VALUE (NAME is
+;;; bound to BODY, a PTR).
+(define-grin grin-def
+  (kind (type symbol))
+  (name (type symbol))
+  (optname (type t))
+  (params (type (list symbol)))
+  (ignored (type (list symbol)))
+  (strictness (type (list bool)))
+  (selector? (type bool))
+  (strict? (type bool))
+  (body (type grin-node)))
+
+
+;;;; Atoms
+
+;;; A variable: a Haskell variable's Lisp name, or a temporary.
+(define-grin grin-var
+  (name (type symbol))
+  (rep (type symbol)))
+
+;;; A constant already in its Lisp representation: a fixnum (also Char),
+;;; a float, or a quoted constant.
+(define-grin grin-lit
+  (value (type t)))
+
+;;; A Lisp form for leaves the IR does not model: string literals,
+;;; constructors and constants of Lisp-implemented types.
+(define-grin grin-lisp
+  (form (type t))
+  (rep (type symbol)))
+
+
+;;;; Simple expressions
+
+;;; Saturated call of a known function's optimized entry (a top-level
+;;; /OPT, a local function, or a Lisp primitive).  Arguments are raw
+;;; (WHNF) or boxed (PTR) per the callee's strictness.
+(define-grin grin-call
+  (fn (type t))
+  (args (type (list grin-node))))
+
+;;; Unknown call: FN is an evaluated function value, ARGS are PTRs.
+(define-grin grin-apply
+  (fn (type grin-node))
+  (args (type (list grin-node))))
+
+;;; Evaluate a PTR to WHNF.  KNOWN-EVALUATED? when it is known to be
+;;; evaluated already (no thunk to run): today's UNBOX.
+(define-grin grin-eval
+  (arg (type grin-node))
+  (known-evaluated? (type bool)))
+
+;;; Suspend a computation: an F-node, a thunk whose body is BODY (WHNF).
+(define-grin grin-delay
+  (body (type grin-node)))
+
+;;; Build a constructor node from its fields (PTR, or WHNF for strict
+;;; fields).
+(define-grin grin-store
+  (con (type con))
+  (args (type (list grin-node))))
+
+;;; Field I of an evaluated node of constructor CON.
+(define-grin grin-fetch
+  (con (type con))
+  (i (type int))
+  (arg (type grin-node)))
+
+;;; BOOL: is the evaluated ARG built by CON?
+(define-grin grin-is-con
+  (con (type con))
+  (arg (type grin-node)))
+
+;;; The constructor number of an evaluated value of type ALG.
+(define-grin grin-tag
+  (alg (type algdata))
+  (arg (type grin-node)))
+
+;;; A constructor as a function value (or a nullary constructor).
+(define-grin grin-con-value
+  (con (type con)))
+
+;;; An anonymous function value.
+(define-grin grin-lambda
+  (params (type (list symbol)))
+  (ignored (type (list symbol)))
+  (strictness (type (list bool)))
+  (body (type grin-node)))
+
+
+;;;; Expressions
+
+;;; Bind NAME to the value of RHS in BODY (GRIN's  rhs ; \name -> body).
+(define-grin grin-bind
+  (name (type symbol))
+  (rhs (type grin-node))
+  (body (type grin-node)))
+
+;;; Local definitions, in order: functions (FUNDEFs) and values
+;;; (VALBINDs); mutually recursive when RECURSIVE?.
+(define-grin grin-letrec
+  (bindings (type (list grin-node)))
+  (body (type grin-node))
+  (recursive? (type bool)))
+
+(define-grin grin-valbind
+  (name (type symbol))
+  (rhs (type grin-node)))
+
+;;; A local function: OPTNAME, called directly when OPT?; and a function
+;;; value NAME when STD?.
+(define-grin grin-fundef
+  (name (type symbol))
+  (optname (type symbol))
+  (params (type (list symbol)))
+  (ignored (type (list symbol)))
+  (strictness (type (list bool)))
+  (strict? (type bool))
+  (opt? (type bool))
+  (std? (type bool))
+  (body (type grin-node)))
+
+;;; Dispatch on an evaluated SCRUTINEE.  KIND is TAG (ALTS keyed by
+;;; constructor, of algebraic type ALG) or LIT (ALTS keyed by fixnum
+;;; literals: Int and Char).  DEFAULT is taken when no key matches.
+(define-grin grin-case
+  (kind (type symbol))
+  (alg (type t))
+  (scrutinee (type grin-node))
+  (alts (type (list (tuple t grin-node))))
+  (default (type grin-node)))
+
+(define-grin grin-if
+  (test (type grin-node))
+  (then (type grin-node))
+  (else (type grin-node)))
+
+;;; Pattern-match fall-through (FLIC case-block): evaluate EXPS in
+;;; order; the value is the last one's unless an EXIT to LABEL leaves
+;;; earlier.
+(define-grin grin-block
+  (label (type symbol))
+  (exps (type (list grin-node))))
+
+(define-grin grin-exit
+  (label (type symbol))
+  (exp (type grin-node)))
+
+;;; BOOL, short-circuit; an alternative of a BLOCK.
+(define-grin grin-and
+  (exps (type (list grin-node))))
+
+;;; No value (FLIC void).
+(define-grin grin-void)

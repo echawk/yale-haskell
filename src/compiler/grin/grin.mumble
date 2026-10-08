@@ -1,0 +1,24 @@
+;;; grin.mumble -- compilation unit for the GRIN-style back end
+;;;
+;;; LGRIN, a GRIN-style intermediate language between FLIC and Lisp
+;;; (doc/EVAL-APPLY-GRIN.md, sections 5 and 6).  Selected with
+;;; *backend* (top/globals.mumble); the FLIC code generator in
+;;; backend/codegen.mumble is the other back end.
+
+(define-compilation-unit grin
+  (source-filename "$Y2/src/compiler/grin/")
+  (require flic backend)
+  (unit grin-td
+	(source-filename "grin-td.mumble"))
+  (unit grin-structs
+	(source-filename "grin-structs.mumble")
+	(require grin-td))
+  (unit grin-print
+	(source-filename "grin-print.mumble")
+	(require grin-structs))
+  (unit grin-lower
+	(source-filename "grin-lower.mumble")
+	(require grin-structs))
+  (unit grin-emit
+	(source-filename "grin-emit.mumble")
+	(require grin-structs)))

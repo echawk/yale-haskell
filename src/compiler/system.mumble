@@ -29,6 +29,7 @@
 (load "$Y2/src/compiler/cfn/cfn.mumble")
 (load "$Y2/src/compiler/flic/flic.mumble")
 (load "$Y2/src/compiler/backend/backend.mumble")
+(load "$Y2/src/compiler/grin/grin.mumble")
 (load "$Y2/src/runtime/runtime.mumble")
 (load "$Y2/src/compiler/csys/csys")
 (load "$Y2/src/compiler/command-interface/command-interface")

@@ -1,0 +1,11 @@
+The GRIN-style back end (doc/EVAL-APPLY-GRIN.md).  It replaces
+backend/codegen.mumble's code walk, after optimize and strictness:
+
+grin-td, grin-structs -- LGRIN, the intermediate language.
+grin-lower -- FLIC to LGRIN: makes box analysis explicit (eval, delay)
+  and builds case from chains of constructor and literal tests.
+grin-emit -- LGRIN to Lisp, with codegen.mumble's representation helpers.
+grin-print -- the grin printer (:p= grin).
+
+*backend* (top/globals.mumble) or $YALE_HASKELL_BACKEND selects grin (the
+default) or flic (backend/codegen.mumble).
