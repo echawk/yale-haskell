@@ -25,6 +25,32 @@
 (define (parse-single-file/interface filename)
   (parse-single-file-1 filename '#f '#t))
 
+;;; Literate files in the LaTeX style (H98 report 9.4): the code is
+;;; between \begin{code} and \end{code} lines.  Every other line is made
+;;; blank, so lines and columns are kept, and the text is lexed as an
+;;; ordinary file.
+
+(define (latex-literate-file? filename)
+  (call-with-input-file filename
+    (lambda (port)
+      (do ((line (read-line port) (read-line port))
+	   (found? '#f))
+	  ((or found? (eof-object? line)) found?)
+	(when (string-starts? "\\begin{code}" line)
+	  (setf found? '#t))))))
+
+(define (latex-literate-code filename)
+  (lisp:with-output-to-string (out)
+    (call-with-input-file filename
+      (lambda (port)
+	(do ((line (read-line port) (read-line port))
+	     (code? '#f))
+	    ((eof-object? line))
+	  (cond ((string-starts? "\\begin{code}" line) (setf code? '#t))
+		((string-starts? "\\end{code}" line) (setf code? '#f))
+		(code? (write-string line out)))
+	  (write-char #\newline out))))))
+
 (define (parse-single-file-1 filename literate? interface?)
   (when (memq 'reading *printers*)
       (format '#t "Reading Haskell source file ~s.~%" filename))
@@ -35,7 +61,11 @@
       (call-with-input-file filename
         (lambda (port)
 	  (let* ((tokens (dynamic-let ((*lexing-interface?* interface?))
-			   (lex-port port literate?)))
+			   (if (and literate? (latex-literate-file? filename))
+			       (lex-port (lisp:make-string-input-stream
+					  (latex-literate-code filename))
+					 '#f)
+			       (lex-port port literate?))))
 		 (module-asts (if interface?
 				  (parse-tokens/interface tokens)
 				  (parse-tokens tokens))))

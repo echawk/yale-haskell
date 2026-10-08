@@ -83,6 +83,8 @@
 
 (define (parse-alts in-layout?)
   (token-case
+    ;; an empty alternative (H98 3.13)
+    (\; (parse-alts in-layout?))
     (pat-start
      (let ((alt (parse-alt)))
        (token-case

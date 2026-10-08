@@ -209,6 +209,8 @@
 
 (define (parse-decl-list-1 in-layout?)
   (token-case
+   ;; an empty declaration (H98: `a = 1;' at the end of a layout line)
+   (\; (parse-decl-list-1 in-layout?))
    ((apat-start begin-annotation)
     (let ((decl (parse-decl)))
       (parse-decl-list-2 decl in-layout?)))

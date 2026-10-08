@@ -546,6 +546,8 @@
 	     result)))))
 
 (predefine (lex-port port literate?))  ; in parser/lexer.mumble
+(predefine (latex-literate-file? file)) ; in parser/parser-driver.mumble
+(predefine (latex-literate-code file))
 
 (define (lex-file-quietly file ext)
   (let ((tokens '()))
@@ -553,9 +555,14 @@
       (call-with-output-string
 	(lambda (port)
 	  (dynamic-let ((*error-output-port* port))
-	    (call-with-input-file file
-	      (lambda (in)
-		(setf tokens (lex-port in (string=? ext ".lhs")))))))))
+	    (if (and (string=? ext ".lhs") (latex-literate-file? file))
+		;; \begin{code} literate style, as the parser reads it
+		(setf tokens (lex-port (lisp:make-string-input-stream
+					(latex-literate-code file))
+				       '#f))
+		(call-with-input-file file
+		  (lambda (in)
+		    (setf tokens (lex-port in (string=? ext ".lhs"))))))))))
     tokens))
 
 (define (layout-token? tok)

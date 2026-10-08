@@ -183,8 +183,14 @@
 	 (emit-token '\[))
     (#\] (advance-char)
 	 (emit-token '\]))
-    (#\_ (advance-char)
-	 (emit-token '\_))
+    ;; `_' alone is the wildcard; followed by identifier characters it
+    ;; begins a variable (H98: small includes `_'), e.g. _1, _foo
+    (#\_ (if (and (feature? 'h98-lexing)
+		  (or (char-alphabetic? *peek-char*) (char-numeric? *peek-char*)
+		      (char=? *peek-char* #\_) (char=? *peek-char* #\')))
+	     (lex-varid)
+	     (begin (advance-char)
+		    (emit-token '\_))))
     (#\} (advance-char)
 	 (emit-token '\}))
     (else
