@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+# run-bench -- time the bench/*.hs programs with the Haskell 98 image.
+#
+#   bench/run-bench [-n RUNS] [NAME ...]
+#
+# Each program is run RUNS times (default 3); its stdout is compared
+# with NAME.stdout.  The table shows min and median wall-clock seconds
+# for a whole `yale-haskell --haskell98 NAME.hs` run (compile + run),
+# and the same minus the fixed overhead measured on _overhead.hs
+# (hello world: image start-up plus compiling a trivial module).  The
+# compiler does not report compile time separately in batch mode.
+# Exit status is 1 if any program produced wrong output.
+
+cd "$(dirname "$0")/.." || exit 1
+runs=3
+while getopts n: opt; do
+  case $opt in
+    n) runs=$OPTARG ;;
+    *) echo "usage: bench/run-bench [-n RUNS] [NAME ...]" >&2; exit 2 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+if [ $# -gt 0 ]; then names=$*
+else names=$(cd bench && ls *.hs | sed 's/\.hs$//' | grep -v '^_'); fi
+
+tmp=$(mktemp -d) || exit 1
+trap 'rm -rf "$tmp"' EXIT
+
+# bench_one NAME: leaves the sorted times in $tmp/times and sets
+# $status to ok, WRONG (bad output) or FAIL (nonzero exit).
+bench_one() {
+  : > "$tmp/times.raw"
+  status=ok
+  i=0
+  while [ "$i" -lt "$runs" ]; do
+    perl -MTime::HiRes=time -e '
+      $t = time;
+      $rc = system("bin/yale-haskell --haskell98 bench/$ARGV[0].hs > $ARGV[1] 2>/dev/null </dev/null");
+      printf STDERR "%.3f\n", time - $t; exit($rc ? 1 : 0)' "$1" "$tmp/out" 2> "$tmp/t" \
+      || status=FAIL
+    cat "$tmp/t" >> "$tmp/times.raw"
+    if [ "$status" = ok ] && ! cmp -s "bench/$1.stdout" "$tmp/out"; then status=WRONG; fi
+    i=$((i + 1))
+  done
+  sort -n "$tmp/times.raw" > "$tmp/times"
+}
+
+# stats: print "min median" of $tmp/times.
+stats() {
+  awk '{ t[NR] = $1 }
+       END { m = (NR % 2) ? t[(NR+1)/2] : (t[NR/2] + t[NR/2+1]) / 2
+             printf "%.3f %.3f", t[1], m }' "$tmp/times"
+}
+
+bench_one _overhead
+set -- $(stats)
+omin=$1 omed=$2
+echo "runs per program: $runs;  fixed overhead (hello world): min $omin s, median $omed s"
+printf '%-12s %8s %8s   %8s %8s  %s\n' program min median min-ovh med-ovh check
+rc=0
+for n in $names; do
+  bench_one "$n"
+  set -- $(stats)
+  printf '%-12s %8.3f %8.3f   %8.3f %8.3f  %s\n' "$n" "$1" "$2" \
+    "$(echo "$1 $omin" | awk '{print $1-$2}')" \
+    "$(echo "$2 $omed" | awk '{print $1-$2}')" "$status"
+  [ "$status" = ok ] || rc=1
+done
+exit $rc

@@ -2,6 +2,7 @@
 #
 #   make            build the compiler and an executable for each dialect
 #   make test       run the test suite (tests/README.md)
+#   make bench      time the benchmark programs (bench/README.md)
 #   make clean      delete everything under build/
 #   make ref        clone the reference implementations into ref/
 #
@@ -44,7 +45,7 @@ define step
 	  echo "*** $(1) failed; full log in $(LOGS)/$(1).log"; exit 1; }
 endef
 
-.PHONY: all compiler test clean ref $(DIALECTS)
+.PHONY: all compiler test bench clean ref $(DIALECTS)
 .SECONDEXPANSION:
 .SECONDARY:
 
@@ -78,6 +79,9 @@ $(BUILD)/%/yale-haskell: $(BUILD)/%/.prelude-stamp
 
 test: all
 	@tests/run-tests
+
+bench: all
+	@bench/run-bench $(BENCHFLAGS)
 
 clean:
 	rm -rf build

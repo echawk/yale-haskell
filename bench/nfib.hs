@@ -1,0 +1,7 @@
+module Main where
+
+nfib :: Int -> Int
+nfib n = if n < 2 then 1 else nfib (n - 1) + nfib (n - 2) + 1
+
+main :: IO ()
+main = print (nfib 32)
