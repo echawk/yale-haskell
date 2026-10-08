@@ -208,11 +208,12 @@
 		 (token-case
 		  (\) (setf specs '()))
 		  (else (setf specs (parse-import-list)))))
-	     (|hiding| (require-token
-			 \(
-			 (signal-missing-token "`('" "hiding clause"))
-		       (setf specs (parse-import-list)))
-	     (else '()))
+	     (|hiding| (parse-import-hiding (lambda (l) (setf specs l))))
+	     (else
+	      ;; Haskell 98: hiding is an identifier except here
+	      (when (at-varid-named? "hiding")
+		(advance-token)
+		(parse-import-hiding (lambda (l) (setf specs l))))))
 	    (let ((renamings (token-case (|renaming|
 					   (require-token
 					     \(
@@ -225,6 +226,12 @@
 				(qualified? qualified?) (as-name as-name)))))
    (else
     (signal-missing-token "<modid>" "import declaration"))))))
+
+;;; After `hiding': the list of hidden entities, passed to SET-SPECS.
+
+(define (parse-import-hiding set-specs)
+  (require-token \( (signal-missing-token "`('" "hiding clause"))
+  (funcall set-specs (parse-import-list)))
 
 ;;; `qualified' and `as' are ordinary identifiers except in these places.
 ;;; The scanner is at `qualified' / after the module name.

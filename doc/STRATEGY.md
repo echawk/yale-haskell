@@ -916,7 +916,7 @@ main = print (ord 'λ', chr 955)  -- λ = U+03BB = 955
 | Numeric | ✅ | `showHex`, `showOct`, `showEFloat`, etc. |
 | Char | ✅ | `isHexDigit` bug fixed |
 | List, Maybe | ✅ | Report code |
-| Monad | ❌ | Missing: no `lib/haskell98/Monad.hs` (found 2026-10-08; see M9) |
+| Monad | ✅ | Report code (`lib/haskell98/Monad.hs`, 2026-10-08) |
 | IO | ✅ | Handles, IOError, `catch`, `bracket` |
 | System | ✅ | `getArgs`, `exitWith`, `system` |
 | Directory | ✅ | All operations via `sb-posix` |
@@ -1162,8 +1162,8 @@ constructor classes, List/Char/Maybe/Ix/Numeric all matched):
 | # | Gap | Where | Effort |
 |---|---|---|---|
 | 1 | Layout rule `parse-error(t)`: `main = do …` then `where` at the statements' column is a parse error | parser (implicit block close on a parse error) | M |
-| 2 | `renaming`, `to`, `interface` are keywords in H98 mode (LG-IMPTEXP) | lexer/parser keyword table, gated on `h98-lexing` | S |
-| 3 | No `Monad` library module | `lib/haskell98/Monad.hs` from the Report | S |
+| 2 | ✅ `renaming`, `to`, `interface`, `hiding` are identifiers in H98 (`interface` stays a keyword in .hi files); test `syntax/free-keywords` | lexer (`h98-free-word?`), import parser | S |
+| 3 | ✅ `Monad` library from the Report; test `lib/monad` | `lib/haskell98/Monad.hs` | S |
 | 4 | The H98 Prelude exports 1.2 Dialogue I/O names (`appendChan`, `stdin`, `stdout`, `stderr`, `exit`, `done`, `abort`, …): `import IO` clashes, and defining those names is rejected.  Many of our own H98 tests still use them, so they need moving to a library (or rewriting) | Prelude export list; tests | M |
 | 5 | Defining a top-level name the Prelude exports is rejected; H98 5.5.2 allows it, an unqualified use is ambiguous (`prelude-name-clash` xfail) | import-export (PRELUDE-REDEFINITION) | M |
 | 6 | Polymorphic recursion with a signature (LG-POLYREC, `polymorphic-recursion` xfail) | type checker | M |

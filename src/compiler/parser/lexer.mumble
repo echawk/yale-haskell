@@ -371,9 +371,26 @@
      (advance-char)
      (lex-ncomment-1 start-line)))))
 
+;;; Haskell 98 reserves fewer words than 1.2: hiding, renaming, to and
+;;; interface are ordinary identifiers (hiding is recognised in import
+;;; declarations by the parser, like qualified and as).  interface stays
+;;; a keyword in interface (.hi) files, which begin with it.
+
+(define *lexing-interface?* '#f)
+
+(define (h98-free-word? sym)
+  (and (feature? 'h98-lexing)
+       (or (string=/list? sym "hiding")
+	   (string=/list? sym "renaming")
+	   (string=/list? sym "to")
+	   (and (string=/list? sym "interface")
+		(not (dynamic *lexing-interface?*))))))
+
 (define (lex-varid)
   (let ((sym (scan-var-con)))
    (cond
+    ((h98-free-word? sym)
+     (emit-token/string 'varid sym))
     ((and (feature? 'do-notation) (string=/list? sym "do"))
      (emit-token '|do|))
     ((and (feature? 'newtype) (string=/list? sym "newtype"))
