@@ -800,6 +800,17 @@ passing, and benchmark numbers recorded.
 | **P5 GRIN optimisations** ✅ | §5.4 items 1–3 (eval inlining, update elimination, unboxed returns), then 4–5 with representation types (§9) | Each with tests and benchmark deltas recorded.  The GRIN path stays in the repository on its merits (it is the base for later optimisations and other back ends), not only if it wins on the benchmarks; the old codegen is removed once GRIN is correct everywhere and not slower by more than noise |
 | **P6 Whole-program (optional)** | Link-time GRIN over all modules' FLIC with generated eval and points-to | Only if P5 leaves a large gap |
 
+> **P6 assessed (2026-10-08), not built.**  Whole-program compilation
+> needs no new format: a program compiles as extra modules of the
+> Prelude unit (one big let).  Measured with today's passes it is never
+> faster than separate compilation.  Compared with GHC 9.14 -O2,
+> compute benchmarks are within 1.5–2.6× (integrate faster), so P5
+> did not leave the large gap P6 is conditioned on; the one large gap
+> (ioloop, 6.7×) is in the I/O and text libraries.  The generated
+> `eval` and points-to analysis would also need lambda-lifted,
+> defunctionalised F-nodes (§5.2's deferred items) first.  Numbers:
+> bench/RESULTS.md.
+
 P0 and P1 can run alongside the H98 front-end work, because they do not
 touch the front end.  P2 changes runtime calling conventions that every
 `.hi` prim and runtime helper sees; do it in one focused effort.

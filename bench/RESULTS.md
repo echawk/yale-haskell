@@ -187,3 +187,44 @@ interp      0.50 0.50 0.53      0.17 0.18 0.17    2.9x
 ioloop      1.33 1.27 1.29      0.82 0.82 0.83    -36%
 bigint      0.75 0.74 0.74      0.19 0.19 0.20    3.8x
 ```
+
+## P6 feasibility: whole-program compilation, and the gap to GHC (2026-10-08)
+
+**Whole-program by source.**  A program can be compiled as extra modules
+of the Prelude unit (a `.hu` with `:prelude`, every Prelude source and
+`Main`), giving one big FLIC let for the optimizer and GRIN.  It works
+unchanged, but with today's passes it is never faster and sometimes
+slower than separate compilation.  Run-only CPU seconds (main only,
+same harness, two runs):
+
+```
+            separate        whole-program
+nfib        0.82 0.83       0.83 0.82
+queens      0.54 0.57       0.67 0.64
+sieve       0.05 0.05       0.19 0.16
+tree        0.60 0.58       0.77 0.65
+integrate   0.03 0.03       0.09 0.09
+ioloop      1.30 1.26       1.42 1.26
+bigint      0.19 0.20       0.31 0.31
+```
+
+**The gap to GHC 9.14** (same programs, `Data.Array` for `Array`), CPU
+seconds of the compiled program:
+
+```
+            Yale (run)   GHC -O0   GHC -O2
+nfib        0.82         8.5       0.42
+queens      0.55         2.95      0.21
+sieve       0.05         0.08      0.03
+tree        0.59         0.67      0.40
+wheel       0.01         0.07      0.01
+integrate   0.03         0.62      0.17
+interp      0.18         0.37      0.07
+ioloop      1.28         0.21      0.19
+bigint      0.20         0.14      0.11
+```
+
+Compute benchmarks are within 1.5-2.6x of GHC -O2 (integrate is faster,
+thanks to speculation); the one large gap is ioloop (6.7x), which is I/O,
+`lines` and `read` in the libraries, not something whole-program
+analysis addresses.
