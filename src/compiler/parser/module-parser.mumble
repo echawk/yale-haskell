@@ -197,10 +197,12 @@
 
 (define (parse-import)
  (save-parser-context
+  (let ((qualified? (parse-import-qualified)))
   (token-case
-   (modid (let ((mod (token->symbol))
-		(mode 'all)
-		(specs '()))
+   (modid (let* ((mod (token->symbol))
+		 (as-name (parse-import-as))
+		 (mode 'all)
+		 (specs '()))
 	    (token-case
 	     (\( (setf mode 'by-name)
 		 (token-case
@@ -219,9 +221,30 @@
 					   (parse-renamings))
 					 (else '()))))
 	      (make import-decl (module-name mod) (mode mode) (specs specs)
-		                (renamings renamings)))))
+		                (renamings renamings)
+				(qualified? qualified?) (as-name as-name)))))
    (else
-    (signal-missing-token "<modid>" "import declaration")))))
+    (signal-missing-token "<modid>" "import declaration"))))))
+
+;;; `qualified' and `as' are ordinary identifiers except in these places.
+;;; The scanner is at `qualified' / after the module name.
+
+(define (parse-import-qualified)
+  (if (and (feature? 'qualified-names) (at-varid-named? "qualified"))
+      (begin (advance-token) '#t)
+      '#f))
+
+(define (parse-import-as)
+  (if (and (feature? 'qualified-names) (at-varid-named? "as"))
+      (begin
+	(advance-token)
+	(token-case
+	 (modid (token->symbol))
+	 (else (signal-missing-token "<modid>" "import ... as"))))
+      '#f))
+
+(define (at-varid-named? name)
+  (and (eq? *token* 'varid) (string=? (car *token-args*) name)))
 
 (define (parse-import-list)
   (let ((import (parse-entity 'import)))

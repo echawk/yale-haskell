@@ -103,8 +103,10 @@ pointing at `lib/<dialect>/prelude`.
   record patterns, `C {}`, derived Show/Read, `T(C, f)` export lists;
   translated in the scope phase (`prec/scope.mumble`), feature `records`
 
+- Qualified names (M7): `M.x`, `M.C`, `M.+` tokens, `import qualified M
+  as N`, `Main.f`, `Prelude.x`; feature `qualified-names`
+
 **Remaining major work:**
-- `LG-QUALIFIED` — Qualified names (M7, not started)
 - `LG-POLYREC` — Polymorphic recursion (M9, not started)
 - `LG-UNICODE` — Unicode Char (M9, not started)
 - Various open bugs (see §Open Bugs)
@@ -400,10 +402,28 @@ showPoint (Point {px = x, py = y}) = "Point {px = " ++ show x ++ ", py = " ++ sh
 
 ---
 
-### LG-QUALIFIED: Qualified names, `import qualified … as`  *(M7 — NOT STARTED)*
+### LG-QUALIFIED: Qualified names, `import qualified … as`  *(M7)*
 
-**Status:** ❌ Missing.  Large feature (effort L).  Can start in parallel
-with M3–M6 but touches every name lookup.
+**Status:** ✅ Landed (2026-10-07).  As built, unlike the plan below:
+- The lexer (`lex-qualified`) makes `M.x`/`M.C`/`M.+`/`A.B.x` one token
+  of the *base* token type with the qualified text, so the parser needs
+  no new token categories and `import A.B` reads a dotted module name.
+- No two-level table: qualified names are entered in the module's symbol
+  table as the symbols `|M.x|` / `|;M.C|` (`qualify-name`,
+  `insert-qualified-definition` in `top/symbol-table.mumble`) by
+  `import-group` (using the import's `as` name; `qualified` imports skip
+  the unqualified entry) and by `create-top-definition` (the module's own
+  names).  Implicit-Prelude `Prelude.x` resolves through the base name
+  (`resolve-implicit-prelude-qualified`).  Fixity comes from the def, so
+  qualified operators keep it.  Nothing new is dumped in interfaces.
+- Known deviations from H98: `M..` is not a qualified `.` (so `[Red..]`
+  works); a name imported from two modules is an error at import time,
+  not only when used (as for unqualified names already); `module M` in an
+  export list re-exports M's names even when M was imported only
+  qualified; hierarchical module names lex, but `.hu`/file lookup does
+  not map `A.B` to a path.
+
+The plan's notes are kept for reference.
 
 **Where:**
 - **Lexer:** `src/compiler/parser/lexer.mumble` — `.` always lexes as an
@@ -1133,7 +1153,7 @@ The critical path is M3 → M4 → M5.  M3 and M4 are done.
 | M4 — Monadic IO | ✅ | M5 (Prelude I/O rebuild) |
 | M5 — Show/Read split | ✅ | — |
 | M6 — newtype, then records | ✅ | — |
-| M7 — Qualified names, module system | ❌ | — |
+| M7 — Qualified names, module system | ✅ (deviations in LG-QUALIFIED) | — |
 | M8 — System libraries | ✅ (follow-ups remain) | — |
 | M9 — Polymorphic recursion, Unicode, conformance | ❌ | — |
 

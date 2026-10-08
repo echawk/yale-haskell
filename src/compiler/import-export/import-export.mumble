@@ -44,6 +44,7 @@
   (if (null? imports)
       '()
       (let* ((import (car imports)))
+       (dynamic-let ((*current-import* import))
         (with-slots import-decl (module mode specs renamings) import
 	  (cond ((eq? *unit* (module-unit module))
 		 (cons import (process-non-local-imports (cdr imports))))
@@ -52,7 +53,7 @@
 		 (process-non-local-imports (cdr imports)))
 		(else
 		 (import-named-entities module specs renamings import)
-		 (process-non-local-imports (cdr imports))))))))
+		 (process-non-local-imports (cdr imports)))))))))
 
 (define (import-all-entities module hiding renamings import-decl)
   (table-for-each
@@ -83,11 +84,12 @@
 
 (define (locally-import)
   (dolist (import (module-imports *module*))
+   (dynamic-let ((*current-import* import))
     (with-slots import-decl (module mode specs renamings) import
       (if (eq? mode 'all)
 	  (import-fresh-entities import module specs renamings)
 	  (setf (import-decl-specs import)
-		(import-entities specs module renamings))))))
+		(import-entities specs module renamings)))))))
 
 (define (import-fresh-entities import module hiding renamings)
   (dolist (group (module-fresh-exports module))
@@ -114,11 +116,25 @@
 ;;; This imports a group into *module*.  module is the place the group is
 ;;; taken from.
 
+;;; The import declaration being processed (dynamically bound), for its
+;;; `qualified' and `as' parts.
+(define *current-import* '#f)
+
 (define (import-group group module)
   (when (memq module (module-exported-modules *module*))
     (export-group group))
-  (dolist (n-d group)
-    (insert-top-definition (tuple-2-1 n-d) (tuple-2-2 n-d))))
+  (let* ((import (dynamic *current-import*))
+	 (qualified-only? (and import (import-decl-qualified? import)))
+	 (qualifier (and import
+			 (feature? 'qualified-names)
+			 (or (import-decl-as-name import)
+			     (import-decl-module-name import)))))
+    (dolist (n-d group)
+      (when (not qualified-only?)
+	(insert-top-definition (tuple-2-1 n-d) (tuple-2-2 n-d)))
+      (when qualifier
+	(insert-qualified-definition
+	 (qualify-name qualifier (tuple-2-1 n-d)) (tuple-2-2 n-d))))))
 
 ;;; This takes as yet unresolved exports and moves them to the export table.
 

@@ -394,7 +394,38 @@
 
 (define (lex-conid)
   (let ((sym (scan-var-con)))
-    (emit-token/string 'conid sym)))
+    (if (and (char=? *char* #\.) (feature? 'qualified-names))
+	(lex-qualified sym)
+	(emit-token/string 'conid sym))))
+
+;;; Qualified names (report 2.4, 5.5.1): a conid immediately followed by
+;;; `.' and an identifier or symbol, with no space, is one token: M.x, M.C,
+;;; M.+, M.:+, and A.B.x.  The token has the type of its last part and the
+;;; whole qualified name as its text, so the parser needs no new token
+;;; types and dotted module names (import A.B) come out as one conid.
+;;; M.. is not taken as a qualified `.', so [False..] still works.
+;;; PREFIX is the characters read so far; *char* is the `.'.
+
+(define (lex-qualified prefix)
+  (char-case *peek-char*
+    (large
+     (advance-char)
+     (let ((q (append prefix (cons #\. (scan-var-con)))))
+       (if (char=? *char* #\.)
+	   (lex-qualified q)
+	   (emit-token/string 'conid q))))
+    (small
+     (advance-char)
+     (emit-token/string 'varid (append prefix (cons #\. (scan-var-con)))))
+    (#\.
+     (emit-token/string 'conid prefix))
+    ((symbol presymbol #\:)
+     (advance-char)
+     (let ((sym (scan-list-of (symbol presymbol #\:))))
+       (emit-token/string (if (char=? (car sym) #\:) 'consym 'varsym)
+			  (append prefix (cons #\. sym)))))
+    (else
+     (emit-token/string 'conid prefix))))
 
 (define (lex-consym)
   (let ((sym (if (feature? 'h98-lexing) (scan-symbol-98) (scan-symbol))))

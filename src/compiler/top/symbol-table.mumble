@@ -133,7 +133,72 @@
 (define (create-top-definition name type)
   (let ((def (create-definition *module* name type)))
     (insert-top-definition name def)
+    ;; A module's own top-level names are also M.x (report 5.5.1).
+    (when (feature? 'qualified-names)
+      (insert-qualified-definition (qualify-name *module-name* name) def))
     def))
+
+;;; Qualified names (report 5.5.1).  M.x is entered in the symbol table
+;;; as the symbol |M.x| (|;M.C| for a constructor, keeping the ; prefix
+;;; in front), next to the unqualified names, so lookups need no change.
+;;; The lexer produces the same spelling for a qualified name token.
+
+(define (qualify-name mod-name name)
+  (let ((m (symbol->string mod-name))
+	(n (symbol->string name)))
+    (string->symbol
+     (if (and (> (string-length n) 0) (char=? (string-ref n 0) #\;))
+	 (string-append ";" m "." (substring n 1 (string-length n)))
+	 (string-append m "." n)))))
+
+;;; The base name of a qualified name and its module, or #f for an
+;;; unqualified one: |M.x| -> x, M;  |;A.B.C| -> ;C, A.B.  The module is
+;;; the longest run of Conid segments each followed by `.' that leaves a
+;;; non-empty base name.
+
+(define (split-qualified-name name)
+  (let* ((s (symbol->string name))
+	 (n (string-length s))
+	 (start (if (and (> n 0) (char=? (string-ref s 0) #\;)) 1 0))
+	 (dot '#f)
+	 (i start))
+    ;; i is at the start of a segment; accept it as a module segment if it
+    ;; is a Conid followed by `.' and at least one more character.
+    (do ((done? '#f))
+	(done?)
+      (let ((end (conid-end s i)))
+	(if (and end (< (1+ end) n) (char=? (string-ref s end) #\.))
+	    (begin (setf dot end) (setf i (1+ end)))
+	    (setf done? '#t))))
+    (if (eq? dot '#f)
+	(values '#f '#f)
+	(values (string->symbol
+		 (string-append (if (eqv? start 1) ";" "")
+				(substring s (1+ dot) n)))
+		(string->symbol (substring s start dot))))))
+
+;;; The index just past the Conid starting at I in S, or #f.
+
+(define (conid-end s i)
+  (let ((n (string-length s)))
+    (if (or (>= i n) (not (char-upper-case? (string-ref s i))))
+	'#f
+	(do ((j (1+ i) (1+ j)))
+	    ((or (>= j n)
+		 (not (or (char-alphabetic? (string-ref s j))
+			  (char-numeric? (string-ref s j))
+			  (memv (string-ref s j) '(#\_ #\')))))
+	     j)))))
+
+;;; Enter a qualified name.  Unlike insert-top-definition this leaves the
+;;; inverted table alone: a def's local (printing) name stays unqualified.
+
+(define (insert-qualified-definition qname def)
+  (let ((old (table-entry *symbol-table* qname)))
+    (cond ((or (eq? old '#f) (eq? old def))
+	   (setf (table-entry *symbol-table* qname) def))
+	  (else
+	   (signal-multiple-import qname *module-name*)))))
 
 ;;; Interfaces have a special table which resolves imports in the
 ;;; interface.  Given a name in an interface module this returns the
@@ -272,10 +337,22 @@
 	  ((module-uses-standard-prelude? *module*)
 	   (let ((res (table-entry *prelude-symbol-table* name)))
 	     (if (eq? res '#f)
-		 (resolve-toplevel-name-1 name)
+		 (or (resolve-toplevel-name-1 name)
+		     (resolve-implicit-prelude-qualified name))
 		 res)))
 	  (else
 	   (resolve-toplevel-name-1 name)))))
+
+;;; Prelude.x when the Prelude is imported implicitly: its names are not
+;;; in the module's symbol table (they are looked up in the prelude
+;;; tables), so the qualified form is resolved through the base name.
+
+(define (resolve-implicit-prelude-qualified name)
+  (and (feature? 'qualified-names)
+       (mlet (((base mod) (split-qualified-name name)))
+	 (and (eq? mod '|Prelude|)
+	      (or (table-entry *prelude-core-symbols* base)
+		  (table-entry *prelude-symbol-table* base))))))
 
 (define (resolve-toplevel-name-1 name)
   (cond ((eq? (module-inherited-env *module*) '#f)

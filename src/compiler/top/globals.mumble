@@ -108,7 +108,9 @@
     ;; binding is allowed but not generalised (H98 4.5.5); 1.2 rejects it.
     (mr2-export          haskell98 #f)
     ;; field labels: declaration, construction, update, patterns
-    (records             haskell-1.3 #f)))
+    (records             haskell-1.3 #f)
+    ;; M.x names, import qualified ... as ...
+    (qualified-names     haskell-1.3 #f)))
 
 (define (dialect-from-environment)
   (let ((p (getenv "PRELUDE")))

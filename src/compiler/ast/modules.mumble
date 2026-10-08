@@ -167,6 +167,10 @@
    (specs (type (list entity)))
    ;; <renamings>, alist maps symbol -> symbol
    (renamings (type (list renaming)))
+   ;; import qualified M as N: names are entered only as N.x (qualified?)
+   ;; and N is the qualifier (as-name; default the module name)
+   (qualified? (type bool) (default '#f))
+   (as-name (type (maybe symbol)) (default '#f))
    ;; place to put corresponding module-ast; filled in by import/export.
    (module (type module) (uninitialized? #t))
    ))
