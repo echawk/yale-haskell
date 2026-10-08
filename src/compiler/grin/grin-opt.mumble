@@ -1,0 +1,245 @@
+;;; grin-opt.mumble -- optimisations on LGRIN (doc/EVAL-APPLY-GRIN.md, P5)
+;;;
+;;; Passes run between lowering and emission, each named in
+;;; *grin-optimizations*.  grin-rewrite! is the generic bottom-up walker
+;;; they share.
+
+(define *grin-optimizations* '(fold speculate))
+
+;;; A top-level value's body runs when the module is loaded, outside the
+;;; program's float-trap masking (call-with-ieee-floats), so it is not
+;;; speculated: inf = 1 / 0 must stay suspended until main runs.
+
+(define (grin-optimize prog)
+  (dolist (def (grin-prog-defs prog))
+    (dynamic-let ((*grin-optimizations*
+		   (if (eq? (grin-def-kind def) 'value)
+		       (lisp:remove 'speculate (dynamic *grin-optimizations*))
+		       (dynamic *grin-optimizations*))))
+      (setf (grin-def-body def) (grin-optimize-walk (grin-def-body def) '()))))
+  prog)
+
+;;; Rewrites read variables early, so they must not touch one that may
+;;; not be initialized yet (as box analysis's UNINITIALIZED): a top-level
+;;; name (top-level values are initialized in order) or, inside the
+;;; right-hand sides of a recursive group, the group's own names.  The
+;;; walk carries those of the second kind in UNSAFE.
+
+(define (grin-optimize-walk node unsafe)
+  (if (and (grin-letrec? node) (grin-letrec-recursive? node))
+      (let ((inner  (append (map (lambda (b)
+				   (if (grin-fundef? b)
+				       (grin-fundef-name b)
+				       (grin-valbind-name b)))
+				 (grin-letrec-bindings node))
+			    unsafe)))
+	(dolist (b (grin-letrec-bindings node))
+	  (if (grin-fundef? b)
+	      (setf (grin-fundef-body b) (grin-optimize-walk (grin-fundef-body b) inner))
+	      (setf (grin-valbind-rhs b) (grin-optimize-walk (grin-valbind-rhs b) inner))))
+	(setf (grin-letrec-body node) (grin-optimize-walk (grin-letrec-body node) unsafe))
+	node)
+      (begin
+	(grin-map-children! node (lambda (c) (grin-optimize-walk c unsafe)))
+	(grin-optimize-node node unsafe))))
+
+;;; Each node, children first: fold constants, then speculate.
+
+(define (grin-optimize-node node unsafe)
+  (when (memq 'fold (dynamic *grin-optimizations*))
+    (setf node (grin-fold node)))
+  (when (memq 'speculate (dynamic *grin-optimizations*))
+    (setf node (grin-speculate node unsafe)))
+  node)
+
+;;; A local variable that is certainly initialized.  Top-level names are
+;;; interned symbols; local ones are gensyms.
+
+(define (grin-safe-var? name unsafe)
+  (and (gensym? name) (not (memq name unsafe))))
+
+
+;;;; Constant folding
+
+;;; A floating-point literal reaches the code as (encode-double m e) with
+;;; literal m and e; compute it here.  (It is not speculated instead: it
+;;; can fail for a huge m.)
+
+(define (grin-fold node)
+  (if (and (grin-call? node)
+	   (memq (grin-call-fn node) '(prim.encode-double prim.encode-float))
+	   (every-1 (function grin-lit?) (grin-call-args node))
+	   (every-1 (lambda (a) (integer? (grin-lit-value a))) (grin-call-args node)))
+      (let ((value  (lisp:ignore-errors
+		     (lisp:funcall (lisp:symbol-function (grin-call-fn node))
+				   (grin-lit-value (car (grin-call-args node)))
+				   (grin-lit-value (cadr (grin-call-args node)))))))
+	(if (float? value)
+	    (make-grin-lit value)
+	    node))
+      node))
+
+
+;;;; Generic rewriting
+
+;;; Rewrite NODE bottom up: each child is replaced by its rewrite, then F
+;;; is applied to the node itself; returns F's result.
+
+(define (grin-rewrite! node f)
+  (grin-map-children! node (lambda (c) (grin-rewrite! c f)))
+  (funcall f node))
+
+(define (grin-map-children! node g)
+  (cond ((grin-call? node)
+	 (setf (grin-call-args node) (map g (grin-call-args node))))
+	((grin-apply? node)
+	 (setf (grin-apply-fn node) (funcall g (grin-apply-fn node)))
+	 (setf (grin-apply-args node) (map g (grin-apply-args node))))
+	((grin-eval? node)
+	 (setf (grin-eval-arg node) (funcall g (grin-eval-arg node))))
+	((grin-delay? node)
+	 (setf (grin-delay-body node) (funcall g (grin-delay-body node))))
+	((grin-store? node)
+	 (setf (grin-store-args node) (map g (grin-store-args node))))
+	((grin-fetch? node)
+	 (setf (grin-fetch-arg node) (funcall g (grin-fetch-arg node))))
+	((grin-is-con? node)
+	 (setf (grin-is-con-arg node) (funcall g (grin-is-con-arg node))))
+	((grin-tag? node)
+	 (setf (grin-tag-arg node) (funcall g (grin-tag-arg node))))
+	((grin-lambda? node)
+	 (setf (grin-lambda-body node) (funcall g (grin-lambda-body node))))
+	((grin-bind? node)
+	 (setf (grin-bind-rhs node) (funcall g (grin-bind-rhs node)))
+	 (setf (grin-bind-body node) (funcall g (grin-bind-body node))))
+	((grin-letrec? node)
+	 (dolist (b (grin-letrec-bindings node))
+	   (if (grin-fundef? b)
+	       (setf (grin-fundef-body b) (funcall g (grin-fundef-body b)))
+	       (setf (grin-valbind-rhs b) (funcall g (grin-valbind-rhs b)))))
+	 (setf (grin-letrec-body node) (funcall g (grin-letrec-body node))))
+	((grin-case? node)
+	 (setf (grin-case-scrutinee node) (funcall g (grin-case-scrutinee node)))
+	 (setf (grin-case-alts node)
+	       (map (lambda (alt) (tuple (tuple-2-1 alt) (funcall g (tuple-2-2 alt))))
+		    (grin-case-alts node)))
+	 (setf (grin-case-default node) (funcall g (grin-case-default node))))
+	((grin-if? node)
+	 (setf (grin-if-test node) (funcall g (grin-if-test node)))
+	 (setf (grin-if-then node) (funcall g (grin-if-then node)))
+	 (setf (grin-if-else node) (funcall g (grin-if-else node))))
+	((grin-block? node)
+	 (setf (grin-block-exps node) (map g (grin-block-exps node))))
+	((grin-exit? node)
+	 (setf (grin-exit-exp node) (funcall g (grin-exit-exp node))))
+	((grin-and? node)
+	 (setf (grin-and-exps node) (map g (grin-and-exps node))))
+	(else
+	 ;; atoms, constructor values, void, all-evaluated: no children
+	 '#f))
+  node)
+
+
+;;;; Speculation (dynamic cheap eagerness)
+
+;;; A suspension of a small expression of cheap, total primitives --
+;;; Int and Char arithmetic and comparisons, and in Haskell 98 (float
+;;; traps masked) Float and Double arithmetic -- over literals and
+;;; variables is computed at once when every variable it would force is
+;;; already evaluated, and suspended otherwise:
+;;;     delay e   ==>   if (all-evaluated v...) e' (delay e)
+;;; where e' knows the v are evaluated.  Lazy accumulators (x' = x + dx
+;;; in a loop) then stay evaluated instead of building chains of thunks.
+;;; The value is the same either way; only when it is computed differs,
+;;; and the work is bounded by *speculation-limit* primitive calls.
+;;; (A simple form of optimistic evaluation, Ennals & Peyton Jones 2003.)
+
+(define *speculation-limit* 8)
+
+(define *speculable-int-prims*
+  '(prim.plus-int prim.minus-int prim.mul-int prim.neg-int prim.abs-int
+    prim.eq-int prim.not-eq-int prim.le-int prim.not-le-int prim.lt-int
+    prim.not-lt-int prim.even-int prim.odd-int
+    prim.eq-char prim.not-eq-char prim.le-char prim.not-le-char
+    prim.lt-char prim.not-lt-char prim.char-to-int prim.int-to-char))
+
+(define *speculable-float-prims*
+  '(prim.plus-double prim.minus-double prim.mul-double prim.div-double
+    prim.neg-double prim.abs-double prim.sqrt-double
+    prim.eq-double prim.not-eq-double prim.le-double prim.not-le-double
+    prim.lt-double prim.not-lt-double
+    prim.plus-float prim.minus-float prim.mul-float prim.div-float
+    prim.neg-float prim.abs-float prim.sqrt-float
+    prim.eq-float prim.not-eq-float prim.le-float prim.not-le-float
+    prim.lt-float prim.not-lt-float))
+
+(define (speculable-prim? fn)
+  (or (memq fn *speculable-int-prims*)
+      (and (haskell98?) (memq fn *speculable-float-prims*))))
+
+(define (grin-speculate node unsafe)
+  (if (grin-delay? node)
+      (let ((body  (grin-delay-body node)))
+	(cond ((grin-lit? body)
+	       ;; a suspended literal: the literal
+	       body)
+	      ((and (grin-var? body) (eq? (grin-var-rep body) 'whnf)
+		    (grin-safe-var? (grin-var-name body) unsafe))
+	       ;; a suspended evaluated variable: its value
+	       body)
+	      ((and (grin-eval? body) (grin-var? (grin-eval-arg body))
+		    (grin-safe-var? (grin-var-name (grin-eval-arg body)) unsafe))
+	       ;; a thunk forcing v: v itself
+	       (grin-eval-arg body))
+	      (else
+	       (mlet (((ok? vars calls) (grin-speculable body '() 0 unsafe)))
+		 (if (and ok? (> calls 0) (<= calls (dynamic *speculation-limit*)))
+		     (let ((eager  (grin-copy-speculable body)))
+		       (if (null? vars)
+			   eager
+			   (make-grin-if (make-grin-all-evaluated (reverse vars))
+					 eager
+					 node)))
+		     node)))))
+      node))
+
+;;; Returns whether E is speculable, the variables it forces, and the
+;;; number of primitive calls in it.
+
+(define (grin-speculable e vars calls unsafe)
+  (cond ((grin-lit? e)
+	 (values (number? (grin-lit-value e)) vars calls))
+	((grin-var? e)
+	 (values (and (eq? (grin-var-rep e) 'whnf)
+		      (grin-safe-var? (grin-var-name e) unsafe))
+		 vars calls))
+	((and (grin-eval? e) (grin-var? (grin-eval-arg e)))
+	 (let ((name  (grin-var-name (grin-eval-arg e))))
+	   (values (grin-safe-var? name unsafe)
+		   (if (or (grin-eval-known-evaluated? e) (memq name vars))
+		       vars
+		       (cons name vars))
+		   calls)))
+	((and (grin-call? e) (speculable-prim? (grin-call-fn e)))
+	 (grin-speculable-list (grin-call-args e) vars (1+ calls) unsafe))
+	(else
+	 (values '#f vars calls))))
+
+(define (grin-speculable-list es vars calls unsafe)
+  (if (null? es)
+      (values '#t vars calls)
+      (mlet (((ok? vars1 calls1) (grin-speculable (car es) vars calls unsafe)))
+	(if ok?
+	    (grin-speculable-list (cdr es) vars1 calls1 unsafe)
+	    (values '#f vars1 calls1)))))
+
+;;; A copy of a speculable expression in which every eval is of a value
+;;; known to be evaluated.
+
+(define (grin-copy-speculable e)
+  (cond ((grin-eval? e)
+	 (make-grin-eval (grin-eval-arg e) '#t))
+	((grin-call? e)
+	 (make-grin-call (grin-call-fn e) (map (function grin-copy-speculable)
+					       (grin-call-args e))))
+	(else e)))

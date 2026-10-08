@@ -161,3 +161,29 @@ bigint      1.70 1.81 1.84      0.50 0.56 0.50    3.4x
 tree        1.72 1.68 1.79      1.22 1.15 1.06    -32%
 queens      1.32 1.32 1.44      1.12 1.16 1.17    -15%
 ```
+
+## P5 complete: speculation and constant folding (2026-10-08)
+
+GRIN passes (src/compiler/grin/grin-opt.mumble): `encode-double`
+of literals folded at compile time; `delay` of a literal, of an
+evaluated variable, or of `eval v` removed; and speculation (dynamic
+cheap eagerness): a suspended small expression of total Int/Char (and,
+in Haskell 98, Float/Double) primitives is computed at once when its
+inputs are already evaluated.  Lazy numeric accumulators (integrate's
+orbit) stay evaluated: allocation 213 MB -> 65 MB.
+
+Final P4 (9e60a16) vs P5, CPU seconds (user+sys, whole process), machine
+quiet (load ~2.7), alternating:
+
+```
+            P4                  P5
+nfib        0.60 0.65 0.64      0.62 0.62 0.65
+queens      0.58 0.55 0.55      0.45 0.44 0.46    -20%
+sieve       0.73 0.75 0.73      0.10 0.09 0.10    7x
+tree        0.64 0.63 0.63      0.37 0.38 0.40    -40%
+wheel       0.51 0.52 0.52      0.06 0.06 0.07    8x
+integrate   0.24 0.24 0.24      0.07 0.07 0.07    3.4x
+interp      0.50 0.50 0.53      0.17 0.18 0.17    2.9x
+ioloop      1.33 1.27 1.29      0.82 0.82 0.83    -36%
+bigint      0.75 0.74 0.74      0.19 0.19 0.20    3.8x
+```

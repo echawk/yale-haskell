@@ -136,6 +136,10 @@
 (define-grin grin-con-value
   (con (type con)))
 
+;;; BOOL: are all of these PTR variables evaluated already?
+(define-grin grin-all-evaluated
+  (names (type (list symbol))))
+
 ;;; An anonymous function value.
 (define-grin grin-lambda
   (params (type (list symbol)))

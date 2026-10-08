@@ -73,6 +73,9 @@
 (define-grin->sexp grin-con-value (object)
   (con-name (grin-con-value-con object)))
 
+(define-grin->sexp grin-all-evaluated (object)
+  `(all-evaluated ,@(grin-all-evaluated-names object)))
+
 (define-grin->sexp grin-lambda (object)
   `(lambda ,(map (lambda (p s) (if s p `(lazy ,p)))
 		 (grin-lambda-params object) (grin-lambda-strictness object))

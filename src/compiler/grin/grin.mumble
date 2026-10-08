@@ -19,6 +19,9 @@
   (unit grin-lower
 	(source-filename "grin-lower.mumble")
 	(require grin-structs))
+  (unit grin-opt
+	(source-filename "grin-opt.mumble")
+	(require grin-structs))
   (unit grin-emit
 	(source-filename "grin-emit.mumble")
 	(require grin-structs)))

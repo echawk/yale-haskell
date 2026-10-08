@@ -467,6 +467,35 @@ specialises.  Yale compiles modules separately, so:
 Leave the heap-points-to analysis, interprocedural sparse-case and
 generated eval to the whole-program mode.
 
+> **As built (P5, 2026-10-08).**  Profiling (`make profile
+> FILE=…`) came first, and redirected the work: the FLIC optimizer
+> and box analysis already remove most of what items 1–2 target (in
+> the Prelude only 34 `eval`s are redundant and one `let` thunk is used
+> once).  What was done:
+>
+> - **Eval inlining at emission:** `eval` is the inline
+>   `force-inline` test; only a thunk calls `force-thunk`.
+> - **Constant folding:** `encode-double`/`encode-float` of literals.
+> - **Trivial suspensions:** `delay` of a literal, of an evaluated
+>   variable, or of `eval v` (which is `v`).
+> - **Speculation (dynamic cheap eagerness, not in the list above):**
+>   `delay e` with `e` at most eight total primitive calls over
+>   literals and variables becomes `if (all-evaluated v…) e' (delay e)`.
+>   It keeps lazy accumulators evaluated (integrate 3.4×).  Float
+>   primitives only in Haskell 98 (traps masked), and never in a
+>   top-level value (evaluated at load time, before masking).
+> - **Uninitialized variables:** passes that read a variable early skip
+>   top-level names and a recursive group's own names inside its
+>   right-hand sides, as box analysis does.
+>
+> The biggest wins were outside the IR, found by the same profiles:
+> `Integral Int/Integer` methods were the Report's class defaults (now
+> primitives), `even`/`odd` likewise, `show` on Integer was quadratic,
+> and string literals built a thunk per character.  Items 3–5 (unboxed
+> returns, worker/wrapper with representation types, arity raising)
+> were not needed by any benchmark profile and remain open.
+> Results: bench/RESULTS.md.
+
 ### 5.5 Lowering FLIC → GRIN
 
 Lowering runs after `strictness` (which includes box analysis), using its
@@ -768,7 +797,7 @@ passing, and benchmark numbers recorded.
 | **P2 Eval/apply** ✅ | `fun`, `pap`, `apply-1…4/n`, `/STD` entries, preallocated nullary constructors; codegen emits `apply-k` for unknown calls (§3) | Tests green; no `&rest` in the runtime's call path; higher-order benchmarks faster |
 | **P3 Case** ✅ | Recover `case` from match chains and emit CL `case` (§5.5, §6.5) — still in the old codegen | Tests green; dispatch-heavy benchmarks faster |
 | **P4 GRIN IR** ✅ | `src/compiler/grin/` structs, printer, FLIC→GRIN lowering, GRIN→CL emission reproducing P1–P3 output; `*backend*` switch; the `grin` printer in `*printers*` | Both backends pass all tests; output equivalent |
-| **P5 GRIN optimisations** | §5.4 items 1–3 (eval inlining, update elimination, unboxed returns), then 4–5 with representation types (§9) | Each with tests and benchmark deltas recorded.  The GRIN path stays in the repository on its merits (it is the base for later optimisations and other back ends), not only if it wins on the benchmarks; the old codegen is removed once GRIN is correct everywhere and not slower by more than noise |
+| **P5 GRIN optimisations** ✅ | §5.4 items 1–3 (eval inlining, update elimination, unboxed returns), then 4–5 with representation types (§9) | Each with tests and benchmark deltas recorded.  The GRIN path stays in the repository on its merits (it is the base for later optimisations and other back ends), not only if it wins on the benchmarks; the old codegen is removed once GRIN is correct everywhere and not slower by more than noise |
 | **P6 Whole-program (optional)** | Link-time GRIN over all modules' FLIC with generated eval and points-to | Only if P5 leaves a large gap |
 
 P0 and P1 can run alongside the H98 front-end work, because they do not

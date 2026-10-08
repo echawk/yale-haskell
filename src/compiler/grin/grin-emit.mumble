@@ -112,6 +112,10 @@
    (grin-lambda-strictness object)))
 
 
+(define-grin-emit grin-all-evaluated (object)
+  `(and ,@(map (lambda (v) `(forced? ,v)) (grin-all-evaluated-names object))))
+
+
 ;;;; Expressions
 
 (define-grin-emit grin-bind (object)

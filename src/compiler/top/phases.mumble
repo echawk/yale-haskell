@@ -205,6 +205,7 @@
 (predefine (codegen-prim-entries x))  ; ditto
 
 (predefine (grin-lower-top x))  ; in grin/grin-lower.mumble
+(predefine (grin-optimize x))   ; in grin/grin-opt.mumble
 (predefine (grin-emit-top x))   ; in grin/grin-emit.mumble
 (predefine (print-grin-prog x)) ; in grin/grin-print.mumble
 
@@ -222,7 +223,7 @@
 
 (define (haskell-grin big-let)
   (phase-body grin
-    (grin-lower-top big-let)
+    (grin-optimize (grin-lower-top big-let))
     (function print-grin-prog)))
 
 	       
