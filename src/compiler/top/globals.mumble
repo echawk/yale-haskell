@@ -103,7 +103,10 @@
     ;; lexical differences of Haskell 98
     (h98-lexing          haskell98 #f)
     (headerless-main     haskell98 #f)
-    (fixity-anywhere     haskell98 #f)))
+    (fixity-anywhere     haskell98 #f)
+    ;; monomorphism restriction rule 2: an exported restricted (pattern)
+    ;; binding is allowed but not generalised (H98 4.5.5); 1.2 rejects it.
+    (mr2-export          haskell98 #f)))
 
 (define (dialect-from-environment)
   (let ((p (getenv "PRELUDE")))

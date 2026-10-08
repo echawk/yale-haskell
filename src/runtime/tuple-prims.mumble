@@ -64,9 +64,15 @@
  (lambda dicts
    (tupleOrdDict/l dicts)))
 
+;;; Whether the Ord class declares a `compare' method.  Read from the
+;;; class definition rather than branching on the dialect (invariant 2):
+;;; H98's Ord adds compare; 1.2's does not.
+(define (ord-has-compare? ord)
+  (memq '|compare| (map (function def-name) (class-method-vars ord))))
+
 (define (tupleOrdDict/l d)
   (let ((ord (core-symbol "Ord")))
-    (if (haskell98?)
+    (if (ord-has-compare? ord)
 	;; Haskell 98: compare is the last method
 	(create-dict d
 	 (|PreludeTuple:tupleLe| |PreludeTuple:tupleLeq|

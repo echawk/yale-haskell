@@ -29,8 +29,9 @@
      (let ((var (var-ref-var var-ref)))
       ;; Haskell 98 (rule 2 of the monomorphism restriction) lets a
       ;; restricted binding be exported: its type variables are
-      ;; defaulted when the whole module has been checked.
-      (when (and (def-exported? var) (not (haskell98?)))
+      ;; defaulted when the whole module has been checked.  Gate on the
+      ;; feature, not the dialect, so the 1.2 error path is explicit.
+      (when (and (def-exported? var) (not (feature? 'mr2-export)))
 	(recoverable-error 'exported-pattern-binding
            "Can't export pattern binding of ~A~%" var-ref))
       (when (not (eq? (var-signature var) '#f))
