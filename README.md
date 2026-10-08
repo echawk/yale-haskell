@@ -13,9 +13,13 @@ host Lisp compiler.
 
 ## Building
 
-You need [SBCL](https://www.sbcl.org) (tested with 2.6) and `make`.
+You need [SBCL](https://www.sbcl.org) (tested with 2.6), `make`, and
+[ocicl](https://github.com/ocicl/ocicl) for the Lisp libraries the
+command line uses (clingon; cl-unicode for upcoming Unicode support),
+pinned in `ocicl.csv`.
 
 ```sh
+make deps       # ocicl install: fetch the Lisp libraries into ocicl/
 make            # compiler, prelude, and the build/sbcl/yale-haskell executable
 make test       # run the test suite
 make clean      # remove build/
@@ -26,9 +30,22 @@ Build logs are written to `build/sbcl/logs/`.
 ## Running
 
 ```sh
-bin/yale-haskell examples/demo/queens.hs   # compile a program and run Main.main
-bin/yale-haskell                        # interactive command interface (:? for help)
+bin/yale-haskell examples/demo/queens.hs        # compile a program and run Main.main
+bin/yale-haskell --haskell98 prog.hs a b        # Haskell 98; a b are getArgs
+bin/yale-haskell --haskell98                    # the interactive system
+bin/yale-haskell --haskell98 repl prog.hs       # ... with prog.hs loaded
+bin/yale-haskell --haskell98 -e 'sum [1..100]'  # evaluate and exit
+bin/yale-haskell --help                         # options: --backend, --printers, ...
 ```
+
+The interactive system works like GHCi: type an expression to evaluate
+it (an `IO` action is run), a definition (`x = ...`, `f x = ...`,
+`data ...`, `let ...`) to keep it, or `import M`; commands include
+`:type`, `:load`, `:reload`, `:browse`, `:info`, `:module`, `:set +t`,
+`:set +s`, `:{ ... :}` and `:quit`, plus Yale Haskell's own `:grin`,
+`:lisp` and `:flic` (show an expression's intermediate or generated
+code), `:set backend`, `:set printers` and `:profile`.  `:?` lists
+them.  With `rlwrap` installed it has line editing and history.
 
 Programs use Haskell 1.2 conventions: `main` is a `Dialogue`, e.g.
 

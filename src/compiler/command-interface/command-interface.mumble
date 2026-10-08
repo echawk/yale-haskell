@@ -8,4 +8,7 @@
   (unit command-utils
     (source-filename "command-utils.mumble"))
   (unit incremental-compiler
-    (source-filename "incremental-compiler.mumble")))
+    (source-filename "incremental-compiler.mumble"))
+  (unit repl
+    (source-filename "repl.mumble")
+    (require command command-utils incremental-compiler)))

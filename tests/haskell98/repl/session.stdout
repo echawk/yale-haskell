@@ -1,0 +1,43 @@
+Main> 7
+Main> 5050
+Main> 
+map :: (a -> b) -> [a] -> [b]
+Main> 
+1 + 2 :: Num a => a
+Main> hello
+Main> 42
+Main> 
+Main> 10
+Main> 
+Main> 14
+Main> 
+Main> 2432902008176640000
+Main> 
+| 
+| 
+| 
+Main> 610
+Main> 
+Main> [1,2,3]
+Main> [UNDEFINED-MODULE-IMPORT] Fatal error in phase IMPORT:
+Cannot find module NoSuchModule, imported by module Main.
+No unit this one imports defines it, and none of NoSuchModule.hu, NoSuchModule.hs or
+NoSuchModule.lhs next to the importing file, nor $HASKELL_LIBRARY/NoSuchModule.hu, exists.
+Main> [1,2]
+Main> Haskell runtime abort.
+head{PreludeList}: head []
+Main> "still here"
+Main> 
+Ok, modules loaded: Main.
+Main> 49
+Main> [3.141592653589793,6.0]
+Main> Circle :: Double -> Shape
+Rect :: Double -> Double -> Shape
+data Shape
+area :: Shape -> Double
+main :: IO ()
+square :: Int -> Int
+Main> area :: Shape -> Double
+  -- defined in module Main
+Main> [1,4,9,16,25]
+Main> Leaving Yale Haskell.

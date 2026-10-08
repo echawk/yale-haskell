@@ -159,7 +159,7 @@
       ;; The interactive interface separates program output from its
       ;; prompt; a batch run prints exactly the program's output.
       (when (not *haskell-batch-mode*)
-	(say "~%"))
+	(fresh-line (current-output-port)))
       (when (memq 'time *printers*)
 	 (say "Execution time: ~A seconds~%" sec)))
    'done)

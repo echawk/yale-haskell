@@ -1,5 +1,6 @@
 # Makefile for Yale Haskell.
 #
+#   make deps       fetch the Lisp libraries (ocicl install; see ocicl.csv)
 #   make            build the compiler and an executable for each dialect
 #   make test       run the test suite (tests/README.md)
 #   make bench      time the benchmark programs (bench/README.md)
@@ -46,7 +47,7 @@ define step
 	  echo "*** $(1) failed; full log in $(LOGS)/$(1).log"; exit 1; }
 endef
 
-.PHONY: all compiler test bench profile clean ref $(DIALECTS)
+.PHONY: all compiler test bench profile clean ref deps $(DIALECTS)
 .SECONDEXPANSION:
 .SECONDARY:
 
@@ -77,6 +78,9 @@ $(BUILD)/%/.prelude-stamp: $(BUILD)/.compiler-stamp $$(wildcard lib/%/prelude/*)
 
 $(BUILD)/%/yale-haskell: $(BUILD)/%/.prelude-stamp
 	$(call step,$*-image,env $(call dialect_env,$*) $(RUN_SBCL) --load tools/build/image.lisp $(Y2)/$@)
+
+deps:
+	ocicl install
 
 test: all
 	@tests/run-tests

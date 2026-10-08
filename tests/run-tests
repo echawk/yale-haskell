@@ -18,6 +18,7 @@ cd "$(dirname "$0")/.." || exit 1
 run_one() {
   n=$1 hs=$2
   base=${hs%.hs}
+  case "$hs" in *.repl) base=${hs%.repl} ;; esac
   res=$RT_TMP/$n.res out=$RT_TMP/$n.out err=$RT_TMP/$n.err
   rel=${hs#tests/}
   dialect=${rel%%/*}
@@ -28,10 +29,20 @@ run_one() {
     [ -n "$want" ] || want=0
   fi
 
-  perl -e 'alarm shift; exec @ARGV' "$RT_LIMIT" \
-    env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell "$hs" \
-    < "$in" > "$out" 2> "$err"
-  status=$?
+  case "$hs" in
+    *.repl)
+      # an interactive session: the .repl file is typed at the prompt;
+      # the banner (version, back end) is not compared
+      perl -e 'alarm shift; exec @ARGV' "$RT_LIMIT" \
+        env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell repl \
+        < "$hs" 2> "$err" | sed 1d > "$out"
+      status=$? ;;
+    *)
+      perl -e 'alarm shift; exec @ARGV' "$RT_LIMIT" \
+        env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell "$hs" \
+        < "$in" > "$out" 2> "$err"
+      status=$? ;;
+  esac
   why=""
   if [ $status -ne "$want" ]; then
     why="exit $status"
@@ -84,11 +95,12 @@ RT_TMP=$(mktemp -d "${TMPDIR:-/tmp}/yh-tests.XXXXXX") || exit 1
 trap 'rm -rf "$RT_TMP"' EXIT
 export RT_TMP RT_LIMIT RT_VERBOSE
 
-# Collect the tests: .hs files with a .stdout or .exit, under a dialect
-# directory.
+# Collect the tests: .hs files (programs) and .repl files (interactive
+# sessions) with a .stdout or .exit, under a dialect directory.
 n=0
-for hs in $(find "$@" -name '*.hs' | sort); do
-  [ -f "${hs%.hs}.stdout" ] || [ -f "${hs%.hs}.exit" ] ||
+for hs in $(find "$@" -name '*.hs' -o -name '*.repl' | sort); do
+  b=${hs%.hs}; b=${b%.repl}
+  [ -f "$b.stdout" ] || [ -f "$b.exit" ] ||
     continue                                   # helper module, not a test
   rel=${hs#tests/}
   case "${rel%%/*}" in haskell-1.2|haskell98) ;; *) continue ;; esac

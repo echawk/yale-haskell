@@ -17,6 +17,9 @@ tests/<dialect>/<area>/<name>.stdout    expected stdout, byte for byte
 tests/<dialect>/<area>/<name>.exit      expected exit status (optional; default 0)
 tests/<dialect>/<area>/<name>.stdin     stdin for the program (optional)
 tests/<dialect>/<area>/<name>.xfail     marks an expected failure; first line = reason
+tests/<dialect>/<area>/<name>.repl      an interactive session instead of a program:
+                                        typed at `yale-haskell repl`; stdout (minus the
+                                        banner line) is compared with <name>.stdout
 ```
 
 - `<dialect>` is `haskell-1.2` or `haskell98`; the test is run with

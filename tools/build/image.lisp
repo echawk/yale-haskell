@@ -60,22 +60,27 @@
     (sb-ext:exit :code status :abort '#t)))
 
 
-(define (haskell-toplevel)
-  (setf lisp:*package* (lisp:find-package "MUMBLE-USER"))
-  (setf lisp:*readtable* mumble-implementation:*mumble-readtable*)
-  (let ((args (cdr sb-ext:*posix-argv*)))
-    (if (pair? args)
-	(begin
-	  (setf *printers* '())
-	  (batch-run (car args) (cdr args)))
-	(begin
-	  (load-init-files)
-	  (do () ('#f)
-	    (lisp:with-simple-restart (restart-haskell "Restart Haskell.")
-	      (heval)))))))
+;;; The command line (src/cli/cli.lisp, plain CL over clingon, installed
+;;; with ocicl) is the executable's entry point.
 
-(define (restart-haskell)
-  (lisp:invoke-restart 'restart-haskell))
+(lisp:require :asdf)
+(asdf:initialize-source-registry
+ `(:source-registry (:tree ,(lisp:merge-pathnames "ocicl/" (lisp:truename "./")))
+		    :inherit-configuration))
+(lisp:handler-case (asdf:load-system :clingon)
+  (lisp:error (c)
+    (lisp:format lisp:*error-output*
+		 "~&Cannot load clingon (~a).~%Run `ocicl install' in the source directory.~%" c)
+    (sb-ext:exit :code 1)))
+;;; cli.lisp is plain CL: compile it in CL-USER with the standard readtable.
+(lisp:let ((lisp:*package* (lisp:find-package "CL-USER"))
+	   (lisp:*readtable* (lisp:copy-readtable lisp:nil)))
+  (lisp:load (lisp:compile-file "src/cli/cli.lisp"
+				:output-file (lisp:merge-pathnames
+					      "build/sbcl/cli.fasl" (lisp:truename "./")))))
+
+(define (haskell-toplevel)
+  (lisp:funcall (lisp:find-symbol "MAIN" "YALE-HASKELL-CLI")))
 
 (sb-ext:save-lisp-and-die (car (last sb-ext:*posix-argv*))
   :toplevel 'haskell-toplevel

@@ -1,0 +1,696 @@
+;;; repl.mumble -- the interactive system: a read-eval-print loop in the
+;;; style of GHCi, over the incremental compiler (incremental-compiler.mumble)
+;;;
+;;; At the prompt:
+;;;   an expression       is evaluated; an IO action is run (and a result
+;;;                       other than () printed), anything else printed
+;;;   a definition        (x = ..., f x = ..., data/type/class/instance,
+;;;                       let without in) is kept for later input
+;;;   import M            adds an import (to the scratch module)
+;;;   :command            see repl-help below
+;;; Expressions and definitions are compiled as extensions of the current
+;;; module, so they see all its top-level names, as with GHCi's *M.
+
+(define *repl-module* '|Main|)        ; module the prompt works in
+(define *repl-files* '())             ; files given to :load, for :reload
+(define *repl-imports* '())           ; imports added at the prompt
+(define *repl-definitions* '())       ; definitions entered, newest first
+(define *repl-show-type?* '#f)        ; :set +t
+(define *repl-stats?* '#f)            ; :set +s
+(define *repl-counter* 0)
+(define *repl-commands* '())          ; (names help function), in order
+(define *repl-quit?* '#f)
+
+
+;;;; The loop
+
+;;; Output uses CL's format (mumble's format lacks ~{, ~(, ~:D, ...).
+
+(define (repl-say fmt . args)
+  (lisp:apply (function lisp:format) (current-output-port) fmt args))
+
+(define (repl files)
+  (initialize-haskell-system)
+  (load-init-files)
+  (setf *emacs-mode* '#f)
+  (setf *repl-quit?* '#f)
+  (repl-say "Yale Haskell ~A~A (~A, ~(~A~) back end)   :? for help~%"
+       *haskell-compiler-version* *haskell-compiler-update*
+       (if (haskell98?) "Haskell 98" "Haskell 1.2") (current-backend))
+  (if (null? files)
+      (repl-scratch-module)
+      (repl-load files))
+  (do () (*repl-quit?*)
+    (repl-read-eval-print))
+  (repl-say "Leaving Yale Haskell.~%"))
+
+;;; yale-haskell -e EXPR [FILE...]: evaluate each expression (or
+;;; definition, or command) as at the prompt, then return.
+
+(define *repl-quiet?* '#f)
+
+(define (repl-batch-eval files exprs)
+  (initialize-haskell-system)
+  (dynamic-let ((*repl-quiet?* '#t))
+    (if (null? files)
+	(repl-scratch-module)
+	(repl-load files)))
+  (dolist (e exprs)
+    (repl-protect (lambda () (repl-input (repl-trim e)))))
+  (force-output (current-output-port)))
+
+;;; One input (a line, or a :{ ... :} block).  Errors in compiling or
+;;; running it are reported and return here.
+
+(define (repl-read-eval-print)
+  (let ((line  (repl-read-line (lisp:format lisp:nil "~A> " *repl-module*))))
+    (cond ((eof-object? line)
+	   (setf *repl-quit?* '#t))
+	  (else
+	   (repl-protect
+	    (lambda () (repl-input (repl-trim line))))))))
+
+(define (repl-read-line prompt)
+  (fresh-line (current-output-port))
+  (write-string prompt (current-output-port))
+  (force-output (current-output-port))
+  (read-line))
+
+;;; Runs THUNK, catching compile aborts, Haskell runtime errors, Lisp
+;;; errors and ^C so that the loop continues.
+
+(define (repl-protect thunk)
+  (let/cc k
+    (setf *abort-command* (lambda () (funcall k 'error)))
+    (setf *abort-compilation* *abort-command*)
+    (setf *phase* 'command-interface)
+    (setf *in-error-handler?* '#f)
+    (lisp:handler-case
+	(lisp:handler-bind ((lisp:warning (function lisp:muffle-warning)))
+	  (funcall thunk))
+      #+sbcl
+      (sb-sys:interactive-interrupt ()
+	(repl-say "~&Interrupted.~%"))
+      (lisp:storage-condition (c)
+	(repl-say "~&*** ~A~%" c))
+      (lisp:error (c)
+	(repl-say "~&*** Exception: ~A~%" c)))))
+
+(define (repl-input text)
+  (cond ((string=? text "")
+	 'ok)
+	((string=? text ":{")
+	 (repl-input-block (repl-read-block)))
+	((char=? (string-ref text 0) #\:)
+	 (repl-command (substring text 1 (string-length text))))
+	((repl-starts-with-word? text "import")
+	 (repl-import text))
+	(else
+	 (repl-input-block text))))
+
+(define (repl-input-block text)
+  (let ((def  (repl-definition-text text)))
+    (if (eq? def '#f)
+	(repl-evaluate text)
+	(repl-define def))))
+
+(define (repl-read-block)
+  (do ((lines '())
+       (line (repl-read-line "| ") (repl-read-line "| ")))
+      ((or (eof-object? line) (string=? (repl-trim line) ":}"))
+       (repl-join-lines (reverse lines)))
+    (push line lines)))
+
+(define (repl-join-lines lines)
+  (if (null? lines)
+      ""
+      (let ((s  (car lines)))
+	(dolist (l (cdr lines))
+	  (setf s (string-append s (string #\newline) l)))
+	s)))
+
+
+;;;; Expressions and definitions
+
+(define (repl-trim s)
+  (lisp:string-trim '(#\space #\tab #\newline #\return) s))
+
+;;; The text of a definition (without a leading let), or #f for an
+;;; expression.  A definition starts with a declaration keyword, or has an
+;;; `=' outside brackets that is not part of an operator.
+
+(define (repl-definition-text text)
+  (cond ((lisp:some (lambda (w) (repl-starts-with-word? text w))
+	       '("data" "type" "newtype" "class" "instance" "infix" "infixl"
+		 "infixr" "default"))
+	 text)
+	((repl-starts-with-word? text "let")
+	 (if (repl-has-word? text "in")
+	     '#f
+	     (repl-trim (substring text 3 (string-length text)))))
+	((repl-top-level-equals? text)
+	 text)
+	(else '#f)))
+
+(define (repl-top-level-equals? text)
+  (let ((n      (string-length text))
+	(depth  0)
+	(found? '#f))
+    (do ((i 0 (1+ i)))
+	((or found? (>= i n)) found?)
+      (let ((c  (string-ref text i)))
+	(cond ((memv c '(#\( #\[ #\{)) (setf depth (1+ depth)))
+	      ((memv c '(#\) #\] #\})) (setf depth (1- depth)))
+	      ((char=? c #\")
+	       (setf i (repl-skip-string text (1+ i) n)))
+	      ((and (char=? c #\=) (eqv? depth 0)
+		    (or (eqv? i 0) (not (repl-symbol-char? (string-ref text (1- i)))))
+		    (or (eqv? i (1- n)) (not (repl-symbol-char? (string-ref text (1+ i))))))
+	       (setf found? '#t)))))))
+
+(define (repl-skip-string text i n)
+  (cond ((>= i n) n)
+	((char=? (string-ref text i) #\\) (repl-skip-string text (+ i 2) n))
+	((char=? (string-ref text i) #\") i)
+	(else (repl-skip-string text (1+ i) n))))
+
+(define (repl-symbol-char? c)
+  (memv c '(#\! #\# #\$ #\% #\& #\* #\+ #\. #\/ #\< #\= #\> #\? #\@ #\\
+	    #\^ #\| #\- #\~ #\:)))
+
+(define (repl-starts-with-word? text word)
+  (let ((n  (string-length word)))
+    (and (>= (string-length text) n)
+	 (string=? (substring text 0 n) word)
+	 (or (eqv? (string-length text) n)
+	     (not (repl-ident-char? (string-ref text n)))))))
+
+(define (repl-ident-char? c)
+  (or (char-alphabetic? c) (char-numeric? c) (char=? c #\_) (char=? c #\')))
+
+(define (repl-has-word? text word)
+  (let ((n  (string-length text))
+	(m  (string-length word)))
+    (do ((i 0 (1+ i))
+	 (found? '#f))
+	((or found? (> (+ i m) n)) found?)
+      (when (and (string=? (substring text i (+ i m)) word)
+		 (or (eqv? i 0) (not (repl-ident-char? (string-ref text (1- i)))))
+		 (or (eqv? (+ i m) n) (not (repl-ident-char? (string-ref text (+ i m))))))
+	(setf found? '#t)))))
+
+;;; NAME = TEXT as a definition whose right-hand side may span lines.
+
+(define (repl-binding name text)
+  (lisp:format lisp:nil "~A =~%~A" name (repl-indent text)))
+
+(define (repl-indent text)
+  (let ((out  "    "))
+    (dotimes (i (string-length text))
+      (let ((c  (string-ref text i)))
+	(setf out (string-append out (string c)))
+	(when (char=? c #\newline)
+	  (setf out (string-append out "    ")))))
+    out))
+
+;;; Compiles TEXT as an extension of the current module; its code is
+;;; loaded.  Returns the extension module, or #f after reporting errors.
+
+(define (repl-compile text)
+  (repl-ensure-module)
+  (let ((ext  (compile-fragment *repl-module* text "<interactive>")))
+    (if (eq? ext 'error) '#f ext)))
+
+(define (repl-compile/quiet text)
+  (dynamic-let ((*error-output-port* (lisp:make-broadcast-stream)))
+    (repl-compile text)))
+
+;;; A definition is kept for later input.  Entering a name again (as with
+;;; GHCi) replaces the earlier definition: the definitions that remain are
+;;; compiled again, in order, since an extension cannot redefine a name.
+
+(define (repl-define text)
+  (let* ((names  (repl-defined-names text))
+	 (kept   (lisp:remove-if (lambda (d)
+				   (lisp:intersection (repl-defined-names d) names
+						      :test (function string=?)))
+				 *repl-definitions*)))
+    (when (not (eqv? (length kept) (length *repl-definitions*)))
+      (setf *repl-definitions* '())
+      (remove-extended-modules *repl-module*)
+      (dynamic-let ((*repl-show-type?* '#f))
+	(dolist (d (reverse kept))
+	  (repl-define-1 d))))
+    (repl-define-1 text)))
+
+(define (repl-define-1 text)
+  (let ((ext  (repl-compile text)))
+    (when ext
+      (extend-module *repl-module* ext)
+      (push text *repl-definitions*)
+      (when *repl-show-type?*
+	(dolist (v (module-vars ext))
+	  (repl-print-type (def-name v) (var-type v)))))))
+
+;;; The names a definition text defines, roughly: for each line starting
+;;; in column 0, the type name after data/newtype/type/class, else the
+;;; first identifier or parenthesised operator.
+
+(define (repl-defined-names text)
+  (let ((names '()))
+    (dolist (line (repl-lines text))
+      (when (and (> (string-length line) 0)
+		 (not (char-whitespace? (string-ref line 0))))
+	(let ((words  (repl-words line)))
+	  (when (pair? words)
+	    (cond ((lisp:member (car words) '("data" "newtype" "type" "class")
+				:test (function string=?))
+		   (when (pair? (cdr words)) (push (cadr words) names)))
+		  ((lisp:member (car words) '("instance" "infix" "infixl" "infixr" "default")
+				:test (function string=?))
+		   '#f)
+		  (else
+		   (push (repl-leading-name line) names)))))))
+    names))
+
+(define (repl-leading-name line)
+  (let ((end  (if (char=? (string-ref line 0) #\()
+		  (1+ (or (lisp:position #\) line) (1- (string-length line))))
+		  (or (lisp:position-if (lambda (c) (not (repl-ident-char? c))) line)
+		      (string-length line)))))
+    (substring line 0 end)))
+
+(define (repl-lines text)
+  (let ((lines '())
+	(start 0))
+    (dotimes (i (string-length text))
+      (when (char=? (string-ref text i) #\newline)
+	(push (substring text start i) lines)
+	(setf start (1+ i))))
+    (push (substring text start (string-length text)) lines)
+    ;; one-line definitions separated by ; (let f 0 = 1; f n = ...)
+    (reverse lines)))
+
+;;; An expression, compiled with its printing in the same fragment (an
+;;; extension cannot redefine a name, so it is not kept): first as an IO
+;;; action whose result is printed unless it is () or has no Show
+;;; instance, else as a value to print.
+
+(define (repl-evaluate text)
+  (incf *repl-counter*)
+  (let* ((io    (repl-temp-name "io"))
+	 (show  (repl-temp-name "show"))
+	 (it    (repl-binding "it" (lisp:format lisp:nil "~A (~A)" io text)))
+	 ;; the dialect's I/O type: IO in Haskell 98, Dialogue in 1.2
+	 (iodef (lisp:format lisp:nil "~A :: ~A~%~A x = x~%" io
+			     (if (haskell98?) "IO a -> IO a" "Dialogue -> Dialogue")
+			     io)))
+    (cond ((and (haskell98?)
+		(repl-try-io (repl-compile/quiet
+			      (lisp:format lisp:nil "~A~%~A~A = it >>= print~%" it iodef show))
+			     show)))
+	  ((repl-try-io (repl-compile/quiet (lisp:format lisp:nil "~A~%~A" it iodef))
+			'#f))
+	  (else
+	   (let ((ext  (repl-compile
+			(lisp:format lisp:nil "~A~%~A = print it~%"
+				     (repl-binding "it" text) show))))
+	     (when ext
+	       (when *repl-show-type?*
+		 (repl-print-type '|it| (var-type (repl-find-var ext '|it|))))
+	       (repl-run (repl-find-var ext (string->symbol show)))))))))
+
+;;; Runs the IO expression compiled in EXT, through SHOW (it >>= print)
+;;; when there is one and the result is not ().  #f if EXT is #f.
+
+(define (repl-try-io ext show)
+  (if (eq? ext '#f)
+      '#f
+      (let ((it  (repl-find-var ext '|it|)))
+	(when *repl-show-type?*
+	  (repl-print-type '|it| (var-type it)))
+	(repl-run (if (and show (not (repl-unit-io-type? (var-type it))))
+		      (repl-find-var ext (string->symbol show))
+		      it))
+	'#t)))
+
+(define (repl-temp-name what)
+  (lisp:format lisp:nil "repl_~A_~A" what *repl-counter*))
+
+(define (repl-find-var mod name)
+  (let ((found  '#f))
+    (dolist (v (module-vars mod))
+      (when (eq? (def-name v) name)
+	(setf found v)))
+    found))
+
+(define (repl-unit-io-type? type)
+  (let ((ty  (expand-ntype-synonym (if (gtype? type) (gtype-type type) type))))
+    (and (ntycon? ty)
+	 (eq? (ntycon-tycon ty) (core-symbol "IO"))
+	 (let ((arg  (expand-ntype-synonym (car (ntycon-args ty)))))
+	   (and (ntycon? arg)
+		(eq? (ntycon-tycon arg) (core-symbol "UnitType")))))))
+
+;;; Runs an IO variable, with :set +s statistics.
+
+(define (repl-run var)
+  (let ((t0     (lisp:get-internal-real-time))
+	(bytes  #+sbcl (sb-ext:get-bytes-consed) #-sbcl 0))
+    (apply-exec var)
+    (when *repl-stats?*
+      (repl-say "~&(~,2F secs, ~:D bytes)~%"
+	   (/ (- (lisp:get-internal-real-time) t0)
+	      (lisp:float lisp:internal-time-units-per-second))
+	   #+sbcl (- (sb-ext:get-bytes-consed) bytes) #-sbcl 0))))
+
+(define (repl-print-type name type)
+  (repl-say "~&~A :: ~A~%" name type))
+
+
+;;;; Modules and imports
+
+;;; The scratch module (no file loaded): Main importing the Prelude and
+;;; the imports given at the prompt, written to a file in a temporary
+;;; directory and loaded like any module, so that its imports are found as
+;;; :load would find them.  Definitions entered so far are compiled again
+;;; on top of it.  Returns #f if it did not compile.
+
+(define (repl-scratch-module)
+  (let ((file  (repl-scratch-file)))
+    (call-with-output-file file
+      (lambda (port)
+	(lisp:format port "module Main where~%import Prelude~%~{import ~A~%~}"
+		     (reverse *repl-imports*))))
+    (setf *repl-module* '|Main|)
+    (clear-extended-modules)
+    (let ((mods  (dynamic-let ((*printers* '()))
+		   (compile/load file))))
+      (and (pair? mods)
+	   (let ((defs  (reverse *repl-definitions*)))
+	     (setf *repl-definitions* '())
+	     (dynamic-let ((*repl-show-type?* '#f))
+	       (dolist (d defs)
+		 (repl-define-1 d)))
+	     '#t)))))
+
+(define (repl-scratch-file)
+  (let ((dir  (lisp:merge-pathnames
+	       (lisp:format lisp:nil "yale-haskell-~A/"
+			    #+sbcl (sb-posix:getpid) #-sbcl 0)
+	       (lisp:funcall (lisp:find-symbol "TEMPORARY-DIRECTORY" "UIOP")))))
+    ;; a new name each time: the unit cache goes by file name and date
+    ;; (to the second), so a file rewritten at once would look unchanged
+    (incf *repl-scratch-count*)
+    (lisp:namestring
+     (lisp:ensure-directories-exist
+      (lisp:merge-pathnames (lisp:format lisp:nil "Scratch~A.hs" *repl-scratch-count*)
+			    dir)))))
+
+(define *repl-scratch-count* 0)
+
+(define (repl-ensure-module)
+  (when (not (table-entry *modules* *repl-module*))
+    (repl-scratch-module)))
+
+(define (repl-import text)
+  (cond ((not (null? *repl-files*))
+	 (repl-say "~&Imports at the prompt work in the scratch module; add~%~
+                    \"~A\" to the loaded module and :reload.~%" text))
+	(else
+	 (push (repl-trim (substring text 6 (string-length text))) *repl-imports*)
+	 (when (not (repl-scratch-module))
+	   (pop *repl-imports*)
+	   (repl-scratch-module)))))
+
+(define (repl-load files)
+  (setf *repl-files* files)
+  (setf *repl-definitions* '())
+  (setf *repl-imports* '())
+  (clear-extended-modules)
+  (let ((mods '()))
+    (dolist (f files)
+      (let ((m (compile/load f)))
+	(when (pair? m) (setf mods m))))
+    (if (pair? mods)
+	(begin
+	  (setf *repl-module* (if (memq '|Main| mods) '|Main| (car mods)))
+	  (when (not (dynamic *repl-quiet?*))
+	    (repl-say "~&Ok, modules loaded: ~{~A~^, ~}.~%" mods)))
+	(begin
+	  (setf *repl-files* '())
+	  (repl-scratch-module)))))
+
+
+;;;; Commands
+
+(define-local-syntax (define-repl-command names args help . body)
+  (let ((fname  (string->symbol (string-append "REPL-CMD-" (car names)))))
+    `(begin
+       (define (,fname ,@args) ,@body)
+       (setf *repl-commands*
+	     (append *repl-commands*
+		     (list (list ',names ,help (function ,fname)))))
+       ',fname)))
+
+;;; :name rest -- the first command whose name starts with NAME (as GHCi
+;;; allows abbreviations: :t, :l, :r, :q).
+
+(define (repl-command text)
+  (let* ((words  (repl-words text))
+	 (name   (if (null? words) "" (car words)))
+	 (rest   (repl-trim (substring text (string-length name) (string-length text)))))
+    (cond ((string=? name "")
+	   (repl-say "~&Eh?  :? for help.~%"))
+	  ((char=? (string-ref name 0) #\!)
+	   (repl-shell (repl-trim (substring text 1 (string-length text)))))
+	  (else
+	   (let ((cmd  (repl-find-command name)))
+	     (if (eq? cmd '#f)
+		 (repl-say "~&unknown command ':~A'~%use :? for help.~%" name)
+		 (funcall (caddr cmd) rest)))))))
+
+(define (repl-find-command name)
+  (let ((found  '#f))
+    (dolist (c *repl-commands*)
+      (when (and (eq? found '#f)
+		 (lisp:some (lambda (n) (string-starts? name n)) (car c)))
+	(setf found c)))
+    found))
+
+(define (repl-words text)
+  (let ((words '())
+	(cur   '()))
+    (dotimes (i (string-length text))
+      (let ((c  (string-ref text i)))
+	(if (char-whitespace? c)
+	    (when (pair? cur)
+	      (push (list->string (reverse cur)) words)
+	      (setf cur '()))
+	    (push c cur))))
+    (when (pair? cur)
+      (push (list->string (reverse cur)) words))
+    (reverse words)))
+
+(define-repl-command ("?" "help") (rest)
+  ":?, :help                 this text"
+  (declare (ignore rest))
+  (repl-say "~&Commands (any unique prefix will do, e.g. :t, :l, :r, :q):~%")
+  (dolist (c *repl-commands*)
+    (repl-say "  ~A~%" (cadr c)))
+  (repl-say "  :!command                 run a shell command~%~
+        Other input: an expression to evaluate (an IO action is run),~%~
+        a definition (x = .., f x = .., data/type/class/instance, let ..),~%~
+        or import M.  :{ starts a multi-line input ending with :}.~%"))
+
+(define-repl-command ("quit") (rest)
+  ":quit                     leave Yale Haskell"
+  (declare (ignore rest))
+  (setf *repl-quit?* '#t))
+
+(define-repl-command ("type") (rest)
+  ":type <expr>              show the type of an expression"
+  (incf *repl-counter*)
+  (dynamic-let ((*monomorphism-restriction?* '#f))
+    (let ((ext  (repl-compile (repl-binding (repl-temp-name "type") rest))))
+      (when ext
+	(repl-say "~&~A :: ~A~%" rest (var-type (car (module-vars ext))))))))
+
+(define-repl-command ("load") (rest)
+  ":load <file> ...          load modules (none: back to the scratch module)"
+  (if (string=? rest "")
+      (begin
+	(setf *repl-files* '())
+	(setf *repl-definitions* '())
+	(repl-scratch-module))
+      (repl-load (repl-words rest))))
+
+(define-repl-command ("reload") (rest)
+  ":reload                   load the same files again"
+  (declare (ignore rest))
+  (if (null? *repl-files*)
+      (repl-say "~&No files loaded.~%")
+      (repl-load *repl-files*)))
+
+(define-repl-command ("browse") (rest)
+  ":browse [module]          list a module's exported names and types"
+  (let* ((name  (if (string=? rest "") *repl-module* (string->symbol rest)))
+	 (mod   (table-entry *modules* name)))
+    (if (eq? mod '#f)
+	(repl-say "~&Module ~A is not loaded.~%" name)
+	(repl-browse mod))))
+
+(define-repl-command ("module") (rest)
+  ":module [module]          evaluate in a loaded module (none: the scratch module)"
+  (let ((name  (string->symbol (repl-trim (repl-strip-prefix rest "*")))))
+    (cond ((string=? (repl-trim rest) "")
+	   (setf *repl-files* '())
+	   (repl-scratch-module))
+	  ((table-entry *modules* name)
+	   (setf *repl-module* name))
+	  (else
+	   (repl-say "~&Module ~A is not loaded.~%" name)))))
+
+(define-repl-command ("info") (rest)
+  ":info <name>              what a name is, and its type"
+  (repl-info rest))
+
+(define-repl-command ("set") (rest)
+  ":set [option]             +t types, +s statistics, backend flic|grin,
+                            printers p.., optimizers o.., noopt; none: show"
+  (repl-set (repl-words rest) '#t))
+
+(define-repl-command ("unset") (rest)
+  ":unset <option>           undo a :set (+t, +s)"
+  (repl-set (repl-words rest) '#f))
+
+(define-repl-command ("grin") (rest)
+  ":grin <expr>              show the GRIN intermediate code for an expression"
+  (repl-show-pass rest '(grin)))
+
+(define-repl-command ("lisp") (rest)
+  ":lisp <expr>              show the Lisp generated for an expression"
+  (repl-show-pass rest '(codegen)))
+
+(define-repl-command ("flic") (rest)
+  ":flic <expr>              show the optimised FLIC code for an expression"
+  (repl-show-pass rest '(strictness)))
+
+(define-repl-command ("profile") (rest)
+  ":profile <expr>           evaluate under the statistical profiler"
+  (repl-profile rest))
+
+(define-repl-command ("cd") (rest)
+  ":cd <directory>           change the current directory"
+  (cd rest))
+
+(define (repl-strip-prefix s prefix)
+  (if (string-starts? prefix s)
+      (substring s (string-length prefix) (string-length s))
+      s))
+
+(define (repl-shell command)
+  #+sbcl
+  (sb-ext:run-program "/bin/sh" (list "-c" command)
+		      :output lisp:*standard-output* :error lisp:*error-output*
+		      :input lisp:t)
+  #-sbcl
+  (repl-say "~&:! is not supported on this Lisp.~%"))
+
+(define (repl-set words on?)
+  (cond ((null? words)
+	 (repl-say "~&options: ~:[-~;+~]t ~:[-~;+~]s; backend ~(~A~); printers ~(~A~); optimizers ~(~A~)~%"
+	      *repl-show-type?* *repl-stats?* (current-backend)
+	      *printers* *optimizers*))
+	((string=? (car words) "+t") (setf *repl-show-type?* on?))
+	((string=? (car words) "+s") (setf *repl-stats?* on?))
+	((string=? (car words) "backend")
+	 (cond ((equal? (cdr words) '("grin")) (setf *backend* 'grin))
+	       ((equal? (cdr words) '("flic")) (setf *backend* 'flic))
+	       (else (repl-say "~&backend is flic or grin~%"))))
+	((string=? (car words) "printers")
+	 (setf *printers* (if on? (set-printers (cdr words) '=) '())))
+	((string=? (car words) "optimizers")
+	 (setf *optimizers* (if on? (set-optimizers (cdr words) '=) '())))
+	((string=? (car words) "noopt")
+	 (setf *optimizers* (if on? '() *all-optimizers*)))
+	(else
+	 (repl-say "~&unknown option ~A; :set alone lists them~%" (car words)))))
+
+;;; Compiles EXPR with the given printers on, without running it.
+
+(define (repl-show-pass text printers)
+  (incf *repl-counter*)
+  (dynamic-let ((*printers* printers))
+    (repl-compile (repl-binding (repl-temp-name "it") text))))
+
+(define (repl-profile text)
+  #+sbcl
+  (begin
+    (lisp:require :sb-sprof)
+    (lisp:funcall (lisp:intern "PROFILE-CALL-COUNTS" "SB-SPROF") "MUMBLE-USER")
+    (let ((sprof  (lisp:find-package "SB-SPROF")))
+      (lisp:funcall (lisp:intern "START-PROFILING" sprof) :mode :cpu
+		    :sample-interval 0.001 :max-samples 100000)
+      (lisp:unwind-protect
+	  (repl-evaluate text)
+	(lisp:funcall (lisp:intern "STOP-PROFILING" sprof))
+	(lisp:funcall (lisp:intern "REPORT" sprof) :type :flat :max 20))))
+  #-sbcl
+  (repl-say "~&:profile needs SBCL.~%"))
+
+(define (repl-browse mod)
+  (let ((entries '()))
+    (table-for-each
+     (lambda (name group)
+       (declare (ignore name))
+       (dolist (entry group)
+	 (push entry entries)))
+     (module-export-table mod))
+    (dolist (e (lisp:sort entries (lambda (a b) (string<? (symbol->string (tuple-2-1 a))
+						     (symbol->string (tuple-2-1 b))))))
+      (repl-describe (tuple-2-2 e)))))
+
+(define (repl-describe def)
+  (cond ((var? def)
+	 (repl-say "~A :: ~A~%" (repl-def-name def) (var-type def)))
+	((algdata? def)
+	 (repl-say "data ~A~%" (repl-def-name def)))
+	((synonym? def)
+	 (repl-say "type ~A~%" (repl-def-name def)))
+	((class? def)
+	 (repl-say "class ~A~%" (repl-def-name def)))
+	((con? def)
+	 (repl-say "~A :: ~A~%" (repl-def-name def) (con-signature def)))
+	(else
+	 (repl-say "~A~%" (repl-def-name def)))))
+
+(define (repl-def-name def)
+  (let ((s  (symbol->string (def-name def))))
+    (if (and (> (string-length s) 0) (char=? (string-ref s 0) #\;))
+	(remove-con-prefix s)
+	s)))
+
+;;; :info NAME: a prompt definition, else a name in scope in the module.
+
+(define (repl-info text)
+  (let* ((name  (repl-trim text))
+	 (def   (or (repl-lookup (string->symbol name))
+		    (repl-lookup (string->symbol (add-con-prefix name))))))
+    (if (eq? def '#f)
+	(repl-say "~&Not in scope: ~A~%" name)
+	(begin
+	  (repl-describe def)
+	  (when (and (def-module def) (not (gensym? (def-module def))))
+	    (repl-say "  -- defined in module ~A~%" (def-module def)))))))
+
+(define (repl-lookup name)
+  (let ((found  '#f))
+    (dolist (e *extension-env*)
+      (when (and (eq? found '#f) (eq? (tuple-2-1 e) *repl-module*))
+	(dolist (v (module-vars (tuple-2-2 e)))
+	  (when (eq? (def-name v) name)
+	    (setf found v)))))
+    (or found
+	(let ((mod  (table-entry *modules* *repl-module*)))
+	  (and mod (table-entry (module-symbol-table mod) name))))))

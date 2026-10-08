@@ -1,0 +1,30 @@
+1 + 2 * 3
+sum [1..100]
+:type map
+:t 1 + 2
+putStrLn "hello"
+return (6 * 7) :: IO Int
+x = 5
+x * 2
+x = 7
+x * 2
+let f 0 = 1; f n = n * f (n - 1)
+f 20
+:{
+fib :: Int -> Int
+fib n = if n < 2 then n else fib (n - 1) + fib (n - 2)
+:}
+fib 15
+import List
+sort [3, 1, 2]
+import NoSuchModule
+nub [1, 1, 2]
+head []
+"still here"
+:load tests/haskell98/repl/Shapes.hs
+square 7
+map area [Circle 1, Rect 2 3]
+:browse
+:info area
+main
+:quit

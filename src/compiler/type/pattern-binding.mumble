@@ -1,11 +1,17 @@
 ;;; This implements the pattern binding rule.
 
+;;; The interactive system's :type binds this to report the general type of
+;;; an expression, as GHCi does (it turns the restriction off at its prompt).
+
+(define *monomorphism-restriction?* '#t)
+
 (define (apply-pattern-binding-rule? decls)
+ (and (dynamic *monomorphism-restriction?*)
  (not
   (every (lambda (decl)
 	   (or (function-binding? decl)
 	       (simple-pattern-binding-with-signature? decl)))
-	 decls)))
+	 decls))))
 
 (define (function-binding? decl)
   (let ((defs (valdef-definitions decl)))

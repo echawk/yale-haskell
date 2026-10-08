@@ -286,7 +286,13 @@ Locale and Random.
 conformance pass against the Report (e.g. the Hugs test suite and
 nofib's `imaginary` and `spectral` programs).
 
-**M10 — Command line and interactive system (planned 2026-10-08).**
+**M10 — Command line and interactive system** (✅ first version
+2026-10-08: `src/cli/cli.lisp` over clingon is the image's entry point;
+`command-interface/repl.mumble` is the GHCi-like REPL; rlwrap in
+`bin/yale-haskell`; `.repl` session tests in `tests/`.  Still to do:
+the ASDF `program-op` build replacing `image.lisp`, `:info` for
+classes and instances, `it` kept between inputs, and GHCi-style error
+messages).  The plan as written:
 Today `bin/yale-haskell` is a shell wrapper around an image saved by
 `tools/build/image.lisp`, and the interactive system is the 1993
 command interface: definitions go into an "extension" that `:eval`

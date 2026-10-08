@@ -2,8 +2,15 @@
 #
 # yale-haskell -- run Yale Haskell (build it first with "make").
 #
-#   yale-haskell [--haskell98 | --haskell1.2]            interactive command interface
-#   yale-haskell [--haskell98 | --haskell1.2] foo.hs     compile foo.hs and run Main.main
+#   yale-haskell [--haskell98 | --haskell1.2] [OPTIONS]              the interactive system
+#   yale-haskell [--haskell98 | --haskell1.2] [OPTIONS] foo.hs ARGS  compile foo.hs, run Main.main
+#   yale-haskell [--haskell98 | --haskell1.2] [OPTIONS] repl FILE..  load files, then interact
+#   yale-haskell [--haskell98 | --haskell1.2] -e EXPR [FILE..]       evaluate EXPR and exit
+#
+# OPTIONS (yale-haskell --help): --backend grin|flic, --printers P,..,
+# --no-optimize.  The interactive system uses rlwrap, when it is
+# installed and the terminal is interactive, for line editing and
+# history (~/.yale_haskell_history); YALE_HASKELL_RLWRAP=no turns it off.
 #
 # The dialect defaults to $YALE_HASKELL_DIALECT, or haskell-1.2.
 # In batch mode the exit status is 0 on success and 1 if compilation or
@@ -29,5 +36,23 @@ export HASKELL Y2 PRELUDE PRELUDEBIN HASKELL_LIBRARY LIBRARYBIN
 if [ ! -x "$BUILD/yale-haskell" ]; then
   echo "yale-haskell: $BUILD/yale-haskell not found; run make first." >&2
   exit 1
+fi
+# Interactive (no program file, or the repl command) on a terminal: line
+# editing and history through rlwrap.
+interactive=yes skip=no
+for a in "$@"; do
+  if [ "$skip" = yes ]; then skip=no; continue; fi
+  case "$a" in
+    repl) break ;;
+    -e|--eval|--help|--version|run) interactive=no; break ;;
+    -b|--backend|-p|--printers) skip=yes ;;
+    -*) ;;
+    *) interactive=no; break ;;
+  esac
+done
+if [ "$interactive" = yes ] && [ -t 0 ] && [ -t 1 ] &&
+   [ "${YALE_HASKELL_RLWRAP:-yes}" != no ] && command -v rlwrap >/dev/null 2>&1; then
+  exec rlwrap -H "$HOME/.yale_haskell_history" -s 1000 \
+    -b "(){}[],;\"'" "$BUILD/yale-haskell" "$@"
 fi
 exec "$BUILD/yale-haskell" "$@"
