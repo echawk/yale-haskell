@@ -29,11 +29,11 @@
 ;;; (constructor-number object)
 ;;;   return the tag from "object"
 ;;; (delay form)
-;;;   returns a delay object with unevaluated "form".
+;;;   returns a thunk (runtime-utils.mumble) that evaluates "form".
 ;;; (box form)
-;;;   returns a delay object with evaluated "form".
-;;; (force delay)
-;;;   return the value of the delay object.
+;;;   an evaluated value is its own box: the identity.
+;;; (force object)
+;;;   evaluate object if it is a thunk; otherwise return it.
 ;;; (make-haskell-string string)
 ;;;   Converts a Lisp string lazily to a haskell string (using a magic
 ;;;   delay function).  Returns an unboxed result.

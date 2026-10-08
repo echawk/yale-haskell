@@ -146,9 +146,15 @@
 
 (define (prim.catch-io action handler)
   (let ((result
-	 (lisp:handler-case
-	     (cons '#t (force (funcall action (box 'state))))
-	   (haskell-io-error (c) (cons '#f c)))))
+	 (let ((mark  (dynamic *blackhole-trail*)))
+	   ;; Thunks left blackholed by an evaluation abandoned inside the
+	   ;; protected action are restored before the handler runs.
+	   (lisp:handler-case
+	       (dynamic-let ((*track-blackholes* '#t))
+		 (cons '#t (force (funcall action (box 'state)))))
+	     (haskell-io-error (c)
+	       (restore-blackholes mark)
+	       (cons '#f c))))))
     (if (car result)
 	(cdr result)
 	(force (funcall handler (box (cdr result)) (box 'state))))))

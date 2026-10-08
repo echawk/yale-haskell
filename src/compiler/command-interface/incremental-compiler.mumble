@@ -146,7 +146,13 @@
 			      (let ((fn (eval (fullname var))))
 				(unless (var-strict? var)
 				  (setf fn (force fn)))
-				(funcall fn (box 'state))))))
+				;; Interactively, a runtime error returns to the
+				;; command loop, so thunks it left blackholed are
+				;; restored; a batch run ends at the error.
+				(if (dynamic *haskell-batch-mode*)
+				    (funcall fn (box 'state))
+				    (with-blackhole-restore
+				      (funcall fn (box 'state))))))))
 		   (if (haskell98?)
 		       (call-with-ieee-floats run)
 		       (funcall run))))))))

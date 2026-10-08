@@ -10,56 +10,143 @@
 
 
 
+;;; Thunks (phase P1 of doc/EVAL-APPLY-GRIN.md, section 4).
+;;;
+;;; A thunk is a cons whose car is one of three private markers:
+;;;   (%thunk-unevaluated% . closure)   not yet evaluated
+;;;   (%thunk-blackhole%   . closure)   being evaluated (re-entry is <<loop>>)
+;;;   (%thunk-evaluated%   . value)     evaluated; value in WHNF, never a thunk
+;;; The hot paths use CL's eq/consp directly: mumble's eq?/pair? are not
+;;; inlined in the runtime.  The markers are private symbols (quoted
+;;; constants, so a test is one compare), which no Haskell value can be, so
+;;; a thunk is never confused with a data cons (a list cell or a pair,
+;;; whose car is a field value).  This keeps a thunk at two words; a
+;;; struct would take four on SBCL/arm64 and measured slower.
+;;;
+;;; A "boxed" object may be a thunk or an already evaluated value; an
+;;; evaluated value needs no box, so BOX is the identity.  FORCE evaluates
+;;; a thunk if needed and returns any other object unchanged.  On update
+;;; the closure is dropped (it no longer keeps its free variables alive).
+
+
+(define-syntax (make-thunk code)
+  `(cons '|%thunk-unevaluated%| ,code))
+
+;;; Any thunk, evaluated or not.
+(define-syntax (thunk? x)
+  (let ((temp (gensym)) (c (gensym)))
+    `(let ((,temp ,x))
+       (and (lisp:consp ,temp)
+	    (let ((,c (car ,temp)))
+	      (or (lisp:eq ,c '|%thunk-evaluated%|) (lisp:eq ,c '|%thunk-unevaluated%|)
+		  (lisp:eq ,c '|%thunk-blackhole%|)))))))
+
+;;; Blackhole bookkeeping for non-local exits (doc/EVAL-APPLY-GRIN.md
+;;; section 4.2).  When *track-blackholes* is true (bound by prim.catch-io,
+;;; and by apply-exec in the interactive system, for the extent of the
+;;; protected action), every thunk entered is pushed on *blackhole-trail*
+;;; and popped when its evaluation finishes.  After a non-local exit,
+;;; restore-blackholes turns the thunks still blackholed back into
+;;; unevaluated ones, so a later force re-evaluates them instead of
+;;; reporting a false <<loop>>.  Outside such extents nothing is recorded.
+
+(define *track-blackholes* '#f)
+(define *blackhole-trail* '())
+
+(define (restore-blackholes mark)
+  (do ()
+      ((or (lisp:eq (dynamic *blackhole-trail*) mark)
+	   (lisp:null (dynamic *blackhole-trail*))))
+    (let ((th (car (dynamic *blackhole-trail*))))
+      (setf (dynamic *blackhole-trail*) (cdr (dynamic *blackhole-trail*)))
+      (when (lisp:eq (car th) '|%thunk-blackhole%|)
+	(setf (car th) '|%thunk-unevaluated%|)))))
+
+(define-syntax (with-blackhole-restore . body)
+  (let ((mark  (gensym)))
+    `(let ((,mark  (dynamic *blackhole-trail*)))
+       (lisp:unwind-protect
+	   (dynamic-let ((*track-blackholes* '#t))
+	     ,@body)
+	 (restore-blackholes ,mark)))))
+
+(define (haskell-loop-error)
+  (haskell-runtime-error "<<loop>>"))
+
+;;; TH is a thunk that is not evaluated (marked unevaluated or blackhole).
+
+(define (force-thunk th)
+  (declare (type pair th))
+  (if (lisp:eq (car th) '|%thunk-blackhole%|)
+      (haskell-loop-error)
+      (let ((code (cdr th)))
+	(setf (car th) '|%thunk-blackhole%|)
+	(if (dynamic *track-blackholes*)
+	    (let ((old (dynamic *blackhole-trail*)))
+	      (setf (dynamic *blackhole-trail*) (cons th old))
+	      (let ((result (funcall (the function code))))
+		(setf (dynamic *blackhole-trail*) old)
+		(setf (car th) '|%thunk-evaluated%|)
+		(setf (cdr th) result)))
+	    (let ((result (funcall (the function code))))
+	      (setf (car th) '|%thunk-evaluated%|)
+	      (setf (cdr th) result))))))
+
+
 ;;; (delay form)
-;;;   returns a delay object with unevaluated "form".
+;;;   returns a thunk that will evaluate "form".
 
 (define-syntax (delay form)
-  `(cons '#f (lambda () ,form)))
+  `(make-thunk (lambda () ,form)))
 
 
 ;;; (box form)
-;;;   returns a delay object with evaluated "form".
+;;;   an evaluated value is its own box.
 
 (define-syntax (box form)
-  (cond ((number? form)
-	 `(quote ,(cons '#t form)))
-	((and (pair? form) (eq? (car form) 'quote))
-	 `(quote ,(cons '#t (cadr form))))
-	(else
-	 `(cons '#t ,form))))
+  form)
+
+;;; (unbox form)
+;;;   form is known to be evaluated: a plain value or an evaluated thunk.
 
 (define-syntax (unbox form)
-  `(cdr ,form))
+  (let ((temp (gensym)))
+    `(let ((,temp ,form))
+       (if (and (lisp:consp ,temp) (lisp:eq (car ,temp) '|%thunk-evaluated%|))
+	   (cdr ,temp)
+	   ,temp))))
+
+;;; (forced? form)
+;;;   true unless form is an unevaluated (or blackholed) thunk.
 
 (define-syntax (forced? form)
-  `(car ,form))
+  (let ((temp (gensym)) (c (gensym)))
+    `(let ((,temp ,form))
+       (or (not (lisp:consp ,temp))
+	   (let ((,c (car ,temp)))
+	     (not (or (lisp:eq ,c '|%thunk-unevaluated%|) (lisp:eq ,c '|%thunk-blackhole%|))))))))
 
-
-;;; (force delay)
-;;;   return the value of the delay object.
-
-(define (force delay-object)
-  (declare (type pair delay-object))
-  (if (car delay-object)
-      (cdr delay-object)
-      (begin
-        (let ((result  (funcall (cdr delay-object))))
-	  (setf (car delay-object) '#t)
-	  (setf (cdr delay-object) result)))))
 
 ;;; Inline version of the above.  Not good to use everywhere because
 ;;; of code bloat problems, but handy for helper functions.
 
-(define-syntax (force-inline delay-object)
-  (let ((temp1  (gensym))
-	(temp2  (gensym)))
-    `(let ((,temp1  ,delay-object))
-       (declare (type pair ,temp1))
-       (if (car ,temp1)
-	   (cdr ,temp1)
-	   (let ((,temp2  (funcall (cdr ,temp1))))
-	     (setf (car ,temp1) '#t)
-	     (setf (cdr ,temp1) ,temp2))))))
+(define-syntax (force-inline object)
+  (let ((temp (gensym)) (c (gensym)))
+    `(let ((,temp ,object))
+       (if (lisp:consp ,temp)
+	   (let ((,c (car ,temp)))
+	     (cond ((lisp:eq ,c '|%thunk-evaluated%|) (cdr ,temp))
+		   ((or (lisp:eq ,c '|%thunk-unevaluated%|) (lisp:eq ,c '|%thunk-blackhole%|))
+		    (force-thunk ,temp))
+		   (else ,temp)))
+	   ,temp))))
+
+
+;;; (force object)
+;;;   evaluate object if it is a thunk; otherwise return it.
+
+(define (force object)
+  (force-inline object))
 
 
 ;;; (make-curried-fn opt-fn strictness)
@@ -298,9 +385,9 @@
 			  (cons (box ch)
 				(if (eqv? index size)
 				    (box '())
-				    (cons '#f next-fn)))))))
+				    (make-thunk next-fn)))))))
 	     (cons (box (char->integer (string-ref string 0)))
-		   (cons '#f next-fn))))
+		   (make-thunk next-fn))))
 	  )))
 
 
@@ -324,9 +411,9 @@
 			  (cons (box ch)
 				(if (eqv? index size)
 				    tail-delay
-				    (cons '#f next-fn)))))))
+				    (make-thunk next-fn)))))))
 	     (cons (box (char->integer (string-ref string 0)))
-		   (cons '#f next-fn))))
+		   (make-thunk next-fn))))
 	  )))
 
 

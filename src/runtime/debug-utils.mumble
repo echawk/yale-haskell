@@ -27,7 +27,5 @@
 	(else x)))
 
 (define (delay? x)
-  (and (pair? x)
-       (or (eq? (car x) '#t)
-	   (eq? (car x) '#f))))
+  (thunk? x))
 
