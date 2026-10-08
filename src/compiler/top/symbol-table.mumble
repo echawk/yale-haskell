@@ -263,7 +263,7 @@
 (define (hidden-core-name? name)
   (and (haskell98?)
        (not (module-prelude? *module*))
-       (memq name '(|Bin| |Assoc| |;:=|))))
+       (memq name '(|Assoc| |;:=|))))
 
 (define (resolve-toplevel-name name)
   (let ((pc (table-entry *prelude-core-symbols* name)))

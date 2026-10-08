@@ -95,8 +95,11 @@ pointing at `lib/<dialect>/prelude`.
 - System libraries: List, Char, Numeric, Ratio, Complex, Ix, Array,
   System, CPUTime, Directory, Time, Locale, Random, IO
 
+- Show/Read split (M5): H98 Prelude has `Show`/`Read`; `Text`, `Binary`
+  and `Bin` are gone from H98 (`*feature-retired-names*` in
+  `top/core-symbols.mumble`); derived Show/Read use Report precedences
+
 **Remaining major work:**
-- `LG-SHOW-READ` — Show/Read split (M5, in progress)
 - `LG-RECORDS` — Record fields (M6, not started)
 - `LG-QUALIFIED` — Qualified names (M7, not started)
 - `LG-POLYREC` — Polymorphic recursion (M9, not started)
@@ -227,10 +230,12 @@ remaining gap: **kind inference is absent**.
 
 ---
 
-### LG-SHOW-READ: Text/Binary → Show/Read; drop `Bin`  *(M5 — IN PROGRESS)*
+### LG-SHOW-READ: Text/Binary → Show/Read; drop `Bin`  *(M5)*
 
-**Status:** 🔄 Compiler groundwork landed; **Prelude still has `Text`**.
-This is the next active milestone.
+**Status:** ✅ Landed (2026-10-07).  The notes below describe the original
+plan; step 5 (regenerating core symbols) proved unnecessary — the 1.2
+names are switched off per dialect by `*feature-retired-names*`.
+`Assoc` remains a (hidden) core type (BUG-7).
 
 **Where:**
 - Derived instances: `src/compiler/derived/text-binary.mumble` —
@@ -1117,7 +1122,7 @@ The critical path is M3 → M4 → M5.  M3 and M4 are done.
 | M2 — Cheap H98 wins | ✅ | — |
 | M3 — Constructor classes | ✅ | M4, M5 (Functor/Monard/Show/Read) |
 | M4 — Monadic IO | ✅ | M5 (Prelude I/O rebuild) |
-| **M5 — Show/Read split** | 🔄 **Active** | Records deriving (Show/Read) |
+| M5 — Show/Read split | ✅ | — |
 | M6 — newtype, then records | newtype ✅; records ❌ | — |
 | M7 — Qualified names, module system | ❌ | — |
 | M8 — System libraries | ✅ (follow-ups remain) | — |

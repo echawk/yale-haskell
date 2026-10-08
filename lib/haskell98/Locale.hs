@@ -15,7 +15,7 @@
 -- and the Prelude has Show):
 --   * TimeLocale is an ordinary positional constructor; the field
 --     selectors are written out by hand.  Record construction and
---     update syntax is not available, and Text replaces Show.
+--     update syntax is not available.
 
 module Locale(TimeLocale(..), wDays, months, amPm, dateTimeFmt, dateFmt,
               timeFmt, time12Fmt, defaultTimeLocale) where
@@ -26,7 +26,7 @@ data TimeLocale = TimeLocale
         (String, String)        -- amPm: AM/PM symbols
         String String           -- dateTimeFmt, dateFmt
         String String           -- timeFmt, time12Fmt
-        deriving (Eq, Ord, Text)
+        deriving (Eq, Ord, Show, Read)
 
 wDays, months         :: TimeLocale -> [(String, String)]
 wDays  (TimeLocale x _ _ _ _ _ _) = x

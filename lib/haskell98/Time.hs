@@ -23,8 +23,6 @@
 -- Stopgaps until the compiler has records and the Prelude is H98:
 --   * CalendarTime and TimeDiff are positional constructors with
 --     hand-written field selectors; record syntax is not available.
---   * Month and Day derive Text instead of Show/Read, and neither
---     Bounded nor H98 Enum (fromEnum/toEnum) exists yet.
 
 module Time (
         ClockTime,
@@ -49,16 +47,16 @@ data ClockTime = TOD Integer Integer       -- seconds, picoseconds
 data Month =  January   | February | March    | April
            |  May       | June     | July     | August
            |  September | October  | November | December
-           deriving (Eq, Ord, Enum, Ix, Text)
+           deriving (Eq, Ord, Enum, Ix, Show, Read)
 
 data Day   =  Sunday | Monday  | Tuesday  | Wednesday | Thursday
            |  Friday | Saturday
-           deriving (Eq, Ord, Enum, Ix, Text)
+           deriving (Eq, Ord, Enum, Ix, Show, Read)
 
 -- CalendarTime year month day hour min sec picosec wday yday tzname tz isdst
 data CalendarTime = CalendarTime
         Int Month Int Int Int Int Integer Day Int String Int Bool
-        deriving (Eq, Ord, Text)
+        deriving (Eq, Ord, Show, Read)
 
 ctYear, ctDay, ctHour, ctMin, ctSec, ctYDay, ctTZ :: CalendarTime -> Int
 ctYear    (CalendarTime x _ _ _ _ _ _ _ _ _ _ _) = x
@@ -86,7 +84,7 @@ ctIsDST   (CalendarTime _ _ _ _ _ _ _ _ _ _ _ x) = x
 
 -- TimeDiff year month day hour min sec picosec
 data TimeDiff = TimeDiff Int Int Int Int Int Int Integer
-                deriving (Eq, Ord, Text)
+                deriving (Eq, Ord, Show, Read)
 
 tdYear, tdMonth, tdDay, tdHour, tdMin, tdSec :: TimeDiff -> Int
 tdYear    (TimeDiff x _ _ _ _ _ _) = x

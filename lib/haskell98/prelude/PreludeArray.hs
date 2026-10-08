@@ -21,7 +21,7 @@ infixl 9  !
 infixl 9  //
 infix  1  :=
 
-data  Assoc a b =  a := b  deriving (Eq, Ord, Ix, Text, Binary)
+data  Assoc a b =  a := b  deriving (Eq, Ord, Ix, Show, Read)
 data  (Ix a)    => Array a b = MkArray (a,a) {-#STRICT#-}
                                        (Vector (Box b)) {-#STRICT#-}
 				       deriving ()
@@ -190,13 +190,14 @@ instance  (Ix a, Eq b)  => Eq (Array a b)  where
 instance  (Ix a, Ord b) => Ord (Array a b)  where
     a <=  a'  	    	=  assocs a <=  assocs a'
 
--- Text instance as in the H98 Report's Array module (arrPrec = 10).
-instance  (Ix a, Text a, Text b) => Text (Array a b)  where
+-- Show and Read instances as in the H98 Report's Array module (arrPrec = 10).
+instance  (Ix a, Show a, Show b) => Show (Array a b)  where
     showsPrec p a = showParen (p > 10) (
 		    showString "array " .
 		    showsPrec 11 (bounds a) . showChar ' ' .
 		    showsPrec 11 (assocs a)                  )
 
+instance  (Ix a, Read a, Read b) => Read (Array a b)  where
     readsPrec p = readParen (p > 10)
 	   (\r -> [(array b as, u) | ("array",s) <- lex r,
 				     (b,t)       <- readsPrec 11 s,

@@ -11,7 +11,7 @@ prec :: Int
 prec = 7
 
 data  (Integral a)	=> Ratio a = a {-# STRICT #-} :% a {-# STRICT #-}
-                              deriving (Eq, Binary)
+                              deriving Eq
 
 type  Rational		=  Ratio Integer
 
@@ -70,15 +70,16 @@ instance  (Integral a)	=> Enum (Ratio a)  where
 				 p | e2 >= e1  = (<= e3 + mid)
 				   | otherwise = (>= e3 + mid)
 
-instance  (Integral a) => Text (Ratio a)  where
+instance  (Integral a) => Show (Ratio a)  where
+    showsPrec p (x:%y)	=  showParen (p > prec)
+    	    	    	       (showsPrec (prec+1) x . showString " % " .
+				showsPrec (prec+1) y)
+
+instance  (Read a, Integral a) => Read (Ratio a)  where
     readsPrec p  =  readParen (p > prec)
 			      (\r -> [(x%y,u) | (x,s)   <- readsPrec (prec+1) r,
 					        ("%",t) <- lex s,
 						(y,u)   <- readsPrec (prec+1) t ])
-
-    showsPrec p (x:%y)	=  showParen (p > prec)
-    	    	    	       (showsPrec (prec+1) x . showString " % " .
-				showsPrec (prec+1) y)
 
 
 -- approxRational, applied to two real fractional numbers x and epsilon,

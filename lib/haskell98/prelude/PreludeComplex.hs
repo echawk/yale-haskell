@@ -8,7 +8,7 @@ module PreludeComplex where
 infix  6  :+
 
 data  (RealFloat a)     => Complex a = a {-#STRICT#-} :+ a {-#STRICT #-}
-                               deriving (Eq,Binary,Text)
+                               deriving (Eq, Show, Read)
 
 instance  (RealFloat a) => Num (Complex a)  where
     (x:+y) + (x':+y')	=  (x+x') :+ (y+y')

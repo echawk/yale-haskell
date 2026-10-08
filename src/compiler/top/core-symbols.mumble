@@ -129,11 +129,21 @@
      |Functor| |Monad| |MonadZero| |fmap| |>>=| |>>| |return| |fail| |zero|)
     (show-read |Show| |Read|)))
 
+;;; Names that are core symbols only in dialects *without* a feature: a
+;;; feature replaces them (Show and Read replace Text and Binary).
+
+(define *feature-retired-names*
+  '((show-read |Text| |Binary| |Bin| |readBin| |showBin|)))
+
 (define (core-name-active? name)
-  (every (lambda (entry)
-	   (or (not (memq name (cdr entry)))
-	       (feature? (car entry))))
-	 *feature-core-names*))
+  (and (every (lambda (entry)
+		(or (not (memq name (cdr entry)))
+		    (feature? (car entry))))
+	      *feature-core-names*)
+       (every (lambda (entry)
+		(or (not (memq name (cdr entry)))
+		    (not (feature? (car entry)))))
+	      *feature-retired-names*)))
 
 (define (install-core-sym def name preludecore?)
   (setf preludecore? (and preludecore? (core-name-active? name)))

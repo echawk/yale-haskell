@@ -6,7 +6,6 @@
 --   * The Prelude still exports the Haskell 1.2 Dialogue versions of
 --     getArgs, getProgName and getEnv, so this module hides them, and
 --     so must any program that imports System.
---   * ExitCode derives Text (the 1.2 Show/Read class).
 --   * Errors (getEnv of an unset variable, system on a Lisp without
 --     process support) are IOErrors signalled by the primitives; catch
 --     them with IO.catch.
@@ -19,7 +18,7 @@ module System (
 import SystemPrims
 
 data ExitCode = ExitSuccess | ExitFailure Int
-                deriving (Eq, Ord, Text)
+                deriving (Eq, Ord, Show, Read)
 
 getArgs                 :: IO [String]
 getArgs                 =  primGetArgs

@@ -17,8 +17,6 @@
 --     (import Prelude hiding (IOError, stdin, stdout, stderr)).
 --   * The rest of what H98's IO re-exports from the Prelude (putStr,
 --     getLine, readFile, ...) is not available in monadic form yet.
---   * There is no Bounded or Show; the enumerations derive the 1.2
---     classes (Text instead of Show/Read).
 --   * The H98 single-writer/multiple-reader file locking is not
 --     implemented, so isAlreadyInUseError never arises from openFile.
 --   * hWaitForInput ignores its timeout except for the sign: a
@@ -100,7 +98,7 @@ data Handle = Handle HandleObj
 instance Eq Handle where
   Handle h1 == Handle h2 = primHandleEq h1 h2
 
-instance Text Handle where
+instance  Show Handle  where
   showsPrec _ (Handle h) = showString "{handle: "
                            . showString (primHandleName h) . showChar '}'
 
@@ -109,17 +107,17 @@ data HandlePosn = HandlePosn Handle Integer
 instance Eq HandlePosn where
   HandlePosn h1 p1 == HandlePosn h2 p2  =  h1 == h2 && p1 == p2
 
-instance Text HandlePosn where
+instance  Show HandlePosn  where
   showsPrec _ (HandlePosn h p) = shows h . showString " at position "
                                  . shows p
 
 data IOMode      =  ReadMode | WriteMode | AppendMode | ReadWriteMode
-                    deriving (Eq, Ord, Ix, Enum, Text)
+                    deriving (Eq, Ord, Ix, Enum, Show, Read)
 data BufferMode  =  NoBuffering | LineBuffering
                  |  BlockBuffering (Maybe Int)
-                    deriving (Eq, Ord, Text)
+                    deriving (Eq, Ord, Show, Read)
 data SeekMode    =  AbsoluteSeek | RelativeSeek | SeekFromEnd
-                    deriving (Eq, Ord, Ix, Enum, Text)
+                    deriving (Eq, Ord, Ix, Enum, Show, Read)
 
 stdin, stdout, stderr :: Handle
 stdin                 =  Handle primStdin
@@ -203,7 +201,7 @@ hPutStr (Handle h) s  =  primHPutStr h s
 hPutStrLn             :: Handle -> String -> IO ()
 hPutStrLn h s         =  hPutStr h s `thenIO_` hPutChar h '\n'
 
-hPrint                :: Text a => Handle -> a -> IO ()
+hPrint                :: Show a => Handle -> a -> IO ()
 hPrint h x            =  hPutStrLn h (show x)
 
 hIsOpen, hIsClosed, hIsReadable, hIsWritable, hIsSeekable

@@ -3,7 +3,7 @@ module Main where
 primes :: [Int]
 primes = sieve [2..] where sieve (p:xs) = p : sieve [x | x <- xs, x `mod` p /= 0]
 
-data Tree a = Leaf | Node (Tree a) a (Tree a) deriving Text
+data Tree a = Leaf | Node (Tree a) a (Tree a) deriving Show
 
 insert :: Ord a => a -> Tree a -> Tree a
 insert x Leaf = Node Leaf x Leaf

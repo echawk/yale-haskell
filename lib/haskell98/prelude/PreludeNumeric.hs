@@ -1,5 +1,5 @@
 -- Numeric functions: the Haskell 98 Numeric library.  The Prelude
--- uses these for the Text instances of the numeric types.
+-- uses these for the Show and Read instances of the numeric types.
 --
 -- From the Haskell 98 Report, libraries/code/Numeric.hs:
 --   The authors intend this Report to belong to the entire Haskell

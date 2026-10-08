@@ -5,8 +5,6 @@
 --   * rangeSize is a function, not a class method: the runtime builds
 --     Ix dictionaries for tuples with a fixed layout
 --     (src/runtime/tuple-prims.mumble), so Ix cannot gain a method yet.
---   * Ix still has Text as a superclass (a Yale modification), for the
---     same reason.
 --
 -- rangeSize is from the Haskell 98 Report, libraries/code/Ix.hs:
 --   The authors intend this Report to belong to the entire Haskell

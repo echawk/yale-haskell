@@ -51,7 +51,6 @@
 --     realToFrac by realToFrac (the 1.2 Prelude has no Bounded).
 --     Int has the Lisp fixnum range, so random :: Int covers more than
 --     32 bits.
---   * The Show/Read instances of StdGen are one Text instance.
 
 module Random (
         RandomGen(next, split, genRange),
@@ -77,11 +76,13 @@ instance RandomGen StdGen where
   split = stdSplit
   genRange _ = stdRange
 
-instance Text StdGen where
+instance  Show StdGen  where
   showsPrec p (StdGen s1 s2) =
      showsPrec p s1 .
      showChar ' ' .
      showsPrec p s2
+
+instance  Read StdGen  where
   readsPrec _ r =
      case try_read r of
        r@[_] -> r

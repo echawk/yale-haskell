@@ -2,7 +2,7 @@
 --
 -- The definitions are in the Prelude's internal module PreludeNumeric
 -- (the Report's libraries/code/Numeric.hs; see the notice there),
--- because the Prelude's Text instances use them.
+-- because the Prelude's Show and Read instances use them.
 
 module Numeric(fromRat,
                showSigned, showIntAtBase,

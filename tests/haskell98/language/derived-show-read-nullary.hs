@@ -1,12 +1,12 @@
--- Derived Text (Show/Read stand-in until M5): nullary constructors are not
+-- Derived Show and Read: nullary constructors are not
 -- parenthesised when shown, and are read back without parentheses.
 module Main where
 
-data Tree a = Leaf | Node (Tree a) a (Tree a) deriving (Eq, Text)
+data Tree a = Leaf | Node (Tree a) a (Tree a) deriving (Eq, Show, Read)
 
-data Color = Red | Green deriving (Eq, Text)
+data Color = Red | Green deriving (Eq, Show, Read)
 
-data Item = Item Color [Color] deriving (Eq, Text)
+data Item = Item Color [Color] deriving (Eq, Show, Read)
 
 main = appendChan stdout (unlines [
   show (Node Leaf (1 :: Int) (Node Leaf 2 Leaf)),

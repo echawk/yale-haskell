@@ -36,8 +36,8 @@
 						    (**var '|rest|)))))
 			       (algdata-constrs algdata))
 			,(**alt/simple (**pat '_) (**null)))))))))
-     ;; H98 reads redundant parentheses around a nullary constructor
-     (if (haskell98?)
+     ;; Show/Read (1.3 on) read redundant parentheses around a nullary constructor
+     (if (feature? 'show-read)
 	 (**readParen (**false) (**var '|readVal|) (**var '|str0|))
 	 (**app (**var '|readVal|) (**var '|str0|)))))))
 
@@ -72,18 +72,25 @@
 	    (**showsPrec (**int rp) (**var (cadr vars)))))))
 
 (define (show-prefix con vars)
-  (if (and (haskell98?) (null? vars))
-      ;; H98: a nullary constructor is never parenthesised
+  (if (and (feature? 'show-read) (null? vars))
+      ;; Show (1.3 on): a nullary constructor is never parenthesised
       (**showString (**string (con-string con)))
       (**showParen
-       (**<= (**int 10) (**var '|d|))
+       (**< (**int (1- (arg-prec))) (**var '|d|))
        (**dot/l (**showString (**string (con-string con)))
 		(show-fields vars)))))
+
+;;; Show/Read (1.3 on) follow the Report: arguments at precedence 11,
+;;; parentheses when d > 10.  Text uses 10 and d >= 10, which agrees for
+;;; derived instances but not with hand-written ones.
+
+(define (arg-prec)
+  (if (feature? 'show-read) 11 10))
 
 (define (show-fields vars)
   (if (null? vars)
       '()
-      `(,(**space) ,(**showsPrec (**int 10) (**var (car vars)))
+      `(,(**space) ,(**showsPrec (**int (arg-prec)) (**var (car vars)))
 	,@(show-fields (cdr vars)))))
 
 (define (read-infix con)
@@ -135,9 +142,9 @@
 	  (**gen `(tuple ,(con-string con) |rest|)
 		 (**lex (**var '|r|)))
 	  (read-fields vars svars (cdr svars))))))
-     (**readParen (if (and (haskell98?) (eqv? arity 0))
+     (**readParen (if (and (feature? 'show-read) (eqv? arity 0))
 		      (**false)
-		      (**< (**int 9) (**var '|d|)))
+		      (**< (**int (1- (arg-prec))) (**var '|d|)))
 		  (**var '|readVal|) (**var '|str|)))))
 
 (define (read-fields vars s0 s1)
@@ -145,7 +152,7 @@
       '()
       (cons
        (**gen `(tuple ,(car vars) ,(car s1))
-	      (**readsprec (**int 10) (**var (car s0))))
+	      (**readsprec (**int (arg-prec)) (**var (car s0))))
        (read-fields (cdr vars) (cdr s0) (cdr s1)))))
 
 
@@ -231,10 +238,15 @@
 			    (**int (1- (algdata-n-constr algdata))))))
        (**case/int algdata (**var '|i|) (function read-binary-body))))))
 
+;;; Returns the precedence of an infix constructor and the precedences at
+;;; which its left and right operands are shown and read.  Derived Show and
+;;; Read (Haskell 1.3 on) ignore associativity: both operands use p+1
+;;; (H98 Report 10.4).  Derived Text uses it to omit redundant parentheses.
+
 (define (get-con-fixity con)
-  (let ((fixity (con-fixity con)))
-    (if (not (eq? fixity '#f))
-	(let ((p (fixity-precedence fixity))
-	      (a (fixity-associativity fixity)))
-	  (values p (if (eq? a 'L) p (1+ p)) (if (eq? a 'R) p (1+ p))))
-	(values 9 10 9))))
+  (let* ((fixity (con-fixity con))
+	 (p (if (eq? fixity '#f) 9 (fixity-precedence fixity)))
+	 (a (cond ((feature? 'show-read) 'N)
+		  ((eq? fixity '#f) 'R)	; Haskell 1.2 Yale default
+		  (else (fixity-associativity fixity)))))
+    (values p (if (eq? a 'L) p (1+ p)) (if (eq? a 'R) p (1+ p)))))

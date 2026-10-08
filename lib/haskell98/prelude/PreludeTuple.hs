@@ -128,7 +128,7 @@ tupleInRange dicts (low,high) n = tupleInRange' 0 where
    
 inRange' x = inRange x
 
--- Text functions
+-- Show and Read functions
 
 tupleReadsPrec :: TupleDicts -> Int -> ReadS Tuple
 
@@ -187,30 +187,9 @@ tupleShowList dicts (x:xs)
 			                               . showl xs
                         showsTuple x = tupleShowsPrec dicts 0 x
 
--- Binary functions
+tupleShow :: TupleDicts -> Tuple -> String
 
-tupleShowBin :: TupleDicts -> Tuple -> Bin -> Bin
-
-tupleShowBin dicts t bin = tSB' 0
-  where
-    size = tupleSize dicts
-    tSB' i | i == size = bin
-    tSB' i | otherwise =
-                  (dictSel (showBin' dicts i)) (tupleSel t i size) (tSB' (i+1))
-
-showBin' x = showBin x
-
-tupleReadBin :: TupleDicts -> Bin -> (Tuple,Bin)
-
-tupleReadBin dicts bin = (listToTuple t,b) where
-  size = tupleSize dicts
-  (t,b) = tRB' bin 0
-  tRB' b i | i == size = ([],b)
-           | otherwise = (t':ts,b') where
-     (t',b'') = (dictSel (readBin' dicts i)) b
-     (ts,b') = tRB' b'' (i+1)
-
-readBin' x = readBin x
+tupleShow dicts x = tupleShowsPrec dicts 0 x ""
 
 -- Ord: compare (the method added by H98)
 

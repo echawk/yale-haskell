@@ -82,7 +82,7 @@ data IOError = IOError IOErrorObj
 instance Eq IOError where
   IOError a == IOError b  =  primIOErrorMessage a == primIOErrorMessage b
 
-instance Text IOError where
+instance  Show IOError  where
   showsPrec _ (IOError e) = showString (primIOErrorMessage e)
 
 ioError               :: IOError -> IO a
@@ -108,7 +108,7 @@ putStr s              =  primHPutStr primStdout s
 putStrLn              :: String -> IO ()
 putStrLn s            =  putStr s `thenIO_` putChar '\n'
 
-print                 :: (Text a) => a -> IO ()
+print                 :: (Show a) => a -> IO ()
 print x               =  putStrLn (show x)
 
 getChar               :: IO Char
@@ -137,13 +137,13 @@ appendFile name s     =  primOpenFile name 2 `thenIO` \h ->
                          primHPutStr h s `thenIO_`
                          primHClose h
 
-readIO                :: (Text a) => String -> IO a
+readIO                :: (Read a) => String -> IO a
 readIO s              =  case [x | (x,t) <- reads s, ("","") <- lex t] of
                            [x] -> returnIO x
                            []  -> ioError (userError "Prelude.readIO: no parse")
                            _   -> ioError (userError "Prelude.readIO: ambiguous parse")
 
-readLn                :: (Text a) => IO a
+readLn                :: (Read a) => IO a
 readLn                =  getLine `thenIO` readIO
 
 
@@ -191,5 +191,5 @@ abort err	=  done
 exit		:: FailCont
 exit err	=  appendChan stderr (shows err "\n") abort done
 
-prints          :: (Text a) => a -> String -> Dialogue
+prints          :: (Show a) => a -> String -> Dialogue
 prints x s	=  putStr (shows x s)

@@ -27,8 +27,8 @@ listToTuple :: [a] -> Tuple
 tupleEqDict :: a
 tupleOrdDict :: a
 tupleIxDict :: a
-tupleTextDict :: a
-tupleBinaryDict :: a
+tupleShowDict :: a
+tupleReadDict :: a
 tupleBoundedDict :: a
 
 {-#
@@ -39,8 +39,8 @@ listToTuple ::     LispName("prim.list->tuple"), NoConversion
 tupleEqDict ::     LispName("prim.tupleEqDict")
 tupleOrdDict ::    LispName("prim.tupleOrdDict")
 tupleIxDict ::     LispName("prim.tupleIxDict")
-tupleTextDict ::   LispName("prim.tupleTextDict")
-tupleBinaryDict :: LispName("prim.tupleBinaryDict")
+tupleShowDict ::   LispName("prim.tupleShowDict")
+tupleReadDict ::   LispName("prim.tupleReadDict")
 tupleBoundedDict :: LispName("prim.tupleBoundedDict")
 
 #-}

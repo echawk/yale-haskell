@@ -1,5 +1,5 @@
 module	PreludeText (
-	reads, shows, show, read, lex,
+	reads, shows, read, lex,
 	showChar, showString, readParen, showParen,
 	readLitChar, showLitChar, lexLitChar ) where
 
@@ -14,20 +14,19 @@ import PreludeChar(isSpace, isAlpha, isDigit, isAlphaNum, isUpper,
 import PreludeNumeric(lexDigits, readDec, readOct, readHex)
 import PreludeArray(listArray, (!), assocs)
 
-reads 	        :: (Text a) => ReadS a
+reads 	        :: (Read a) => ReadS a
 reads		=  readsPrec 0
 
-shows 	    	:: (Text a) => a -> ShowS
+shows 	    	:: (Show a) => a -> ShowS
 shows		=  showsPrec 0
 
-read 	    	:: (Text a) => String -> a
+read 	    	:: (Read a) => String -> a
 read s 	    	=  case [x | (x,t) <- reads s, ("","") <- lex t] of
 			[x] -> x
 			[]  -> error "read{PreludeText}: no parse"
 			_   -> error "read{PreludeText}: ambiguous parse"
 
-show 	    	:: (Text a) => a -> String
-show x 	    	=  shows x ""
+-- show is a method of Show (PreludeCore).
 
 showChar    	:: Char -> ShowS
 showChar    	=  (:)

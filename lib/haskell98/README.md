@@ -36,7 +36,7 @@ modules that the libraries re-export:
 | `List` | `List.hs` (Report code) |
 | `Maybe` | `Maybe.hs` (Report code) |
 | `Char` | `prelude/PreludeChar.hs`, `prelude/PreludeText.hs` (`readLitChar`, `showLitChar`, `lexLitChar`) |
-| `Numeric` | `prelude/PreludeNumeric.hs` (Report code; the Prelude's `Text` instances use it) |
+| `Numeric` | `prelude/PreludeNumeric.hs` (Report code; the Prelude's `Show`/`Read` instances use it) |
 | `Ratio` | `prelude/PreludeRatio.hs` |
 | `Complex` | `prelude/PreludeComplex.hs` |
 | `Ix` | class in `prelude/PreludeCore.hs`; `rangeSize` in `Ix.hs` |
@@ -51,19 +51,18 @@ rejects re-exporting an entity it gets from the Prelude.
 - **Still exported for compatibility:** `ord`, `chr`, `isAscii`,
   `isControl`, `isPrint`, `isSpace`, `isUpper`, `isLower`, `isAlpha`,
   `isDigit`, `isAlphaNum`, `toUpper`, `toLower` (H98: only in `Char`); the
-  Dialogue I/O names; `nullBin`, `isNullBin`, `appendBin`.
+  Dialogue I/O names.
 - **Always in scope** (compiler core symbols in `PreludeCore`): the
-  types `Ratio`, `Complex` (with `:+`), `Array`, and the classes
-  `Text` and `Binary`.  Programs cannot define these names.  (`Bin`,
-  `Assoc` and `:=` are core symbols too, but user modules may define
-  them: `hidden-core-name?` in `top/symbol-table.mumble`.)
+  types `Ratio`, `Complex` (with `:+`) and `Array`.  Programs cannot
+  define these names.  (`Assoc` and `:=` are core symbols too, but user
+  modules may define them: `hidden-core-name?` in
+  `top/symbol-table.mumble`.)  The 1.2 `Text`, `Binary` and `Bin` are not
+  core names here (`*feature-retired-names*` in
+  `top/core-symbols.mumble`).
 - `rangeSize` is a function, not an `Ix` method.  The runtime builds
-  tuple dictionaries for `Ord`, `Ix` and `Bounded`; superclass slots are
+  tuple dictionaries for `Eq`, `Ord`, `Ix`, `Bounded`, `Show` and `Read`; superclass slots are
   computed from the class definitions, and `compare` is the last `Ord`
   method (`src/runtime/tuple-prims.mumble`).
-- `Ix` keeps its `Text` superclass.
-- `Text` stands in for `Show`/`Read`; no `Functor`, `Monad` or monadic
-  I/O.
 - Arrays take H98 `(i, e)` pairs (the 1.2 `i := e` form is gone).
 - `Char` is Latin-1; the character predicates follow Latin-1.
 - Programs run with the host's float traps masked, so `1/0` is `Infinity`

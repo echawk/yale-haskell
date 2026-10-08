@@ -82,18 +82,6 @@ primQuotRemInt :: Int -> Int -> (Int, Int)
 primQuotRemInteger :: Integer -> Integer -> (Integer, Integer)
 primIntegerToInt :: Integer -> Int
 primIntToInteger :: Int -> Integer
-primNullBin :: Bin
-primIsNullBin :: Bin -> Bool
-primShowBinInt :: Int -> Bin -> Bin
-primShowBinInteger :: Integer -> Bin -> Bin
-primShowBinFloat :: Float -> Bin -> Bin
-primShowBinDouble :: Double -> Bin -> Bin
-primReadBinInt :: Bin -> (Int,Bin)
-primReadBinInteger :: Bin -> (Integer,Bin)
-primReadBinFloat :: Bin -> (Float,Bin)
-primReadBinDouble :: Bin -> (Double,Bin)
-primReadBinSmallInt :: Bin -> Int -> (Int,Bin)
-primAppendBin :: Bin -> Bin -> Bin
 
 primStringEq  :: [Char] -> [Char] -> Bool
 
@@ -239,18 +227,6 @@ primQuotRemInt ::   LispName("prim.div-rem-int")
 primQuotRemInteger :: LispName("prim.div-rem-integer")
 primIntegerToInt :: LispName("prim.integer-to-int"), Complexity(1)
 primIntToInteger :: LispName("prim.int-to-integer"), Complexity(0)
-primNullBin ::      LispName("prim.nullbin")
-primIsNullBin ::    LispName("prim.is-null-bin"), Complexity(1)
-primShowBinInt ::   LispName("prim.show-bin-int"), Complexity(2)
-primShowBinInteger :: LispName("prim.show-bin-integer"), Complexity(2)
-primShowBinFloat ::   LispName("prim.show-bin-float"), Complexity(2)
-primShowBinDouble ::  LispName("prim.show-bin-double"), Complexity(2)
-primReadBinInt ::     LispName("prim.read-bin-int")
-primReadBinInteger :: LispName("prim.read-bin-integer")
-primReadBinFloat ::   LispName("prim.read-bin-float")
-primReadBinDouble ::  LispName("prim.read-bin-double")
-primReadBinSmallInt :: LispName("prim.read-bin-small-int")
-primAppendBin ::      LispName("prim.append-bin")
 primStringEq :: LispName("prim.string-eq"), Strictness("S,S"), NoConversion
 primAppend :: LispName("prim.append"), Strictness("S,N"), NoConversion
 primTake   :: LispName("prim.take"), Strictness("S,S"), NoConversion

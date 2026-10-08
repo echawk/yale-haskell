@@ -13,7 +13,6 @@
 --   * Permissions is a positional constructor
 --     (Permissions readable writable executable searchable) with
 --     hand-written field selectors; record syntax is not available.
---   * It derives Text instead of Read/Show.
 --   * FilePath is not in the Prelude yet; names are Strings.
 
 module Directory (
@@ -29,7 +28,7 @@ import Time
 import DirectoryPrims
 
 data Permissions = Permissions Bool Bool Bool Bool
-                   deriving (Eq, Ord, Text)
+                   deriving (Eq, Ord, Show, Read)
 
 readable, writable, executable, searchable :: Permissions -> Bool
 readable   (Permissions x _ _ _) = x

@@ -19,8 +19,8 @@ module PreludeCore (
     Ix(range, index, inRange),
     Enum(succ, pred, toEnum, fromEnum,
 	 enumFrom, enumFromThen, enumFromTo, enumFromThenTo),
-    Text(readsPrec, showsPrec, readList, showList), ReadS(..), ShowS(..),
-    Binary(readBin, showBin),
+    Show(showsPrec, show, showList), Read(readsPrec, readList),
+    ReadS(..), ShowS(..),
 --  List type: [_]((:), [])
 --  Tuple types: (_,_), (_,_,_), etc.
 --  Trivial type: () 
@@ -28,7 +28,7 @@ module PreludeCore (
     Ordering(LT, EQ, GT), Maybe(Nothing, Just), Either(Left, Right),
     Functor(fmap), Monad((>>=), (>>), return, fail),
     mapM, mapM_, sequence, sequence_, (=<<),
-    Char, Int, Integer, Float, Double, Bin,
+    Char, Int, Integer, Float, Double,
     Ratio, Complex((:+)), Assoc((:=)), Array,
     String(..), Rational(..) )  where
 
@@ -59,13 +59,12 @@ data Integer = MkInteger
 data Float = MkFloat
 data Double   = MkDouble
 data Char = MkChar
-data Bin = MkBin
 -- The constructor order is fixed by the code generator (cons = 0), so a
 -- derived Ord would put [] after every non-empty list; Ord is written
 -- out below instead.
 data List a = a : (List a) | Nil deriving (Eq)
 data Arrow a b = MkArrow a b
-data UnitType = UnitConstructor deriving (Eq, Ord, Ix, Binary)
+data UnitType = UnitConstructor deriving (Eq, Ord, Ix)
 
 -- Equality and Ordered classes
 
@@ -108,7 +107,7 @@ class  Bounded a  where
 
 -- Numeric classes
 
-class  (Eq a, Text a) => Num a  where
+class  (Eq a, Show a) => Num a  where
     (+), (-), (*)	:: a -> a -> a
     negate		:: a -> a
     abs, signum		:: a -> a
@@ -227,7 +226,7 @@ class  (RealFrac a, Floating a) => RealFloat a  where
 
 -- Index and Enumeration classes
 
-class  (Ord a, Text a) => Ix a  where   -- This is a Yale modification
+class  (Ord a) => Ix a  where
     range		:: (a,a) -> [a]
     index		:: (a,a) -> a -> Int
     inRange		:: (a,a) -> a -> Bool
@@ -264,16 +263,28 @@ defaultEnumFromThenTo n n' m
 {-# defaultEnumFromTo :: Inline #-}
 {-# defaultEnumFromThenTo :: Inline #-}
 
--- Text class
+-- Show and Read classes.  The method order is the dictionary layout the
+-- runtime builds for tuples (src/runtime/tuple-prims.mumble).
 
 type  ReadS a = String -> [(a,String)]
 type  ShowS   = String -> String
 
-class  Text a  where
-    readsPrec :: Int -> ReadS a
+class  Show a  where
     showsPrec :: Int -> a -> ShowS
-    readList  :: ReadS [a]
+    show      :: a -> String
     showList  :: [a] -> ShowS
+
+    showsPrec _ x s = show x ++ s
+    show x	= showsPrec 0 x ""
+    showList []	= showString "[]"
+    showList (x:xs)
+		= showChar '[' . shows x . showl xs
+		  where showl []     = showChar ']'
+			showl (x:xs) = showChar ',' . shows x . showl xs
+
+class  Read a  where
+    readsPrec :: Int -> ReadS a
+    readList  :: ReadS [a]
 
     readList    = readParen False (\r -> [pr | ("[",s)	<- lex r,
 					       pr	<- readl s])
@@ -284,49 +295,40 @@ class  Text a  where
 			           [(x:xs,v) | (",",t)  <- lex s,
 					       (x,u)	<- reads t,
 					       (xs,v)   <- readl' u]
-    showList []	= showString "[]"
-    showList (x:xs)
-		= showChar '[' . shows x . showl xs
-		  where showl []     = showChar ']'
-			showl (x:xs) = showChar ',' . shows x . showl xs
 
 
-
--- Binary class
-
-class  Binary a  where
-    readBin		:: Bin -> (a,Bin)
-    showBin		:: a -> Bin -> Bin
-
-
--- Maybe and Either (H98).  The Text instances are written out to get
+-- Maybe and Either (H98).  The Show and Read instances are written out to get
 -- the H98 output format.
 
 data  Maybe a  =  Nothing | Just a	deriving (Eq, Ord)
 
-instance  (Text a) => Text (Maybe a)  where
+instance  (Show a) => Show (Maybe a)  where
+    showsPrec d Nothing  = showString "Nothing"
+    showsPrec d (Just x) = showParen (d > 10)
+			     (showString "Just " . showsPrec 11 x)
+
+instance  (Read a) => Read (Maybe a)  where
     readsPrec d r =  readParen False
 			(\r -> [(Nothing,s) | ("Nothing",s) <- lex r]) r
 		  ++ readParen (d > 10)
 			(\r -> [(Just x,t) | ("Just",s) <- lex r,
 					     (x,t)	<- readsPrec 11 s]) r
-    showsPrec d Nothing  = showString "Nothing"
-    showsPrec d (Just x) = showParen (d > 10)
-			     (showString "Just " . showsPrec 11 x)
 
 data  Either a b  =  Left a | Right b	deriving (Eq, Ord)
 
-instance  (Text a, Text b) => Text (Either a b)  where
+instance  (Show a, Show b) => Show (Either a b)  where
+    showsPrec d (Left x)  = showParen (d > 10)
+			      (showString "Left " . showsPrec 11 x)
+    showsPrec d (Right x) = showParen (d > 10)
+			      (showString "Right " . showsPrec 11 x)
+
+instance  (Read a, Read b) => Read (Either a b)  where
     readsPrec d r =  readParen (d > 10)
 			(\r -> [(Left x,t) | ("Left",s) <- lex r,
 					     (x,t)	<- readsPrec 11 s]) r
 		  ++ readParen (d > 10)
 			(\r -> [(Right x,t) | ("Right",s) <- lex r,
 					      (x,t)	 <- readsPrec 11 s]) r
-    showsPrec d (Left x)  = showParen (d > 10)
-			      (showString "Left " . showsPrec 11 x)
-    showsPrec d (Right x) = showParen (d > 10)
-			      (showString "Right " . showsPrec 11 x)
 
 -- Constructor classes (H98): Functor and Monad, with the instances the
 -- Prelude gives for lists and Maybe.  The IO instance is in PreludeIO.
@@ -382,13 +384,15 @@ instance  Monad Maybe  where
 
 -- Trivial type
 
--- data  ()  =  ()  deriving (Eq, Ord, Ix, Enum, Binary)
+-- data  ()  =  ()  deriving (Eq, Ord, Ix, Enum, Bounded)
 
-instance  Text ()  where
+instance  Show ()  where
+    showsPrec p () = showString "()"
+
+instance  Read ()  where
     readsPrec p    = readParen False
     	    	    	    (\r -> [((),t) | ("(",s) <- lex r,
 					     (")",t) <- lex s ] )
-    showsPrec p () = showString "()"
 
 instance  Enum ()  where
     succ _		=  error "succ{PreludeCore}: bad argument"
@@ -406,16 +410,10 @@ instance  Bounded ()  where
     maxBound		=  ()
 
 
--- Binary type
-
-instance  Text Bin  where
-    readsPrec p s  =  error "readsPrec{PreludeText}: Cannot read Bin."
-    showsPrec p b  =  showString "<<Bin>>"
-
 
 -- Boolean type
 
-data  Bool  =  False | True	deriving (Eq, Ord, Ix, Text, Binary)
+data  Bool  =  False | True	deriving (Eq, Ord, Ix, Show, Read)
 
 -- Enum Bool and Enum Ordering are written out because derived Enum
 -- instances do not define toEnum and fromEnum.
@@ -466,13 +464,15 @@ instance  Bounded Ordering  where
     minBound		=  LT
     maxBound		=  GT
 
-instance  Text Ordering  where
-    readsPrec p r	=  [(LT,s) | ("LT",s) <- lex r] ++
-			   [(EQ,s) | ("EQ",s) <- lex r] ++
-			   [(GT,s) | ("GT",s) <- lex r]
+instance  Show Ordering  where
     showsPrec p LT	=  showString "LT"
     showsPrec p EQ	=  showString "EQ"
     showsPrec p GT	=  showString "GT"
+
+instance  Read Ordering  where
+    readsPrec p r	=  [(LT,s) | ("LT",s) <- lex r] ++
+			   [(EQ,s) | ("EQ",s) <- lex r] ++
+			   [(GT,s) | ("GT",s) <- lex r]
 
 
 -- Character type
@@ -524,13 +524,19 @@ charEnumFromThen c c'	=  map chr [ord c, ord c' .. ord lastChar]
 {-# charEnumFrom :: Inline #-}
 {-# charEnumFromThen :: Inline #-}
 
-instance  Text Char  where
+instance  Show Char  where
+    showsPrec p '\'' = showString "'\\''"
+    showsPrec p c    = showChar '\'' . showLitChar c . showChar '\''
+
+    showList cs = showChar '"' . showl cs
+		 where showl ""       = showChar '"'
+		       showl ('"':cs) = showString "\\\"" . showl cs
+		       showl (c:cs)   = showLitChar c . showl cs
+
+instance  Read Char  where
     readsPrec p      = readParen False
     	    	    	    (\r -> [(c,t) | ('\'':s,t)<- lex r,
 					    (c,_)     <- readLitChar s])
-
-    showsPrec p '\'' = showString "'\\''"
-    showsPrec p c    = showChar '\'' . showLitChar c . showChar '\''
 
     readList = readParen False (\r -> [(l,t) | ('"':s, t) <- lex r,
 					       (l,_)      <- readl s ])
@@ -538,11 +544,6 @@ instance  Text Char  where
 		     readl ('\\':'&':s)	= readl s
 		     readl s		= [(c:cs,u) | (c ,t) <- readLitChar s,
 						      (cs,u) <- readl t	      ]
-
-    showList cs = showChar '"' . showl cs
-		 where showl ""       = showChar '"'
-		       showl ('"':cs) = showString "\\\"" . showl cs
-		       showl (c:cs)   = showLitChar c . showl cs
 
 type  String = [Char]
 
@@ -682,19 +683,23 @@ numericEnumFromThenTo e1 e2 e3
 				   | otherwise = (>= e3 + mid)
 
 
-instance  Text Int  where
-    readsPrec p		= readSigned readDec
+instance  Show Int  where
     showsPrec p n
 	| n == minInt	= showsPrec p (primIntToInteger n)  -- -minInt overflows
 	| otherwise	= showSigned showInt p n
+
+instance  Read Int  where
+    readsPrec p		= readSigned readDec
 
 minInt, maxInt	:: Int
 minInt		=  primMinInt
 maxInt		=  primMaxInt
 
-instance  Text Integer  where
-    readsPrec p 	= readSigned readDec
+instance  Show Integer  where
     showsPrec		= showSigned showInt
+
+instance  Read Integer  where
+    readsPrec p 	= readSigned readDec
 
 
 -- Standard Floating types
@@ -866,13 +871,17 @@ instance  Enum Double  where
     {-# enumFromTo :: Inline #-}
     {-# enumFromThenTo :: Inline #-}
 
-instance  Text Float  where
-    readsPrec p		= readSigned readFloat
+instance  Show Float  where
     showsPrec		= showSignedFloat
 
-instance  Text Double  where
+instance  Read Float  where
     readsPrec p		= readSigned readFloat
+
+instance  Show Double  where
     showsPrec		= showSignedFloat
+
+instance  Read Double  where
+    readsPrec p		= readSigned readFloat
 
 
 showSignedFloat		:: (RealFloat a) => Int -> a -> ShowS
@@ -883,7 +892,7 @@ showSignedFloat p x
 
 -- Lists
 
--- data  [a]  =  [] | a : [a]  deriving (Eq, Ord, Binary)
+-- data  [a]  =  [] | a : [a]  deriving (Eq, Ord)
 
 instance  (Ord a) => Ord [a]  where
     []     <= _	=  True
@@ -894,221 +903,14 @@ instance  (Ord a) => Ord [a]  where
     (_:_)  <  []	=  False
     (x:xs) <  (y:ys)	=  x < y || (x == y && xs < ys)
 
-instance  (Text a) => Text [a]  where
-    readsPrec p		= readList
+instance  (Show a) => Show [a]  where
     showsPrec p		= showList
+
+instance  (Read a) => Read [a]  where
+    readsPrec p		= readList
 
 
 -- Tuples
 
--- data  (a,b)  =  (a,b)  deriving (Eq, Ord, Ix, Binary)
-{-
-instance  (Text a, Text b) => Text (a,b)  where
-    readsPrec p = readParen False
-    	    	    	    (\r -> [((x,y), w) | ("(",s) <- lex r,
-						 (x,t)   <- reads s,
-						 (",",u) <- lex t,
-						 (y,v)   <- reads u,
-						 (")",w) <- lex v ] )
-
-    showsPrec p (x,y) = showChar '(' . shows x . showChar ',' .
-    	    	    	    	       shows y . showChar ')'
--- et cetera
--}
-
--- Functions
-
-instance  Text (a -> b)  where
-    readsPrec p s  =  error "readsPrec{PreludeCore}: Cannot read functions."
-    showsPrec p f  =  showString "<<function>>"
-
--- Support for class Bin
-
-instance Binary Int where
-  showBin i b = primShowBinInt i b
-  readBin b = primReadBinInt b
-
-instance Binary Integer where
-  showBin i b = primShowBinInteger i b
-  readBin b = primReadBinInteger b
-
-instance Binary Float where
-  showBin f b = primShowBinFloat f b
-  readBin b = primReadBinFloat b
-
-instance Binary Double where
-  showBin d b = primShowBinDouble d b
-  readBin b = primReadBinDouble b
-
-instance Binary Char where
-  showBin c b = primShowBinInt (ord c) b
-  readBin b = (chr i,b') where
-     (i,b') = primReadBinSmallInt b primMaxChar 
-
-instance (Binary a) => Binary [a]  where
-    showBin l b = showBin (length l :: Int) (sb1 l b) where
-      sb1 [] b = b
-      sb1 (h:t) b = showBin h (sb1 t b)
-    readBin bin = rbl len bin' where
-       len :: Int
-       (len,bin') = readBin bin
-       rbl 0 b = ([],b)
-       rbl n b = (h:t,b'') where
-         (h,b') = readBin b
-         (t,b'') = rbl (n-1) b'
-
-instance  (Ix a, Binary a, Binary b) => Binary (Array a b)  where
-    showBin a = showBin (bounds a) . showBin (elems a)
-    readBin bin = (listArray b vs, bin'')
-		 where (b,bin')   = readBin bin
-		       (vs,bin'') = readBin bin'
-
-{-
-instance (Binary a, Binary b) => Binary (a,b) where
-  showBin (x,y) = (showBin x) . (showBin y)
-  readBin b = ((x,y),b'') where
-                (x,b') = readBin b
-                (y,b'') = readBin b'
-
-instance (Binary a, Binary b, Binary c) => Binary (a,b,c) where
-  showBin (x,y,z) = (showBin x) . (showBin y) . (showBin z)
-  readBin b = ((x,y,z),b3) where
-                (x,b1) = readBin b
-                (y,b2) = readBin b1
-	        (z,b3) = readBin b2
-
-instance (Binary a, Binary b, Binary c, Binary d) => Binary (a,b,c,d) where
-  showBin (a,b,c,d) = (showBin a) . (showBin b) . (showBin c) . (showBin d)
-  readBin b = ((a1,a2,a3,a4),b4) where
-                (a1,b1) = readBin b
-                (a2,b2) = readBin b1
-	        (a3,b3) = readBin b2
-	        (a4,b4) = readBin b3
--}
---   Instances for tuples
-
--- This whole section should be handled in the support code.  For now,
--- only tuple instances expliticly provided here are available.
--- Currently provided:
-
--- 2,3 tuples: all classes (Eq, Ord, Ix, Bin, Text)
--- 4 tuples: Eq, Bin, Text
--- 5, 6 tuples: Text (printing only)
-
-{- 
-rangeSize               :: (Ix a) => (a,a) -> Int
-rangeSize (l,u)         =  index (l,u) u + 1
-
-instance (Eq a1, Eq a2) => Eq (a1,a2) where
-  (a1,a2) == (z1,z2) = a1==z1 && a2==z2
-
-instance (Ord a1, Ord a2) => Ord (a1,a2) where
-  (a1,a2) <= (z1,z2) = a1<=z1 || a1==z1 && a2<=z2 
-  (a1,a2) <  (z1,z2) = a1<z1  || a1==z1 && a2<z2
-
-instance (Ix a1, Ix a2) => Ix (a1,a2) where
-  range ((l1,l2),(u1,u2)) = [(i1,i2) | i1 <- range(l1,u1),
-                                       i2 <- range(l2,u2)]
-  index ((l1,l2),(u1,u2)) (i1,i2) = 
-    index (l1,u1) i1 * rangeSize (l2,u2)
-    + index (l2,u2) i2
-  inRange ((l1,l2),(u1,u2)) (i1,i2) =
-    inRange (l1,u1) i1 && inRange (l2,u2) i2
-
-{-    Apprears in Joe's code.
-instance (Text a1, Text a2) => Text (a1,a2) where
-  readsPrec p = readParen False
-                          (\r0 -> [((a1,a2), w) | ("(",r1) <- lex r0,
-                                                  (a1,r2)  <- reads r1,
-                                                  (",",r3) <- lex r2,
-                                                  (a2,r4)  <- reads r3,
-                                                  (")",w)  <- lex r4 ])
-
-  showsPrec p (a1,a2) = showChar '(' . shows a1 . showChar ',' .
-                                       shows a2 . showChar ')'
--}
-
-instance (Eq a1, Eq a2, Eq a3) => Eq (a1,a2,a3) where
-  (a1,a2,a3) == (z1,z2,z3) = a1==z1 && a2==z2 && a3==z3
-
-instance (Ord a1, Ord a2, Ord a3) => Ord (a1,a2,a3) where
-  (a1,a2,a3) <= (z1,z2,z3) = a1<=z1 || a1==z1 && 
-			      (a2<=z2 || a2==z2 &&
-				a3<=z3)
-  (a1,a2,a3) <  (z1,z2,z3) = a1<z1  || a1==z1 &&
-   			      (a2<z2 || a2==z2 &&
-           			a3<z3)
-
-
-instance (Ix a1, Ix a2, Ix a3) => Ix (a1,a2,a3) where
-  range ((l1,l2,l3),(u1,u2,u3)) = 
-     [(i1,i2,i3) | i1 <- range(l1,u1),
-                   i2 <- range(l2,u2),
-                   i3 <- range(l3,u3)]
-  index ((l1,l2,l3),(u1,u2,u3)) (i1,i2,i3) = 
-    (index (l1,u1) i1 * rangeSize (l2,u2)
-     + index (l2,u2) i2 ) * rangeSize (l3,u3)
-     + index (l3,u3) i3
-  inRange ((l1,l2,l3),(u1,u2,u3)) (i1,i2,i3) =
-    inRange (l1,u1) i1 && inRange (l2,u2) i2 && inRange (l3,u3) i3
-
-
-instance (Text a1, Text a2, Text a3) => Text (a1,a2,a3) where
-  readsPrec p = readParen False
-                          (\r0 -> [((a1,a2,a3), w) |
-                                                  ("(",r1) <- lex r0,
-                                                  (a1,r2)  <- reads r1,
-                                                  (",",r3) <- lex r2,
-                                                  (a2,r4)  <- reads r3,
-                                                  (",",r5) <- lex r4,
-                                                  (a3,r6)  <- reads r5,
-                                                  (")",w)  <- lex r6 ])
-  showsPrec p (a1,a2,a3) = 
-                        showChar '(' . shows a1 . showChar ',' .
-                                       shows a2 . showChar ',' .
-                                       shows a3 . showChar ')'
-
-instance (Eq a1, Eq a2, Eq a3, Eq a4) => Eq (a1,a2,a3,a4) where
-  (a1,a2,a3,a4) == (z1,z2,z3,z4) = a1==z1 && a2==z2 && a3==z3 && a4 == z4
-
-instance (Text a1, Text a2, Text a3, Text a4) => Text (a1,a2,a3,a4) where
-  readsPrec p = readParen False
-                          (\r0 -> [((a1,a2,a3,a4), w) |
-                                                  ("(",r1) <- lex r0,
-                                                  (a1,r2)  <- reads r1,
-                                                  (",",r3) <- lex r2,
-                                                  (a2,r4)  <- reads r3,
-                                                  (",",r5) <- lex r4,
-                                                  (a3,r6)  <- reads r5,
-	                                          (",",r7) <- lex r6,
-						  (a4,r8)  <- reads r7,
-                                                  (")",w)  <- lex r8 ])
-  showsPrec p (a1,a2,a3,a4) = 
-                        showChar '(' . shows a1 . showChar ',' .
-                                       shows a2 . showChar ',' .
-                                       shows a3 . showChar ',' .
-                                       shows a4 . showChar ')'
-
-instance (Text a1, Text a2, Text a3, Text a4, Text a5) =>
-      Text (a1,a2,a3,a4,a5) where
-  readsPrec p = error "Read of 5 tuples not implemented"
-  showsPrec p (a1,a2,a3,a4,a5) = 
-                        showChar '(' . shows a1 . showChar ',' .
-                                       shows a2 . showChar ',' .
-                                       shows a3 . showChar ',' .
-                                       shows a4 . showChar ',' .
-                                       shows a5 . showChar ')'
-
-instance (Text a1, Text a2, Text a3, Text a4, Text a5, Text a6) =>
-      Text (a1,a2,a3,a4,a5,a6) where
-  readsPrec p = error "Read of 6 tuples not implemented"
-  showsPrec p (a1,a2,a3,a4,a5,a6) = 
-                        showChar '(' . shows a1 . showChar ',' .
-                                       shows a2 . showChar ',' .
-                                       shows a3 . showChar ',' .
-                                       shows a4 . showChar ',' .
-                                       shows a5 . showChar ',' .
-                                       shows a6 . showChar ')'
-
-
--}
+-- Tuple instances of Eq, Ord, Ix, Bounded, Show and Read are built by the
+-- runtime for every arity (src/runtime/tuple-prims.mumble, PreludeTuple).

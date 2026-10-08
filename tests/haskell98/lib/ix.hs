@@ -3,8 +3,7 @@ module Main where
 
 import Ix
 
--- (Text is needed because Yale's Ix still has Text as a superclass.)
-data Colour = Red | Green | Blue deriving (Eq, Ord, Ix, Text)
+data Colour = Red | Green | Blue deriving (Eq, Ord, Ix, Show)
 
 main = appendChan stdout (unlines [
   show (range (1, 4 :: Int), index (10, 20 :: Int) 15, inRange (1, 5 :: Integer) 7),

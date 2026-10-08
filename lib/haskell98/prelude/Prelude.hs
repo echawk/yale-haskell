@@ -18,8 +18,6 @@ module Prelude (
     -- Not in the H98 Prelude (they are in Char), kept for compatibility:
     ord, chr, isAscii, isControl, isPrint, isSpace,
     isUpper, isLower, isAlpha, isDigit, isAlphaNum, toUpper, toLower,
-    -- Yale's Binary class support (to be removed with Binary):
-    nullBin, isNullBin, appendBin,
     (&&), (||), not, otherwise, maybe, either,
     subtract, gcd, lcm, (^), (^^), fromIntegral, realToFrac,
     fst, snd, curry, uncurry, id, const, (.), flip, ($), until,
@@ -27,7 +25,7 @@ module Prelude (
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
-import PreludePrims(error, primNullBin, primIsNullBin, primAppendBin)
+import PreludePrims(error)
 import PreludeBltinArray(strict1)
 
 import PreludeCore
@@ -41,7 +39,7 @@ import PreludeList(
     any, all, elem, notElem, lookup,
     sum, product, maximum, minimum,
     zip, zip3, zipWith, zipWith3, unzip, unzip3)
-import PreludeText(reads, shows, show, read, lex,
+import PreludeText(reads, shows, read, lex,
 		   showChar, showString, readParen, showParen)
 import PreludeIO(IOError, IO, FilePath(..), ioError, userError, catch,
     putChar, putStr, putStrLn, print, getChar, getLine, getContents,
@@ -59,17 +57,6 @@ infixr 3  &&
 infixr 2  ||
 infixr 0  $, $!, `seq`
 
-
--- Binary functions
-
-nullBin	    	    	:: Bin
-nullBin	    	    	=  primNullBin
-
-isNullBin    	    	:: Bin -> Bool
-isNullBin    	    	=  primIsNullBin
-
-appendBin		:: Bin -> Bin -> Bin
-appendBin		=  primAppendBin
 
 -- Boolean functions
 
