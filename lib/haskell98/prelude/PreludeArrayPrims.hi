@@ -25,6 +25,11 @@ primCopyVector :: Vector a -> Vector a
 strict1 :: a -> b -> b
 primForce :: Delay a -> a
 
+-- seq: strict in both arguments (Report 6.2), so its second argument is
+-- not delayed.  Unlike strict1, the order of evaluation is not fixed.
+
+primSeq :: a -> b -> b
+
 {-#
 primVectorSel ::  LispName("prim.vector-sel"), Complexity(1)
 primVectorUpdate :: LispName("prim.vector-update"), Complexity(1)
@@ -33,5 +38,7 @@ primCopyVector :: LispName("prim.copy-vector"), Complexity(5)
 strict1 :: Strictness("S,N"),
 	   LispName("prim.strict1")
 primForce :: LispName("prim.force")
+primSeq :: Strictness("S,S"),
+	   LispName("prim.seq")
 #-}
 

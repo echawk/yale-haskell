@@ -99,8 +99,10 @@
     ;; after changing lib/<dialect>/prelude.
     (unless (directory (merge-pathnames "prelude/*.*" build))
       (compile-prelude))
+    ;; As tools/build/image.lisp: user programs are compiled with the
+    ;; optimizer on.
     (mumble-set "*PRINTERS*" '())
-    (mumble-set "*OPTIMIZERS*" '())
+    (mumble-set "*OPTIMIZERS*" (mumble-value "*ALL-OPTIMIZERS*"))
     (mumble-call "COMPILE/LOAD" (mumble-value "*PRELUDE-UNIT-FILENAME*"))
     (setf *loaded-dialect* dialect)))
 

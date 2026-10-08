@@ -26,7 +26,7 @@ module Prelude (
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
 import PreludePrims(error)
-import PreludeBltinArray(strict1)
+import PreludeBltinArray(primSeq)
 
 import PreludeCore
 import PreludeList(
@@ -173,9 +173,9 @@ uncurry f p		=  f (fst p) (snd p)
 undefined		:: a
 undefined		=  error "Prelude.undefined"
 
--- Strict evaluation, via the strict1 primitive.
+-- Strict evaluation.  primSeq is strict in both arguments, as seq is.
 seq			:: a -> b -> b
-seq x y			=  strict1 x y
+seq x y			=  primSeq x y
 {-# seq :: Inline #-}
 
 ($!)			:: (a -> b) -> a -> b

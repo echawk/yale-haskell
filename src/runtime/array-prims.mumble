@@ -34,6 +34,13 @@
   `(force ,x))
 
 
+;;; seq (primSeq in PreludeArrayPrims.hi) is strict in both arguments, so
+;;; both arrive evaluated and the second is the result, left in tail
+;;; position.
+
+(define-syntax (prim.seq force-this result)
+  `(begin ,force-this ,result))
+
 ;;; The first parameter is forced first since this prim is declared to
 ;;; be strict in the first arg.
 
