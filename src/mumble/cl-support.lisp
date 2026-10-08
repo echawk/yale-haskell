@@ -49,7 +49,10 @@
      (lcl:defsubst ,name ,@stuff)
 #-lcl
      (progn
-       (proclaim '(inline ,name))
+       ;; declaim, not proclaim: the declaration must be in effect when
+       ;; the defun is compiled, or the inline expansion is not recorded
+       ;; and every call stays a full call.
+       (declaim (inline ,name))
        (defun ,name ,@stuff))
      ',name))
 

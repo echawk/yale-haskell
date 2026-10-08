@@ -54,3 +54,28 @@ sieve           1.405    2.157      1.292    2.038  ok
 tree            0.984    0.986      0.871    0.867  ok
 wheel           0.806    0.846      0.693    0.727  ok
 ```
+
+## P1 thunks, then inlined mumble primitives (2026-10-08)
+
+P1 (thunks distinguishable from data, blackholing) was measured against
+`ng` with the optimizer on, interleaving old and new runs, best of 3:
+within noise everywhere, tree -21% and ioloop -8%.  A first version with
+a struct thunk (4 words on SBCL/arm64) and mumble's `eq?`/`pair?` in the
+hot path was 15-60% slower; profiling showed those mumble predicates
+were full function calls.
+
+Cause: `define-mumble-function-inline` (src/mumble/cl-support.lisp)
+used `proclaim` at load time, so no inline expansion was ever recorded
+for mumble's primitives (`eq?`, `pair?`, `null?`, `car`...).  With
+`declaim`, same session, total minus overhead:
+
+```
+bigint      0.707 ->  0.697  (-1%)
+integrate   0.147 ->  0.132  (-10%)
+ioloop      1.449 ->  1.205  (-17%)
+nfib        0.563 ->  0.578  (+3%)
+queens      0.506 ->  0.421  (-17%)
+sieve       0.956 ->  0.766  (-20%)
+tree        0.704 ->  0.544  (-23%)
+wheel       0.734 ->  0.534  (-27%)
+```

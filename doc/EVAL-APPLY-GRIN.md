@@ -211,6 +211,15 @@ of unknown calls, dictionary methods).
 
 ### 4.1 Representation
 
+> **As built (P1, 2026-10-08):** a thunk is a *cons* whose car is one of
+> three private marker symbols (unevaluated / blackhole / evaluated),
+> not a struct.  It is still distinguishable from every data value (no
+> Haskell value is a marker), keeps a thunk at two words (the struct
+> below is four on SBCL/arm64 and measured slower), and a blackholed
+> thunk keeps its closure, so restoring it is one write.  See
+> `src/runtime/runtime-utils.mumble` and bench/RESULTS.md.  The struct
+> sketch is kept for reference.
+
 ```lisp
 (defstruct (thunk (:constructor make-thunk (code)))
   ;; CODE: a nullary closure while unevaluated, +BLACKHOLE+ while being
@@ -700,8 +709,8 @@ passing, and benchmark numbers recorded.
 
 | Phase | Work | Done when |
 |---|---|---|
-| **P0 Benchmarks** | `bench/` with nofib-style programs: nfib, queens, primes/sieve, wheel-sieve, an Integer-heavy one, an IO loop, `Data.Map`-style tree code.  A `make bench` target timing each with the H98 image | Baseline numbers committed in `bench/RESULTS.md` |
-| **P1 Thunks** | `thunk` struct, blackholing with catch-scoped restore, closure clearing, constant boxes become plain values (§4) on the *current* codegen | Tests green; a `<<loop>>` test; memory of a long lazy-list program reduced |
+| **P0 Benchmarks** ✅ | `bench/` with nofib-style programs: nfib, queens, primes/sieve, wheel-sieve, an Integer-heavy one, an IO loop, `Data.Map`-style tree code.  A `make bench` target timing each with the H98 image | Baseline numbers committed in `bench/RESULTS.md` |
+| **P1 Thunks** ✅ | `thunk` struct, blackholing with catch-scoped restore, closure clearing, constant boxes become plain values (§4) on the *current* codegen | Tests green; a `<<loop>>` test; memory of a long lazy-list program reduced |
 | **P2 Eval/apply** | `fun`, `pap`, `apply-1…4/n`, `/STD` entries, preallocated nullary constructors; codegen emits `apply-k` for unknown calls (§3) | Tests green; no `&rest` in the runtime's call path; higher-order benchmarks faster |
 | **P3 Case** | Recover `case` from match chains and emit CL `case` (§5.5, §6.5) — still in the old codegen | Tests green; dispatch-heavy benchmarks faster |
 | **P4 GRIN IR** | `src/compiler/grin/` structs, printer, FLIC→GRIN lowering, GRIN→CL emission reproducing P1–P3 output; `*backend*` switch; the `grin` printer in `*printers*` | Both backends pass all tests; output equivalent |
