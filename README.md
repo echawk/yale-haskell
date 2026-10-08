@@ -45,7 +45,8 @@ it (an `IO` action is run), a definition (`x = ...`, `f x = ...`,
 `:set +s`, `:{ ... :}` and `:quit`, plus Yale Haskell's own `:grin`,
 `:lisp` and `:flic` (show an expression's intermediate or generated
 code), `:set backend`, `:set printers` and `:profile`.  `:?` lists
-them.  With `rlwrap` installed it has line editing and history.
+them.  With `rlwrap` installed it has line editing and history.  The
+full guide, including current limitations, is [doc/REPL.md](doc/REPL.md).
 
 Programs use Haskell 1.2 conventions: `main` is a `Dialogue`, e.g.
 

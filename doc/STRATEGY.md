@@ -1161,7 +1161,7 @@ constructor classes, List/Char/Maybe/Ix/Numeric all matched):
 
 | # | Gap | Where | Effort |
 |---|---|---|---|
-| 1 | Layout rule `parse-error(t)`: `main = do …` then `where` at the statements' column is a parse error | parser (implicit block close on a parse error) | M |
+| 1 | ✅ Layout rule `parse-error(t)` for do blocks: `where`, `in`, `of`, `then`, `else`, `)`, `]`, `,` end an implicit block (case alternatives and declaration lists already did); test `syntax/layout-parse-error` | `parse-stmts` (exp-parser) | S |
 | 2 | ✅ `renaming`, `to`, `interface`, `hiding` are identifiers in H98 (`interface` stays a keyword in .hi files); test `syntax/free-keywords` | lexer (`h98-free-word?`), import parser | S |
 | 3 | ✅ `Monad` library from the Report; test `lib/monad` | `lib/haskell98/Monad.hs` | S |
 | 4 | The H98 Prelude exports 1.2 Dialogue I/O names (`appendChan`, `stdin`, `stdout`, `stderr`, `exit`, `done`, `abort`, …): `import IO` clashes, and defining those names is rejected.  Many of our own H98 tests still use them, so they need moving to a library (or rewriting) | Prelude export list; tests | M |

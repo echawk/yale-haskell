@@ -501,7 +501,8 @@
   (repl-say "  :!command                 run a shell command~%~
         Other input: an expression to evaluate (an IO action is run),~%~
         a definition (x = .., f x = .., data/type/class/instance, let ..),~%~
-        or import M.  :{ starts a multi-line input ending with :}.~%"))
+        or import M.  :{ starts a multi-line input ending with :}.~%~
+        The guide, with current limitations: doc/REPL.md~%"))
 
 (define-repl-command ("quit") (rest)
   ":quit                     leave Yale Haskell"

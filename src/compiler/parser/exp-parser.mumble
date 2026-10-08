@@ -249,10 +249,19 @@
     (let ((stmts (start-layout (function parse-stmts))))
       (make do-exp (stmts stmts))))))
 
+;;; The layout rule's parse-error(t) (Report 9.3), in the case that matters
+;;; for do blocks: a token that cannot begin a statement ends an implicit
+;;; block.  So `main = do ...' followed by `where' in the statements'
+;;; column (where layout inserts a `;') ends the do block.  Case
+;;; alternatives and declaration lists already end on such a token.
+
 (define (parse-stmts in-layout?)
   (token-case
     (\; (parse-stmts in-layout?))
     ((no-advance \} $\})
+     (close-layout in-layout?)
+     '())
+    ((no-advance |where| |in| |of| |then| |else| \) \] \, eof)
      (close-layout in-layout?)
      '())
     (else
