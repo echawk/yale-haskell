@@ -261,9 +261,17 @@
 	   (signal-core-redefinition name))
 	  ((and (module-uses-standard-prelude? *module*)
 		(table-entry *prelude-symbol-table* name))
-	   (if (eq? (def-module def) *module-name*)
-	       (signal-prelude-redefinition name)
-	       (signal-prelude-reimport name (def-module def))))
+	   (cond ((not (eq? (def-module def) *module-name*))
+		  (signal-prelude-reimport name (def-module def)))
+		 ((haskell98?)
+		  ;; H98 5.5.2: a module may define a name the Prelude
+		  ;; exports; only an unqualified use is ambiguous.
+		  (setf (table-entry *symbol-table* name) def)
+		  (when (eq? (local-name def) '#f)
+		    (setf (table-entry *inverted-symbol-table* def) name))
+		  (note-prelude-clash name))
+		 (else
+		  (signal-prelude-redefinition name))))
 	  ((eq? (def-module def) *module-name*)
 	   (signal-multiple-definition-in-module name *module-name*))
 	  ((eq? (def-module old-definition) *module-name*)
@@ -330,10 +338,26 @@
        (not (module-prelude? *module*))
        (memq name '(|Assoc| |;:=|))))
 
+;;; Names a module defines that the implicitly imported Prelude also
+;;; exports (H98 5.5.2), by module name.  The module's own definition is
+;;; the one found; the scope phase reports an unqualified use as
+;;; ambiguous (prelude-clash?).
+
+(define *prelude-clashes* (make-table))
+
+(define (note-prelude-clash name)
+  (push name (table-entry *prelude-clashes* *module-name*)))
+
+(define (prelude-clash? name)
+  (and (module-uses-standard-prelude? *module*)
+       (memq name (table-entry *prelude-clashes* *module-name*))))
+
 (define (resolve-toplevel-name name)
   (let ((pc (table-entry *prelude-core-symbols* name)))
     (cond ((and (not (eq? pc '#f)) (not (hidden-core-name? name)))
 	   pc)
+	  ((prelude-clash? name)
+	   (resolve-toplevel-name-1 name))
 	  ((module-uses-standard-prelude? *module*)
 	   (let ((res (table-entry *prelude-symbol-table* name)))
 	     (if (eq? res '#f)
