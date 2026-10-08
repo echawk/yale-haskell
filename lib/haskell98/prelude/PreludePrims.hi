@@ -80,6 +80,11 @@ primPlusInteger, primMinusInteger, primMulInteger :: Integer -> Integer -> Integ
 primNegInteger, primAbsInteger :: Integer -> Integer
 primQuotRemInt :: Int -> Int -> (Int, Int)
 primQuotRemInteger :: Integer -> Integer -> (Integer, Integer)
+primQuotInt, primRemInt, primDivInt, primModInt :: Int -> Int -> Int
+primQuotInteger, primRemInteger, primDivInteger, primModInteger
+                :: Integer -> Integer -> Integer
+primDivModInt :: Int -> Int -> (Int, Int)
+primDivModInteger :: Integer -> Integer -> (Integer, Integer)
 primIntegerToInt :: Integer -> Int
 primIntToInteger :: Int -> Integer
 
@@ -225,6 +230,16 @@ primNegInteger ::   LispName("prim.neg-integer"), Complexity(2)
 primAbsInteger ::   LispName("prim.abs-integer"), Complexity(2)
 primQuotRemInt ::   LispName("prim.div-rem-int")
 primQuotRemInteger :: LispName("prim.div-rem-integer")
+primQuotInt ::      LispName("prim.quot-int"), Complexity(3)
+primRemInt ::       LispName("prim.rem-int"), Complexity(3)
+primDivInt ::       LispName("prim.div-int"), Complexity(3)
+primModInt ::       LispName("prim.mod-int"), Complexity(3)
+primQuotInteger ::  LispName("prim.quot-integer"), Complexity(4)
+primRemInteger ::   LispName("prim.rem-integer"), Complexity(4)
+primDivInteger ::   LispName("prim.div-integer"), Complexity(4)
+primModInteger ::   LispName("prim.mod-integer"), Complexity(4)
+primDivModInt ::    LispName("prim.div-mod-int")
+primDivModInteger :: LispName("prim.div-mod-integer")
 primIntegerToInt :: LispName("prim.integer-to-int"), Complexity(1)
 primIntToInteger :: LispName("prim.int-to-integer"), Complexity(0)
 primStringEq :: LispName("prim.string-eq"), Strictness("S,S"), NoConversion

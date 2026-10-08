@@ -3,6 +3,7 @@
 #   make            build the compiler and an executable for each dialect
 #   make test       run the test suite (tests/README.md)
 #   make bench      time the benchmark programs (bench/README.md)
+#   make profile FILE=prog.hs   profile a Haskell 98 program (sb-sprof)
 #   make clean      delete everything under build/
 #   make ref        clone the reference implementations into ref/
 #
@@ -45,7 +46,7 @@ define step
 	  echo "*** $(1) failed; full log in $(LOGS)/$(1).log"; exit 1; }
 endef
 
-.PHONY: all compiler test bench clean ref $(DIALECTS)
+.PHONY: all compiler test bench profile clean ref $(DIALECTS)
 .SECONDEXPANSION:
 .SECONDARY:
 
@@ -82,6 +83,12 @@ test: all
 
 bench: all
 	@bench/run-bench $(BENCHFLAGS)
+
+profile: all
+	@test -n "$(FILE)" || { echo "usage: make profile FILE=prog.hs"; exit 2; }
+	@env $(call dialect_env,haskell98) PROFILE_FILE=$(abspath $(FILE)) \
+	  $(RUN_SBCL) --load tools/build/profile.lisp 2>&1 \
+	  | sed -n '/Self  *Total/,$$p'
 
 clean:
 	rm -rf build

@@ -366,11 +366,21 @@ instance  Real Integer	where
     toRational x	=  x % 1
 
 instance  Integral Int	where
+    quot		=  primQuotInt
+    rem			=  primRemInt
+    div			=  primDivInt
+    mod			=  primModInt
     quotRem		=  primQuotRemInt
+    divMod		=  primDivModInt
     toInteger		=  primIntToInteger
 
 instance  Integral Integer  where
+    quot		=  primQuotInteger
+    rem			=  primRemInteger
+    div			=  primDivInteger
+    mod			=  primModInteger
     quotRem		=  primQuotRemInteger
+    divMod		=  primDivModInteger
     toInteger x		=  x
 
 instance  Ix Int  where

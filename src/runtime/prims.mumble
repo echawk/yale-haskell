@@ -485,6 +485,36 @@
       (lisp:truncate (the-fixnum i1) (the-fixnum i2))
     (make-tuple (box (the-fixnum q)) (box (the-fixnum r)))))
 
+;;; quot/rem truncate towards zero and div/mod towards negative
+;;; infinity, as CL's truncate/rem and floor/mod do (Report 6.4.2).
+
+(define-syntax (prim.quot-int i1 i2)
+  `(the-fixnum (values (lisp:truncate (the-fixnum ,i1) (the-fixnum ,i2)))))
+(define-syntax (prim.rem-int i1 i2)
+  `(the-fixnum (lisp:rem (the-fixnum ,i1) (the-fixnum ,i2))))
+(define-syntax (prim.div-int i1 i2)
+  `(the-fixnum (values (lisp:floor (the-fixnum ,i1) (the-fixnum ,i2)))))
+(define-syntax (prim.mod-int i1 i2)
+  `(the-fixnum (lisp:mod (the-fixnum ,i1) (the-fixnum ,i2))))
+(define-syntax (prim.quot-integer i1 i2)
+  `(the-integer (values (lisp:truncate (the-integer ,i1) (the-integer ,i2)))))
+(define-syntax (prim.rem-integer i1 i2)
+  `(the-integer (lisp:rem (the-integer ,i1) (the-integer ,i2))))
+(define-syntax (prim.div-integer i1 i2)
+  `(the-integer (values (lisp:floor (the-integer ,i1) (the-integer ,i2)))))
+(define-syntax (prim.mod-integer i1 i2)
+  `(the-integer (lisp:mod (the-integer ,i1) (the-integer ,i2))))
+
+(define (prim.div-mod-int i1 i2)
+  (multiple-value-bind (q r)
+      (lisp:floor (the-fixnum i1) (the-fixnum i2))
+    (make-tuple (box (the-fixnum q)) (box (the-fixnum r)))))
+
+(define (prim.div-mod-integer i1 i2)
+  (multiple-value-bind (q r)
+      (lisp:floor (the-integer i1) (the-integer i2))
+    (make-tuple (box (the-integer q)) (box (the-integer r)))))
+
 (define (prim.div-rem-integer i1 i2)
   (multiple-value-bind (q r)
       (lisp:truncate (the-integer i1) (the-integer i2))

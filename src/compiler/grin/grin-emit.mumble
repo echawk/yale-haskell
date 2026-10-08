@@ -75,10 +75,13 @@
   (codegen-apply (grin-emit (grin-apply-fn object))
 		 (grin-emit-list (grin-apply-args object))))
 
+;;; Eval inlining (P5, doc/EVAL-APPLY-GRIN.md section 5.4): the test for
+;;; an evaluated value is inline, and only a thunk calls force-thunk.
+
 (define-grin-emit grin-eval (object)
   (if (grin-eval-known-evaluated? object)
       `(unbox ,(grin-emit (grin-eval-arg object)))
-      `(force ,(grin-emit (grin-eval-arg object)))))
+      `(force-inline ,(grin-emit (grin-eval-arg object)))))
 
 (define-grin-emit grin-delay (object)
   `(delay ,(grin-emit (grin-delay-body object))))

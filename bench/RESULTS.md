@@ -112,3 +112,34 @@ was analysed as lazy in its registers.  With `seq` strict in both
 arguments, interp went from about 1.40 s to 0.85 s total (one
 unloaded run each).  Proper P3 and seq numbers wait for a quiet
 machine.
+
+## P5 step 1: Int/Integer division primitives, eval inlining (2026-10-08)
+
+Profiling (`make profile FILE=…`) showed `mod`/`div` on Int going
+through the Report's class defaults (`default-divMod`, `signumReal`:
+thunks and closures per call), 30-50% of sieve, wheel, interp and tree;
+and `force` as a full call, 8-21% self time everywhere.  `Integral
+Int`/`Integer` now define quot/rem/div/mod/divMod with primitives (CL
+truncate/rem/floor/mod), and GRIN emits `eval` as the inline
+`force-inline` test.
+
+The machine was loaded (load average 12-17), so these are CPU seconds
+(user+sys, whole process including ~0.15 s start-up), P4 (9e60a16) vs
+P5 alternating, three runs each:
+
+```
+            P4                  P5
+nfib        1.37 1.34 1.35      1.37 1.37 1.36
+queens      1.46 1.34 1.43      1.17 1.11 1.21    -18% (eval inlining)
+sieve       1.90 1.87 1.97      0.27 0.27 0.27    7x
+tree        1.55 1.62 1.63      1.08 1.10 1.16    -30%
+wheel       1.12 1.17 1.08      0.18 0.19 0.17    6x
+integrate   0.60 0.57 0.59      0.63 0.58 0.58
+interp      1.19 1.35 1.28      0.46 0.47 0.46    2.8x
+ioloop      2.92 2.79 2.93      2.41 2.47 2.64    -13%
+bigint      1.72 1.70 1.72      1.71 1.81 1.89
+```
+
+Allocation during main (bytes consed, independent of load): sieve
+1508 MB -> 133 MB, wheel 1219 -> 14, interp 844 -> 178, tree 866 -> 574;
+queens, integrate and ioloop unchanged.
