@@ -47,9 +47,7 @@
 -- Changes for Yale Haskell:
 --   * do-notation rewritten with thenIO; IORef/unsafePerformIO replaced
 --     by a named global cell (RandomPrims.hi).
---   * minBound/maxBound replaced by minInt/maxInt and minChar/maxChar,
---     realToFrac by realToFrac (the 1.2 Prelude has no Bounded).
---     Int has the Lisp fixnum range, so random :: Int covers more than
+--   * Int has the Lisp fixnum range, so random :: Int covers more than
 --     32 bits.
 
 module Random (

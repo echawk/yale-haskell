@@ -924,14 +924,11 @@ main = print (ord 'λ', chr 955)  -- λ = U+03BB = 955
 | Time, Locale, CPUTime | ✅ | Report/Hugs code |
 | Random | ✅ | Hugs' `System/Random.hs` |
 
-### System library follow-ups (from §7)
+### System library follow-ups (from §7) ✅
 
-| Item | Where | Approach |
-|---|---|---|
-| `ioeGetFileName`, `ioeGetHandle` | `lib/haskell98/IO.hs`, `src/runtime/io-errors.mumble` | Add accessors to the IOError type |
-| `try` | `lib/haskell98/IO.hs` | `try :: IO a -> IO (Either IOError a)` |
-| `BlockBuffering (Maybe Int)` | `lib/haskell98/IO.hs`, `src/runtime/handle-prims.mumble` | Buffering mode enum |
-| Switch `Random` to `minBound`/`maxBound`/`realToFrac` | `lib/haskell98/Random.hs` | Drop compatibility names |
+All done: `ioeGetFileName`/`ioeGetHandle` and `try` (`IO.hs`),
+`BlockBuffering (Maybe Int)` (`IO.hs`, `handle-prims.mumble`), and
+`Random` uses `minBound`/`maxBound`/`realToFrac`.
 
 ---
 
@@ -1154,7 +1151,7 @@ The critical path is M3 → M4 → M5.  M3 and M4 are done.
 | M5 — Show/Read split | ✅ | — |
 | M6 — newtype, then records | ✅ | — |
 | M7 — Qualified names, module system | ✅ (deviations in LG-QUALIFIED) | — |
-| M8 — System libraries | ✅ (follow-ups remain) | — |
+| M8 — System libraries | ✅ | — |
 | M9 — Polymorphic recursion, Unicode, conformance | ❌ | — |
 
 **Recommended next milestone:** Complete M5 (Show/Read split).  This
