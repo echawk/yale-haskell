@@ -1,8 +1,8 @@
 module Main where
 
 -- Tight strict loop over five Int accumulators (seq and mod): measures
--- call and arithmetic code for strict Int code, the case representation
--- types and self-local calls are for.
+-- call and fixnum arithmetic code, which representation types and
+-- self-local calls (GRIN emission) target.
 loop :: Int -> Int -> Int -> Int -> Int -> Int
 loop 0 a b c d = a + b + c + d
 loop n a b c d = a `seq` b `seq` c `seq` d `seq`

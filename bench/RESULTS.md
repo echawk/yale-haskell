@@ -253,3 +253,25 @@ top-level functions are declared fixnum (Double/Float likewise).
 New benchmark `loop` (strict 5-accumulator loop), CPU seconds vs
 a984b68: 0.52 -> 0.26 (GHC -O2: 0.22).  The other benchmarks are
 unchanged: their time is allocation, laziness and non-tail calls.
+
+## Inline Ix index/inRange for Int, Char, Integer
+
+Array indexing called `i-Ix-Int-index/OPT` (and `inRange`) per access;
+only `range` had an `Inline` pragma.  With `index` and `inRange` inlined
+too, interp's run time (main only) 0.162 -> 0.104 s.
+
+Run-only CPU seconds vs GHC 9.14 -O2 at this point (quiet machine):
+
+```
+            Yale    GHC -O2
+nfib        0.60    0.27
+queens      0.38    0.14
+sieve       0.04    0.01
+tree        0.29    0.19
+wheel       0.01    0.00
+integrate   0.02    0.14
+interp      0.10    0.06
+ioloop      0.51    0.14
+bigint      0.17    0.09
+loop        0.29    0.25
+```

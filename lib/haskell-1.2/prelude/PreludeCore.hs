@@ -271,6 +271,8 @@ instance  Ix Char  where
     inRange (c,c') ci	=  ord c <= i && i <= ord c'
 			   where i = ord ci
     {-# range :: Inline #-}
+    {-# index :: Inline #-}
+    {-# inRange :: Inline #-}
 
 instance  Enum Char  where
     enumFrom		= charEnumFrom
@@ -394,6 +396,8 @@ instance  Ix Int  where
 	| otherwise	=  error "index{PreludeCore}: Index out of range."
     inRange (m,n) i	=  m <= i && i <= n
     {-# range :: Inline #-}
+    {-# index :: Inline #-}
+    {-# inRange :: Inline #-}
 
 instance  Ix Integer  where
     range (m,n)		=  [m..n]
@@ -402,6 +406,8 @@ instance  Ix Integer  where
 	| otherwise	=  error "index{PreludeCore}: Index out of range."
     inRange (m,n) i	=  m <= i && i <= n
     {-# range :: Inline #-}
+    {-# index :: Inline #-}
+    {-# inRange :: Inline #-}
 
 instance  Enum Int  where
     enumFrom		=  numericEnumFrom
