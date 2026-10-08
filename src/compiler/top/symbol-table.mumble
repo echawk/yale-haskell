@@ -261,23 +261,57 @@
 	   (signal-core-redefinition name))
 	  ((and (module-uses-standard-prelude? *module*)
 		(table-entry *prelude-symbol-table* name))
-	   (cond ((not (eq? (def-module def) *module-name*))
-		  (signal-prelude-reimport name (def-module def)))
-		 ((haskell98?)
-		  ;; H98 5.5.2: a module may define a name the Prelude
-		  ;; exports; only an unqualified use is ambiguous.
-		  (setf (table-entry *symbol-table* name) def)
-		  (when (eq? (local-name def) '#f)
-		    (setf (table-entry *inverted-symbol-table* def) name))
-		  (note-prelude-clash name))
-		 (else
-		  (signal-prelude-redefinition name))))
+	   (if (haskell98?)
+	       (install-clashing-definition name def old-definition '#t)
+	       (if (eq? (def-module def) *module-name*)
+		   (signal-prelude-redefinition name)
+		   (signal-prelude-reimport name (def-module def)))))
+	  ((and (eq? (def-module def) *module-name*)
+		(eq? (def-module old-definition) *module-name*))
+	   (signal-multiple-definition-in-module name *module-name*))
+	  ((haskell98?)
+	   (install-clashing-definition name def old-definition '#f))
 	  ((eq? (def-module def) *module-name*)
 	   (signal-multiple-definition-in-module name *module-name*))
 	  ((eq? (def-module old-definition) *module-name*)
 	   (signal-redefinition-by-imported-symbol name *module-name*))
 	  (else
 	   (signal-multiple-import name *module-name*)))))
+
+;;; Haskell 98 (5.5.2): a name may be both defined in the module and
+;;; imported, or imported from several modules as different entities;
+;;; only an unqualified use is an error (an ambiguous occurrence,
+;;; reported by the scope phase).  The module's own definition is kept,
+;;; else the one seen first; qualified names (M.x) are unaffected.
+;;; FROM-PRELUDE? when OLD comes from the implicitly imported Prelude
+;;; (it is in the shared prelude table, not the module's own).
+
+(define (install-clashing-definition name def old from-prelude?)
+  (let ((keep  (if (eq? (def-module def) *module-name*) def old)))
+    (when (or (eq? keep def) from-prelude?)
+      (setf (table-entry *symbol-table* name) keep)
+      (when (eq? (local-name keep) '#f)
+	(setf (table-entry *inverted-symbol-table* keep) name)))
+    (note-name-clash name
+      (lisp:format lisp:nil "~A.~A or ~A.~A"
+		   (if from-prelude? '|Prelude| (def-module old))
+		   (clash-display-name name)
+		   (import-qualifier def) (clash-display-name name)))))
+
+;;; The module name a definition being imported is known by here: the
+;;; import's `as' name or module, else its defining module.
+
+(define (import-qualifier def)
+  (let ((import  (dynamic *current-import*)))
+    (if (and import (not (eq? (def-module def) *module-name*)))
+	(or (import-decl-as-name import) (import-decl-module-name import))
+	(def-module def))))
+
+(define (clash-display-name name)
+  (let ((s  (symbol->string name)))
+    (if (and (> (string-length s) 0) (char=? (string-ref s 0) #\;))
+	(substring s 1 (string-length s))
+	s)))
 
 ;;; Gets the fixity of a name.
 
@@ -338,25 +372,28 @@
        (not (module-prelude? *module*))
        (memq name '(|Assoc| |;:=|))))
 
-;;; Names a module defines that the implicitly imported Prelude also
-;;; exports (H98 5.5.2), by module name.  The module's own definition is
-;;; the one found; the scope phase reports an unqualified use as
-;;; ambiguous (prelude-clash?).
+;;; Clashing names (install-clashing-definition), by module name: an
+;;; alist of the name and a description of the candidates.  The kept
+;;; definition is the one found; the scope phase reports an unqualified
+;;; use as ambiguous (name-clash).
 
-(define *prelude-clashes* (make-table))
+(define *name-clashes* (make-table))
 
-(define (note-prelude-clash name)
-  (push name (table-entry *prelude-clashes* *module-name*)))
+(define (note-name-clash name description)
+  (when (not (assq name (table-entry *name-clashes* *module-name*)))
+    (push (cons name description) (table-entry *name-clashes* *module-name*))))
 
-(define (prelude-clash? name)
-  (and (module-uses-standard-prelude? *module*)
-       (memq name (table-entry *prelude-clashes* *module-name*))))
+;;; The description of a clash on NAME in the current module, or #f.
+
+(define (name-clash name)
+  (let ((entry  (assq name (table-entry *name-clashes* *module-name*))))
+    (and entry (cdr entry))))
 
 (define (resolve-toplevel-name name)
   (let ((pc (table-entry *prelude-core-symbols* name)))
     (cond ((and (not (eq? pc '#f)) (not (hidden-core-name? name)))
 	   pc)
-	  ((prelude-clash? name)
+	  ((name-clash name)
 	   (resolve-toplevel-name-1 name))
 	  ((module-uses-standard-prelude? *module*)
 	   (let ((res (table-entry *prelude-symbol-table* name)))

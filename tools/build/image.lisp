@@ -67,7 +67,9 @@
 (asdf:initialize-source-registry
  `(:source-registry (:tree ,(lisp:merge-pathnames "ocicl/" (lisp:truename "./")))
 		    :inherit-configuration))
-(lisp:handler-case (asdf:load-system :clingon)
+(lisp:handler-case (lisp:let ((lisp:*package* (lisp:find-package "CL-USER"))
+			      (lisp:*readtable* (lisp:copy-readtable lisp:nil)))
+		     (asdf:load-system :clingon))
   (lisp:error (c)
     (lisp:format lisp:*error-output*
 		 "~&Cannot load clingon (~a).~%Run `ocicl install' in the source directory.~%" c)

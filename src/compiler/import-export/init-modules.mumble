@@ -86,15 +86,24 @@
 	    (others (filter-complete-module-exports (cdr exports))))
 	(if (is-type? 'entity-module export)
 	    (let* ((name (entity-name export))
+		   (aliased (lisp:remove-if-not
+			     (lambda (import) (eq? (import-decl-as-name import) name))
+			     (module-imports *module*)))
 		   (exported-mod (locate-module name)))
-	      (when (eq? exported-mod '#f)
+	      ;; `module N' may name an `as' alias (report 5.2)
+	      (when (and (eq? exported-mod '#f) (null? aliased))
 		(signal-undefined-module-export name))
-	      (push exported-mod (module-exported-modules *module*))
+	      (when exported-mod
+		(push exported-mod (module-exported-modules *module*)))
+	      (dolist (import aliased)
+		(push (import-decl-module import) (module-exported-modules *module*)))
+	      (push name (module-exported-module-names *module*))
 	      (when (not (memq name
 			   (cons *module-name*
 				 (map
 				   (lambda (import)
-				     (import-decl-module-name import))
+				     (or (import-decl-as-name import)
+					 (import-decl-module-name import)))
 				   (module-imports *module*)))))
 		(signal-export-not-imported name))
 	      others)

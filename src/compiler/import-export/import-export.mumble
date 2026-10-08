@@ -116,19 +116,25 @@
 ;;; This imports a group into *module*.  module is the place the group is
 ;;; taken from.
 
-;;; The import declaration being processed (dynamically bound), for its
-;;; `qualified' and `as' parts.
-(define *current-import* '#f)
+;;; *current-import* (top/globals.mumble) is the import declaration being
+;;; processed, for its `qualified' and `as' parts.
+
+;;; `module M' in the export list (report 5.2) exports the entities in
+;;; scope both as e and as M.e: those of an import whose `as' name, or
+;;; module name without `as', is M, unless it is `qualified'.
 
 (define (import-group group module)
-  (when (memq module (module-exported-modules *module*))
-    (export-group group))
   (let* ((import (dynamic *current-import*))
 	 (qualified-only? (and import (import-decl-qualified? import)))
 	 (qualifier (and import
 			 (feature? 'qualified-names)
 			 (or (import-decl-as-name import)
 			     (import-decl-module-name import)))))
+    (when (if (and import (feature? 'qualified-names))
+	      (and (not qualified-only?)
+		   (memq qualifier (module-exported-module-names *module*)))
+	      (memq module (module-exported-modules *module*)))
+      (export-group group))
     (dolist (n-d group)
       (when (not qualified-only?)
 	(insert-top-definition (tuple-2-1 n-d) (tuple-2-2 n-d)))

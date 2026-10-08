@@ -128,6 +128,8 @@
     ;; Used internally during import-export
     (fresh-exports (type (list (list (tuple symbol def)))) (default '()))
     (exported-modules (type (list module)) (default '()))
+    ;; the names in `module M' exports: modules or `as' aliases (report 5.2)
+    (exported-module-names (type (list symbol)) (default '()))
 
     ;; These slots are used to support incremental compilation.
 

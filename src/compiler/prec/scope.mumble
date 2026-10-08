@@ -93,8 +93,9 @@
 (define (lookup-name name env)
   (if (null? env)
       (begin
-	(when (prelude-clash? name)
-	  (signal-ambiguous-prelude-name name))
+	(let ((clash  (name-clash name)))
+	  (when clash
+	    (signal-ambiguous-name name clash)))
 	(lookup-toplevel-name name))
       (let ((info  (assq name (car env))))
 	(if info
@@ -102,14 +103,13 @@
 	    (lookup-name name (cdr env))))))
 
 
-;;; H98 5.5.2: a name both defined in the module and exported by the
-;;; implicitly imported Prelude must be used qualified.
+;;; H98 5.5.2: a name that is both defined in the module and imported, or
+;;; imported as different entities, must be used qualified.
 
-(define (signal-ambiguous-prelude-name name)
+(define (signal-ambiguous-name name candidates)
   (phase-error 'ambiguous-name
-    "Ambiguous occurrence ~A: it could refer to ~A.~A, defined here,~%~
-     or to Prelude.~A.  Use one of the qualified names."
-    name *module-name* name name))
+    "Ambiguous occurrence ~A: it could refer to ~A.~%Use a qualified name."
+    name candidates))
 
 ;;; Some kinds of names (e.g. type definitions) appear only at top-level,
 ;;; so use this to look for them directly.

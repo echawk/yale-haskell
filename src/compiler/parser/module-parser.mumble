@@ -340,6 +340,13 @@
   (save-parser-context
    (token-case
     (var (var->entity))
+    ;; Haskell 98: `module M' (Haskell 1.2 wrote M..), in an export list
+    (|module|
+     (if (eq? context 'export)
+	 (token-case
+	  (modid (make entity-module (name (token->symbol))))
+	  (else (signal-missing-token "<modid>" "module export")))
+	 (signal-invalid-syntax "an entity")))
     (tycon
      (let ((name (token->symbol)))
        (token-case

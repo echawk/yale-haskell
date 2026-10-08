@@ -50,6 +50,11 @@
 	  ((and env (string=? env "flic")) 'flic)
 	  (else (dynamic *backend*)))))
 
+;;; The import declaration being processed (dynamically bound by the
+;;; import-export phase), for its `qualified' and `as' parts.
+
+(define *current-import* '#f)
+
 ;;; Global context stuff 
 ;;; ***This variable is actually only used by the parser.
 
