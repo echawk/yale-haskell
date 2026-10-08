@@ -239,3 +239,17 @@ can continue the number token, and otherwise the Report definition;
 tests/haskell98/prelude/read-integral.hs checks they agree.  ioloop
 allocation 2.16 GB -> 0.91 GB; CPU, alternating with a984b68:
 1.00 0.99 1.01 -> 0.49 0.48 0.51 (2x).
+
+## Self-local calls, code quality for programs, representation types
+
+GRIN emission: a function that calls itself is emitted with its body as
+a `labels` function of the same name, so self-calls are local calls (a
+5-argument self tail loop runs 4x faster in plain SBCL).  Programs run by
+bin/yale-haskell are compiled in-core, which never applied
+`*code-quality*`: they got SBCL's default policy (speed 1, safety 1)
+while the Prelude got speed 3, safety 0; now both do.  And the minimal
+representation types of section 9: strict Int/Char parameters of
+top-level functions are declared fixnum (Double/Float likewise).
+New benchmark `loop` (strict 5-accumulator loop), CPU seconds vs
+a984b68: 0.52 -> 0.26 (GHC -O2: 0.22).  The other benchmarks are
+unchanged: their time is allocation, laziness and non-tail calls.

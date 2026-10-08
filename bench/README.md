@@ -34,6 +34,7 @@ and run on an otherwise idle machine.
 | `sieve` | Naive lazy sieve: nested thunks and filters over an infinite list |
 | `wheel` | Lazy streams: Hamming numbers via mutually recursive `merge`, a wheel-based prime generator using a self-referential lazy list |
 | `interp` | Constructor dispatch: a two-register stack machine whose step is a `case` over twelve instructions, run for 10^6 loop iterations (19M steps) |
+| `loop` | A tight strict loop over five `Int` accumulators (3x10^8 iterations): call overhead and fixnum arithmetic |
 | `bigint` | `Integer` (bignum) `product`, `zipWith` fibonacci, `show` of large numbers, `^` and `mod` |
 | `integrate` | `Double` arithmetic, `sin`/`exp`/`sqrt`, strict accumulator loops, `fromIntegral` |
 | `tree` | Algebraic data and pattern matching: binary search tree insert/lookup/size/depth |

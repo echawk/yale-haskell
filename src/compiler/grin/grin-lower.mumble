@@ -15,15 +15,66 @@
   (let ((exp  (var-value var)))
     (if (not (flic-lambda? exp))
 	(make-grin-def 'value (fullname var) '#f '() '() '() '#f '#f
-		       (grin-lower exp))
-	(let ((vars  (flic-lambda-vars exp)))
-	  (make-grin-def 'fun (fullname var) (optname var)
-			 (map (function fullname) vars)
-			 (grin-ignored-params vars)
-			 (var-strictness var)
-			 (var-selector-fn? var)
-			 (var-strict? var)
-			 (grin-lower (flic-lambda-body exp)))))))
+		       (grin-lower exp) '())
+	(let* ((vars  (flic-lambda-vars exp))
+	       (def   (make-grin-def 'fun (fullname var) (optname var)
+				     (map (function fullname) vars)
+				     (grin-ignored-params vars)
+				     (var-strictness var)
+				     (var-selector-fn? var)
+				     (var-strict? var)
+				     (grin-lower (flic-lambda-body exp))
+				     '())))
+	  (setf (grin-def-param-types def)
+		(grin-param-types var (length vars) (var-strictness var)))
+	  def))))
+
+
+;;; Representation types (doc/EVAL-APPLY-GRIN.md section 9), the minimum:
+;;; the Lisp type of each strict parameter of a top-level function whose
+;;; type gives it as Int or Char (fixnum), Double or Float.  Parameter
+;;; i's type is the i-th argument of the function's type (IO expanded to
+;;; its state argument); only for types without a class context, which
+;;; would add dictionary parameters first.  Anything uncertain is #f: a
+;;; wrong declaration at safety 0 would be silently wrong code.
+
+(define (grin-param-types var n strictness)
+  (let ((ty  (var-type var)))
+    (if (and (gtype? ty)
+	     (every-1 (function null?) (gtype-context ty))
+	     (eqv? (length strictness) n))
+	(let ((types  (grin-arrow-arg-types (gtype-type ty) n)))
+	  (if (eq? types 'no-arrows)
+	      (map (lambda (s) (declare (ignore s)) '#f) strictness)
+	      (map (lambda (type strict?) (and strict? type)) types strictness)))
+	(map (lambda (s) (declare (ignore s)) '#f) strictness))))
+
+;;; The Lisp types of the first N argument types of TYPE, or NO-ARROWS if
+;;; TYPE does not have N arrows.  (Not #f: in mumble #f and '() are the
+;;; same object.)
+
+(define (grin-arrow-arg-types type n)
+  (if (eqv? n 0)
+      '()
+      (let ((ty  (maybe-expand-io-type (expand-ntype-synonym type))))
+	(if (and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "Arrow")))
+	    (let ((rest  (grin-arrow-arg-types (cadr (ntycon-args ty)) (1- n))))
+	      (if (eq? rest 'no-arrows)
+		  'no-arrows
+		  (cons (grin-lisp-type (car (ntycon-args ty))) rest)))
+	    'no-arrows))))
+
+(define (grin-lisp-type type)
+  (let ((ty  (expand-ntype-synonym type)))
+    (if (and (ntycon? ty) (null? (ntycon-args ty)))
+	(let ((tycon  (ntycon-tycon ty)))
+	  (cond ((or (eq? tycon (core-symbol "Int"))
+		     (eq? tycon (core-symbol "Char")))
+		 'fixnum)
+		((eq? tycon (core-symbol "Double")) 'double-float)
+		((eq? tycon (core-symbol "Float")) 'single-float)
+		(else '#f)))
+	'#f)))
 
 (define (grin-ignored-params vars)
   (let ((ignored  '()))

@@ -738,7 +738,12 @@
 	(if (and (cflags-write-code? cflags)
 		 (cflags-compile-code? cflags))
 	    (load (ucache-cfile c))
-	    (eval code (cflags-compile-code? cflags)))
+	    ;; in-core compilation at the quality a code file would get
+	    (dynamic-let ((*code-quality*
+			   (if (memq 'lisp (dynamic *optimizers*))
+			       (dynamic *optimized-code-quality*)
+			       (dynamic *default-code-quality*))))
+	      (eval code (cflags-compile-code? cflags))))
 	(setf (ucache-code-loaded c) '#t))
       )))
 

@@ -945,9 +945,27 @@
 
 (define-mumble-function mumble::eval (form &optional compile-p)
   (if compile-p
-      (mumble::with-compilation-unit ()
-        (eval-compiling-functions form))
+      (call-with-code-quality
+       (lambda ()
+         (mumble::with-compilation-unit ()
+           (eval-compiling-functions form))))
       (eval form)))
+
+;;; In-core compilation uses *code-quality* like compile-file does
+;;; (mumble-compile-file-1), but only for its own extent where the host
+;;; can scope a policy.
+
+(defun call-with-code-quality (thunk)
+  (cond ((null *code-quality*)
+         (funcall thunk))
+        #+sbcl
+        (t
+         (with-compilation-unit (:policy (code-quality-declaration *code-quality*))
+           (funcall thunk)))
+        #-sbcl
+        (t
+         (code-quality-hack *code-quality*)
+         (funcall thunk))))
 
 
 ;;; Simply doing (funcall (compile nil `(lambda () ,form))) would work
@@ -1028,33 +1046,17 @@
 (defvar *code-quality* nil)
 (define-mumble-import *code-quality*)
 
+(defun code-quality-declaration (q)
+  (case q
+    (0 '(optimize (speed 1) (safety 3) (compilation-speed 3) (debug 1)))
+    (1 '(optimize (speed 1) (safety 1) (compilation-speed 3) (debug 1)))
+    (2 '(optimize (speed 3) (safety 0) (compilation-speed 3) (debug 0)))
+    (3 '(optimize (speed 3) (safety 0) (compilation-speed 0) (debug 0)))
+    (t (warn "Bogus *code-quality* setting ~s." q) nil)))
+
 (defun code-quality-hack (q)
-  (cond ((eql q 0)
-	 (proclaim '(optimize (speed 1) (safety 3) (compilation-speed 3)
-			      #+cmu (ext:debug 1)
-                              #+sbcl (debug 1)  
-                              #+(or mcl allegro lispworks) (debug 1)
-			      )))
-	((eql q 1)
-	 (proclaim '(optimize (speed 1) (safety 1) (compilation-speed 3)
-			      #+cmu (ext:debug 1)
-                              #+sbcl (debug 1)
-                              #+(or mcl allegro lispworks) (debug 1)
-			      )))
-	((eql q 2)
-	 (proclaim '(optimize (speed 3) (safety 0) (compilation-speed 3)
-			      #+cmu (ext:debug 0)
-                              #+sbcl (debug 0)
-                              #+(or mcl allegro lispworks) (debug 0)
-			      )))
-	((eql q 3)
-	 (proclaim '(optimize (speed 3) (safety 0) (compilation-speed 0)
-			      #+cmu (ext:debug 0)
-                              #+sbcl (debug 0)
-                              #+(or mcl allegro lispworks) (debug 0)
-			      )))
-	(t
-	 (warn "Bogus *code-quality* setting ~s." q))))
+  (let ((decl (code-quality-declaration q)))
+    (when decl (proclaim decl))))
 
 
 ;;; If we don't do this, code generated with high code-quality settings

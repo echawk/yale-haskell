@@ -64,7 +64,10 @@
   (strictness (type (list bool)))
   (selector? (type bool))
   (strict? (type bool))
-  (body (type grin-node)))
+  (body (type grin-node))
+  ;; per parameter: its Lisp type when it is a strict parameter of a
+  ;; primitive type (fixnum, double-float, single-float), else #f
+  (param-types (type list) (default '())))
 
 
 ;;;; Atoms

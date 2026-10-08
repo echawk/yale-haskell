@@ -31,8 +31,7 @@
   (if (eq? (grin-def-kind def) 'value)
       `(define ,(grin-def-name def) ,(grin-emit (grin-def-body def)))
       (let ((opt  `(define (,(grin-def-optname def) ,@(grin-def-params def))
-		     ,@(grin-ignore-declarations (grin-def-ignored def))
-		     ,(grin-emit (grin-def-body def)))))
+		     ,@(grin-emit-self-local def))))
 	(if (grin-def-selector? def)
 	    opt
 	    `(begin
@@ -52,6 +51,54 @@
   `(lambda ,params
      ,@(grin-ignore-declarations ignored)
      ,(grin-emit body)))
+
+
+;;; Self-calls as local calls: when a function calls itself, its body is
+;;; a labels function of the same name, which shadows the global one, so
+;;; the recursive calls (also from its local functions and thunks) are
+;;; local calls.  SBCL then keeps arguments in registers and turns a
+;;; self tail call into a jump; a 5-argument tail loop ran 4x faster.
+
+(define (grin-emit-self-local def)
+  (let ((name    (grin-def-optname def))
+	(params  (grin-def-params def))
+	(body    `(,@(grin-ignore-declarations (grin-def-ignored def))
+		   ,@(grin-type-declarations (grin-def-params def)
+					     (grin-def-param-types def))
+		   ,(grin-emit (grin-def-body def)))))
+    (if (grin-calls? (grin-def-body def) name)
+	`((labels ((,name ,params ,@body))
+	    (,name ,@params)))
+	body)))
+
+;;; (declare (type fixnum x) ...) for parameters with a representation type.
+
+(define (grin-type-declarations params types)
+  (let ((decls  '()))
+    (do ((ps params (cdr ps))
+	 (ts types (if (null? ts) '() (cdr ts))))
+	((null? ps))
+      (when (and (not (null? ts)) (car ts))
+	(push `(type ,(grin-lisp-type-symbol (car ts)) ,(car ps)) decls)))
+    (if (null? decls)
+	'()
+	`((declare ,@(nreverse decls))))))
+
+(define (grin-lisp-type-symbol type)
+  (cond ((eq? type 'fixnum) 'lisp:fixnum)
+	((eq? type 'double-float) 'lisp:double-float)
+	(else 'lisp:single-float)))
+
+;;; Does NODE contain a known call of FN?
+
+(define (grin-calls? node fn)
+  (let ((found?  '#f))
+    (grin-rewrite! node
+		   (lambda (n)
+		     (when (and (grin-call? n) (eq? (grin-call-fn n) fn))
+		       (setf found? '#t))
+		     n))
+    found?))
 
 
 ;;;; Atoms

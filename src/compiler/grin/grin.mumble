@@ -24,4 +24,4 @@
 	(require grin-structs))
   (unit grin-emit
 	(source-filename "grin-emit.mumble")
-	(require grin-structs)))
+	(require grin-structs grin-opt)))
