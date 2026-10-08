@@ -100,3 +100,15 @@ sieve        2.139  2.290       1.386  1.398   (-37%)
 tree         1.534  1.490       1.285  1.298   (-15%)
 wheel        1.277  1.251       0.759  0.748   (-40%)
 ```
+
+## P3 case recovery and strict seq (2026-10-08, numbers pending)
+
+P3 (CL `case` from `if` chains) measured within noise on the existing
+programs, which dispatch almost only on lists and Bool (two-way, left
+as `if`).  `interp.hs` was added as a dispatch-heavy program, but its
+time was dominated by `seq`: `strict1` was `Strictness("S,N")`, so
+``x `seq` e`` built a thunk for `e` every step and the interpreter loop
+was analysed as lazy in its registers.  With `seq` strict in both
+arguments, interp went from about 1.40 s to 0.85 s total (one
+unloaded run each).  Proper P3 and seq numbers wait for a quiet
+machine.
