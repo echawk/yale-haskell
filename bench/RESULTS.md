@@ -143,3 +143,21 @@ bigint      1.72 1.70 1.72      1.71 1.81 1.89
 Allocation during main (bytes consed, independent of load): sieve
 1508 MB -> 133 MB, wheel 1219 -> 14, interp 844 -> 178, tree 866 -> 574;
 queens, integrate and ioloop unchanged.
+
+## P5 step 2: even/odd, show for Int/Integer, chunked string conversion
+
+Further profile-driven fixes: `even`/`odd` were class defaults (22% of
+integrate); `show` on Int/Integer peeled digits with `quotRem n 10`
+(quadratic on bignums, half of bigint) and now prints with Lisp; and
+`make-haskell-string` built one thunk per character, now one per
+32-character chunk (ioloop's top entry).  CPU seconds, P4 vs now,
+alternating (load average ~17):
+
+```
+            P4                  now
+integrate   0.58 0.59 0.60      0.49 0.51 0.46    -17%
+ioloop      3.13 3.19 2.99      2.06 2.03 2.08    -34%
+bigint      1.70 1.81 1.84      0.50 0.56 0.50    3.4x
+tree        1.72 1.68 1.79      1.22 1.15 1.06    -32%
+queens      1.32 1.32 1.44      1.12 1.16 1.17    -15%
+```

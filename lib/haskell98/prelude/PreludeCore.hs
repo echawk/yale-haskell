@@ -609,6 +609,8 @@ instance  Integral Int	where
     mod			=  primModInt
     quotRem		=  primQuotRemInt
     divMod		=  primDivModInt
+    even		=  primEvenInt
+    odd			=  primOddInt
     toInteger		=  primIntToInteger
 
 instance  Integral Integer  where
@@ -618,6 +620,8 @@ instance  Integral Integer  where
     mod			=  primModInteger
     quotRem		=  primQuotRemInteger
     divMod		=  primDivModInteger
+    even		=  primEvenInteger
+    odd			=  primOddInteger
     toInteger x		=  x
 
 instance  Ix Int  where
@@ -693,10 +697,12 @@ numericEnumFromThenTo e1 e2 e3
 				   | otherwise = (>= e3 + mid)
 
 
+-- Show Int and Integer print with Lisp (much faster than digit by digit
+-- for big Integers); showSigned's parentheses are kept.
 instance  Show Int  where
-    showsPrec p n
-	| n == minInt	= showsPrec p (primIntToInteger n)  -- -minInt overflows
-	| otherwise	= showSigned showInt p n
+    showsPrec p n r
+	| n < 0 && p > 6	= '(' : primShowsInt n (')' : r)
+	| otherwise		= primShowsInt n r
 
 instance  Read Int  where
     readsPrec p		= readSigned readDec
@@ -706,7 +712,9 @@ minInt		=  primMinInt
 maxInt		=  primMaxInt
 
 instance  Show Integer  where
-    showsPrec		= showSigned showInt
+    showsPrec p n r
+	| n < 0 && p > 6	= '(' : primShowsInteger n (')' : r)
+	| otherwise		= primShowsInteger n r
 
 instance  Read Integer  where
     readsPrec p 	= readSigned readDec

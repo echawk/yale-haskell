@@ -372,6 +372,8 @@ instance  Integral Int	where
     mod			=  primModInt
     quotRem		=  primQuotRemInt
     divMod		=  primDivModInt
+    even		=  primEvenInt
+    odd			=  primOddInt
     toInteger		=  primIntToInteger
 
 instance  Integral Integer  where
@@ -381,6 +383,8 @@ instance  Integral Integer  where
     mod			=  primModInteger
     quotRem		=  primQuotRemInteger
     divMod		=  primDivModInteger
+    even		=  primEvenInteger
+    odd			=  primOddInteger
     toInteger x		=  x
 
 instance  Ix Int  where
@@ -430,11 +434,15 @@ numericEnumFromThen n m	=  iterate (+(m-n)) n
 
 instance  Text Int  where
     readsPrec p		= readSigned readDec
-    showsPrec   	= showSigned showInt
+    showsPrec p n r
+	| n < 0 && p > 6	= '(' : primShowsInt n (')' : r)
+	| otherwise		= primShowsInt n r
 
 instance  Text Integer  where
     readsPrec p 	= readSigned readDec
-    showsPrec		= showSigned showInt
+    showsPrec p n r
+	| n < 0 && p > 6	= '(' : primShowsInteger n (')' : r)
+	| otherwise		= primShowsInteger n r
 
 
 -- Standard Floating types

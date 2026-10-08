@@ -81,6 +81,10 @@ primQuotInteger, primRemInteger, primDivInteger, primModInteger
                 :: Integer -> Integer -> Integer
 primDivModInt :: Int -> Int -> (Int, Int)
 primDivModInteger :: Integer -> Integer -> (Integer, Integer)
+primEvenInt, primOddInt :: Int -> Bool
+primEvenInteger, primOddInteger :: Integer -> Bool
+primShowsInt :: Int -> [Char] -> [Char]
+primShowsInteger :: Integer -> [Char] -> [Char]
 primIntegerToInt :: Integer -> Int
 primIntToInteger :: Int -> Integer
 primNullBin :: Bin
@@ -244,6 +248,12 @@ primDivInteger ::   LispName("prim.div-integer"), Complexity(4)
 primModInteger ::   LispName("prim.mod-integer"), Complexity(4)
 primDivModInt ::    LispName("prim.div-mod-int")
 primDivModInteger :: LispName("prim.div-mod-integer")
+primEvenInt ::      LispName("prim.even-int"), Complexity(2)
+primOddInt ::       LispName("prim.odd-int"), Complexity(2)
+primEvenInteger ::  LispName("prim.even-integer"), Complexity(2)
+primOddInteger ::   LispName("prim.odd-integer"), Complexity(2)
+primShowsInt ::     LispName("prim.shows-integer"), Strictness("S,N"), NoConversion
+primShowsInteger :: LispName("prim.shows-integer"), Strictness("S,N"), NoConversion
 primIntegerToInt :: LispName("prim.integer-to-int"), Complexity(1)
 primIntToInteger :: LispName("prim.int-to-integer"), Complexity(0)
 primNullBin ::      LispName("prim.nullbin")

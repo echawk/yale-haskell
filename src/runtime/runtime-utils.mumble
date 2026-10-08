@@ -319,57 +319,45 @@
 
 
 ;;; (make-haskell-string string)
-;;;   Converts a Lisp string lazily to a boxed haskell string (makes
-;;;   a delay with a magic function).  Returns an unboxed result.
+;;;   Converts a Lisp string to a haskell string, a chunk at a time
+;;;   (haskell-string-from).  Returns an unboxed result.
 
 (define (make-haskell-string string)
   (declare (type string string))
-  (let ((index   1)
-	(size    (string-length string)))
-    (declare (type fixnum index size))
-    (cond ((eqv? size 0)
-	   '())
-	  ((eqv? size 1)
-	   (cons (box (char->integer (string-ref string 0)))
-		 (box '())))
-	  (else
-	   (letrec ((next-fn
-		      (lambda ()
-			(let ((ch  (char->integer (string-ref string index))))
-			  (incf index)
-			  (cons (box ch)
-				(if (eqv? index size)
-				    (box '())
-				    (make-thunk next-fn)))))))
-	     (cons (box (char->integer (string-ref string 0)))
-		   (make-thunk next-fn))))
-	  )))
+  (let ((size  (string-length string)))
+    (if (eqv? size 0)
+	'()
+	(haskell-string-from string 0 size '()))))
 
 
 ;;; Similar, but accepts an arbitrary tail (which must be a delay object)
 
 (define (make-haskell-string-tail string tail-delay)
   (declare (type string string))
-  (let ((index   1)
-	(size    (string-length string)))
-    (declare (type fixnum index size))
-    (cond ((eqv? size 0)
-	   (force-inline tail-delay))
-	  ((eqv? size 1)
-	   (cons (box (char->integer (string-ref string 0)))
-		 tail-delay))
-	  (else
-	   (letrec ((next-fn
-		      (lambda ()
-			(let ((ch  (char->integer (string-ref string index))))
-			  (incf index)
-			  (cons (box ch)
-				(if (eqv? index size)
-				    tail-delay
-				    (make-thunk next-fn)))))))
-	     (cons (box (char->integer (string-ref string 0)))
-		   (make-thunk next-fn))))
-	  )))
+  (let ((size  (string-length string)))
+    (if (eqv? size 0)
+	(force-inline tail-delay)
+	(haskell-string-from string 0 size tail-delay))))
+
+;;; Characters START (< SIZE) to SIZE-1 of STRING as a Haskell list ending
+;;; in TAIL (boxed).  The string is all there, so it is converted eagerly
+;;; a chunk at a time; only the rest of a long string is suspended, one
+;;; thunk per chunk rather than per character.
+
+(define-integrable *haskell-string-chunk* 32)
+
+(define (haskell-string-from string start size tail)
+  (declare (type string string) (type fixnum start size))
+  (let* ((end   (min size (+ start *haskell-string-chunk*)))
+	 (rest  (if (eqv? end size)
+		    tail
+		    (make-thunk
+		     (lambda () (haskell-string-from string end size tail))))))
+    (declare (type fixnum end))
+    (do ((i  (1- end) (1- i))
+	 (l  rest (cons (char->integer (string-ref string i)) l)))
+	((< i start) l)
+      (declare (type fixnum i)))))
 
 
 (define (haskell-string->string s)

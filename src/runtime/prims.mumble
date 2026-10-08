@@ -505,6 +505,21 @@
 (define-syntax (prim.mod-integer i1 i2)
   `(the-integer (lisp:mod (the-integer ,i1) (the-integer ,i2))))
 
+(define-syntax (prim.even-int i)
+  `(lisp:evenp (the-fixnum ,i)))
+(define-syntax (prim.odd-int i)
+  `(lisp:oddp (the-fixnum ,i)))
+(define-syntax (prim.even-integer i)
+  `(lisp:evenp (the-integer ,i)))
+(define-syntax (prim.odd-integer i)
+  `(lisp:oddp (the-integer ,i)))
+
+;;; shows for Int and Integer: N in decimal, then the boxed TAIL.
+
+(define (prim.shows-integer n tail)
+  (make-haskell-string-tail (lisp:write-to-string n :base 10 :radix '#f)
+			    tail))
+
 (define (prim.div-mod-int i1 i2)
   (multiple-value-bind (q r)
       (lisp:floor (the-fixnum i1) (the-fixnum i2))
