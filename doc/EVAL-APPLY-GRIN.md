@@ -582,6 +582,16 @@ Unboxed returns map to `values` / `multiple-value-bind`:
 
 ### 6.5 Case
 
+> **As built (P3, 2026-10-08):** done in the current codegen, on the
+> Lisp it generates (`codegen-if-or-case` in `backend/codegen.mumble`):
+> the optimizer already turns `case-block`s into `if` chains, and a
+> chain of three or more tests of one simple scrutinee against fixnum
+> constants (tags, enumeration values, `Int`/`Char` literals) becomes a
+> CL `case`.  Two-way splits stay `if`.  Benchmark deltas are pending a
+> quiet machine; `bench/interp.hs` is the dispatch-heavy program.  While
+> measuring it, `seq` turned out to delay its second argument (see
+> bench/RESULTS.md); it is now strict in both.
+
 - `case` on fixnum tags → CL `case`.  SBCL ≥ 2.0.2 compiles dense
   integer `case` to a jump table.
 - Two-way splits (list, Bool, `Maybe`) stay `if`.
@@ -729,7 +739,7 @@ passing, and benchmark numbers recorded.
 | **P0 Benchmarks** ✅ | `bench/` with nofib-style programs: nfib, queens, primes/sieve, wheel-sieve, an Integer-heavy one, an IO loop, `Data.Map`-style tree code.  A `make bench` target timing each with the H98 image | Baseline numbers committed in `bench/RESULTS.md` |
 | **P1 Thunks** ✅ | `thunk` struct, blackholing with catch-scoped restore, closure clearing, constant boxes become plain values (§4) on the *current* codegen | Tests green; a `<<loop>>` test; memory of a long lazy-list program reduced |
 | **P2 Eval/apply** ✅ | `fun`, `pap`, `apply-1…4/n`, `/STD` entries, preallocated nullary constructors; codegen emits `apply-k` for unknown calls (§3) | Tests green; no `&rest` in the runtime's call path; higher-order benchmarks faster |
-| **P3 Case** | Recover `case` from match chains and emit CL `case` (§5.5, §6.5) — still in the old codegen | Tests green; dispatch-heavy benchmarks faster |
+| **P3 Case** ✅ | Recover `case` from match chains and emit CL `case` (§5.5, §6.5) — still in the old codegen | Tests green; dispatch-heavy benchmarks faster |
 | **P4 GRIN IR** | `src/compiler/grin/` structs, printer, FLIC→GRIN lowering, GRIN→CL emission reproducing P1–P3 output; `*backend*` switch; the `grin` printer in `*printers*` | Both backends pass all tests; output equivalent |
 | **P5 GRIN optimisations** | §5.4 items 1–3 (eval inlining, update elimination, unboxed returns), then 4–5 with representation types (§9) | Each with tests and benchmark deltas recorded.  The GRIN path stays in the repository on its merits (it is the base for later optimisations and other back ends), not only if it wins on the benchmarks; the old codegen is removed once GRIN is correct everywhere and not slower by more than noise |
 | **P6 Whole-program (optional)** | Link-time GRIN over all modules' FLIC with generated eval and points-to | Only if P5 leaves a large gap |
