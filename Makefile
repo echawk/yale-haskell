@@ -118,13 +118,18 @@ profile: all
 clean:
 	rm -rf build
 
-ref: ref/hugs98 ref/haskell-report ref/haskell-1.x ref/ghc-3.02
+ref: ref/hugs98 ref/haskell-report ref/haskell2010-report ref/haskell-1.x ref/ghc-3.02
 
 ref/hugs98:
 	git clone --depth 1 https://github.com/augustss/hugs98-plus-Sep2006 $@
 
 ref/haskell-report:
 	git clone --depth 1 -b h98 https://github.com/haskell/haskell-report $@
+
+# The Haskell 2010 Report (tools/conformance/h2010-exports.py reads its
+# library chapters).
+ref/haskell2010-report:
+	git clone --depth 1 https://github.com/haskell/haskell-report $@
 
 # Haskell 1.2/1.3/1.4 Reports.  PostScript is converted to PDF and text
 # when Ghostscript and pdftotext are installed.

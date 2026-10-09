@@ -35,6 +35,8 @@ tests/<dialect>/<area>/<name>.repl      an interactive session instead of a prog
   stderr, so for a compile error it is empty.  A
   runtime-error test can keep a `.stdout` with the output produced
   before the error.
+- **Compiler options.**  A `.flags` file holds options for
+  `bin/yale-haskell` on its first line, e.g. `--haskell2010`.
 - `.hs` files with neither `.stdout` nor `.exit` are not tests (e.g.
   helper modules).
 - **Multi-module tests.**  Yale Haskell finds modules through *unit

@@ -29,17 +29,21 @@ run_one() {
     [ -n "$want" ] || want=0
   fi
 
+  # options for the compiler, e.g. --haskell2010
+  flags=""
+  [ -f "$base.flags" ] && flags=$(head -1 "$base.flags")
+
   case "$hs" in
     *.repl)
       # an interactive session: the .repl file is typed at the prompt;
       # the banner (version, back end) is not compared
       perl -e 'alarm shift; exec @ARGV' "$RT_LIMIT" \
-        env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell repl \
+        env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell $flags repl \
         < "$hs" 2> "$err" | sed 1d > "$out"
       status=$? ;;
     *)
       perl -e 'alarm shift; exec @ARGV' "$RT_LIMIT" \
-        env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell "$hs" \
+        env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell $flags "$hs" \
         < "$in" > "$out" 2> "$err"
       status=$? ;;
   esac

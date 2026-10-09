@@ -65,6 +65,10 @@
 	   (dolist (tyvar tyvars)
 	      (when (not (memq tyvar tyvars-referenced))
 		 (signal-unreferenced-tyvar-arg tyvar))))
+	;; Haskell 2010 removed datatype contexts
+	(when (and (haskell2010?) (not (dynamic *compiling-library?*))
+		   (not (null? context)))
+	  (signal-datatype-context-removed))
 	(resolve-signature-aux tyvars context)
 	;; This computes a signature for the datatype as a whole.
 	(let ((gtype (ast->gtype context simple)))
@@ -233,6 +237,10 @@
     "~a is referenced on the right-hand side of a data type declaration,~%~
      but is not bound as a type variable."
     tyvar))
+
+(define (signal-datatype-context-removed)
+  (phase-error 'datatype-context
+    "Datatype contexts are not part of Haskell 2010."))
 
 (define (signal-unreferenced-tyvar-arg tyvar)
   (phase-error 'unreferenced-tyvar-arg

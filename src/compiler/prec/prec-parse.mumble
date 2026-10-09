@@ -122,6 +122,8 @@
 	(op (cadr stack)))
     (if pattern?
 	(cond ((pp-pat-plus? op)
+	       (when (and (haskell2010?) (not (dynamic *compiling-library?*)))
+		 (signal-n-plus-k-removed))
 	       (let ((lhs (caddr stack)))
 		 (cond ((or (not (const-pat? term))
 			    (and (not (var-pat? lhs))
@@ -235,6 +237,10 @@
      precedence and are not either both left or both right associative.~%
      You must add parentheses to avoid a precedence conflict."
     op1 op2))
+
+(define (signal-n-plus-k-removed)
+  (phase-error 'n-plus-k-pattern
+    "n+k patterns are not part of Haskell 2010."))
 
 (define (signal-plus-precedence-conflict term)
   (phase-error 'plus-precedence-conflict

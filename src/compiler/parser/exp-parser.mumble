@@ -61,12 +61,23 @@
       (let ((exp (parse-exp)))
 	(make let (decls decls) (body exp)))))))
 
+;;; Haskell 2010 (DoAndIfThenElse): in a do block, then and else may start
+;;; lines of their own at the block's indentation, where layout puts a
+;;; semicolon before them; that semicolon is skipped.  Haskell 98 programs
+;;; never have one there, so this is not limited to Haskell 2010.
+
+(define (skip-semicolon-before keyword)
+  (when (and (haskell98?) (eq-token? '\;) (eq? (peek-1-type) keyword))
+    (advance-token)))
+
 (define (parse-if)
   (trace-parser if
    (save-parser-context
     (let ((test-exp (parse-exp)))
+      (skip-semicolon-before '|then|)
       (require-token |then| (signal-missing-token "`then'" "if expression"))
       (let ((then-exp (parse-exp)))
+	(skip-semicolon-before '|else|)
 	(require-token |else| (signal-missing-token "`else'" "if expression"))
 	(let ((else-exp (parse-exp)))
 	  (make if (test-exp test-exp)

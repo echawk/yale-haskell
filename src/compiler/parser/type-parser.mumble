@@ -81,7 +81,10 @@
 		 (token-case
 		  (varid (eq-token? '=>))
 		  (else '#f)))
-		(\( (scan-context))
+		;; () => t: the empty context (H98 4.1.3, n = 0)
+		(\( (token-case
+		      (\) (eq-token? '=>))
+		      (else (scan-context))))
 		(else '#f))))
     (restore-excursion saved-excursion)
     res))
@@ -118,6 +121,7 @@
 
 (define (parse-contexts)
   (token-case
+    (\) '())
     (tycon (let ((context (parse-single-context)))
 	      (token-case
 		(\, (cons context (parse-contexts)))
