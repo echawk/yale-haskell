@@ -618,13 +618,21 @@
 ;;; the body first, and propagate that information backwards to the 
 ;;; binding initializers.
 
+;;; STACK is the path of variables whose values are being walked: a
+;;; reference to one of them in a strict position is a circular definition
+;;; (x = 1 + x, x = cdr x).  A binding's value is walked with only that
+;;; binding added to the path, not its later siblings: `start = ready'
+;;; where `ready' is defined further on is an alias, not a loop (nofib's
+;;; multiplier).  Loops through several bindings are left to the runtime,
+;;; which reports <<loop>> (blackholing).
+
 (define-var-strictness-walk flic-let (object varlist stack)
   (let ((bindings  (flic-let-bindings object)))
     (var-strictness-walk-let-aux
       bindings
       (flic-let-body object)
       (append bindings varlist)
-      (append bindings stack)
+      stack
       (flic-let-recursive? object))))
 
 (define (var-strictness-walk-let-aux bindings body varlist stack recursive?)
@@ -632,7 +640,7 @@
       (var-strictness-walk body varlist stack)
       (begin
 	(var-strictness-walk-let-aux
-	  (cdr bindings) body varlist (cdr stack) recursive?)
+	  (cdr bindings) body varlist stack recursive?)
 	(let* ((var  (car bindings))
 	       (val  (var-value var)))
 	  (cond ((var-strict? var)
@@ -642,7 +650,7 @@
 		 ;; value forms are safe.
 		 (when recursive? (setf (var-strict? var) '#f))
 		 ;; Detect x = 1 + x circularities here
-		 (var-strictness-walk val varlist stack))
+		 (var-strictness-walk val varlist (cons var stack)))
 		((flic-exp-strict-result? val)
 		 ;; The val is going to be wrapped in a delay.
 		 (var-strictness-walk val '() '()))
@@ -656,7 +664,7 @@
 		 ;; *** about infinite loops.  So maybe doing it here
 		 ;; *** is incorrect too, and we just haven't run across
 		 ;; *** a test case that triggers it???
-		 (var-strictness-walk val '() stack))
+		 (var-strictness-walk val '() (cons var stack)))
 		)))))
 
 
