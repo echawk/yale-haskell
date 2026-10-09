@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Foreign/
+:o= all
+Ptr.hs

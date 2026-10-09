@@ -79,6 +79,21 @@
     (lisp:format lisp:*error-output*
 		 "~&Cannot load clingon (~a).~%Run `ocicl install' in the source directory.~%" c)
     (sb-ext:exit :code 1)))
+;;; The foreign function interface: CFFI and its runtime (src/ffi/), plain
+;;; CL in the MUMBLE-USER package.
+(lisp:handler-case (lisp:let ((lisp:*package* (lisp:find-package "CL-USER"))
+			      (lisp:*readtable* (lisp:copy-readtable lisp:nil)))
+		     (asdf:load-system :cffi))
+  (lisp:error (c)
+    (lisp:format lisp:*error-output*
+		 "~&Cannot load cffi (~a).~%Run `ocicl install' in the source directory.~%" c)
+    (sb-ext:exit :code 1)))
+(lisp:let ((lisp:*package* (lisp:find-package "CL-USER"))
+	   (lisp:*readtable* (lisp:copy-readtable lisp:nil)))
+  (lisp:load (lisp:compile-file "src/ffi/ffi-runtime.lisp"
+				:output-file (lisp:merge-pathnames
+					      "build/sbcl/ffi-runtime.fasl" (lisp:truename "./")))))
+
 ;;; cli.lisp is plain CL: compile it in CL-USER with the standard readtable.
 (lisp:let ((lisp:*package* (lisp:find-package "CL-USER"))
 	   (lisp:*readtable* (lisp:copy-readtable lisp:nil)))

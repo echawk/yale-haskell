@@ -11,6 +11,8 @@
 	(when (valdef? decl)
 	   (create-var-definitions
 	    decl (collect-pattern-vars (valdef-lhs decl))))))
+  (dolist (fi (module-foreign-imports *module*))
+    (create-var-definitions fi (list (foreign-import-var fi))))
   (dolist (algdata (module-algdatas *module*))
     (create-alg-definitions algdata))
   (dolist (synonym (module-synonyms *module*))

@@ -1,0 +1,143 @@
+-- ForeignPrims.hi -- the primitives under the Foreign.* modules (Haskell
+-- 2010 chapter 8), over CFFI: src/ffi/ffi-runtime.lisp.  Ptr and FunPtr
+-- are foreign pointers; the marshalling of foreign import declarations
+-- (backend/interface-codegen.mumble) knows them by this module's name.
+
+interface ForeignPrims where
+
+import PreludeCore(Int,Integer,Float,Double,Char,Bool)
+
+-- The peek and poke primitives of the Data.Int and Data.Word types have
+-- a polymorphic value type: those types are newtypes over Int or Integer
+-- (erased at run time), and only Foreign.Storable's instances, which fix
+-- the type, use them.
+
+data Ptr a
+data FunPtr a
+
+primNullPtr          :: Ptr a
+primNullFunPtr       :: FunPtr a
+primPlusPtr          :: Ptr a -> Int -> Ptr b
+primMinusPtr         :: Ptr a -> Ptr b -> Int
+primPtrEq, primPtrLe :: Ptr a -> Ptr a -> Bool
+primFunPtrEq, primFunPtrLe :: FunPtr a -> FunPtr a -> Bool
+primPtrToInteger     :: Ptr a -> Integer
+primFunPtrToInteger  :: FunPtr a -> Integer
+primIntegerToPtr     :: Integer -> Ptr a
+primCastPtr          :: Ptr a -> Ptr b
+primCastFunPtr       :: FunPtr a -> FunPtr b
+primCastFunPtrToPtr  :: FunPtr a -> Ptr b
+primCastPtrToFunPtr  :: Ptr a -> FunPtr b
+
+primPeekInt8   :: Ptr a -> Int -> IO b
+primPeekInt16  :: Ptr a -> Int -> IO b
+primPeekInt32  :: Ptr a -> Int -> IO b
+primPeekInt64  :: Ptr a -> Int -> IO b
+primPeekWord8  :: Ptr a -> Int -> IO b
+primPeekWord16 :: Ptr a -> Int -> IO b
+primPeekWord32 :: Ptr a -> Int -> IO b
+primPeekWord64 :: Ptr a -> Int -> IO b
+primPeekWord   :: Ptr a -> Int -> IO b
+primPeekInt    :: Ptr a -> Int -> IO Int
+primPeekChar   :: Ptr a -> Int -> IO Char
+primPeekCInt   :: Ptr a -> Int -> IO Int
+primPeekDouble :: Ptr a -> Int -> IO Double
+primPeekFloat  :: Ptr a -> Int -> IO Float
+primPeekPtr    :: Ptr a -> Int -> IO (Ptr b)
+primPeekFunPtr :: Ptr a -> Int -> IO (FunPtr b)
+
+primPokeInt8   :: Ptr a -> Int -> b -> IO ()
+primPokeInt16  :: Ptr a -> Int -> b -> IO ()
+primPokeInt32  :: Ptr a -> Int -> b -> IO ()
+primPokeInt64  :: Ptr a -> Int -> b -> IO ()
+primPokeWord8  :: Ptr a -> Int -> b -> IO ()
+primPokeWord16 :: Ptr a -> Int -> b -> IO ()
+primPokeWord32 :: Ptr a -> Int -> b -> IO ()
+primPokeWord64 :: Ptr a -> Int -> b -> IO ()
+primPokeWord   :: Ptr a -> Int -> b -> IO ()
+primPokeInt    :: Ptr a -> Int -> Int -> IO ()
+primPokeChar   :: Ptr a -> Int -> Char -> IO ()
+primPokeCInt   :: Ptr a -> Int -> Int -> IO ()
+primPokeDouble :: Ptr a -> Int -> Double -> IO ()
+primPokeFloat  :: Ptr a -> Int -> Float -> IO ()
+primPokePtr    :: Ptr a -> Int -> Ptr b -> IO ()
+primPokeFunPtr :: Ptr a -> Int -> FunPtr b -> IO ()
+
+primMalloc     :: Int -> IO (Ptr a)
+primCalloc     :: Int -> IO (Ptr a)
+primRealloc    :: Ptr a -> Int -> IO (Ptr b)
+primFree       :: Ptr a -> IO ()
+primCopyBytes  :: Ptr a -> Ptr a -> Int -> IO ()
+primMoveBytes  :: Ptr a -> Ptr a -> Int -> IO ()
+primFillBytes  :: Ptr a -> Int -> Int -> IO ()
+
+primNewCString     :: String -> IO (Ptr a)
+primPeekCString    :: Ptr a -> IO String
+primPeekCStringLen :: Ptr a -> Int -> IO String
+primCStringLength  :: String -> Int
+
+primLoadLibrary    :: String -> IO ()
+primUnsafePerformIO :: IO a -> a
+
+{-#
+primNullPtr          :: LispName("prim.null-ptr")
+primNullFunPtr       :: LispName("prim.null-ptr")
+primPlusPtr          :: LispName("prim.plus-ptr")
+primMinusPtr         :: LispName("prim.minus-ptr")
+primPtrEq            :: LispName("prim.ptr-eq")
+primPtrLe            :: LispName("prim.ptr-le")
+primFunPtrEq         :: LispName("prim.ptr-eq")
+primFunPtrLe         :: LispName("prim.ptr-le")
+primPtrToInteger     :: LispName("prim.ptr-to-integer")
+primFunPtrToInteger  :: LispName("prim.ptr-to-integer")
+primIntegerToPtr     :: LispName("prim.integer-to-ptr")
+primCastPtr          :: LispName("prim.cast-ptr")
+primCastFunPtr       :: LispName("prim.cast-ptr")
+primCastFunPtrToPtr  :: LispName("prim.cast-ptr")
+primCastPtrToFunPtr  :: LispName("prim.cast-ptr")
+primPeekInt8   :: LispName("prim.peek-int8")
+primPeekInt16  :: LispName("prim.peek-int16")
+primPeekInt32  :: LispName("prim.peek-int32")
+primPeekInt64  :: LispName("prim.peek-int64")
+primPeekWord8  :: LispName("prim.peek-word8")
+primPeekWord16 :: LispName("prim.peek-word16")
+primPeekWord32 :: LispName("prim.peek-word32")
+primPeekWord64 :: LispName("prim.peek-word64")
+primPeekWord   :: LispName("prim.peek-word64")
+primPeekInt    :: LispName("prim.peek-int")
+primPeekChar   :: LispName("prim.peek-char")
+primPeekCInt   :: LispName("prim.peek-int32")
+primPeekDouble :: LispName("prim.peek-double")
+primPeekFloat  :: LispName("prim.peek-float")
+primPeekPtr    :: LispName("prim.peek-ptr")
+primPeekFunPtr :: LispName("prim.peek-ptr")
+primPokeInt8   :: LispName("prim.poke-int8")
+primPokeInt16  :: LispName("prim.poke-int16")
+primPokeInt32  :: LispName("prim.poke-int32")
+primPokeInt64  :: LispName("prim.poke-int64")
+primPokeWord8  :: LispName("prim.poke-word8")
+primPokeWord16 :: LispName("prim.poke-word16")
+primPokeWord32 :: LispName("prim.poke-word32")
+primPokeWord64 :: LispName("prim.poke-word64")
+primPokeWord   :: LispName("prim.poke-word64")
+primPokeInt    :: LispName("prim.poke-int")
+primPokeChar   :: LispName("prim.poke-char")
+primPokeCInt   :: LispName("prim.poke-int32")
+primPokeDouble :: LispName("prim.poke-double")
+primPokeFloat  :: LispName("prim.poke-float")
+primPokePtr    :: LispName("prim.poke-ptr")
+primPokeFunPtr :: LispName("prim.poke-ptr")
+primMalloc     :: LispName("prim.malloc")
+primCalloc     :: LispName("prim.calloc")
+primRealloc    :: LispName("prim.realloc")
+primFree       :: LispName("prim.free")
+primCopyBytes  :: LispName("prim.copy-bytes")
+primMoveBytes  :: LispName("prim.move-bytes")
+primFillBytes  :: LispName("prim.fill-bytes")
+primNewCString     :: LispName("prim.new-cstring")
+primPeekCString    :: LispName("prim.peek-cstring")
+primPeekCStringLen :: LispName("prim.peek-cstring-len")
+primCStringLength  :: LispName("prim.cstring-length")
+primLoadLibrary    :: LispName("prim.load-library")
+primUnsafePerformIO :: LispName("prim.unsafe-perform-io"), Strictness("S"), NoConversion
+#-}

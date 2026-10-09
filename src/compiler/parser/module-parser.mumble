@@ -151,9 +151,12 @@
       (setf (module-annotations mod-ast)
 	    (append (module-annotations mod-ast) annotations)))
     (terminate-topdecl mod-ast in-layout? state))
-   (pat-start (let ((decl (parse-decl)))
-		(setf (module-decls mod-ast)
-		      (decl-push decl (module-decls mod-ast))))
+   (pat-start (if (foreign-decl-start?)
+		  (push-decl-list (parse-foreign-import)
+				  (module-foreign-imports mod-ast))
+		  (let ((decl (parse-decl)))
+		    (setf (module-decls mod-ast)
+			  (decl-push decl (module-decls mod-ast)))))
 	      (terminate-topdecl mod-ast in-layout? 'topdecl))
    (else
     (maybe-end-module mod-ast in-layout? state))))
@@ -189,7 +192,8 @@
 	     (null? (module-algdatas mod-ast))
 	     (null? (module-synonyms mod-ast))
 	     (null? (module-instances mod-ast))
-	     (null? (module-classes mod-ast)))
+	     (null? (module-classes mod-ast))
+	     (null? (module-foreign-imports mod-ast)))
     (signal-empty-module)))
 
 (define (signal-empty-module)
@@ -404,3 +408,46 @@
 
 ;;; T(f, ...) names class methods, or record fields and constructors of a
 ;;; datatype; which one is decided when T is resolved (locate-entity).
+
+
+;;; The FFI (Haskell 2010 chapter 8): foreign is an identifier except at
+;;; the start of a top-level declaration followed by import or export.
+
+(define (foreign-decl-start?)
+  (and (haskell98?)
+       (at-varid-named? "foreign")
+       (let ((saved  (save-scanner-state)))
+	 (advance-token)
+	 (let ((res  (or (eq? *token* '|import|) (at-varid-named? "export"))))
+	   (restore-excursion saved)
+	   res))))
+
+(define (parse-foreign-import)
+  (let ((line  (capture-current-line)))
+    (advance-token)			; foreign
+    (when (at-varid-named? "export")
+      (parser-error 'foreign-export
+		    "foreign export is not supported yet; only foreign import."))
+    (advance-token)			; import
+    (if (or (at-varid-named? "ccall") (at-varid-named? "capi"))
+	(advance-token)
+	(parser-error 'foreign-callconv
+		      "The calling convention of a foreign import must be ccall."))
+    (when (or (at-varid-named? "safe") (at-varid-named? "unsafe")
+	      (at-varid-named? "interruptible"))
+      (advance-token))
+    (let* ((entity  (token-case
+		     ((string no-advance)
+		      (let ((s  (car *token-args*)))
+			(advance-token)
+			s))
+		     (else "")))
+	   (sd      (parse-signdecl))
+	   (vars    (signdecl-vars sd)))
+      (when (not (null? (cdr vars)))
+	(parser-error 'foreign-vars
+		      "A foreign import declares exactly one name."))
+      (let ((fi  (make foreign-import (var (car vars)) (entity entity)
+		       (signature (signdecl-signature sd)))))
+	(setf (ast-node-line-number fi) line)
+	fi))))

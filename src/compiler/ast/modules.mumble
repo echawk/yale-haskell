@@ -92,6 +92,10 @@
     (default (type (maybe default-decl)) (default '#f))
     ;; signatures, pattern, function bindings
     (decls (type (list decl)) (default '()))
+    ;; foreign import declarations (Haskell 2010 FFI), and the Lisp code
+    ;; the scope phase generates for them
+    (foreign-imports (type (list foreign-import)) (default '()))
+    (foreign-code (type list) (default '()))
 
     ;; These slots are filled in by the type-declaration-analysis phase
     ;; after conversion to definition form
@@ -256,3 +260,15 @@
     (names (type (list symbol)))
     ))
 
+
+
+;;; foreign import callconv [safety] "entity" var :: type
+;;; (Haskell 2010 report 8.4).  Only ccall (capi is treated as ccall);
+;;; the safety is ignored.  See backend/interface-codegen.mumble.
+
+(define-struct foreign-import
+  (include ast-node)
+  (slots
+   (var (type var-ref))
+   (entity (type string))
+   (signature (type signature))))

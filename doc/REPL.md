@@ -15,7 +15,8 @@ bin/yale-haskell --haskell98 -e 'f 3' prog.hs   # ... with prog.hs loaded
 The dialect (`--haskell98`, `--haskell1.2`, or `$YALE_HASKELL_DIALECT`)
 is fixed for the session.  `yale-haskell --help` lists the options:
 `--backend grin|flic`, `--printers P,...`, `--no-optimize`,
-`--grin-optimizations O,...`, `--version`.
+`--grin-optimizations O,...`, `--foreign-library LIB` (`-l`, repeatable;
+see FFI.md), `--version`.
 
 With `rlwrap` installed and a terminal, input has line editing and a
 history in `~/.yale_haskell_history`; `YALE_HASKELL_RLWRAP=no` turns it

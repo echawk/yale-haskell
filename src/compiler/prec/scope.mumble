@@ -14,6 +14,8 @@
   (walk-modules modules
     (lambda ()
       (setf (module-decls *module*) (scope-ast-decls (module-decls *module*)))
+      (setf (module-foreign-code *module*)
+	    (map (function scope-foreign-import) (module-foreign-imports *module*)))
       (dolist (a (module-annotations *module*))
 ;;; This is currently bogus since it assumes only vars are annotated.	      
 	 (when (annotation-decl? a)
@@ -28,6 +30,22 @@
 		(setf (var-annotations v)
 		      (append (var-annotations v)
 			      (annotation-decl-annotations a))))))))))
+
+;;; A foreign import's var gets its declared type here, and its Lisp
+;;; entry (backend/interface-codegen.mumble), so that the type checker
+;;; and the code for its callers treat it like a primitive.
+
+(define (scope-foreign-import fi)
+  (remember-context fi
+    (let* ((signature  (foreign-import-signature fi))
+	   (var        (var-ref-var (foreign-import-var fi))))
+      (resolve-signature signature)
+      (let ((gtype  (ast->gtype (signature-context signature)
+				(signature-type signature))))
+	(setf (var-signature var) gtype)
+	(setf (var-type var) gtype)
+	(setf (var-toplevel? var) '#t)
+	(codegen-foreign-import var (foreign-import-entity fi))))))
 
 ;;; Define the basic walker and some helper functions.
 

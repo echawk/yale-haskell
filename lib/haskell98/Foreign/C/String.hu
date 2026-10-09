@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Foreign/C/
+:o= all
+String.hs

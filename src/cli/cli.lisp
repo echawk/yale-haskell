@@ -41,6 +41,9 @@
    (clingon:make-option :string :long-name "grin-optimizations" :short-name #\g
                         :key :grin-optimizations :persistent t
                         :description "GRIN optimizations, comma-separated: names (exactly these), +name, -name, all, none; of fold,speculate,inline-eval,self-local,rep-types,ftype")
+   (clingon:make-option :list :long-name "foreign-library" :short-name #\l
+                        :key :foreign-library :persistent t
+                        :description "load a C shared library for foreign imports (repeatable)")
    (clingon:make-option :list :long-name "eval" :short-name #\e
                         :key :eval :persistent t
                         :description "evaluate an expression (repeatable) and exit")))
@@ -48,7 +51,8 @@
 ;;; Options that take a value, for splitting the program's own arguments
 ;;; off the command line.
 (defparameter *value-options*
-  '("-b" "--backend" "-p" "--printers" "-e" "--eval" "-g" "--grin-optimizations"))
+  '("-b" "--backend" "-p" "--printers" "-e" "--eval" "-g" "--grin-optimizations"
+    "-l" "--foreign-library"))
 
 (defparameter *sub-commands* '("repl" "run" "help"))
 
@@ -81,6 +85,11 @@
                                (intern "=" "MUMBLE-USER"))))
     (when (clingon:getopt* cmd :no-optimize)
       (mumble-set "*OPTIMIZERS*" '()))
+    (dolist (lib (clingon:getopt* cmd :foreign-library))
+      (handler-case (mumble-call "PRIM.LOAD-LIBRARY" lib)
+        (error (c)
+          (format *error-output* "yale-haskell: ~a~%" c)
+          (uiop:quit 1))))
     (let ((grin (clingon:getopt* cmd :grin-optimizations)))
       (when grin
         (mumble-set "*GRIN-OPTIMIZATIONS*"

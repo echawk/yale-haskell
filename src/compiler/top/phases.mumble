@@ -81,7 +81,9 @@
 		   (setf big-let (haskell-strictness big-let))
 		   (haskell-codegen big-let mods))
 		  (else
-		   ''#f)
+		   ;; no value bindings; perhaps foreign imports
+		   (let ((code  (concat (map (function module-foreign-code) mods))))
+		     (if (null? code) ''#f `(begin ,@code))))
 		  ))))
 
 
@@ -216,6 +218,7 @@
     (phase-body codegen
       `(begin
 	 ,(codegen-exported-types mods)
+	 ,@(concat (map (function module-foreign-code) mods))
 	 ,(if (eq? grin '#f)
 	      (codegen-top big-let)
 	      (grin-emit-top grin)))

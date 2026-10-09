@@ -198,3 +198,172 @@
 	  (gen-temp-names-1 l1 (list (gensym "T")))
 	  (cons (car l2) (gen-temp-names-1 (cdr l1) (cdr l2))))))
 
+
+
+;;;=====================================================================
+;;; foreign import ccall (Haskell 2010 chapter 8), over CFFI
+;;;=====================================================================
+
+;;; The Lisp code for VAR, a foreign import of ENTITY: an entry
+;;; function VAR/ffi calling cffi:foreign-funcall, which becomes the var's
+;;; optimized entry exactly as for a LispName primitive.  An IO result
+;;; adds the state argument, which is ignored.  The argument and result
+;;; types must be marshallable (ffi-marshalling); arguments arrive
+;;; evaluated, since the entry is strict in all of them.
+
+(define (codegen-foreign-import var entity)
+  (lisp:catch 'ffi-error
+    (codegen-foreign-import-1 var entity)))
+
+(define (codegen-foreign-import-1 var entity)
+  (let* ((gtype   (var-signature var))
+	 (types   (gather-arg-types (ffi-expand (gtype-type gtype))))
+	 (args    (butlast types))
+	 (res     (car (last types)))
+	 (io?     (and (ntycon? res) (eq? (ntycon-tycon res) (core-symbol "IO"))))
+	 (rtype   (if io? (ffi-expand (car (ntycon-args res))) res))
+	 (spec    (ffi-parse-entity entity (symbol->string (def-name var)))))
+    (when (not (null? (gtype-context gtype)))
+      (ffi-error var "its type has a class context"))
+    (let ((arg-ms  (map (lambda (ty) (ffi-marshalling var ty '#f)) args))
+	  (res-m   (ffi-marshalling var rtype '#t))
+	  (params  (map (lambda (ty) (declare (ignore ty)) (gensym "A")) args))
+	  (state   (gensym "S")))
+      (cond ((eq? (car spec) 'address)
+	     (when (or io? (not (null? args)) (not (eq? (car res-m) ':pointer)))
+	       (ffi-error var "an & import must have type Ptr t or FunPtr t"))
+	     (setf (var-optimized-entry var) '#f)
+	     (setf (var-strict? var) '#f)
+	     (setf (var-arity var) 0)
+	     (setf (var-strictness var) '())
+	     `(define ,(fullname var)
+		(delay (ffi-symbol-pointer ,(cadr spec)))))
+	    (else
+	     (let* ((call-args  (concat (map (lambda (m p)
+					       (list (car m) (ffi-apply (cadr m) p)))
+					     arg-ms params)))
+		    (call       (if (eq? (car spec) 'dynamic)
+				    (begin
+				      (when (or (null? args)
+						(not (eq? (car (car arg-ms)) ':pointer)))
+					(ffi-error var "a dynamic import's first argument must be a FunPtr"))
+				      `(,(ffi-cffi-symbol "FOREIGN-FUNCALL-POINTER")
+					,(car params) ()
+					,@(cddr call-args) ,(car res-m)))
+				    `(,(ffi-cffi-symbol "FOREIGN-FUNCALL")
+				      ,(cadr spec) ,@call-args ,(car res-m))))
+		    (body       (ffi-apply (caddr res-m) call))
+		    (entry      (symbol-append (fullname var) '|/ffi|))
+		    (all-params (if io? (append params (list state)) params))
+		    (strictness (map (lambda (p) (declare (ignore p)) '#t) all-params)))
+	       (when (eq? (car spec) 'wrapper)
+		 (ffi-error var "\"wrapper\" imports (callbacks) are not supported yet"))
+	       (setf (var-optimized-entry var) entry)
+	       (setf (var-strict? var) '#t)
+	       (setf (var-arity var) (length all-params))
+	       (setf (var-strictness var) strictness)
+	       (if (null? all-params)
+		   ;; a pure constant: called once, when first needed
+		   (begin
+		     (setf (var-optimized-entry var) '#f)
+		     (setf (var-strict? var) '#f)
+		     `(define ,(fullname var) (delay ,body)))
+		   `(begin
+		      (define (,entry ,@all-params)
+			,@(if io? `((declare (ignore ,state))) '())
+			,body)
+		      (define ,(fullname var)
+			,(maybe-make-box-value
+			  (codegen-curried-fn `(function ,entry) strictness)
+			  '#t))))))))))
+
+(define (ffi-cffi-symbol name)
+  (let ((pkg  (lisp:find-package "CFFI")))
+    (if (eq? pkg '#f)
+	(fatal-error 'no-cffi "The FFI needs CFFI, which is not loaded.")
+	(lisp:intern name pkg))))
+
+(define (ffi-apply fn x)
+  (if (eq? fn '#f) x (funcall fn x)))
+
+(define (ffi-expand ty)
+  (expand-ntype-synonym (prune ty)))
+
+(define (ffi-error var what)
+  (phase-error 'bad-foreign-import
+    "The foreign import ~A is not supported: ~A." (def-name var) what)
+  ;; after a recoverable error, no code for this declaration
+  (lisp:throw 'ffi-error '(begin)))
+
+;;; ENTITY (report 8.3.1) as (static "cname"), (address "cname"),
+;;; (dynamic) or (wrapper).  A header file name and `static' are ignored;
+;;; the C name defaults to the Haskell name.
+
+(define (ffi-parse-entity entity default)
+  (let ((words  (ffi-words entity)))
+    (cond ((equal? words '("dynamic")) '(dynamic))
+	  ((equal? words '("wrapper")) '(wrapper))
+	  (else
+	   (let ((ws  (lisp:remove-if (lambda (w)
+					(or (string=? w "static")
+					    (and (> (string-length w) 2)
+						 (lisp:string= ".h" w
+							       :start2 (- (string-length w) 2)))))
+				      words))
+		 (address?  '#f))
+	     (when (and (not (null? ws)) (string=? (car ws) "&"))
+	       (setf address? '#t)
+	       (setf ws (cdr ws)))
+	     (when (and (not (null? ws)) (lisp:char= (lisp:char (car ws) 0) #\&))
+	       (setf address? '#t)
+	       (setf ws (cons (lisp:subseq (car ws) 1) (cdr ws))))
+	     (list (if address? 'address 'static)
+		   (if (null? ws) default (car ws))))))))
+
+(define (ffi-words s)
+  (let ((start  (lisp:position #\space s :test-not (function lisp:char=))))
+    (if (eq? start '#f)
+	'()
+	(let ((end  (or (lisp:position #\space s :start start) (string-length s))))
+	  (cons (lisp:subseq s start end)
+		(ffi-words (lisp:subseq s end)))))))
+
+;;; How a value of type TY crosses to C: (cffi-type to-c from-c), where
+;;; to-c and from-c are #f or functions of a form.  Int is a C long; the
+;;; Data.Int and Data.Word types (and the Foreign.C.Types synonyms for
+;;; them) have their own widths; Char is an int code; Bool an int.
+
+(define (ffi-marshalling var ty result?)
+  (let ((m  (ffi-marshalling-1 ty result?)))
+    (if (eq? m '#f)
+	(ffi-error var (format '#f "it cannot pass a ~A ~A C"
+			       ty (if result? "back from" "to")))
+	m)))
+
+(define *ffi-sized-types*
+  '((|Data.Int| (|Int8| :int8) (|Int16| :int16) (|Int32| :int32) (|Int64| :int64))
+    (|Data.Word| (|Word8| :uint8) (|Word16| :uint16) (|Word32| :uint32)
+		 (|Word64| :uint64) (|Word| :uint64))
+    (|ForeignPrims| (|Ptr| :pointer) (|FunPtr| :pointer))))
+
+(define (ffi-marshalling-1 ty result?)
+  (let ((ty  (ffi-expand ty)))
+    (if (not (ntycon? ty))
+	'#f
+	(let ((tycon  (ntycon-tycon ty)))
+	  (cond ((eq? tycon (core-symbol "Int")) '(:long #f #f))
+		((eq? tycon (core-symbol "Double")) '(:double #f #f))
+		((eq? tycon (core-symbol "Float")) '(:float #f #f))
+		((eq? tycon (core-symbol "Char")) '(:int32 #f #f))
+		((eq? tycon (core-symbol "Bool"))
+		 (list ':int
+		       (lambda (x) `(if ,x 1 0))
+		       (lambda (x) `(not (eqv? ,x 0)))))
+		((and result? (eq? tycon (core-symbol "UnitType")))
+		 (list ':void '#f (lambda (x) `(begin ,x 0))))
+		(else
+		 (let* ((mod   (assq (def-module tycon) *ffi-sized-types*))
+			(entry (and mod (assq (def-name tycon) (cdr mod)))))
+		   (if entry
+		       (list (cadr entry) '#f '#f)
+		       '#f))))))))

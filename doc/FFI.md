@@ -1,0 +1,80 @@
+# The foreign function interface
+
+Yale Haskell's Haskell 98 dialect has the Haskell 2010 foreign function
+interface (Report 2010, chapter 8) for C, implemented over the Common
+Lisp library [CFFI](https://cffi.common-lisp.dev/) (installed with
+`ocicl`; `make deps`).
+
+```haskell
+import Foreign
+import Foreign.C
+
+foreign import ccall "math.h sin"  c_sin    :: CDouble -> CDouble
+foreign import ccall "string.h strlen" c_strlen :: CString -> IO CSize
+foreign import ccall "&counter"    counter  :: Ptr Int64          -- a C variable
+foreign import ccall "dynamic"     callInt  :: FunPtr (CInt -> CInt) -> CInt -> CInt
+
+main = withCString "hello" c_strlen >>= print
+```
+
+```sh
+bin/yale-haskell --haskell98 prog.hs                      # libc, libm: already loaded
+bin/yale-haskell --haskell98 -l ./libvec.dylib prog.hs    # your own library (repeatable)
+```
+
+`Foreign.loadForeignLibrary "libfoo.so"` (not in the Report) loads one
+from a program or the interactive system.
+
+## What is supported
+
+- `foreign import ccall` (`capi` is accepted as `ccall`; `safe`,
+  `unsafe` and `interruptible` are accepted and ignored).  The entity
+  string may name a header (ignored), use `static`, `&sym` for the
+  address of a C object or function, or `dynamic` to call a `FunPtr`.
+  An empty string means the C name is the Haskell name.
+- Argument and result types: `Int` (a C `long`), `Int8`…`Int64`,
+  `Word`, `Word8`…`Word64`, `Double`, `Float`, `Char` (a 32-bit code),
+  `Bool` (a C `int`), `Ptr a`, `FunPtr a`, the `Foreign.C.Types`
+  synonyms for these, `()` as a result, and an `IO` result.  A pure
+  type means the C function is called as a pure function.
+- Libraries: `Foreign`, `Foreign.Ptr`, `Foreign.Storable`,
+  `Foreign.Marshal` (`Alloc`, `Array`, `Utils`, `Error`, `Unsafe`),
+  `Foreign.C`, `Foreign.C.Types`, `Foreign.C.String` (UTF-8),
+  `Data.Bits`, `Data.Int`, `Data.Word`.
+
+## Differences from the Report and GHC
+
+- The `Foreign.C.Types` types are **type synonyms** (`CInt = Int32`,
+  `CDouble = Double`, ...), not newtypes, so a program may mix `CDouble`
+  and `Double` where GHC needs `realToFrac`.  Programs written for GHC
+  compile unchanged unless they give instances for both a C type and
+  the type it stands for.
+- `Int` is a 63-bit fixnum, passed as a C `long`.
+- `alloca` and friends allocate with `malloc` and free when the action
+  returns (also when it raises an IO error).
+- `foreign` stays an ordinary identifier except at the start of a
+  top-level declaration (Haskell 98 programs may use it as a name).
+- Not yet: `foreign export`, `"wrapper"` imports (Haskell functions as C
+  callbacks), `Foreign.ForeignPtr`, `Foreign.StablePtr`,
+  `Foreign.C.Error`, foreign imports typed at the interactive prompt.
+
+## How it works
+
+- The parser turns a `foreign import` into a `foreign-import` record
+  (`module-foreign-imports`, ast/modules.mumble).
+- The scope phase (`scope-foreign-import`, prec/scope.mumble) gives the
+  name its declared type.  `codegen-foreign-import`
+  (backend/interface-codegen.mumble) then generates an entry function
+  `M:f/ffi` that marshals the arguments and calls `cffi:foreign-funcall`
+  (or `foreign-funcall-pointer` for `dynamic`).
+- The name gets that entry, arity and strictness exactly as a `LispName`
+  primitive of an interface file does, so callers in the same module
+  and elsewhere call it directly.  An `IO` result adds the state
+  argument, which the entry ignores.
+- The code is emitted with the module's code (top/phases.mumble).
+- The `Foreign.*` modules are Haskell over the primitives of
+  `lib/haskell98/ForeignPrims.hi`, which are plain CL in
+  `src/ffi/ffi-runtime.lisp`, loaded into the image after CFFI
+  (tools/build/image.lisp).  `Ptr` and `FunPtr` are CFFI foreign
+  pointers; the Data.Int and Data.Word newtypes are erased, so they
+  reach C as their `Int` or `Integer`.
