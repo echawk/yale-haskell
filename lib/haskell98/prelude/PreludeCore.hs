@@ -16,7 +16,7 @@ module PreludeCore (
 	      encodeFloat, decodeFloat, exponent, significand, scaleFloat,
 	      isNaN, isInfinite, isDenormalized, isNegativeZero, isIEEE,
 	      atan2),
-    Ix(range, index, inRange),
+    Ix(range, index, inRange, rangeSize),
     Enum(succ, pred, toEnum, fromEnum,
 	 enumFrom, enumFromThen, enumFromTo, enumFromThenTo),
     Show(showsPrec, show, showList), Read(readsPrec, readList),
@@ -230,6 +230,12 @@ class  (Ord a) => Ix a  where
     range		:: (a,a) -> [a]
     index		:: (a,a) -> a -> Int
     inRange		:: (a,a) -> a -> Bool
+    rangeSize		:: (a,a) -> Int
+
+    -- the Report's default (Haskell 98 revised); comparing the bounds
+    -- would be wrong for tuples
+    rangeSize b@(l,h) | null (range b) = 0
+                      | otherwise      = index b h + 1
 
 -- H98: Enum has no Ord superclass.  The defaults for enumFromTo and
 -- enumFromThenTo go through Int, as in the Report; instances for types

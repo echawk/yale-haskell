@@ -505,6 +505,11 @@
 	 (def-name def))
 	((module-uses-standard-prelude? *module*)
 	 (let ((res (table-entry *prelude-inverted-symbol-table* def)))
+	   ;; a Prelude name this module does not see (catch in Haskell
+	   ;; 2010, prelude-symbol-entry) is no name for it here
+	   (when (and (not (eq? res '#f))
+		      (not (eq? (prelude-symbol-entry res) def)))
+	     (setf res '#f))
 	   (if (eq? res '#f)
 	    (table-entry *inverted-symbol-table* def)
 	    res)))

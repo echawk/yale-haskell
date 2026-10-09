@@ -39,7 +39,7 @@ modules that the libraries re-export:
 | `Numeric` | `prelude/PreludeNumeric.hs` (Report code; the Prelude's `Show`/`Read` instances use it) |
 | `Ratio` | `prelude/PreludeRatio.hs` |
 | `Complex` | `prelude/PreludeComplex.hs` |
-| `Ix` | class in `prelude/PreludeCore.hs`; `rangeSize` in `Ix.hs` |
+| `Ix` | class (with `rangeSize`) in `prelude/PreludeCore.hs` |
 | `Array` | `prelude/PreludeArray.hs` |
 
 Library modules do not repeat the Prelude names in their export lists
@@ -59,10 +59,11 @@ rejects re-exporting an entity it gets from the Prelude.
   `top/symbol-table.mumble`.)  The 1.2 `Text`, `Binary` and `Bin` are not
   core names here (`*feature-retired-names*` in
   `top/core-symbols.mumble`).
-- `rangeSize` is a function, not an `Ix` method.  The runtime builds
+- The runtime builds
   tuple dictionaries for `Eq`, `Ord`, `Ix`, `Bounded`, `Show` and `Read`; superclass slots are
   computed from the class definitions, and `compare` is the last `Ord`
-  method (`src/runtime/tuple-prims.mumble`).
+  method; `Ix`'s methods are range, index, inRange, rangeSize
+  (`src/runtime/tuple-prims.mumble`).
 - Arrays take H98 `(i, e)` pairs (the 1.2 `i := e` form is gone).
 - `Char` is Latin-1; the character predicates follow Latin-1.
 - Programs run with the host's float traps masked, so `1/0` is `Infinity`

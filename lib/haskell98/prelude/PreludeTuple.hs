@@ -107,12 +107,17 @@ tupleIndex dicts (low,high) n = tupleIndex' (size-1) where
     high' = tupleSel high i size
     n' = tupleSel n i size
     i' = (dictSel (index' dicts i)) (low',high') n'
-    r' = (dictSel (rangeSize dicts i)) (low',high')
+    r' = (dictSel (rangeSize' dicts i)) (low',high')
 
 index' x = index x
 
-rangeSize               :: (Ix a) => (a,a) -> Int
-rangeSize (l,u)         =  index (l,u) u + 1
+rangeSize' x = rangeSize x
+
+tupleRangeSize :: TupleDicts -> (Tuple,Tuple) -> Int
+{-#  tupleRangeSize :: Strictness("S,S") #-}
+tupleRangeSize dicts b@(l,h)
+  | null (tupleRange dicts b) = 0
+  | otherwise                 = tupleIndex dicts b h + 1
 
 tupleInRange :: TupleDicts -> (Tuple,Tuple) -> Tuple -> Bool
 {-#  tupleInRange :: Strictness("S,S,S") #-}

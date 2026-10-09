@@ -1,0 +1,6 @@
+(True,Just "/no/such",True)
+(True,"boom",Just "f.txt")
+(True,Just True)
+["already exists","resource exhausted","permission denied"]
+(5,2)
+(False,False)

@@ -43,6 +43,7 @@ module IO (
 
 import PreludeIO(IOError(..), thenIO, thenIO_, returnIO, catch)
 import IOPrims
+import IOBase(Handle(..), HandlePosn(..))
 
 -- IOErrors.  The wrappers exist because Yale requires instances to be
 -- declared in the module that defines the type.
@@ -89,26 +90,6 @@ bracket before after thing =
 bracket_              :: IO a -> (a -> IO b) -> IO c -> IO c
 bracket_ before after thing =
   bracket before after (\_ -> thing)
-
--- Handles
-
-data Handle = Handle HandleObj
-
-instance Eq Handle where
-  Handle h1 == Handle h2 = primHandleEq h1 h2
-
-instance  Show Handle  where
-  showsPrec _ (Handle h) = showString "{handle: "
-                           . showString (primHandleName h) . showChar '}'
-
-data HandlePosn = HandlePosn Handle Integer
-
-instance Eq HandlePosn where
-  HandlePosn h1 p1 == HandlePosn h2 p2  =  h1 == h2 && p1 == p2
-
-instance  Show HandlePosn  where
-  showsPrec _ (HandlePosn h p) = shows h . showString " at position "
-                                 . shows p
 
 data IOMode      =  ReadMode | WriteMode | AppendMode | ReadWriteMode
                     deriving (Eq, Ord, Ix, Enum, Show, Read)

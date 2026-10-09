@@ -41,6 +41,12 @@ primRemoveDirectoryRecursive :: String -> IO ()
 primCopyFile       :: String -> String -> IO ()
 primFindExecutable :: String -> IO String
 
+primIsTerminal     :: Int -> IO Bool
+primGetEcho        :: IO Bool
+primSetEcho        :: Bool -> IO ()
+primTruncateFile   :: String -> Integer -> IO ()
+primCreateTempFile :: String -> String -> String -> IO String
+
 {-#
 primCatchAny       :: LispName("prim.catch-any"), Strictness("N,S,S")
 primThrowExc       :: LispName("prim.throw-exc")
@@ -65,4 +71,9 @@ primCreateDirectoryIfMissing :: LispName("prim.create-directory-if-missing")
 primRemoveDirectoryRecursive :: LispName("prim.remove-directory-recursive")
 primCopyFile       :: LispName("prim.copy-file")
 primFindExecutable :: LispName("prim.find-executable")
+primIsTerminal     :: LispName("prim.is-terminal")
+primGetEcho        :: LispName("prim.get-echo")
+primSetEcho        :: LispName("prim.set-echo")
+primTruncateFile   :: LispName("prim.truncate-file")
+primCreateTempFile :: LispName("prim.create-temp-file")
 #-}

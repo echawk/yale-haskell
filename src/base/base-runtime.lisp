@@ -147,3 +147,50 @@
 					 #-yale-cffi (cl:probe-file file))
 			      return file))
 	   "")))
+
+;;; Terminals (System.IO hIsTerminalDevice, hGetEcho, hSetEcho).  Only
+;;; the standard handles (file descriptors 0, 1, 2) can be terminals;
+;;; System.IO passes -1 for the others.
+
+(cl:defun prim.is-terminal (fd)
+  (cl:and (cl:<= 0 fd 2)
+	  #+yale-cffi (cl:= 1 (cffi:foreign-funcall "isatty" :int fd :int))
+	  #-yale-cffi (cl:interactive-stream-p
+		       (cl:if (cl:= fd 0) cl:*standard-input* cl:*standard-output*))))
+
+;;; Echo is the terminal's (stty), changed on /dev/tty.
+(cl:defun prim.get-echo ()
+  (cl:let ((settings (cl:ignore-errors
+		      (uiop:run-program (cl:list "/bin/sh" "-c" "stty -a </dev/tty")
+					:output :string :ignore-error-status cl:t))))
+    (cl:and settings
+	    (cl:not (cl:search " -echo " (cl:substitute #\Space #\Newline
+						     (cl:concatenate 'cl:string " " settings " "))))
+	    cl:t)))
+
+(cl:defun prim.set-echo (on?)
+  (uiop:run-program (cl:list "/bin/sh" "-c"
+			     (cl:if on? "stty echo </dev/tty" "stty -echo </dev/tty"))
+		    :ignore-error-status cl:t)
+  0)
+
+;;; hSetFileSize: the file named PATH (the handle's, flushed first by
+;;; System.IO) truncated or extended to SIZE bytes.
+(cl:defun prim.truncate-file (path size)
+  #+yale-cffi
+  (cl:unless (cl:zerop (cffi:foreign-funcall "truncate" :string path :int64 size :int))
+    (raise-io-error 'illegal-operation "hSetFileSize" "cannot set the size" path))
+  #-yale-cffi
+  (raise-io-error 'illegal-operation "hSetFileSize" "not supported on this Lisp" path)
+  0)
+
+;;; openTempFile (base): a new file DIR/PREFIX<n>SUFFIX, created empty;
+;;; its name is returned for System.IO to open.
+(cl:defvar *temp-random-state* (cl:make-random-state cl:t))
+(cl:defun prim.create-temp-file (dir prefix suffix)
+  (cl:loop
+    (cl:let ((path (cl:format cl:nil "~a/~a~d~a" (cl:string-right-trim "/" dir)
+			      prefix (cl:random 1000000000 *temp-random-state*) suffix)))
+      (cl:with-open-file (s path :direction :output :if-exists cl:nil
+				 :if-does-not-exist :create)
+	(cl:when s (cl:return path))))))

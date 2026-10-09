@@ -191,3 +191,24 @@
 
 (define (prim.io-error-handle err)
   (haskell-io-error-handle err))
+
+;;; Haskell 2010 System.IO.Error.
+;;; primMkIOError :: Int -> String -> Bool -> HandleObj -> Bool -> String -> IOErrorObj
+;;;   mkIOError: the kind number, the location, and a handle and file
+;;;   name when the Bools say they are given.
+(define (prim.mk-io-error kind location has-handle? handle has-file? file)
+  (make-io-error (car (vector-ref *io-error-kinds* kind)) location ""
+		 (if has-file? file '#f) (if has-handle? handle '#f)))
+
+;;; primAnnotateIOError :: IOErrorObj -> String -> Bool -> HandleObj -> Bool -> String -> IOErrorObj
+;;;   annotateIOError: the location is prefixed to the error's own; the
+;;;   handle and file name are added where the error has none.
+(define (prim.annotate-io-error err location has-handle? handle has-file? file)
+  (let ((old  (haskell-io-error-location err)))
+    (make-io-error (haskell-io-error-kind err)
+		   (cond ((or (not old) (string=? old "")) location)
+			 ((string=? location "") old)
+			 (else (string-append location ": " old)))
+		   (haskell-io-error-description err)
+		   (or (haskell-io-error-filename err) (if has-file? file '#f))
+		   (or (haskell-io-error-handle err) (if has-handle? handle '#f)))))

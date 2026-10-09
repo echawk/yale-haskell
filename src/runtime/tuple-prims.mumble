@@ -98,6 +98,13 @@
 					 dict-vector))
 			 (delay (apply-1 (force (dynamic |PreludeTuple:tupleInRange|))
 					 dict-vector))))
+	  ;; Haskell 98's Ix has rangeSize too (Haskell 1.2's does not)
+	  (methods (if (> (length (class-method-vars ix)) 3)
+		       (append methods
+			       (list (delay (apply-1
+					     (force (dynamic |PreludeTuple:tupleRangeSize|))
+					     dict-vector))))
+		       methods))
 	  (supers
 	   (map (lambda (super)
 		  (let ((fn (tuple-super-dict-fn super))
