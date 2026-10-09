@@ -588,7 +588,7 @@ data Color = Red | Green | Blue deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
 ### LG-POLYREC: Polymorphic recursion via signatures
 
-**Status:** ❌ Missing (M9).  Effort M.
+**Status:** ✅ Done (2026-10-08): `type-recursive-group` in type-decl.mumble.  The notes below are historical.
 
 **Where:**
 - Dependency analysis: `src/compiler/depend/depend.mumble`,
@@ -1166,7 +1166,7 @@ constructor classes, List/Char/Maybe/Ix/Numeric all matched):
 | 3 | ✅ `Monad` library from the Report; test `lib/monad` | `lib/haskell98/Monad.hs` | S |
 | 4 | ✅ The H98 Prelude exports only H98 names: Haskell 1.2's Dialogue I/O moved to the Yale library `Dialogue` (`lib/haskell98/Dialogue.hs`; the tests that use it import it), the Char functions to `Char`; the shared Prelude symbol table is now built from the Prelude's exports, not its scope.  Test `language/prelude-h98-exports` | Prelude export list, `init-prelude-globals` | M |
 | 5 | ✅ A module may define a name the Prelude exports (H98 5.5.2): `Main.x` and `Prelude.x` both work, an unqualified use is reported as ambiguous (`*prelude-clashes*` in symbol-table.mumble, the check in the scope phase's `lookup-name`).  Tests `language/prelude-name-clash` (was xfail), `prelude-name-qualified`, `prelude-name-ambiguous` | import-export, scope | M |
-| 6 | Polymorphic recursion with a signature (LG-POLYREC, `polymorphic-recursion` xfail) | type checker | M |
+| 6 | ✅ Polymorphic recursion with a signature (LG-POLYREC): in a recursive group, signed bindings are typed at their signatures, their bodies seeing themselves at the signature (`type-recursive-group`, type-decl.mumble); `polymorphic-recursion` passes (was xfail) and so does nofib's power (mutually recursive signed bindings).  Also `type-in-class?` read the instance's AST context instead of `instance-gcontext` (a `default (Rational)` crashed) | type checker | M |
 | 7 | Unicode `Char` beyond 255 (LG-UNICODE, `unicode-chars` xfail).  cl-unicode (via ocicl, `ocicl.csv`) loads into the same image as mumble and Yale Haskell in either order, and programs still run (checked 2026-10-08): the old conflict came from mumble's global readtable and unlocked CL, both gone since the ASDF work.  Use it for the Char predicates and case mappings | lexer, `*max-char*`, Char predicates, I/O encoding | M |
 | 8 | ✅ M7 deviations: `module M` exports (H98 syntax, was 1.2's `M..` only) export the names in scope both as `e` and `M.e` (an `as` alias works, qualified-only imports contribute nothing); a name imported from several modules, or defined and imported, is an error only at an unqualified use (`install-clashing-definition`).  Tests in `modules/` (ambiguous-*, local-and-import, module-export*).  Intentional deviation kept: `[Red..]` is an enumeration, not the qualified operator `Red..` (strict H98 makes it a lexical error; programs write it) | parser, import-export, symbol-table | S–M |
 

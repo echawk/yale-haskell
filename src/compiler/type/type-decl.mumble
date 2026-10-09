@@ -12,12 +12,45 @@
 	 '())
 	((is-type? 'recursive-decl-group (car decls))
 	 (let ((d (recursive-decl-group-decls (car decls))))
- 	   (type-recursive d)
+ 	   (type-recursive-group d)
 	   (append d (type-decls (cdr decls)))))
 	(else
 	 (type-non-recursive (car decls))
 	 (cons (car decls)
 	       (type-decls (cdr decls))))))
+
+;;; A recursive group in which some bindings have type signatures (H98
+;;; 4.4.1, 4.5.2): a reference to a variable with a signature does not
+;;; make a dependency, so it is typed at its signature, which may be
+;;; used polymorphically (polymorphic recursion).  Each signed variable
+;;; gets its signature as its type first; the bindings without
+;;; signatures are typed as a recursive group, then each signed binding
+;;; on its own, its body seeing its own variable at the signature.
+
+(define (type-recursive-group decls)
+  (let ((signed    '())
+	(unsigned  '()))
+    (dolist (d decls)
+      (if (signed-decl? d) (push d signed) (push d unsigned)))
+    (if (null? signed)
+	(type-recursive decls)
+	(begin
+	  (dolist (d signed)
+	    (let ((var  (decl-var d)))
+	      (setf (var-type var) (var-signature var))))
+	  (when (not (null? unsigned))
+	    (type-recursive (reverse unsigned)))
+	  (dolist (d (reverse signed))
+	    (type-non-recursive d '#t))))))
+
+;;; A binding of a single variable that has a type signature.
+
+(define (signed-decl? decl)
+  (let ((vars  (collect-pattern-vars (valdef-lhs decl))))
+    (and (pair? vars)
+	 (null? (cdr vars))
+	 (is-type? 'var-pat (valdef-lhs decl))
+	 (not (eq? (var-signature (var-ref-var (car vars))) '#f)))))
 
 ;;; This typechecks a mutually recursive group of declarations (valdefs).
 ;;; Generate a monomorphic variable for each declaration and unify it with
@@ -139,7 +172,9 @@
 ;;; Non-recursive decls are easier.  Save the placeholders, use a fresh type
 ;;; for the left hand side, check signatures, and generalize.
 
-(define (type-non-recursive decl)
+;;; SIGNED?: the body sees the variable at its signature (type-recursive-group).
+
+(define (type-non-recursive decl . signed?)
  (remember-context decl
   (fresh-type lhs-type
     (let ((old-placeholders (dynamic *placeholders*))
@@ -152,7 +187,9 @@
 	(setf (dynamic *placeholders*) old-placeholders)
         (funcall r))
       (type-decl-lhs decl lhs-type)
-      (let ((rhs-type (type-decl-rhs decl)))
+      (let ((rhs-type (if (and (pair? signed?) (car signed?))
+			  (type-decl-rhs/at-signature decl all-vars)
+			  (type-decl-rhs decl))))
 	(type-unify lhs-type rhs-type
            (type-mismatch decl
 	       "Decl type mismatch" lhs-type rhs-type)))
@@ -175,6 +212,18 @@
 	(setf (dynamic *placeholders*)
 	      (process-placeholders
 	       (dynamic *placeholders*) old-placeholders (list decl)))))))))
+
+;;; The right hand side typed with each variable of the binding at its
+;;; signature, then given back the type its left hand side gave it.
+
+(define (type-decl-rhs/at-signature decl vars)
+  (let ((lhs-types (map (function var-type) vars)))
+    (dolist (v vars)
+      (setf (var-type v) (var-signature v)))
+    (let ((rhs-type (type-decl-rhs decl)))
+      (dolist2 (v vars) (ty lhs-types)
+	(setf (var-type v) ty))
+      rhs-type)))
 
 ;;; These functions type check definition components.
 

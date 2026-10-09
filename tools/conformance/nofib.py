@@ -105,7 +105,7 @@ def run_program(d, timeout, verbose):
                 shutil.copy(p, work)
     # an argument naming one of the program's files (sorting reads its own
     # Main.hs) gets the original, not the copy with its imports rewritten
-    args = [os.path.join(d, a) if os.path.isfile(os.path.join(d, a)) else a for a in args]
+    args = [os.path.abspath(os.path.join(d, a)) if os.path.isfile(os.path.join(d, a)) else a for a in args]
     cmd = [os.path.join(ROOT, 'bin', 'yale-haskell'), '--haskell98', main] + args
     t0 = time.time()
     try:

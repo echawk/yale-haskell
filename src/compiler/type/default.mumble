@@ -41,7 +41,7 @@
     (if (eq? inst '#f)
 	'#f
 	(let ((res '#t))
-	  (do-contexts (c (instance-context inst)) (ty (ntycon-args ntype))
+	  (do-contexts (c (instance-gcontext inst)) (ty (ntycon-args ntype))
 	    (when (not (type-in-class? ty c))
 	      (setf res '#f)))
 	  res))))
