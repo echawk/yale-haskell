@@ -46,7 +46,7 @@
       `(funcall ,fn ,@args)
       `(funcall (the system::procedure ,fn) ,@args)))
 
-#+(or sbcl cmu allegro akcl lispworks mcl)
+#+(or sbcl ecl abcl cmu allegro akcl lispworks mcl)
 (define-mumble-macro mumble::funcall (fn . args)
   `(funcall (the function ,fn) ,@args))
 
@@ -54,7 +54,7 @@
 (define-mumble-macro mumble::funcall (fn . args)
   `(funcall (the lisp:procedure ,fn) ,@args))
 
-#-(or sbcl lucid cmu allegro akcl mcl lispworks wcl)
+#-(or sbcl ecl abcl lucid cmu allegro akcl mcl lispworks wcl)
 (missing-mumble-definition mumble::funcall)
 
 
@@ -121,7 +121,7 @@
 ;;; Allegro has renamed this stuff as per ANSI CL.
 
 #+allegro
-(eval-when (eval compile load)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (setf (macro-function 'define-setf-method)
 	(macro-function 'define-setf-expander))
   (setf (symbol-function 'get-setf-method)
@@ -205,10 +205,10 @@
   (proclaim '(declaration mumble::ignorable))
   (define-mumble-import mumble::ignorable))
 
-#+(or sbcl cmu mcl allegro)
+#+(or sbcl ecl abcl cmu mcl allegro)
 (define-mumble-import cl:ignorable)
 
-#-(or sbcl lucid cmu allegro akcl mcl lispworks wcl)
+#-(or sbcl ecl abcl lucid cmu allegro akcl mcl lispworks wcl)
 (missing-mumble-definition mumble::ignorable)
 
 
@@ -230,12 +230,16 @@
 (define-mumble-macro mumble::define (pattern &rest value)
   (if (consp pattern)
       `(defun ,(car pattern) ,(mung-lambda-list (cdr pattern)) ,@value)
-      `(defparameter ,pattern ,(car value))))
+      ;; ABCL's compile-file leaves a defparameter's initform to be
+      ;; evaluated, unexpanded, at load time, when compile-time-only
+      ;; macros (define-local-syntax) are gone; a setq is compiled.
+      #+abcl `(progn (defparameter ,pattern nil) (setq ,pattern ,(car value)))
+      #-abcl `(defparameter ,pattern ,(car value))))
 
 (define-mumble-macro mumble::define-integrable (pattern &rest value)
   (if (consp pattern)
       `(progn
-	 (eval-when (eval compile load)
+	 (eval-when (:compile-toplevel :load-toplevel :execute)
 	   (proclaim '(inline ,(car pattern))))
 	 (defun ,(car pattern) ,(mung-lambda-list (cdr pattern)) ,@value))
       `(define-mumble-constant ,pattern ,(car value))))
@@ -245,7 +249,7 @@
   `(defmacro ,(car pattern) ,(mung-lambda-list (cdr pattern)) ,@body))
 
 (define-mumble-macro mumble::define-local-syntax (pattern . body)
-  `(eval-when (eval compile)
+  `(eval-when (:compile-toplevel :execute)
      (defmacro ,(car pattern) ,(mung-lambda-list (cdr pattern)) ,@body)))
 
 
@@ -283,13 +287,13 @@
 ;;; of PROCLAIM.
 
 (define-mumble-macro mumble::predefine (pattern)
-  `(eval-when (eval compile)
+  `(eval-when (:compile-toplevel :execute)
      #+allegro (let ((excl::*compiler-environment* nil))
 		 (do-predefine ',pattern))
      #-allegro (do-predefine ',pattern)
      ))
 
-(eval-when (eval compile load)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defun do-predefine (pattern)
     (if (consp pattern)
         (proclaim `(ftype (function ,(mung-decl-lambda-list (cdr pattern)) t)
@@ -307,7 +311,7 @@
 
 ;;; CMUCL doesn't complain about function redefinitions, but Lucid does.
 
-#+(or sbcl cmu akcl mcl lispworks wcl)
+#+(or sbcl ecl abcl cmu akcl mcl lispworks wcl)
 (define-mumble-macro mumble::redefine (pattern . value)
   `(mumble::define ,pattern ,@value))
 
@@ -321,27 +325,27 @@
   `(let ((excl:*redefinition-warnings*  nil))
      (mumble::define ,pattern ,@value)))
 
-#-(or sbcl cmu lucid allegro akcl mcl lispworks wcl)
+#-(or sbcl ecl abcl cmu lucid allegro akcl mcl lispworks wcl)
 (missing-mumble-definition mumble::redefine)
 
 
-#+(or sbcl cmu akcl mcl lispworks wcl)
+#+(or sbcl ecl abcl cmu akcl mcl lispworks wcl)
 (define-mumble-macro mumble::redefine-syntax (pattern . body)
   `(mumble::define-syntax ,pattern ,@body))
 
 #+lucid
 (define-mumble-macro mumble::redefine-syntax (pattern . body)
-  `(eval-when (eval compile load)
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
      (let ((lcl:*redefinition-action*  nil))
        (mumble::define-syntax ,pattern ,@body))))
 
 #+allegro
 (define-mumble-macro mumble::redefine-syntax (pattern . body)
-  `(eval-when (eval compile load)
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
      (let ((excl:*redefinition-warnings*  nil))
        (mumble::define-syntax ,pattern ,@body))))
   
-#-(or sbcl cmu lucid allegro akcl mcl lispworks wcl)
+#-(or sbcl ecl abcl cmu lucid allegro akcl mcl lispworks wcl)
 (missing-mumble-definition mumble::redefine-syntax)
 
 
@@ -500,10 +504,10 @@
 (define-mumble-function mumble::gensym (&optional (prefix "G"))
   (gensym prefix))
 
-#+(or sbcl cmu allegro mcl lispworks)
+#+(or sbcl ecl abcl cmu allegro mcl lispworks)
 (define-mumble-import gensym)
 
-#-(or sbcl lucid akcl wcl cmu allegro mcl lispworks)
+#-(or sbcl ecl abcl lucid akcl wcl cmu allegro mcl lispworks)
 (missing-mumble-definition mumble::gensym)
 
 (define-mumble-function mumble::gensym? (x)
@@ -755,7 +759,7 @@
 
 (define-mumble-function-inline mumble::call-with-output-file (string proc)
   (with-open-file (stream (ensure-directories-exist (expand-filename string))
-			  :direction :output :if-exists #+sbcl :supersede #-sbcl :new-version)
+			  :direction :output :if-exists :supersede)
     (funcall (the function proc) stream)))
 
 (define-mumble-function-inline mumble::call-with-input-string (string proc)
@@ -779,7 +783,7 @@
 
 (define-mumble-function-inline mumble::open-output-file (string)
   (open (ensure-directories-exist (expand-filename string))
-	:direction :output :if-exists #+sbcl :supersede #-sbcl :new-version))
+	:direction :output :if-exists :supersede))
 
 
 (define-mumble-synonym mumble::close-input-port close)
@@ -931,7 +935,7 @@
   (declare (ignore options))
   `(lcl:with-deferred-warnings ,@body))
 
-#+(or sbcl cmu mcl allegro lispworks)
+#+(or sbcl ecl abcl cmu mcl allegro lispworks)
 (define-mumble-import with-compilation-unit)
 
 #+(or akcl wcl)
@@ -939,7 +943,7 @@
   (declare (ignore options))
   `(progn ,@body))
 
-#-(or sbcl lucid allegro cmu akcl mcl lispworks wcl)
+#-(or sbcl ecl abcl lucid allegro cmu akcl mcl lispworks wcl)
 (missing-mumble-definition mumble::with-compilation-unit)
 
 
@@ -1046,7 +1050,16 @@
 (defvar *code-quality* nil)
 (define-mumble-import *code-quality*)
 
+;;; ABCL generates code the JVM rejects (VerifyError) for some functions
+;;; compiled with (safety 0), e.g. Prelude's formatRealFloat; it gets
+;;; (safety 1) instead.
+
 (defun code-quality-declaration (q)
+  #+abcl (subst '(safety 1) '(safety 0) (code-quality-declaration-1 q)
+                :test #'equal)
+  #-abcl (code-quality-declaration-1 q))
+
+(defun code-quality-declaration-1 (q)
   (case q
     (0 '(optimize (speed 1) (safety 3) (compilation-speed 3) (debug 1)))
     (1 '(optimize (speed 1) (safety 1) (compilation-speed 3) (debug 1)))
@@ -1155,7 +1168,9 @@
 
 (defun expand-filename (filename)
   (declare (simple-string filename))
-  (namestring
+  ;; (ECL's namestring returns a non-simple string; mumble strings are simple)
+  (coerce-to-simple-string
+   (namestring
     (merge-pathnames
       (fix-filename-syntax 
         (if (eql (schar filename 0) #\$)
@@ -1166,7 +1181,10 @@
 		  (concatenate 'string new (subseq filename slash end))
 		  filename))
 	    filename)
-        ))))
+        )))))
+
+(defun coerce-to-simple-string (string)
+  (if (simple-string-p string) string (coerce string 'simple-string)))
 
 
 ;;; On non-unix machines, may need to change the mumble unix-like filename
@@ -1242,6 +1260,10 @@
 (define-mumble-function mumble::getenv (string)
   (sb-ext:posix-getenv string))
 
+#+(or ecl abcl)
+(define-mumble-function mumble::getenv (string)
+  (ext:getenv string))
+
 
 ;;; Hmmm.  The Mac doesn't have environment variables, so we'll have to
 ;;; roll our own.
@@ -1254,7 +1276,7 @@
   )
 
 
-#-(or sbcl lucid allegro cmu akcl mcl lispworks wcl)
+#-(or sbcl ecl abcl lucid allegro cmu akcl mcl lispworks wcl)
 (missing-mumble-definition mumble::getenv)
 
 
@@ -1295,8 +1317,16 @@
 (define-mumble-function mumble::exit (&optional (code 0))
   (sb-ext:exit :code code :abort t))
 
+#+ecl
+(define-mumble-function mumble::exit (&optional (code 0))
+  (ext:quit code))
+
+#+abcl
+(define-mumble-function mumble::exit (&optional (code 0))
+  (ext:exit :status code))
+
     
-#-(or sbcl lucid allegro cmu akcl mcl lispworks wcl)
+#-(or sbcl ecl abcl lucid allegro cmu akcl mcl lispworks wcl)
 (missing-mumble-definition mumble::exit)
 
 
@@ -1312,7 +1342,7 @@
 ;;; *readtable* to it; files loaded with the host's LOAD (tools/build/*)
 ;;; switch to it themselves.
 
-#+(or sbcl cmu mcl allegro lispworks)
+#+(or sbcl ecl abcl cmu mcl allegro lispworks)
 (defparameter *mumble-readtable* (copy-readtable nil))
 
 #+(or lucid akcl wcl)
@@ -1321,7 +1351,7 @@
   (setq *readtable* *mumble-readtable*)
   )
 
-#-(or sbcl lucid allegro cmu akcl mcl lispworks wcl)
+#-(or sbcl ecl abcl lucid allegro cmu akcl mcl lispworks wcl)
 (missing-mumble-definition *mumble-readtable*)
 
 
@@ -1375,7 +1405,7 @@
 #+cmu
 (define-mumble-function mumble::gc-messages (onoff)
   (setf extensions:*gc-verbose* onoff))
-#+sbcl
+#+(or sbcl ecl abcl)
 (define-mumble-function mumble::gc-messages (onoff)
   onoff)
 #+(or lispworks akcl wcl mcl)
@@ -1387,8 +1417,150 @@
   onoff)
 
 
-#-(or sbcl lucid cmu allegro akcl mcl lispworks wcl)
+#-(or sbcl ecl abcl lucid cmu allegro akcl mcl lispworks wcl)
 (missing-mumble-definition mumble::gc-messages)
 
 
 (define-mumble-import identity)
+
+
+;;;=====================================================================
+;;; Host extensions
+;;;=====================================================================
+
+;;; The Unicode general category of a character, as a keyword (:Lu, :Sm,
+;;; ...).  SBCL and the JVM know the Unicode database; elsewhere it is
+;;; approximated from the CL character predicates, which is exact for
+;;; ASCII.
+
+#+abcl
+(defparameter *java-general-categories*
+  ;; indexed by java.lang.Character.getType
+  #(:Cn :Lu :Ll :Lt :Lm :Lo :Mn :Me :Mc :Nd :Nl :No :Zs :Zl :Zp :Cc
+    :Cf :Cn :Co :Cs :Pd :Ps :Pe :Pc :Po :Sm :Sc :Sk :So :Pi :Pf))
+
+(defparameter *ascii-general-categories*
+  (let ((table (make-array 128 :initial-element :Cc)))
+    (flet ((set-all (category chars)
+             (loop for ch across chars
+                   do (setf (svref table (char-code ch)) category))))
+      (loop for code from 32 below 127
+            for ch = (code-char code)
+            do (setf (svref table code)
+                     (cond ((upper-case-p ch) :Lu)
+                           ((lower-case-p ch) :Ll)
+                           ((digit-char-p ch) :Nd)
+                           (t :Po))))
+      (set-all :Zs " ")
+      (set-all :Sm "+<=>|~")
+      (set-all :Sc "$")
+      (set-all :Sk "^`")
+      (set-all :Pd "-")
+      (set-all :Ps "([{")
+      (set-all :Pe ")]}")
+      (set-all :Pc "_"))
+    table))
+
+(define-mumble-function mumble::char-general-category (ch)
+  (let ((code (char-code ch)))
+    (cond ((< code 128)
+           (svref *ascii-general-categories* code))
+          #+sbcl
+          (t (sb-unicode:general-category ch))
+          #+abcl
+          (t (svref *java-general-categories*
+                    (java:jstatic "getType" "java.lang.Character" code)))
+          #-(or sbcl abcl)
+          (t (cond ((upper-case-p ch) :Lu)
+                   ((lower-case-p ch) :Ll)
+                   ((alpha-char-p ch) :Lo)
+                   ((digit-char-p ch) :Nd)
+                   ((<= code 159) :Cc)
+                   ((or (= code 160) (<= #x2000 code #x200a)
+                        (= code #x202f) (= code #x205f) (= code #x3000))
+                    :Zs)
+                   ((= code #x2028) :Zl)
+                   ((= code #x2029) :Zp)
+                   ((member code '(172 177 215 247)) :Sm)
+                   ((or (<= 162 code 165) (<= #x20a0 code #x20cf)) :Sc)
+                   ((<= #x2200 code #x22ff) :Sm)
+                   ((graphic-char-p ch) :So)
+                   (t :Cn))))))
+
+;;; The Unicode upper/lower-case mapping of a one-character string, where
+;;; the host has one (#f otherwise).
+
+(define-mumble-function mumble::host-unicode-case-function (upper?)
+  #+sbcl (if upper? #'sb-unicode:uppercase #'sb-unicode:lowercase)
+  #+abcl (lambda (string)
+           (let ((code (char-code (char string 0))))
+             (string (code-char
+                      (if upper?
+                          (java:jstatic "toUpperCase" "java.lang.Character" code)
+                          (java:jstatic "toLowerCase" "java.lang.Character" code))))))
+  #-(or sbcl abcl)
+  (lambda (string)
+    (let ((entry (assoc (char-code (char string 0))
+                        (if upper? *upcase-exceptions* '()))))
+      (if entry (string (code-char (cdr entry))) string))))
+
+;;; Lower-case letters whose Unicode upper case is not their CL
+;;; char-upcase (the mapping is not inverse), for hosts without a Unicode
+;;; database.
+(defparameter *upcase-exceptions*
+  '((181 . 924) (305 . 73) (383 . 83) (837 . 921) (962 . 931) (976 . 914)
+    (977 . 920) (981 . 934) (982 . 928) (1008 . 922) (1009 . 929)
+    (1013 . 917) (7835 . 7776) (8126 . 921)))
+
+;;; Wrap an integer to a signed BITS-bit two's-complement value.
+
+(define-mumble-function mumble::wrap-signed (bits x)
+  (declare (type (integer 1 128) bits) (type integer x))
+  #+sbcl (sb-c::mask-signed-field bits x)
+  #-sbcl (let ((u (ldb (byte bits 0) x)))
+           (if (logbitp (1- bits) u) (- u (ash 1 bits)) u)))
+
+;;; Mumble strings are simple strings.  Some hosts' pathname functions
+;;; (ECL's namestring) return strings with fill pointers.
+
+(define-mumble-function mumble::simple-string-of (string)
+  (coerce-to-simple-string string))
+
+;;; The process id, for unique file names.
+
+(define-mumble-function mumble::host-pid ()
+  #+sbcl (sb-unix:unix-getpid)
+  #+ecl (ext:getpid)
+  #+abcl (java:jcall "pid" (java:jstatic "current" "java.lang.ProcessHandle"))
+  #-(or sbcl ecl abcl) 0)
+
+;;; A rational as the nearest float of TYPE (ties to even).  ECL rounds
+;;; ties away from zero when converting large integers (10^23 becomes
+;;; 1.0000000000000001d23), so the rounding is done here with integers;
+;;; subnormal and overflowing results are left to the host.
+
+(define-mumble-function mumble::rational->float (r type)
+  #+sbcl (coerce r type)
+  #-sbcl
+  (if (zerop r)
+      (coerce 0 type)
+      (let* ((digits (float-digits (coerce 1 type)))
+             (a (abs r))
+             (p (numerator a))
+             (q (denominator a))
+             (k (- digits (- (integer-length p) (integer-length q))))
+             (m 0))
+        (flet ((quotient (k) (round (ash p (max k 0)) (ash q (max (- k) 0)))))
+          (setf m (quotient k))
+          (when (>= m (ash 1 digits))
+            (decf k)
+            (setf m (quotient k))))
+        (multiple-value-bind (lo hi)
+            (if (eq type 'single-float)
+                (values -125 128)
+                (values -1021 1024))
+          (let ((e (- (integer-length m) k)))
+            (if (< lo e hi)
+                (let ((f (scale-float (coerce m type) (- k))))
+                  (if (minusp r) (- f) f))
+                (coerce r type)))))))

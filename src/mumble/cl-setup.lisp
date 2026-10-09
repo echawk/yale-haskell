@@ -34,6 +34,14 @@
                     (cons "LISP"
                           (package-nicknames "COMMON-LISP")))))
 
+;;; ABCL has its own package named LISP, which uses COMMON-LISP; its
+;;; autoloader refers to it by name, so instead of being renamed it
+;;; exports all of COMMON-LISP, making lisp:car and the rest work.
+#+abcl
+(let ((lisp (find-package "LISP")))
+  (do-external-symbols (sym "COMMON-LISP")
+    (export (list sym) lisp)))
+
 ;;; COMMON-LISP stays locked: mumble never redefines its symbols (see
 ;;; dynamic-let in cl-definitions.lisp and the printer variables in
 ;;; pprint.mumble).

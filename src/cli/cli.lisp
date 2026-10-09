@@ -144,10 +144,10 @@
                                :description "compile FILE and run Main.main"
                                :handler #'run-handler))))
 
-(defun main ()
+(defun main (&optional (argv (uiop:command-line-arguments)))
   ;; The compiler interns symbols in the current package and reads with
   ;; mumble's readtable.
   (setf *package* (find-package "MUMBLE-USER"))
   (setf *readtable* (symbol-value (find-symbol "*MUMBLE-READTABLE*"
                                                "MUMBLE-IMPLEMENTATION")))
-  (clingon:run (command) (split-program-args (uiop:command-line-arguments))))
+  (clingon:run (command) (split-program-args argv)))

@@ -9,11 +9,11 @@
 (in-package "MUMBLE-IMPLEMENTATION")
 
 
-;;; SBCL implements only ANSI CL, so provide the CLtL1 setf-method names
+;;; Modern hosts implement only ANSI CL, so provide the CLtL1 setf-method names
 ;;; that the rest of the support code uses.
 
-#+sbcl
-(eval-when (eval compile load)
+#+(or sbcl ecl abcl)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro define-setf-method (access-fn lambda-list &body body)
     `(define-setf-expander ,access-fn ,lambda-list ,@body))
   (defun get-setf-method (form &optional env)
@@ -25,9 +25,9 @@
 ;;; when a file is compiled and then loaded.  Reuse the existing value.
 
 (defmacro define-mumble-constant (name value)
-  #+sbcl
+  #+(or sbcl ecl abcl)
   `(defconstant ,name (if (boundp ',name) (symbol-value ',name) ,value))
-  #-sbcl
+  #-(or sbcl ecl abcl)
   `(defconstant ,name ,value))
 
 
@@ -35,7 +35,7 @@
 
 (defmacro define-mumble-function (name &rest stuff)
   `(progn
-     (eval-when (eval compile load) (export (list ',name) "MUMBLE"))
+     (eval-when (:compile-toplevel :load-toplevel :execute) (export (list ',name) "MUMBLE"))
      (defun ,name ,@stuff)))
 
 
@@ -44,7 +44,7 @@
 
 (defmacro define-mumble-function-inline (name &rest stuff)
   `(progn
-     (eval-when (eval compile load) (export (list ',name) "MUMBLE"))
+     (eval-when (:compile-toplevel :load-toplevel :execute) (export (list ',name) "MUMBLE"))
 #+lcl
      (lcl:defsubst ,name ,@stuff)
 #-lcl
@@ -61,7 +61,7 @@
 
 (defmacro define-mumble-macro (name &rest stuff)
   `(progn
-     (eval-when (eval compile load) (export (list ',name) "MUMBLE"))
+     (eval-when (:compile-toplevel :load-toplevel :execute) (export (list ',name) "MUMBLE"))
      (defmacro ,name ,@stuff)))
 
 
@@ -71,8 +71,8 @@
 
 (defmacro define-mumble-import (name)
   `(progn
-     (eval-when (eval compile load) (import (list ',name) "MUMBLE"))
-     (eval-when (eval compile load) (export (list ',name) "MUMBLE"))
+     (eval-when (:compile-toplevel :load-toplevel :execute) (import (list ',name) "MUMBLE"))
+     (eval-when (:compile-toplevel :load-toplevel :execute) (export (list ',name) "MUMBLE"))
      ',name))
 
 
@@ -82,7 +82,10 @@
 
 (defmacro define-mumble-synonym (name cl-name)
   `(progn
-     (eval-when (eval compile load) (export (list ',name) "MUMBLE"))
+     (eval-when (:compile-toplevel :load-toplevel :execute) (export (list ',name) "MUMBLE"))
+     ;; ABCL's built-in function may be an autoload stub, which is
+     ;; resolved (by calling sys::resolve) before being copied.
+     #+abcl (sys::resolve ',cl-name)
      (setf (symbol-function ',name) (symbol-function ',cl-name))
 #+lcl
      (lcl:def-compiler-macro ,name (&rest args)
@@ -95,7 +98,7 @@
 
 (defmacro define-mumble-type (name &rest stuff)
   `(progn
-     (eval-when (eval compile load) (export (list ',name) "MUMBLE"))
+     (eval-when (:compile-toplevel :load-toplevel :execute) (export (list ',name) "MUMBLE"))
      (deftype ,name ,@stuff)))
 
 

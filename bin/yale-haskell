@@ -37,6 +37,13 @@ if [ ! -x "$BUILD/yale-haskell" ]; then
   echo "yale-haskell: $BUILD/yale-haskell not found; run make first." >&2
   exit 1
 fi
+# Other Lisps load the compiled files at startup (tools/build/start.lisp)
+# and would recompile stale ones, unsafely when several run at once.
+if [ "$YALE_HASKELL_LISP" != sbcl ] &&
+   [ -n "$(find "$HASKELL/src" "$HASKELL/tools/build" -newer "$HASKELL/build/$YALE_HASKELL_LISP/.compiler-stamp" -name '*.*' 2>/dev/null | head -1)" ]; then
+  echo "yale-haskell: sources changed since the build; run make LISP=$YALE_HASKELL_LISP." >&2
+  exit 1
+fi
 # Interactive (no program file, or the repl command) on a terminal: line
 # editing and history through rlwrap.
 interactive=yes skip=no

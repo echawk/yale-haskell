@@ -52,23 +52,24 @@
 
 (cl:defun prim.system (command)
   (cl:finish-output cl:*standard-output*)
-  (cl:let ((p (sb-ext:run-program "/bin/sh" (cl:list "-c" command)
-				  :input cl:t :output cl:t :error cl:t
-				  :wait cl:t)))
-    (sb-ext:process-exit-code p)))
+  (cl:nth-value 2 (uiop:run-program (cl:list "/bin/sh" "-c" command)
+				    :input :interactive :output :interactive
+				    :error-output :interactive
+				    :ignore-error-status cl:t)))
 
 ;;; The output of sh -c COMMAND with INPUT on its stdin; its exit code
 ;;; is then prim.last-exit-code.
 (cl:defvar *last-exit-code* 0)
 (cl:defun prim.read-process-output (command input)
   (cl:finish-output cl:*standard-output*)
-  (cl:let* ((out (cl:make-string-output-stream))
-	    (p (cl:with-input-from-string (in input)
-		 (sb-ext:run-program "/bin/sh" (cl:list "-c" command)
-				     :input in :output out :error cl:t
-				     :wait cl:t))))
-    (cl:setf *last-exit-code* (sb-ext:process-exit-code p))
-    (cl:get-output-stream-string out)))
+  (cl:multiple-value-bind (out err code)
+      (cl:with-input-from-string (in input)
+	(uiop:run-program (cl:list "/bin/sh" "-c" command)
+			  :input in :output :string :error-output :interactive
+			  :ignore-error-status cl:t))
+    (cl:declare (cl:ignore err))
+    (cl:setf *last-exit-code* code)
+    out))
 (cl:defun prim.last-exit-code () *last-exit-code*)
 
 ;;; The platform, in GHC's spelling (System.Info).
@@ -83,17 +84,29 @@
   #-(or x86-64 arm64 aarch64 x86) (cl:string-downcase (cl:machine-type)))
 
 ;;; The environment: "" and a flag, since an empty variable is not unset.
+;;; It is read and changed through libc, so that changes are seen by the
+;;; host's own getenv (except on the JVM, which keeps a copy).
 
-(cl:defun prim.env-is-set (name) (cl:if (sb-posix:getenv name) cl:t cl:nil))
-(cl:defun prim.env-value (name) (cl:or (sb-posix:getenv name) ""))
-(cl:defun prim.set-env (name value) (sb-posix:setenv name value 1) 0)
-(cl:defun prim.unset-env (name) (sb-posix:unsetenv name) 0)
+(cl:defun libc-getenv (name)
+  #+yale-cffi (cffi:foreign-funcall "getenv" :string name :string)
+  #-yale-cffi (uiop:getenv name))
+
+(cl:defun prim.env-is-set (name) (cl:if (libc-getenv name) cl:t cl:nil))
+(cl:defun prim.env-value (name) (cl:or (libc-getenv name) ""))
+(cl:defun prim.set-env (name value)
+  #+yale-cffi (cffi:foreign-funcall "setenv" :string name :string value :int 1 :int)
+  #-yale-cffi (cl:setf (uiop:getenv name) value)
+  0)
+(cl:defun prim.unset-env (name)
+  #+yale-cffi (cffi:foreign-funcall "unsetenv" :string name :int)
+  #-yale-cffi (cl:setf (uiop:getenv name) "")
+  0)
 
 (cl:defun prim.home-directory ()
-  (cl:or (sb-posix:getenv "HOME") (cl:namestring (cl:user-homedir-pathname))))
+  (cl:or (libc-getenv "HOME") (cl:namestring (cl:user-homedir-pathname))))
 
 (cl:defun prim.temporary-directory ()
-  (cl:or (sb-posix:getenv "TMPDIR") "/tmp"))
+  (cl:or (libc-getenv "TMPDIR") "/tmp"))
 
 ;;; Directories (System.Directory beyond the Haskell 98 module).
 
@@ -101,13 +114,15 @@
   (cl:if parents?
 	 (cl:ensure-directories-exist
 	  (cl:concatenate 'cl:string (cl:string-right-trim "/" path) "/"))
-	 (cl:handler-case (sb-posix:mkdir path #o777)
-	   (sb-posix:syscall-error () cl:nil)))
+	 ;; fails quietly when PATH exists
+	 #+yale-cffi (cffi:foreign-funcall "mkdir" :string path :int #o777 :int)
+	 #-yale-cffi (cl:ignore-errors
+		      (cl:ensure-directories-exist (uiop:ensure-directory-pathname path))))
   0)
 
 (cl:defun prim.remove-directory-recursive (path)
-  (sb-ext:delete-directory
-   (cl:concatenate 'cl:string (cl:string-right-trim "/" path) "/") :recursive cl:t)
+  (uiop:delete-directory-tree
+   (uiop:ensure-directory-pathname (cl:string-right-trim "/" path)) :validate cl:t)
   0)
 
 (cl:defun prim.copy-file (from to)
@@ -120,13 +135,15 @@
   0)
 
 (cl:defun prim.find-executable (name)
-  (cl:let ((path (sb-posix:getenv "PATH")))
+  (cl:let ((path (libc-getenv "PATH")))
     (cl:or (cl:and path
 		   (cl:loop for dir in (uiop:split-string path :separator ":")
 			    for file = (cl:concatenate 'cl:string dir "/" name)
 			    when (cl:and (cl:plusp (cl:length dir))
-					 (cl:handler-case
-					     (cl:progn (sb-posix:access file sb-posix:x-ok) cl:t)
-					   (sb-posix:syscall-error () cl:nil)))
+					 ;; access(file, X_OK)
+					 #+yale-cffi
+					 (cl:zerop (cffi:foreign-funcall "access" :string file
+									 :int 1 :int))
+					 #-yale-cffi (cl:probe-file file))
 			      return file))
 	   "")))

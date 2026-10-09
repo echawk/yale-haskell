@@ -17,7 +17,7 @@
 
 
 ;;; CMU CL prints too many compiler progress messages.
-#+(or cmu sbcl)
+#+(or cmu sbcl ecl abcl)
 (progn
   (setq *compile-print* '())
   (setq *load-verbose* t)
@@ -110,9 +110,20 @@
     (load binary-file)))
 
 
+;;; ABCL's fasls look up MUMBLE:FOO when they are loaded, before the
+;;; file's own export forms have run, so the exports are recorded when
+;;; the support files are first compiled and replayed before loading.
+
+#+abcl
+(defvar *mumble-exports-file*
+  (concatenate 'string *support-binary-directory* "mumble-exports.lisp"))
+
 ;;; Do NOT change the load order of these files.
 
 (load-compiled-cl-file "cl-setup")
+#+abcl
+(when (probe-file *mumble-exports-file*)
+  (load *mumble-exports-file*))
 (load-compiled-cl-file "cl-support")
 (load-compiled-cl-file "cl-definitions")
 (load-compiled-cl-file "cl-types")
@@ -127,11 +138,24 @@
 
 (load-compiled-cl-file "mumble-user")
 
+#+abcl
+(with-open-file (s (ensure-directories-exist *mumble-exports-file*)
+                   :direction :output :if-exists :supersede)
+  ;; (name home-package) for each; some are CL symbols mumble re-exports
+  (let ((names '()))
+    (do-external-symbols (sym "MUMBLE")
+      (push (list (symbol-name sym) (package-name (symbol-package sym))) names))
+    (format s "(dolist (n '~s)
+  (let ((sym (intern (first n) (second n))))
+    (import (list sym) \"MUMBLE\")
+    (export (list sym) \"MUMBLE\")))~%"
+            names)))
+
 
 ;;; Compile and load the rest of the system.  (The Lucid compiler is fast
 ;;; enough to make it practical to compile things all the time.)
 
-(eval-when (eval compile load)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (setf *package* (find-package "MUMBLE-USER")))
 
 (load "$Y2/src/compiler/system")

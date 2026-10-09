@@ -33,7 +33,13 @@
   #+sbcl
   (sb-int:with-float-traps-masked (:overflow :invalid :divide-by-zero :inexact)
     (funcall thunk))
-  #-sbcl
+  #+ecl
+  (let ((traps  (ext:trap-fpe 'lisp:last '#t)))
+    (lisp:unwind-protect
+	 (begin (ext:trap-fpe '#t '#f)
+		(funcall thunk))
+      (ext:trap-fpe traps '#t)))
+  #-(or sbcl ecl)
   (funcall thunk))
 
 ;;;=====================================================================
@@ -357,7 +363,7 @@
       (append (list "." "..")
 	      (map (lambda (p)
 		     (if (lisp:pathname-name p)
-			 (lisp:file-namestring p)
+			 (simple-string-of (lisp:file-namestring p))
 			 (car (last (lisp:pathname-directory p)))))
 		   (append subdirs files))))))
 
@@ -369,7 +375,8 @@
 
 #-sbcl
 (define (prim.get-current-directory)
-  (let ((s  (lisp:namestring (lisp:truename lisp:*default-pathname-defaults*))))
+  (let ((s  (simple-string-of
+	     (lisp:namestring (lisp:truename lisp:*default-pathname-defaults*)))))
     (if (and (> (string-length s) 1)
 	     (char=? (string-ref s (1- (string-length s))) #\/))
 	(substring s 0 (1- (string-length s)))

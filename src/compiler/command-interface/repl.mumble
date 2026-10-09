@@ -411,16 +411,16 @@
 
 (define (repl-scratch-file)
   (let ((dir  (lisp:merge-pathnames
-	       (lisp:format lisp:nil "yale-haskell-~A/"
-			    #+sbcl (sb-posix:getpid) #-sbcl 0)
+	       (lisp:format lisp:nil "yale-haskell-~A/" (host-pid))
 	       (lisp:funcall (lisp:find-symbol "TEMPORARY-DIRECTORY" "UIOP")))))
     ;; a new name each time: the unit cache goes by file name and date
     ;; (to the second), so a file rewritten at once would look unchanged
     (incf *repl-scratch-count*)
-    (lisp:namestring
-     (lisp:ensure-directories-exist
-      (lisp:merge-pathnames (lisp:format lisp:nil "Scratch~A.hs" *repl-scratch-count*)
-			    dir)))))
+    (simple-string-of
+     (lisp:namestring
+      (lisp:ensure-directories-exist
+       (lisp:merge-pathnames (lisp:format lisp:nil "Scratch~A.hs" *repl-scratch-count*)
+			     dir))))))
 
 (define *repl-scratch-count* 0)
 

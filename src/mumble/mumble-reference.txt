@@ -154,7 +154,7 @@ Definitions
 
 (define-local-syntax (name . lambda-list) . body)
   Again, similar to the T functionality.  In Common Lisp, equivalent to
-  a DEFMACRO wrapped in (eval-when (compile) ...).  
+  a DEFMACRO wrapped in (eval-when (:compile-toplevel) ...).  
 
 (define-setf getter-name setter-name)
   Similar to the short form of DEFSETF in Common Lisp, except that the

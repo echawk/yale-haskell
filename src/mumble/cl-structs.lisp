@@ -26,7 +26,7 @@
 ;;; underlying Lisp type gets a private name.  The mumble-level name
 ;;; (and hence accessor/predicate names) is unchanged.
 
-(eval-when (eval compile load)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defun struct-lisp-name (name)
     (if (and (symbolp name)
 	     (eq (symbol-package name) (find-package "COMMON-LISP"))
@@ -171,7 +171,7 @@
 ;;; Support for bit slots
 ;;;=====================================================================
 
-(eval-when (eval compile load)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defconstant max-bits (integer-length most-positive-fixnum)))
 
 (defvar *bit-slot-getters* (make-array max-bits))
@@ -406,7 +406,7 @@
   (multiple-value-bind (include type-template slots prefix predicate)
       (parse-struct-fields name fields)
     `(progn
-       (eval-when (eval compile load)
+       (eval-when (:compile-toplevel :load-toplevel :execute)
 	 (install-struct-type
 	   ',name
 	   ',include
@@ -436,7 +436,7 @@
 		    ;; the BOA constructor.  Bogus!!!
 		    ;; If you do this in WCL, it will just quietly ignore
 		    ;; the BOA.
-		    #-(or akcl wcl sbcl) (:constructor nil)
+		    #-(or akcl wcl sbcl ecl abcl) (:constructor nil)
 		    (:constructor ,(td-%constructor td) ,(make-boa-args slots))
 		    (:predicate ,predicate)
 		    (:copier    nil))
@@ -449,10 +449,10 @@
 		  ;; slot type.  I think this is a bug, not a feature, but
 		  ;; here's a workaround for it.
 		  :type
-		  #+(or cmu sbcl) ,(if (sd-%uninitialized? s)
+		  #+(or cmu sbcl ecl abcl) ,(if (sd-%uninitialized? s)
 			     `(or ,(struct-lisp-typespec (sd-type s)) null)
 			     (struct-lisp-typespec (sd-type s)))
-		  #-(or cmu sbcl) ,(struct-lisp-typespec (sd-type s))
+		  #-(or cmu sbcl ecl abcl) ,(struct-lisp-typespec (sd-type s))
 	          ;; Can make slots read-only only if a setf-er is not 
 		  ;; required by MAKE.
 		  :read-only ,(and (sd-%read-only? s) (sd-%required? s))))
@@ -496,12 +496,12 @@
     ;; SBCL really leaves &AUX slots unbound and errors when they are
     ;; read.  Some code (e.g. compute-super-classes) relies on the CMU
     ;; behavior of initializing them to NIL, so do that explicitly.
-    #+sbcl
+    #+(or sbcl ecl abcl)
     (if (null uninitialized-args)
 	(nreverse required-args)
 	`(,@(nreverse required-args) &aux
 	  ,@(mapcar #'(lambda (a) `(,a nil)) (nreverse uninitialized-args))))
-    #-(or akcl sbcl)
+    #-(or akcl sbcl ecl abcl)
     (if (null uninitialized-args)
 	(nreverse required-args)
 	`(,@(nreverse required-args) &aux ,@(nreverse uninitialized-args)))

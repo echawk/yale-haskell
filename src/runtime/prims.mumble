@@ -92,10 +92,8 @@
      :Sm :Sc :Sk :So :Zs :Zl :Zp :Cc :Cf :Cs :Co :Cn))
 
 (define (prim.general-category c)
-  #+sbcl
-  (let ((g  (sb-unicode:general-category (lisp:code-char (the-fixnum c)))))
-    (or (lisp:position g *general-categories*) 29))
-  #-sbcl 29)
+  (let ((g  (char-general-category (lisp:code-char (the-fixnum c)))))
+    (or (lisp:position g *general-categories*) 29)))
 
 ;;; Case mapping: CL's char-upcase/char-downcase only map characters whose
 ;;; mappings are inverse to each other (micro sign -> capital mu is not:
@@ -104,11 +102,11 @@
 
 (define (prim.unicode-to-upper c)
   (unicode-case-map c (function lisp:char-upcase)
-		    #+sbcl (function sb-unicode:uppercase) #-sbcl '#f))
+		    (host-unicode-case-function '#t)))
 
 (define (prim.unicode-to-lower c)
   (unicode-case-map c (function lisp:char-downcase)
-		    #+sbcl (function sb-unicode:lowercase) #-sbcl '#f))
+		    (host-unicode-case-function '#f)))
 
 (define (unicode-case-map c char-fn string-fn)
   (declare (type fixnum c))
@@ -234,15 +232,23 @@
   (if (lisp:typep x 'lisp:double-float)
       (sb-kernel:make-double-float 2146959360 0)
       (sb-kernel:make-single-float 2143289344))
-  #-sbcl
-  (let ((z (lisp:- x x))) (lisp:/ z z)))
+  #+ecl
+  (if (lisp:typep x 'lisp:double-float)
+      (lisp:coerce (ext:nan) 'lisp:double-float)
+      (lisp:coerce (ext:nan) 'lisp:single-float))
+  #-(or sbcl ecl)
+  (let ((inf (float-infinity-like x))) (lisp:- inf inf)))
 
 (define (float-infinity-like x)
   #+sbcl
   (if (lisp:typep x 'lisp:double-float)
       sb-ext:double-float-positive-infinity
       sb-ext:single-float-positive-infinity)
-  #-sbcl
+  #+(or ecl abcl)
+  (if (lisp:typep x 'lisp:double-float)
+      ext:double-float-positive-infinity
+      ext:single-float-positive-infinity)
+  #-(or sbcl ecl abcl)
   (lisp:/ x 0))
 
 (define (float-nan? x)
@@ -348,7 +354,7 @@
 (define (prim.rational-to-float-aux n d)
   (declare (type integer n d))
   ;; coerce the exact ratio: correctly rounded, and no overflow of n or d
-  (lisp:coerce (lisp:/ n d) 'lisp:single-float))
+  (rational->float (lisp:/ n d) 'lisp:single-float))
 
 (define (prim.rational-to-double x)
   (let ((n (tuple-select 2 0 x))
@@ -359,7 +365,7 @@
 
 (define (prim.rational-to-double-aux n d)
   (declare (type integer n d))
-  (lisp:coerce (lisp:/ n d) 'lisp:double-float))
+  (rational->float (lisp:/ n d) 'lisp:double-float))
 
 (define (prim.float-to-rational x)
   (let ((r  (lisp:rational (the lisp:single-float x))))
@@ -790,15 +796,15 @@
   (declare (type fixnum x n))
   (cond ((<= n 0) (lisp:ash x (lisp:max n (- prim.int-bits))))
 	((>= n prim.int-bits) 0)
-	(else (sb-c::mask-signed-field 63 (lisp:ash x n)))))
+	(else (wrap-signed prim.int-bits (lisp:ash x n)))))
 
 (define (prim.rotate-int x n)
   (declare (type fixnum x n))
   (let* ((w  prim.int-bits)
 	 (r  (lisp:mod n w))
 	 (u  (lisp:ldb (lisp:byte w 0) x)))
-    (sb-c::mask-signed-field
-      63
+    (wrap-signed
+      w
       (lisp:logior (lisp:ldb (lisp:byte w 0) (lisp:ash u r))
 		   (lisp:ash u (- r w))))))
 

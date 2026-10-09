@@ -22,10 +22,10 @@
   ".wfasl"
   #+wcl
   ".o"
-  #+ecl
-  ".o"
-  #-(or ecl sbcl lucid allegro cmu akcl mcl lispworks wcl)
-  (error "Don't know how to initialize *LISP-BINARY-FILE-TYPE*.")
+  ;; ECL's compile-file writes an intermediate .o beside the output,
+  ;; so the fasl must have its own type; other hosts use their default.
+  #-(or sbcl lucid allegro cmu akcl mcl lispworks wcl)
+  (concatenate 'string "." (pathname-type (compile-file-pathname "x.lisp")))
   )
 
 (defvar *lisp-implementation-name*
@@ -39,6 +39,7 @@
   #+lispworks "lispworks"
   #+wcl "wcl"
   #+ecl "ecl"
-  #-(or ecl sbcl lucid allegro cmu akcl mcl lispworks wcl)
+  #+abcl "abcl"
+  #-(or ecl abcl sbcl lucid allegro cmu akcl mcl lispworks wcl)
   (error "Don't know how to initialize *LISP-IMPLEMENTATION-NAME*.")
   )

@@ -54,13 +54,11 @@
 
 (define (uni-symbol-char? c)
   (and (uni-char? c)
-       #+sbcl (memq (sb-unicode:general-category c) '(:Sm :Sc :Sk :So :Pd :Po))
-       #-sbcl '#f))
+       (memq (char-general-category c) '(:Sm :Sc :Sk :So :Pd :Po))))
 
 (define (uni-white-char? c)
   (and (uni-char? c)
-       #+sbcl (eq? (sb-unicode:general-category c) ':Zs)
-       #-sbcl '#f))
+       (eq? (char-general-category c) ':Zs)))
 
 (define (uni-graphic-char? c)
   (and (uni-char? c) (lisp:graphic-char-p c)))

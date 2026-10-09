@@ -13,7 +13,8 @@
 # compiled prelude and executable, build/$(LISP)/<dialect>/yale-haskell;
 # bin/yale-haskell picks one.  Build logs go to build/$(LISP)/logs.
 #
-# Only SBCL is supported at present.
+# LISP=sbcl (the default), ecl or abcl picks the host Lisp
+# (doc/PORTABILITY.md).
 
 LISP     ?= sbcl
 SBCL     ?= sbcl
@@ -31,6 +32,26 @@ export HASKELL := $(Y2)
 COMPILER_SOURCES := $(shell find src tools/build -name '*.mumble' -o -name '*.lisp')
 
 RUN_SBCL = $(SBCL) --dynamic-space-size $(HEAP_MB) --control-stack-size $(STACK_MB) --non-interactive --no-userinit
+
+# $(RUN_LISP) FILE $(ARGS_SEP) ARGS... loads FILE in the host Lisp and
+# exits, with status 1 on an error.
+ECL      ?= ecl
+# ABCL runs on the JVM, started directly (not through a wrapper
+# script) to give it a large stack and heap.
+ABCL_JAR ?= $(firstword $(wildcard /opt/homebrew/opt/abcl/libexec/abcl.jar \
+  /usr/local/opt/abcl/libexec/abcl.jar /usr/share/java/abcl.jar))
+JAVA     ?= java
+ABCL     ?= $(JAVA) -Xss$(STACK_MB)m -Xmx$(HEAP_MB)m \
+  --add-opens java.base/java.lang=ALL-UNNAMED -cp $(ABCL_JAR) org.armedbear.lisp.Main
+ifeq ($(LISP),sbcl)
+RUN_LISP = $(RUN_SBCL) --load
+else ifeq ($(LISP),ecl)
+RUN_LISP = $(ECL) --norc --shell
+else ifeq ($(LISP),abcl)
+RUN_LISP = $(ABCL) --noinit --noinform --batch --load tools/build/abcl-run.lisp --
+else
+$(error LISP must be sbcl, ecl or abcl)
+endif
 
 # Environment the compiler expects for dialect $(1).
 dialect_env = PRELUDE=$(Y2)/lib/$(1)/prelude \
@@ -59,7 +80,7 @@ compiler: $(BUILD)/.compiler-stamp
 $(DIALECTS): %: $(BUILD)/%/yale-haskell
 
 $(BUILD)/.compiler-stamp: $(COMPILER_SOURCES)
-	$(call step,compiler,$(RUN_SBCL) --load tools/build/compiler.lisp)
+	$(call step,compiler,$(RUN_LISP) tools/build/compiler.lisp)
 	@touch $@
 
 # The compiler reports Haskell errors without failing, so the prelude
@@ -70,14 +91,14 @@ HASKELL_ERRORS := \] (Phase error|Recoverable error|Fatal error|Internal-error) 
 # old binaries must be removed for it to be recompiled.
 $(BUILD)/%/.prelude-stamp: $(BUILD)/.compiler-stamp $$(wildcard lib/%/prelude/*)
 	@rm -rf $(BUILD)/$*/prelude
-	$(call step,$*-prelude,env $(call dialect_env,$*) $(RUN_SBCL) --load tools/build/prelude.lisp)
+	$(call step,$*-prelude,env $(call dialect_env,$*) $(RUN_LISP) tools/build/prelude.lisp)
 	@if grep -aEq '$(HASKELL_ERRORS)' $(LOGS)/$*-prelude.log; then \
 	  grep -aE -A3 '$(HASKELL_ERRORS)' $(LOGS)/$*-prelude.log | head -40; \
 	  echo "*** $*-prelude had compile errors; full log in $(LOGS)/$*-prelude.log"; exit 1; fi
 	@touch $@
 
 $(BUILD)/%/yale-haskell: $(BUILD)/%/.prelude-stamp
-	$(call step,$*-image,env $(call dialect_env,$*) $(RUN_SBCL) --load tools/build/image.lisp $(Y2)/$@)
+	$(call step,$*-image,env $(call dialect_env,$*) $(RUN_LISP) tools/build/image.lisp $(ARGS_SEP) $(Y2)/$@)
 
 deps:
 	ocicl install

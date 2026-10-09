@@ -109,7 +109,7 @@ tools/build/compiler.lisp
 ```
 
 `tools/build/prelude.lisp` extends this by compiling the Haskell
-prelude.  `tools/build/image.lisp` saves a standalone executable.
+prelude.  `tools/build/image.lisp` saves a standalone executable (SBCL; see doc/plans/PORTABILITY.md for other Lisps).
 
 ## 2. The ASDF systems
 
