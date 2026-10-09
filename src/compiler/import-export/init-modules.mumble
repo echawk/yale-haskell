@@ -67,7 +67,9 @@
       (let ((modern  (locate-module '|PreludeModern|)))
 	(if (eq? modern '#f)
 	    (signal-undefined-module-import '|PreludeModern|)
-	    (add-imported-module modern))))
+	    ;; only what GHC's Prelude exports: Alternative and the other
+	    ;; Control.Applicative names are imported from there
+	    (add-imported-module modern *not-in-ghc-prelude*))))
     (let ((prelude-core (locate-module '|PreludeCore|)))
        (if (eq? prelude-core '#f)
 	   (signal-missing-prelude-core)
@@ -78,15 +80,23 @@
     )
 
 
-(define (add-imported-module module)
+(define (add-imported-module module . maybe-hiding)
   (setf (module-imports *module*)
 	(cons (make import-decl
 		    (module-name (module-name module))
 		    (module module)
 		    (mode 'all)
-		    (specs '())
+		    (specs (if (null? maybe-hiding) '() (car maybe-hiding)))
 		    (renamings '()))
 	      (module-imports *module*))))
+
+;;; PreludeModern's names that base's Prelude does not export (they are
+;;; Control.Applicative's), as the hiding list of its implicit import.
+;;; Hiding the class hides its methods (empty, <|>, some, many).
+(define *not-in-ghc-prelude*
+  (cons (make entity-con (name '|Alternative|))
+	(map (lambda (name) (make entity-var (name name)))
+	     '(|<**>| |liftA| |liftA3| |optional|))))
 
 (define (filter-complete-module-exports exports)
   (if (null? exports)

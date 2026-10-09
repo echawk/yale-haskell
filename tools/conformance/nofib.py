@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Run nofib programs (ref/nofib, see ref/README.md) with Yale Haskell 98.
+"""Run nofib programs (ref/nofib, see ref/README.md) with Yale Haskell 98
+(--modern-prelude: nofib is written for GHC's Prelude).
 
     tools/conformance/nofib.py [-t SECONDS] [-v] [PROGRAM_DIR ...]
 
@@ -23,10 +24,10 @@ OUT = os.path.join(ROOT, 'build', 'conformance')
 # Control, System) do not cover yet, mapped to Haskell 98 modules.
 MODULE_MAP = {
     'System.CPUTime': 'CPUTime', 'System.Random': 'Random',
-    'System.Directory': 'Directory', 'System.Time': 'Time', 'System.Locale': 'Locale',
+    'System.Time': 'Time', 'System.Locale': 'Locale',
 }
 # Modules with no Haskell 98 counterpart: the program is skipped.
-NON_H98 = re.compile(r'^>?\s*import\s+(qualified\s+)?(Data\.(Bits|IORef|Word|Int|Map|Set|IntMap|STRef|Array\.\w+)|Control\.(Monad\.\w+|Exception|Concurrent|Parallel|DeepSeq)|GHC\.|Foreign|Text\.|System\.(Mem|Process|Info)|Debug)', re.M)
+NON_H98 = re.compile(r'^>?\s*import\s+(qualified\s+)?(Data\.(IORef|Map|Set|IntMap|STRef|Array\.\w+)|Control\.(Monad\.(?!Fail\b)\w+|Concurrent|Parallel|DeepSeq)|GHC\.|Text\.(?!Read\b)|System\.Mem)', re.M)
 EXTENSIONS = re.compile(r'\{-#\s*LANGUAGE|\bforall\b|\bunsafePerformIO\b|#!|^\s*#\s*(if|include|define)', re.M)
 
 # Programs that cannot pass for a known reason outside Haskell 98
@@ -35,10 +36,8 @@ KNOWN = {
     'spectral/sphere': 'its hash relies on 64-bit Int wrap-around (H98 leaves overflow undefined; Int is the 62-bit fixnum range)',
     'spectral/mandel': 'uses hSetBinaryMode (not Haskell 98)',
     'spectral/minimax': 'correct but slow: FAST_OPTS repeats the work 180000 times (~2.4 ms each here, ~7 minutes); 10 and 100 repetitions give the expected (empty) output',
+    'spectral/simple': 'exhausts the 4 GB heap at run time with both back ends: a space leak, not yet diagnosed (it compiles in seconds)',
     'spectral/secretary': 'Monte Carlo over Random: H98 does not fix the generator (ours is the Report/Hugs L\'Ecuyer one, GHC\'s random uses SplitMix); results agree statistically (~0.36 vs ~0.36)',
-    'spectral/mandel2': 'uses <$> (not in the Haskell 98 Prelude)',
-    'spectral/life': 'uses <$> (not in the Haskell 98 Prelude)',
-    'spectral/simple': 'uses <$> (not in the Haskell 98 Prelude)',
 }
 
 def read(p):
@@ -106,7 +105,8 @@ def run_program(d, timeout, verbose):
     args = [os.path.abspath(os.path.join(d, a))
             if a.endswith(('.hs', '.lhs')) and os.path.isfile(os.path.join(d, a)) else a
             for a in args]
-    cmd = [os.path.join(ROOT, 'bin', 'yale-haskell'), '--haskell98', main] + args
+    # nofib targets GHC: its Prelude (Applicative, <$>, ...) is the modern one
+    cmd = [os.path.join(ROOT, 'bin', 'yale-haskell'), '--haskell98', '--modern-prelude', main] + args
     t0 = time.time()
     try:
         with open(stdin_file or os.devnull, 'rb') as inp:
