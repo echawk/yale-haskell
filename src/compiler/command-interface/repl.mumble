@@ -637,9 +637,8 @@
 
 (define (repl-profile text)
   #+sbcl
-  (begin
-    (lisp:require :sb-sprof)
-    (lisp:funcall (lisp:intern "PROFILE-CALL-COUNTS" "SB-SPROF") "MUMBLE-USER")
+  (if (not (lisp:find-package "SB-SPROF"))
+      (repl-say "~&:profile needs sb-sprof, which this image does not have.~%")
     (let ((sprof  (lisp:find-package "SB-SPROF")))
       (lisp:funcall (lisp:intern "START-PROFILING" sprof) :mode :cpu
 		    :sample-interval 0.001 :max-samples 100000)

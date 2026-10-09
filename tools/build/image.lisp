@@ -60,6 +60,11 @@
     (sb-ext:exit :code status :abort '#t)))
 
 
+;;; The statistical profiler, for the interactive system's :profile: a
+;;; saved executable cannot find SBCL's contrib modules to require them
+;;; later, so it is loaded now.
+(lisp:require :sb-sprof)
+
 ;;; The command line (src/cli/cli.lisp, plain CL over clingon, installed
 ;;; with ocicl) is the executable's entry point.
 
