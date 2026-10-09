@@ -3,14 +3,13 @@
 ;;; ----------------------------------------------------------------
 
 (define (text-fns algdata suppress-reader?)
-  (let ((print+read
-	 (cond ((algdata-enum? algdata)
-		(text-enum-fns algdata))
-	       (else
-		(text-general-fns algdata)))))
-    (when suppress-reader?
-      (setf print+read (list (car print+read))))
-    print+read))
+  (cond ((algdata-enum? algdata)
+	 (let ((print+read  (text-enum-fns algdata)))
+	   (if suppress-reader? (list (car print+read)) print+read)))
+	(else
+	 ;; not built at all when suppressed: for large types the reader
+	 ;; adds split-off functions to the module (read-prefix)
+	 (text-general-fns algdata suppress-reader?))))
 
 (define (text-enum-fns algdata)
   (list
@@ -44,23 +43,26 @@
 ;;; This has been hacked to split up the read function for large
 ;;; data types to avoid choking the lisp compiler.
 
-(define (text-general-fns algdata)
+(define (text-general-fns algdata suppress-reader?)
  (let ((split-fn-def? (> (algdata-n-constr algdata) 6)))  ;; pretty arbitrary!
-  (list
+  (cons
    (**define '|showsPrec| '(|d| |x|)
        (**case/con algdata (**var '|x|)
 	  (lambda (con vars)
 	    (if (con-infix? con)
 		(show-infix con vars)
 		(show-prefix con vars)))))
-   (**define '|readsPrec| '(|d| |str|)
-     (**append/l
-      (map (lambda (con)
-	     (cond ((con-infix? con)
-		    (read-infix con))
-		   (else
-		    (read-prefix con split-fn-def?))))
-		 (algdata-constrs algdata)))))))
+   (if suppress-reader?
+       '()
+       (list
+	(**define '|readsPrec| '(|d| |str|)
+	  (**append/l
+	   (map (lambda (con)
+		  (cond ((con-infix? con)
+			 (read-infix con))
+			(else
+			 (read-prefix con split-fn-def?))))
+		(algdata-constrs algdata)))))))))
 
 (define (show-infix con vars)
   (multiple-value-bind (p lp rp) (get-con-fixity con)

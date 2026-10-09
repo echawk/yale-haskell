@@ -261,7 +261,7 @@
 	  ((eq? class (core-symbol "Text"))
 	   (add-instance inst (text-fns alg (instance-suppress-readers? inst))))
 	  ((eq? class (core-symbol "Show"))
-	   (add-instance inst (list (car (text-fns alg '#f)))))
+	   (add-instance inst (text-fns alg '#t)))
 	  ((eq? class (core-symbol "Read"))
 	   (add-instance inst (list (cadr (text-fns alg '#f)))))
 	  ((eq? class (core-symbol "Binary"))
