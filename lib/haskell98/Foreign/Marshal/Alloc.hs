@@ -1,12 +1,11 @@
 -- Foreign.Marshal.Alloc: the Haskell 2010 library module (Report 2010,
 -- chapter 33), for Yale Haskell's Haskell 98 dialect.  alloca uses
 -- malloc and free (there is no C stack frame to allocate in); the memory
--- is freed when the action ends, also by an IO error.  finalizerFree
--- is missing (no ForeignPtr yet).
+-- is freed when the action ends, also by an IO error.
 module Foreign.Marshal.Alloc (
     alloca, allocaBytes, allocaBytesAligned,
     malloc, mallocBytes, calloc, callocBytes,
-    realloc, reallocBytes, free
+    realloc, reallocBytes, free, finalizerFree
   ) where
 
 import ForeignPrims
@@ -56,3 +55,8 @@ reallocBytes p n = primRealloc p n
 
 free :: Ptr a -> IO ()
 free = primFree
+
+-- C's free, as a finalizer for Foreign.ForeignPtr (whose FinalizerPtr a
+-- is this type).
+finalizerFree :: FunPtr (Ptr a -> IO ())
+finalizerFree = primForeignSymbolPtr "free"

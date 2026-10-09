@@ -125,7 +125,12 @@
 	      ;; on ABCL the system loads but needs JNA to work
 	      (lisp:funcall (lisp:intern "FOREIGN-SYMBOL-POINTER" "CFFI") "getenv")))
   (lisp:pushnew ':yale-cffi lisp:*features*)
-  (load-plain-cl-file "src/ffi/ffi-runtime.lisp"))
+  (load-plain-cl-file "src/ffi/ffi-runtime.lisp")
+  ;; errno values (tools/gen/gen-errno.sh), when generated for this system
+  (let ((errnos (lisp:format lisp:nil "src/ffi/errno-~(~a~).lisp"
+			     (lisp:software-type))))
+    (when (lisp:probe-file errnos)
+      (load-plain-cl-file errnos))))
 (load-plain-cl-file "src/base/base-runtime.lisp")
 (load-plain-cl-file "src/cli/cli.lisp")
 

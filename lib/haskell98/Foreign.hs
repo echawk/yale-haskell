@@ -4,7 +4,8 @@
 -- loads a C shared library for foreign imports, like yale-haskell -l.
 module Foreign (
     module Data.Bits, module Data.Int, module Data.Word,
-    module Foreign.Ptr, module Foreign.Storable, module Foreign.Marshal,
+    module Foreign.Ptr, module Foreign.ForeignPtr, module Foreign.StablePtr,
+    module Foreign.Storable, module Foreign.Marshal,
     loadForeignLibrary
   ) where
 
@@ -12,6 +13,8 @@ import Data.Bits
 import Data.Int
 import Data.Word
 import Foreign.Ptr
+import Foreign.ForeignPtr
+import Foreign.StablePtr
 import Foreign.Storable
 import Foreign.Marshal
 import ForeignPrims

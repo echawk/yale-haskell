@@ -8,6 +8,7 @@ module Foreign.C.String (
     peekCString, peekCStringLen, newCString, newCStringLen,
     withCString, withCStringLen,
     castCharToCChar, castCCharToChar,
+    castCharToCUChar, castCUCharToChar, castCharToCSChar, castCSCharToChar,
     peekCAString, peekCAStringLen, newCAString, newCAStringLen,
     withCAString, withCAStringLen,
     CWString, CWStringLen, peekCWString, peekCWStringLen, newCWString,
@@ -55,6 +56,18 @@ castCharToCChar c = fromIntegral (ord c)
 
 castCCharToChar :: CChar -> Char
 castCCharToChar c = chr (fromIntegral c `mod` 256)
+
+castCharToCUChar :: Char -> CUChar
+castCharToCUChar c = fromIntegral (ord c)
+
+castCUCharToChar :: CUChar -> Char
+castCUCharToChar c = chr (fromIntegral c)
+
+castCharToCSChar :: Char -> CSChar
+castCharToCSChar c = fromIntegral (ord c)
+
+castCSCharToChar :: CSChar -> Char
+castCSCharToChar c = chr (fromIntegral c `mod` 256)
 
 -- One byte per character.
 peekCAString :: CString -> IO String

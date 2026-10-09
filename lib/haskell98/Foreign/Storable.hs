@@ -10,6 +10,7 @@ import Data.Int
 import Data.Word
 import ForeignPrims
 import Foreign.Ptr
+import Foreign.StablePtr
 
 class Storable a where
   sizeOf      :: a -> Int
@@ -126,3 +127,9 @@ instance Storable (FunPtr a) where
   alignment _ = 8
   peekByteOff = primPeekFunPtr
   pokeByteOff = primPokeFunPtr
+
+instance Storable (StablePtr a) where
+  sizeOf _ = 8
+  alignment _ = 8
+  peekByteOff p off = primPeekPtr p off >>= return . castPtrToStablePtr
+  pokeByteOff p off sp = primPokePtr p off (castStablePtrToPtr sp)

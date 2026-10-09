@@ -102,3 +102,104 @@
 (cl:defun prim.peek-char (p off) (cffi:mem-ref p :int32 off))
 (cl:defun prim.poke-char (p off c)
   (cl:setf (cffi:mem-ref p :int32 off) (cl:char-code c)) 0)
+
+;;; Foreign.C.Error.  errno is read and set through libc; *errno-values*
+;;; (src/ffi/errno-<os>.lisp, from tools/gen/gen-errno.sh) gives the
+;;; values of the E* constants, -1 for those the system lacks.
+
+(cl:defvar *errno-values* '())
+
+(cl:defun prim.errno-value (name)
+  (cl:let ((entry (cl:assoc name *errno-values* :test #'cl:string=)))
+    (cl:if entry (cl:cdr entry) -1)))
+
+(cl:defun errno-location ()
+  #+(or darwin freebsd openbsd) (cffi:foreign-funcall "__error" :pointer)
+  #-(or darwin freebsd openbsd) (cffi:foreign-funcall "__errno_location" :pointer))
+
+(cl:defun prim.get-errno () (cffi:mem-ref (errno-location) :int))
+(cl:defun prim.set-errno (n) (cl:setf (cffi:mem-ref (errno-location) :int) n) 0)
+
+;;; errnoToIOError: the IOError kind for an errno, as GHC classifies it,
+;;; and strerror's text.
+(cl:defparameter *errno-io-error-kinds*
+  '(("ENOENT" . does-not-exist) ("ENOTDIR" . does-not-exist)
+    ("ENXIO" . does-not-exist) ("ESRCH" . does-not-exist)
+    ("EEXIST" . already-exists)
+    ("EBUSY" . already-in-use) ("ETXTBSY" . already-in-use)
+    ("EACCES" . permission) ("EPERM" . permission) ("EROFS" . permission)
+    ("ENOSPC" . full) ("EDQUOT" . full) ("EMFILE" . full) ("ENFILE" . full)
+    ("ENOMEM" . full)
+    ("EISDIR" . illegal-operation) ("EINVAL" . illegal-operation)
+    ("EXDEV" . illegal-operation) ("EBADF" . illegal-operation)))
+
+(cl:defun prim.errno-io-error (location errno has-handle? handle has-file? file)
+  (cl:let ((kind (cl:or (cl:loop for (name . kind) in *errno-io-error-kinds*
+				 when (cl:eql errno (prim.errno-value name))
+				   return kind)
+			'other)))
+    (make-io-error kind location
+		   (cffi:foreign-funcall "strerror" :int errno :string)
+		   (cl:if has-file? file cl:nil)
+		   (cl:if has-handle? handle cl:nil))))
+
+;;; A function pointer to a C function by name (finalizerFree is free).
+(cl:defun prim.foreign-symbol-ptr (name)
+  (cl:or (cffi:foreign-symbol-pointer name) (cffi:null-pointer)))
+
+;;; Foreign.ForeignPtr.  A ForeignPtr is the pointer and an FPState: a
+;;; cell #(finalizers finalized? pointer), registered with the host's GC
+;;; so that the finalizers (FunPtrs, or (FunPtr . env) pairs, newest
+;;; first) run once the ForeignPtr is unreachable, or when
+;;; finalizeForeignPtr runs them.  The GC finalizer closes over the cell,
+;;; not the state it watches.
+
+(cl:defstruct (fp-state (:constructor make-fp-state (cell))) cell)
+
+(cl:defun run-fp-finalizers (cell)
+  (cl:unless (cl:svref cell 1)
+    (cl:setf (cl:svref cell 1) cl:t)
+    (cl:let ((p (cl:svref cell 2)))
+      (cl:dolist (f (cl:svref cell 0))
+	(cl:if (cl:consp f)
+	       (cffi:foreign-funcall-pointer (cl:car f) () :pointer (cl:cdr f)
+					     :pointer p :void)
+	       (cffi:foreign-funcall-pointer f () :pointer p :void))))))
+
+(cl:defun prim.new-fp-state (p)
+  (cl:let* ((cell (cl:vector '() cl:nil p))
+	    (state (make-fp-state cell)))
+    #+sbcl (sb-ext:finalize state (cl:lambda () (run-fp-finalizers cell))
+			    :dont-save cl:t)
+    #+ecl (ext:set-finalizer state (cl:lambda (o) (cl:declare (cl:ignore o))
+				     (run-fp-finalizers cell)))
+    state))
+
+(cl:defun prim.add-fp-finalizer (state fn)
+  (cl:push fn (cl:svref (fp-state-cell state) 0)) 0)
+(cl:defun prim.add-fp-finalizer-env (state fn env)
+  (cl:push (cl:cons fn env) (cl:svref (fp-state-cell state) 0)) 0)
+(cl:defun prim.finalize-fp (state)
+  (run-fp-finalizers (fp-state-cell state)) 0)
+;;; touchForeignPtr: keeps STATE reachable until here
+(cl:defun prim.touch-fp (state)
+  (cl:if (fp-state-p state) 0 1))
+
+;;; Foreign.StablePtr: values kept in a table, known by their number
+;;; (never 0, which would be the null pointer).
+
+(cl:defvar *stable-ptrs* (cl:make-hash-table))
+(cl:defvar *stable-ptr-counter* 0)
+
+(cl:defun prim.new-stable-ptr (x)
+  (cl:let ((n (cl:incf *stable-ptr-counter*)))
+    (cl:setf (cl:gethash n *stable-ptrs*) x)
+    (cffi:make-pointer n)))
+
+(cl:defun prim.deref-stable-ptr (p)
+  (cl:multiple-value-bind (x found?)
+      (cl:gethash (cffi:pointer-address p) *stable-ptrs*)
+    (cl:if found? x (haskell-runtime-error "deRefStablePtr: not a live StablePtr"))))
+
+(cl:defun prim.free-stable-ptr (p)
+  (cl:remhash (cffi:pointer-address p) *stable-ptrs*) 0)

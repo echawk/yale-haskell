@@ -14,6 +14,8 @@ import PreludeCore(Int,Integer,Float,Double,Char,Bool)
 
 data Ptr a
 data FunPtr a
+-- a ForeignPtr's finalizer state (Foreign.ForeignPtr)
+data FPState
 
 primNullPtr          :: Ptr a
 primNullFunPtr       :: FunPtr a
@@ -77,6 +79,27 @@ primPeekCStringLen :: Ptr a -> Int -> IO String
 primCStringLength  :: String -> Int
 
 primLoadLibrary    :: String -> IO ()
+
+-- Foreign.C.Error: errno; primErrnoIOError's handle (h) and result (b,
+-- an IOErrorObj) are the Prelude's IO types, fixed by Foreign.C.Error
+primErrnoValue     :: String -> Int
+primGetErrno       :: IO Int
+primSetErrno       :: Int -> IO ()
+primErrnoIOError   :: String -> Int -> Bool -> h -> Bool -> String -> b
+
+primForeignSymbolPtr :: String -> FunPtr a
+
+-- Foreign.ForeignPtr
+primNewFPState     :: Ptr a -> IO FPState
+primAddFPFinalizer :: FPState -> FunPtr a -> IO ()
+primAddFPFinalizerEnv :: FPState -> FunPtr a -> Ptr b -> IO ()
+primFinalizeFP     :: FPState -> IO ()
+primTouchFP        :: FPState -> IO ()
+
+-- Foreign.StablePtr
+primNewStablePtr   :: a -> IO (Ptr ())
+primDerefStablePtr :: Ptr () -> IO a
+primFreeStablePtr  :: Ptr () -> IO ()
 primUnsafePerformIO :: IO a -> a
 
 {-#
@@ -139,5 +162,18 @@ primPeekCString    :: LispName("prim.peek-cstring")
 primPeekCStringLen :: LispName("prim.peek-cstring-len")
 primCStringLength  :: LispName("prim.cstring-length")
 primLoadLibrary    :: LispName("prim.load-library")
+primErrnoValue     :: LispName("prim.errno-value")
+primGetErrno       :: LispName("prim.get-errno")
+primSetErrno       :: LispName("prim.set-errno")
+primErrnoIOError   :: LispName("prim.errno-io-error")
+primForeignSymbolPtr :: LispName("prim.foreign-symbol-ptr")
+primNewFPState     :: LispName("prim.new-fp-state")
+primAddFPFinalizer :: LispName("prim.add-fp-finalizer")
+primAddFPFinalizerEnv :: LispName("prim.add-fp-finalizer-env")
+primFinalizeFP     :: LispName("prim.finalize-fp")
+primTouchFP        :: LispName("prim.touch-fp")
+primNewStablePtr   :: LispName("prim.new-stable-ptr"), Strictness("N,S")
+primDerefStablePtr :: LispName("prim.deref-stable-ptr")
+primFreeStablePtr  :: LispName("prim.free-stable-ptr")
 primUnsafePerformIO :: LispName("prim.unsafe-perform-io"), Strictness("S"), NoConversion
 #-}

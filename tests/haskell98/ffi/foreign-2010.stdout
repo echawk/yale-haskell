@@ -1,0 +1,10 @@
+([10,20,30,40],True,True)
+2.5
+([2,4,6],True)
+12
+(4096,True,0)
+(True,True,True,False)
+(-1,True)
+(True,Just "/no/such/dir")
+True
+True

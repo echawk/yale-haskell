@@ -6,10 +6,13 @@
 module Foreign.Ptr (
     Ptr, nullPtr, castPtr, plusPtr, alignPtr, minusPtr,
     FunPtr, nullFunPtr, castFunPtr, castFunPtrToPtr, castPtrToFunPtr,
-    freeHaskellFunPtr
+    freeHaskellFunPtr,
+    IntPtr, ptrToIntPtr, intPtrToPtr, WordPtr, ptrToWordPtr, wordPtrToPtr
   ) where
 
 import ForeignPrims
+import Data.Int (Int64)
+import Data.Word (Word64)
 
 nullPtr :: Ptr a
 nullPtr = primNullPtr
@@ -74,3 +77,21 @@ showAddress n = "0x" ++ pad (hex n "")
         hex m rest | m < 16    = digit m : rest
                    | otherwise = hex (m `quot` 16) (digit (m `rem` 16) : rest)
         digit d = "0123456789abcdef" !! fromInteger d
+
+-- Integral types holding a pointer.  As Foreign.C.Types does for the C
+-- types, these are synonyms for the types of the same representation
+-- (on a 64-bit system), which have the instances the Report requires.
+type IntPtr  = Int64
+type WordPtr = Word64
+
+ptrToIntPtr :: Ptr a -> IntPtr
+ptrToIntPtr p = fromInteger (primPtrToInteger p)
+
+intPtrToPtr :: IntPtr -> Ptr a
+intPtrToPtr n = primIntegerToPtr (toInteger n `mod` 18446744073709551616)
+
+ptrToWordPtr :: Ptr a -> WordPtr
+ptrToWordPtr p = fromInteger (primPtrToInteger p)
+
+wordPtrToPtr :: WordPtr -> Ptr a
+wordPtrToPtr n = primIntegerToPtr (toInteger n)

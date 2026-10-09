@@ -8,7 +8,8 @@
 module Foreign.C.Types (
     CChar, CSChar, CUChar, CShort, CUShort, CInt, CUInt, CLong, CULong,
     CPtrdiff, CSize, CWchar, CSigAtomic, CLLong, CULLong, CIntPtr,
-    CUIntPtr, CIntMax, CUIntMax, CClock, CTime, CFloat, CDouble
+    CUIntPtr, CIntMax, CUIntMax, CClock, CTime, CFloat, CDouble,
+    CFile, CFpos, CJmpBuf
   ) where
 
 import Data.Int
@@ -37,3 +38,8 @@ type CClock     = Int64
 type CTime      = Int64
 type CFloat     = Float
 type CDouble    = Double
+
+-- C's FILE, fpos_t and jmp_buf, only ever used through pointers.
+data CFile   = CFile
+data CFpos   = CFpos
+data CJmpBuf = CJmpBuf
