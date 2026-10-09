@@ -84,6 +84,19 @@
   `(lisp:alpha-char-p (lisp:code-char (the-fixnum ,c))))
 (define-syntax (prim.unicode-is-print c)
   `(lisp:graphic-char-p (lisp:code-char (the-fixnum ,c))))
+;;; Data.Char.generalCategory: the index of the Unicode general category in
+;;; the Report's GeneralCategory order.
+
+(define *general-categories*
+  '#(:Lu :Ll :Lt :Lm :Lo :Mn :Mc :Me :Nd :Nl :No :Pc :Pd :Ps :Pe :Pi :Pf :Po
+     :Sm :Sc :Sk :So :Zs :Zl :Zp :Cc :Cf :Cs :Co :Cn))
+
+(define (prim.general-category c)
+  #+sbcl
+  (let ((g  (sb-unicode:general-category (lisp:code-char (the-fixnum c)))))
+    (or (lisp:position g *general-categories*) 29))
+  #-sbcl 29)
+
 ;;; Case mapping: CL's char-upcase/char-downcase only map characters whose
 ;;; mappings are inverse to each other (micro sign -> capital mu is not:
 ;;; capital mu lowercases to small mu), so for the others the Unicode

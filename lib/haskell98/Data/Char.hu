@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/
+:o= all
+CharPrims.hi
+Char.hs

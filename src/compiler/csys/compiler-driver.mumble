@@ -499,14 +499,59 @@
 ;;; Returns the unit filename for module name (a symbol) imported from
 ;;; the source file importing-file, or '#f.
 
+;;; A hierarchical name A.B.C (Haskell 2010) is looked up as the path
+;;; A/B/C, next to the importing file and also from the importing module's
+;;; root (its directory less one level per `.' in its own name), so that
+;;; X/Y.hs (module X.Y) finds X/Z.hs (module X.Z) and Main finds A/B/C.hs.
+
 (define (locate-module-unit name importing-file)
-  (let ((dir  (filename-place importing-file))
-	(n    (symbol->string name)))
-    (or (existing-file (string-append dir n *unit-file-extension*))
-	(source-file-defining (string-append dir n ".hs") name)
-	(source-file-defining (string-append dir n ".lhs") name)
+  (let ((dirs  (module-search-dirs importing-file))
+	(n     (module-name->path (symbol->string name))))
+    (or (first-found
+	 (lambda (dir)
+	   (or (existing-file (string-append dir n *unit-file-extension*))
+	       (source-file-defining (string-append dir n ".hs") name)
+	       (source-file-defining (string-append dir n ".lhs") name)))
+	 dirs)
 	(existing-file
 	  (string-append "$HASKELL_LIBRARY/" n *unit-file-extension*)))))
+
+(define (module-name->path n)
+  (lisp:substitute #\/ #\. n))
+
+(define (first-found fn list)
+  (if (null? list)
+      '#f
+      (or (funcall fn (car list)) (first-found fn (cdr list)))))
+
+;;; The directories to search: the importing module's root, if it is
+;;; hierarchical, then the importing file's directory.
+
+(define (module-search-dirs importing-file)
+  (let* ((dir     (filename-place importing-file))
+	 (defined (if (source-extension? (filename-type importing-file))
+		      (car (scan-module-header importing-file))
+		      '()))
+	 (depth   (if (null? defined)
+		      0
+		      (lisp:count #\. (symbol->string (car defined)))))
+	 (root    (directory-up dir depth)))
+    ;; a hierarchical module's imports are relative to its root first
+    ;; (Data/List.hs importing List must not find Data/List.hu)
+    (if (or (eqv? depth 0) (string=? root dir))
+	(list dir)
+	(list root dir))))
+
+;;; DIR (ending in /) less N trailing components.
+
+(define (directory-up dir n)
+  (if (eqv? n 0)
+      dir
+      (let* ((trimmed  (substring dir 0 (max 0 (1- (string-length dir)))))
+	     (slash    (lisp:position #\/ trimmed :from-end lisp:t)))
+	(if slash
+	    (directory-up (substring trimmed 0 (1+ slash)) (1- n))
+	    ""))))
 
 (define (existing-file filename)
   (if (file-exists? filename) filename '#f))

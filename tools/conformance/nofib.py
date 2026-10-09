@@ -19,14 +19,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 NOFIB = os.path.join(ROOT, 'ref', 'nofib')
 OUT = os.path.join(ROOT, 'build', 'conformance')
 
+# Hierarchical names the Haskell 2010 library modules (lib/haskell98/Data,
+# Control, System) do not cover yet, mapped to Haskell 98 modules.
 MODULE_MAP = {
-    'Data.List': 'List', 'Data.Char': 'Char', 'Data.Maybe': 'Maybe',
-    'Data.Array': 'Array', 'Data.Ix': 'Ix', 'Data.Ratio': 'Ratio',
-    'Data.Complex': 'Complex', 'Control.Monad': 'NofibMonad',
-    'System.Environment': 'System', 'System.Exit': 'System',
-    'System.IO': 'IO', 'System.CPUTime': 'CPUTime', 'System.Random': 'Random',
+    'System.CPUTime': 'CPUTime', 'System.Random': 'Random',
     'System.Directory': 'Directory', 'System.Time': 'Time', 'System.Locale': 'Locale',
-    'Numeric': 'Numeric', 'Prelude': 'Prelude',
 }
 # Modules with no Haskell 98 counterpart: the program is skipped.
 NON_H98 = re.compile(r'^>?\s*import\s+(qualified\s+)?(Data\.(Bits|IORef|Word|Int|Map|Set|IntMap|STRef|Array\.\w+)|Control\.(Monad\.\w+|Exception|Concurrent|Parallel|DeepSeq)|GHC\.|Foreign|Text\.|System\.(Mem|Process|Info)|Debug)', re.M)
@@ -83,7 +80,6 @@ def run_program(d, timeout, verbose):
     work = os.path.join(OUT, suite, name)
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(work)
-    shutil.copy(os.path.join(ROOT, 'tools', 'conformance', 'NofibMonad.hs'), work)
     for f in os.listdir(d):
         p = os.path.join(d, f)
         if f == 'NofibUtils.hs':

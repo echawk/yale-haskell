@@ -1,0 +1,10 @@
+-- Data/CharPrims.hi -- Lisp primitive for Data.Char's generalCategory
+-- (src/runtime/prims.mumble; the host's Unicode tables)
+
+interface CharPrims where
+
+primGeneralCategory :: Char -> Int
+
+{-#
+primGeneralCategory :: LispName("prim.general-category"), Complexity(3), NoConversion
+#-}
