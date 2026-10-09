@@ -82,7 +82,9 @@
   (let ((entity (parse-entity 'export)))
     (token-case
      (\) (list entity))
-     (\, (cons entity (parse-export-list)))
+     (\, (if (eq-token? '\))
+	     (begin (advance-token) (list entity))   ; H98: a trailing comma
+	     (cons entity (parse-export-list))))
      (else (signal-missing-token "`)' or ','" "export list")))))
 
 (define (parse-modules/named mod-name exports)
@@ -260,7 +262,9 @@
 (define (parse-import-list)
   (let ((import (parse-entity 'import)))
     (token-case
-     (\, (cons import (parse-import-list)))
+     (\, (if (eq-token? '\))
+	     (begin (advance-token) (list import))   ; H98: a trailing comma
+	     (cons import (parse-import-list))))
      (\) (list import))
      (else (signal-missing-token "`)' or `,'" "import list")))))
 
