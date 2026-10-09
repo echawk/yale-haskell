@@ -267,6 +267,23 @@
 (define-struct omitted-guard ; same as True; should print in the guardless form
   (include exp))
 
+;;; A Haskell 2010 guard with pattern guards (report 3.13):
+;;;   <guard> -> <qual> , ... , <qual>     <qual> -> <pat> <- <exp> | let <decls> | <exp>
+;;; A guard that is a single boolean expression stays that expression.
+;;; Only the guard of a guarded-rhs; its bindings scope over the later
+;;; quals and the rhs.  The CFN phase translates it away.
+(define-struct pattern-guard
+  (include exp)
+  (slots
+   (quals (type (list qual)))))
+
+;;; Inside the CFN phase only: an expression that has already been
+;;; through the CFN, which cfn-ast-1 returns as it is.
+(define-struct cfn-done
+  (include exp)
+  (slots
+   (exp (type exp))))
+
 
 ;;; These structures are used by the precedence parser.  
 

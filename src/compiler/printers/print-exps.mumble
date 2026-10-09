@@ -314,6 +314,18 @@
 (define-ast-printer qual-filter (object xp)
   (write (qual-filter-exp object) xp))
 
+(define-ast-printer pattern-guard (object xp)
+  (write-delimited-list
+    (pattern-guard-quals object) xp (function write) "," "" ""))
+
+(define-ast-printer qual-let (object xp)
+  (write-string "let " xp)
+  (write-delimited-list
+    (qual-let-decls object) xp (function write) ";" "{" "}"))
+
+(define-ast-printer cfn-done (object xp)
+  (write (cfn-done-exp object) xp))
+
 
 ;;; A pp-exp-list with an op as the first or last element is really
 ;;; a section.  These always get parens and are treated like aexps.

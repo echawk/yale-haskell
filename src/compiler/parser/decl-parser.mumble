@@ -190,7 +190,7 @@
 
 (define (parse-guarded-rhs) ; assume just past |
  (trace-parser guard
-  (let ((guard (parse-exp-i)))  ; 1.2 change
+  (let ((guard (parse-guard)))
     (require-token = (signal-missing-token "`='" "guarded rhs"))
     (let* ((exp (parse-exp))
 	   (res (make guarded-rhs (guard guard) (rhs exp))))

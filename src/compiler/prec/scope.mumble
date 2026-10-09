@@ -248,8 +248,7 @@
 
 
 (define-modify-walker-methods scope
-  (guarded-rhs  ; exp slots
-   if           ; exp slots
+ (if           ; exp slots
    app          ; exp slots
    integer-const float-const char-const string-const  ; no slots
    list-exp     ; (list exp) slot
@@ -357,6 +356,31 @@
   (setf (let-body object) (scope-ast-1 (let-body object) env))
   object)
 
+
+;;; The bindings of a pattern guard's quals scope over the later quals
+;;; and the rhs.
+
+(define-walker-method scope guarded-rhs (object env)
+  (let ((guard  (guarded-rhs-guard object)))
+    (if (is-type? 'pattern-guard guard)
+	(dolist (q (pattern-guard-quals guard))
+	  (cond ((is-type? 'qual-generator q)
+		 (setf (qual-generator-exp q)
+		       (scope-ast-1 (qual-generator-exp q) env))
+		 (setf env
+		       (add-pattern-variables (list (qual-generator-pat q)) env))
+		 (setf (qual-generator-pat q)
+		       (massage-pattern (qual-generator-pat q))))
+		((is-type? 'qual-filter q)
+		 (setf (qual-filter-exp q)
+		       (scope-ast-1 (qual-filter-exp q) env)))
+		(else
+		 (setf env (add-local-declarations (qual-let-decls q) env))
+		 (setf (qual-let-decls q)
+		       (scope-ast/decl-list (qual-let-decls q) env)))))
+	(setf (guarded-rhs-guard object) (scope-ast-1 guard env)))
+    (setf (guarded-rhs-rhs object) (scope-ast-1 (guarded-rhs-rhs object) env))
+    object))
 
 ;;; Case alts are treated very much like single-fun-defs.
 

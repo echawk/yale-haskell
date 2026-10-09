@@ -5,12 +5,47 @@
 ;;;   valdef, single-fun-def are in type-decls
 
 (define-type-checker guarded-rhs
-  (type-check guarded-rhs rhs rhs-type
-    (type-check guarded-rhs guard guard-type
-      (type-unify guard-type *bool-type*
-          (type-mismatch/fixed (guarded-rhs-guard object)
-	   "Guards must be of type Bool" guard-type))
-      (return-type object rhs-type))))
+  (if (is-type? 'pattern-guard (guarded-rhs-guard object))
+      (with-new-tyvars
+       (type-check-guard-quals
+	 (pattern-guard-quals (guarded-rhs-guard object)) object))
+      (type-check guarded-rhs rhs rhs-type
+	(type-check guarded-rhs guard guard-type
+	  (type-unify guard-type *bool-type*
+	      (type-mismatch/fixed (guarded-rhs-guard object)
+	       "Guards must be of type Bool" guard-type))
+	  (return-type object rhs-type)))))
+
+;;; The quals of a pattern guard, in order (each one's bindings are seen
+;;; by the rest), then the rhs of RHS-OBJECT.  As in a list
+;;; comprehension, pattern-bound variables are monomorphic.
+
+(define (type-check-guard-quals quals rhs-object)
+  (if (null? quals)
+      (let ((object  rhs-object))
+	(type-check guarded-rhs rhs rhs-type
+	  (return-type object rhs-type)))
+      (let ((object  (car quals)))
+	(cond ((is-type? 'qual-generator object)
+	       (fresh-type pat-type
+		 (push pat-type (dynamic *non-generic-tyvars*))
+		 (type-check qual-generator pat pat-type-1
+		   (type-unify pat-type pat-type-1 #f)
+		   (type-check qual-generator exp qual-exp-type
+		     (type-unify pat-type qual-exp-type
+		       (type-mismatch/fixed object
+			"The pattern and expression of a pattern guard have different types"
+			qual-exp-type)))))
+	       (type-check-guard-quals (cdr quals) rhs-object))
+	      ((is-type? 'qual-filter object)
+	       (type-check qual-filter exp filter-type
+		 (type-unify filter-type *bool-type*
+		   (type-mismatch/fixed object
+		    "Guards must be of type Bool" filter-type)))
+	       (type-check-guard-quals (cdr quals) rhs-object))
+	      (else
+	       (type-check/decls qual-let decls
+		 (type-check-guard-quals (cdr quals) rhs-object)))))))
 
 ;;; These type checkers deal with patterns.
 

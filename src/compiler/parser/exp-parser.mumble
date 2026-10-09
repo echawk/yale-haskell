@@ -108,13 +108,30 @@
     (make alt (pat pat) (rhs-list rhs-list) (where-decls decls)))))
 
 (define (parse-guarded-alt-rhs)
-  (let ((guard (parse-exp)))
+  (let ((guard (parse-guard)))
     (require-token -> (signal-missing-token "`->'" "alt"))
     (let* ((exp (parse-exp))
 	   (res (make guarded-rhs (guard guard) (rhs exp))))
       (token-case
        (\| (cons res (parse-guarded-alt-rhs)))
        (else (list res))))))
+
+;;; A guard: quals separated by commas (Haskell 2010 pattern guards,
+;;; report 3.13).  A single boolean qual is returned as its expression.
+
+(define (parse-guard)
+  (let ((quals (parse-guard-quals)))
+    (if (and (null? (cdr quals)) (is-type? 'qual-filter (car quals)))
+	(qual-filter-exp (car quals))
+	(make pattern-guard (quals quals)))))
+
+(define (parse-guard-quals)
+  (let ((qual (token-case
+	       (|let| (parse-let-stmt))
+	       (else (parse-qual)))))
+    (token-case
+     (\, (cons qual (parse-guard-quals)))
+     (else (list qual)))))
 
 ;;; Record construction and update bind tighter than application
 ;;; (report 3.15): f r {x = 1} is f (r {x = 1}).

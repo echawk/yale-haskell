@@ -65,6 +65,7 @@
    integer-const float-const char-const string-const
    list-exp sequence sequence-then sequence-to sequence-then-to
    list-comp section-l section-r qual-generator qual-filter omitted-guard
+   pattern-guard qual-let
    con-number sel is-constructor cast void
    single-fun-def guarded-rhs
    case-block return-from and-exp

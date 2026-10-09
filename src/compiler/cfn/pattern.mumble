@@ -617,6 +617,19 @@
 	     (rewrite-guards rhs-list block-name))))
 
 (define (rewrite-guards rhs-list block-name)
+  (if (and (not block-name) (lisp:some (function pattern-guard-rhs?) rhs-list))
+      ;; pattern guards fall through to the next guard: in a block whose
+      ;; last expression is the failure
+      (let ((block-name  (gensym "PGUARD")))
+	(**case-block block-name
+		      (list (rewrite-guards-1 rhs-list block-name)
+			    (make-failure-exp))))
+      (rewrite-guards-1 rhs-list block-name)))
+
+(define (pattern-guard-rhs? rhs)
+  (is-type? 'pattern-guard (guarded-rhs-guard rhs)))
+
+(define (rewrite-guards-1 rhs-list block-name)
   (if (null? rhs-list)
       (if block-name
 	  (**con/def (core-symbol "False"))
@@ -628,14 +641,63 @@
 	  (setf exp (**return-from block-name exp)))
 	(cond ((is-type? 'omitted-guard (guarded-rhs-guard (car rhs-list)))
 	       exp)
+	      ((is-type? 'pattern-guard guard)
+	       ;; this returns from the block or is False
+	       (let ((try  (rewrite-pattern-guard
+			     (pattern-guard-quals guard) (guarded-rhs-rhs rhs)
+			     block-name)))
+		 (if (null? (cdr rhs-list))
+		     try
+		     (**if try
+			   (**con/def (core-symbol "False"))
+			   (rewrite-guards-1 (cdr rhs-list) block-name)))))
 	      ((and block-name (null? (cdr rhs-list)))
 	       (**and-exp guard exp))
 	      (else
 	       (**if guard
 		     exp
-		     (rewrite-guards (cdr rhs-list) block-name)))
+		     (rewrite-guards-1 (cdr rhs-list) block-name)))
 	      ))))
 
+
+;;; The quals of a pattern guard then RHS: an expression that returns
+;;; RHS from BLOCK-NAME if all of them succeed, else is False.  A
+;;; generator p <- e is matched like a case alternative whose rhs is the
+;;; rest of the guard.
+
+(define (rewrite-pattern-guard quals rhs block-name)
+  (if (null? quals)
+      (**return-from block-name rhs)
+      (let ((q     (car quals))
+	    (rest  (cdr quals)))
+	(cond ((is-type? 'qual-filter q)
+	       (**and-exp (qual-filter-exp q)
+			  (rewrite-pattern-guard rest rhs block-name)))
+	      ((is-type? 'qual-let q)
+	       (**let (qual-let-decls q)
+		      (rewrite-pattern-guard rest rhs block-name)))
+	      (else
+	       (let* ((alt  (**alt (qual-generator-pat q)
+				   (list (make guarded-rhs
+					       (guard (if (null? rest)
+							  (make omitted-guard)
+							  (make pattern-guard
+								(quals rest))))
+					       (rhs rhs)))
+				   '()))
+		      (exp  (qual-generator-exp q)))
+		 (make cfn-done
+		   (exp (if (is-type? 'var-ref exp)
+			    (match-pattern (list exp) (list (alt-pat alt))
+					   alt block-name)
+			    (let ((temp  (create-temp-var 'guard)))
+			      (**let (list (**valdef/def temp (cfn-ast-1 exp)))
+				     (match-pattern (list (**var/def temp))
+						    (list (alt-pat alt))
+						    alt block-name))))))))))))
+
+(define-walker-method cfn cfn-done (object)
+  (cfn-done-exp object))
 
 (define (make-failure-exp)
   (let ((c  (dynamic *context*)))
