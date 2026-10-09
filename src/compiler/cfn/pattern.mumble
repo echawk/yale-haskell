@@ -246,6 +246,7 @@
 	    (pcon         (function match-pcon))
 	    (as-pat       (function match-as-pat))
 	    (irr-pat      (function match-irr-pat))
+	    (sig-pat      (function match-sig-pat))
 	    (const-pat    (function match-const-pat))
 	    (plus-pat     (function match-plus-pat))
 	    (list-pat     (function match-list-pat))
@@ -345,6 +346,12 @@
 ;;; An irrefutable pattern adds no test to the pattern matching,
 ;;; but adds a pattern binding to the where-decls.
 
+;;; A pattern signature has done its work in the type checker.
+
+(define (match-sig-pat pat exp pats exps alt block-name)
+  (match-pattern (cons exp exps) (cons (sig-pat-pattern pat) pats)
+		 alt block-name))
+
 (define (match-irr-pat pat exp pats exps alt block-name)
   (let ((subpat  (irr-pat-pattern pat)))
     (push (**valdef/pat subpat exp) (alt-where-decls alt))
@@ -424,6 +431,9 @@
     (irr-pat
       ;; Irrefutable patterns are redundant here.
       (setf (valdef-lhs object) (irr-pat-pattern (valdef-lhs object)))
+      (do-cfn-pattern-def-top object))
+    (sig-pat
+      (setf (valdef-lhs object) (sig-pat-pattern (valdef-lhs object)))
       (do-cfn-pattern-def-top object))
     (wildcard-pat
      ;; Wildcards are no-ops.
@@ -565,6 +575,8 @@
 	  new-vars)))
     (const-pat
       (values pat '() '()))
+    (sig-pat
+      (copy-pattern-variables (sig-pat-pattern pat)))
     (plus-pat
       (multiple-value-bind (new-pat vars new-vars)
 	  (copy-pattern-variables (plus-pat-pattern pat))

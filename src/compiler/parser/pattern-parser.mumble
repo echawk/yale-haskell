@@ -112,6 +112,13 @@
 	      (token-case
 		(\, (**pcon/tuple (cons pat (parse-pat-list '\)))))
 		(\) pat)
+		;; (pat :: type), outside Haskell 1.2
+		((no-advance satisfies pattern-signature-follows?)
+		 (advance-token)
+		 (let ((signature (parse-signature)))
+		   (require-token \)
+		     (signal-missing-token "`)'" "pattern type signature"))
+		   (make sig-pat (pattern pat) (signature signature))))
 		(else
 		 (signal-missing-token "`)' or `,'" "pattern")))))))
      (\[ (token-case
@@ -121,6 +128,9 @@
 	   (make irr-pat (pattern pattern))))
      (else
       (signal-invalid-syntax "an apat")))))
+
+(define (pattern-signature-follows?)
+  (and (eq? *token* '\:\:) (haskell98?)))
 
 (define (parse-pat-list term)  ;; , separated
   (let ((pat (parse-pat)))
@@ -192,6 +202,7 @@
 	      (token-case
 	       (\, (scan-pat-list '\)))
 	       (\) '#t)
+	       (\:\: (scan-to-close-paren 0))
 	       (else '#f))))))
    (\[ (token-case
 	(\] '#t)
@@ -260,3 +271,12 @@
    (\, (scan-tuple-con-commas))
    (\) '#t)
    (else '#f)))
+
+;;; Skips a pattern signature's type: the tokens up to and including the
+;;; `)' that closes the pattern.
+(define (scan-to-close-paren depth)
+  (token-case
+   (\( (scan-to-close-paren (1+ depth)))
+   (\) (if (eqv? depth 0) '#t (scan-to-close-paren (1- depth))))
+   (eof '#f)
+   (else (advance-token) (scan-to-close-paren depth))))

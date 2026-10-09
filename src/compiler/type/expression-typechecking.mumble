@@ -58,6 +58,18 @@
   (type-check irr-pat pattern pattern-type
     (return-type object pattern-type)))
 
+;;; (pat :: type): the pattern's type unified with the signature's, its
+;;; type variables fresh.
+(define-type-checker sig-pat
+  (type-check sig-pat pattern pattern-type
+    (let ((sig  (sig-pat-signature object)))
+      (type-unify pattern-type
+		  (instantiate-gtype (ast->gtype (signature-context sig)
+						 (signature-type sig)))
+	(type-mismatch/fixed object
+	  "The pattern does not have its signature's type" pattern-type))
+      (return-type object pattern-type))))
+
 (define-type-checker var-pat
   (fresh-type var-type
     (setf (var-type (var-ref-var (var-pat-var object))) var-type)

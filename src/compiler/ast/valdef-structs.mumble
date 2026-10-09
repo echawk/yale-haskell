@@ -185,6 +185,13 @@
   (slots
    (pattern (type pattern))))
 
+(define-struct sig-pat  ;; (pat :: type), a pattern type signature (GHC's
+  (include apat)        ;; ScopedTypeVariables, without the scoping: its
+  (predicate sig-pat?)  ;; type variables are fresh).  Gone after cfn.
+  (slots
+   (pattern (type pattern))
+   (signature (type signature))))
+
 (define-struct var-pat  ;; v
   (include apat)
   (predicate var-pat?)

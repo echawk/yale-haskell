@@ -514,6 +514,8 @@
 	 '#t)
 	((is-type? 'as-pat pat)
 	 (failure-free-pattern? (as-pat-pattern pat)))
+	((is-type? 'sig-pat pat)
+	 (failure-free-pattern? (sig-pat-pattern pat)))
 	((pcon? pat)
 	 (let ((con (pcon-con pat)))
 	   (or (eq? con (core-symbol "UnitConstructor"))

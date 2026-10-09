@@ -115,6 +115,24 @@ instance Monad (Either e) where
   Left e  >>= _ = Left e
   Right a >>= k = k a
 
+-- Functions (the reader monad), as in base.
+instance Functor ((->) r) where
+  fmap = (.)
+
+instance Applicative ((->) r) where
+  pure = const
+  f <*> g = \x -> f x (g x)
+
+instance Monad ((->) r) where
+  return = const
+  f >>= k = \x -> k (f x) x
+
+instance Semigroup b => Semigroup (a -> b) where
+  f <> g = \x -> f x <> g x
+
+instance Monoid b => Monoid (a -> b) where
+  mempty = \_ -> mempty
+
 class Semigroup a where
   (<>) :: a -> a -> a
 

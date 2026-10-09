@@ -115,6 +115,13 @@
   (write-string "~" xp)
   (write-apat (irr-pat-pattern object) xp))
 
+(define-ast-printer sig-pat (object xp)
+  (write-char #\( xp)
+  (write (sig-pat-pattern object) xp)
+  (write-string " :: " xp)
+  (write (sig-pat-signature object) xp)
+  (write-char #\) xp))
+
 (define-ast-printer var-pat (object xp)
   (write (var-pat-var object) xp))
 
