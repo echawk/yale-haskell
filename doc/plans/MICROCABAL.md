@@ -150,14 +150,17 @@ REAL-WORLD-TARGETS.md takes over.
 |---|---|
 | 2026-10-09 | 1 of 15 modules loads (MicroCabal.Regex).  Fixed: trailing commas in export/import lists.  Next: step 1 libraries |
 | 2026-10-09 | 4 of 14 load (Regex, YAML, Macros, StackageList) with `--modern-prelude`.  Done: step 1 libraries (Control.Exception, System.Directory/Process/Info, Data.Version/Function, Debug.Trace, Text.Read, lookupEnv; BasePrims.hi over src/base/base-runtime.lisp); step 2a (PreludeModern: Applicative, Alternative, MonadFail, Semigroup/Monoid; `--haskell2010`, `--modern-prelude`) |
+| 2026-10-09 | 10 of 14 load.  Fixed: derived Show of a type with more than 6 constructors required Read (bffd7a4); System.IO gained openTempFile and the 2010 operations (505e867).  Blockers left are extensions, not Report gaps |
 
 **Next (where work stopped):**
-1. **A derived-Show bug.**  `tools/microcabal/derived-show-read-bug.hs` (Cabal.hs's
-   types alone, with `deriving (Show)` only) fails with "Type VersionRange is
-   not in class Read ... While type checking VPkgs x1": derived Show code for
-   this group of mutually used types demands Read.  Smaller cases (a field of
-   type Version, Maybe of a derived type) work, so bisect the declarations.
-   This blocks Cabal.hs and everything importing it (9 modules).
-2. **TokenMachine** (Text/ParserComb.hs, step 3): patch it in tools/microcabal/
-   or implement multi-parameter classes.  Blocks ParserComb and Parse.
+1. **Pattern type signatures** (ScopedTypeVariables): MicroCabal/Glob.hs
+   line 36, `catch` with `\ (_ :: SomeException) -> ...`.  Blocks Glob and
+   Main.  Either patch the source in tools/microcabal/, or add pattern
+   signatures: a `(pat :: type)` pattern node through parse, scope,
+   depend, type (unify the pattern's type with the signature) and cfn,
+   as pattern guards were added.
+2. **TokenMachine** (Text/ParserComb.hs line 47, step 3): a
+   multi-parameter class with a functional dependency.  Patch it in
+   tools/microcabal/ or implement multi-parameter classes.  Blocks
+   ParserComb and Parse.
 3. Rerun `tools/microcabal/survey.sh`.
