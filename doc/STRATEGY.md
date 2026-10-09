@@ -1151,7 +1151,7 @@ The critical path is M3 → M4 → M5.  M3 and M4 are done.
 | M6 — newtype, then records | ✅ | — |
 | M7 — Qualified names, module system | ✅ (deviations in LG-QUALIFIED) | — |
 | M8 — System libraries | ✅ | — |
-| M9 — Polymorphic recursion, Unicode, conformance | 🔄 (gaps verified, see below) | — |
+| M9 — Polymorphic recursion, Unicode, conformance | 🔄 (only Unicode left; nofib conformance below) | — |
 
 ### M9 — verified gaps (2026-10-08)
 
@@ -1173,6 +1173,30 @@ constructor classes, List/Char/Maybe/Ix/Numeric all matched):
 All are front-end or library work; nothing needs the back end.  Order:
 2, 3 (small), 1, 4+5 together (both are about what the Prelude
 exports), 6, 8, 7.
+
+### Conformance: nofib (2026-10-08)
+
+`tools/conformance/nofib.py` runs nofib's `imaginary` and `spectral`
+programs (`ref/nofib`, cloned from github.com/ghc/nofib) with Yale
+Haskell 98, mapping hierarchical imports to H98 names and substituting
+H98 stand-ins for nofib's post-98 helpers (`NofibUtils`, `forM_`,
+`replicateM_`); expected output is nofib's, or GHC's where nofib has
+none.  Result: **43 pass**, 7 known deviations, 25 skipped (CPP,
+`Data.IORef`/`Data.Bits`/`Control.Monad.ST`/..., GHC extensions, or
+no `Main`), 0 failures.  Known deviations: `<$>` (life, mandel2,
+simple) and `hSetBinaryMode` (mandel) are not Haskell 98; sphere's hash
+relies on 64-bit `Int` wrap-around (ours is the 62-bit fixnum range;
+H98 leaves overflow undefined); secretary's numbers come from a
+different, unspecified random generator; minimax is correct but slow
+at its benchmark size.
+
+Bugs it found and fixed: empty declarations and alternatives (`a = 1;`
+at a line end) ended the block; `_1` was not an identifier; LaTeX-style
+literate files; recursive signed bindings were typed monomorphically
+(power) and polymorphic recursion; `default (Rational)` crashed; a
+let alias of a later binding was reported as an infinite loop
+(multiplier); the optimizer inlined a recursive value forever (boyer);
+`take` forced the list past the nth element (secretary).
 
 **Recommended next milestone:** Complete M5 (Show/Read split).  This
 unblocks the `Num ⇐ Eq, Show` superclass fix, removes `Text`/`Binary`/
