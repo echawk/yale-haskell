@@ -23,7 +23,8 @@
 		 (tycon (list (class->ast)))
 		 (else (signal-invalid-syntax "a deriving clause")))))))
       (else
-       (when (not interface?)
+       ;; data T with no constructors is Haskell 2010 (report 4.2.1)
+       (when (not (or interface? (haskell98?)))
 	 (signal-missing-constructors))))
     (make data-decl (context contexts) (simple simple)
 		    (constrs constrs) (deriving deriving)
