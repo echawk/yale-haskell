@@ -1,0 +1,34 @@
+-- Data/BitsPrims.hi -- Lisp primitives for Data.Bits (src/runtime/prims.mumble)
+
+interface BitsPrims where
+
+primIntBits :: Int
+primAndInt, primOrInt, primXorInt :: Int -> Int -> Int
+primComplementInt :: Int -> Int
+primShiftInt, primRotateInt :: Int -> Int -> Int
+primTestBitInt :: Int -> Int -> Bool
+primPopCountInt :: Int -> Int
+primAndInteger, primOrInteger, primXorInteger :: Integer -> Integer -> Integer
+primComplementInteger :: Integer -> Integer
+primShiftInteger :: Integer -> Int -> Integer
+primTestBitInteger :: Integer -> Int -> Bool
+primPopCountInteger :: Integer -> Int
+
+{-#
+primIntBits           :: LispName("prim.int-bits"), Complexity(0)
+primAndInt            :: LispName("prim.and-int"), Complexity(1)
+primOrInt             :: LispName("prim.or-int"), Complexity(1)
+primXorInt            :: LispName("prim.xor-int"), Complexity(1)
+primComplementInt     :: LispName("prim.complement-int"), Complexity(1)
+primShiftInt          :: LispName("prim.shift-int"), Complexity(2)
+primRotateInt         :: LispName("prim.rotate-int"), Complexity(3)
+primTestBitInt        :: LispName("prim.test-bit-int"), Complexity(1)
+primPopCountInt       :: LispName("prim.pop-count-int"), Complexity(2)
+primAndInteger        :: LispName("prim.and-integer"), Complexity(2)
+primOrInteger         :: LispName("prim.or-integer"), Complexity(2)
+primXorInteger        :: LispName("prim.xor-integer"), Complexity(2)
+primComplementInteger :: LispName("prim.complement-integer"), Complexity(2)
+primShiftInteger      :: LispName("prim.shift-integer"), Complexity(2)
+primTestBitInteger    :: LispName("prim.test-bit-integer"), Complexity(2)
+primPopCountInteger   :: LispName("prim.pop-count-integer"), Complexity(3)
+#-}

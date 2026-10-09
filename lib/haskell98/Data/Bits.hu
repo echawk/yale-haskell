@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/
+:o= all
+BitsPrims.hi
+Bits.hs

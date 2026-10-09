@@ -766,3 +766,62 @@
   (apply-2 g
 	   (box *cons-constructor*)
 	   (box '())))
+
+
+;;; Data.Bits (lib/haskell98/Data/BitsPrims.hi).  Int is a fixnum, so it
+;;; has prim.int-bits bits (63 on 64-bit SBCL) and shifts wrap there;
+;;; Integer shifts are exact.
+
+(define-integrable prim.int-bits
+  (lisp:1+ (lisp:integer-length lisp:most-positive-fixnum)))
+
+(define-syntax (prim.and-int x y)
+  `(the-fixnum (lisp:logand (the-fixnum ,x) (the-fixnum ,y))))
+(define-syntax (prim.or-int x y)
+  `(the-fixnum (lisp:logior (the-fixnum ,x) (the-fixnum ,y))))
+(define-syntax (prim.xor-int x y)
+  `(the-fixnum (lisp:logxor (the-fixnum ,x) (the-fixnum ,y))))
+(define-syntax (prim.complement-int x)
+  `(the-fixnum (lisp:lognot (the-fixnum ,x))))
+(define-syntax (prim.test-bit-int x i)
+  `(lisp:logbitp (the-fixnum ,i) (the-fixnum ,x)))
+
+(define (prim.shift-int x n)
+  (declare (type fixnum x n))
+  (cond ((<= n 0) (lisp:ash x (lisp:max n (- prim.int-bits))))
+	((>= n prim.int-bits) 0)
+	(else (sb-c::mask-signed-field 63 (lisp:ash x n)))))
+
+(define (prim.rotate-int x n)
+  (declare (type fixnum x n))
+  (let* ((w  prim.int-bits)
+	 (r  (lisp:mod n w))
+	 (u  (lisp:ldb (lisp:byte w 0) x)))
+    (sb-c::mask-signed-field
+      63
+      (lisp:logior (lisp:ldb (lisp:byte w 0) (lisp:ash u r))
+		   (lisp:ash u (- r w))))))
+
+(define (prim.pop-count-int x)
+  (declare (type fixnum x))
+  (if (< x 0)
+      (- prim.int-bits (lisp:logcount x))
+      (lisp:logcount x)))
+
+(define-syntax (prim.and-integer x y)
+  `(the-integer (lisp:logand (the-integer ,x) (the-integer ,y))))
+(define-syntax (prim.or-integer x y)
+  `(the-integer (lisp:logior (the-integer ,x) (the-integer ,y))))
+(define-syntax (prim.xor-integer x y)
+  `(the-integer (lisp:logxor (the-integer ,x) (the-integer ,y))))
+(define-syntax (prim.complement-integer x)
+  `(the-integer (lisp:lognot (the-integer ,x))))
+(define-syntax (prim.shift-integer x n)
+  `(the-integer (lisp:ash (the-integer ,x) (the-fixnum ,n))))
+(define-syntax (prim.test-bit-integer x i)
+  `(lisp:logbitp (the-fixnum ,i) (the-integer ,x)))
+
+(define (prim.pop-count-integer x)
+  (if (< x 0)
+      (- (lisp:logcount (- x)))
+      (lisp:logcount x)))
