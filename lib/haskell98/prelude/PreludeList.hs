@@ -249,11 +249,16 @@ take n l		= takeInt n l
 {-# take  :: Inline #-}
 
 takeInt                 :: Int -> [b] -> [b]
-takeInt m l = 
-  build (\ c n ->
-           let f x g i | i <= 0		= n
-	               | otherwise      = c x (g (i - 1))
-           in foldr f (\ _ -> n) l m)
+-- As lazy as the Report's take: take 0 xs is [] without looking at xs,
+-- and take n stops after the nth element without demanding the next
+-- cons (take 100 (nub rs) on an infinite rs must not look for a 101st
+-- distinct element).  Still a good producer and consumer for fusion.
+takeInt m l
+  | m <= 0    = []
+  | otherwise =
+      build (\ c n ->
+               let f x g i = c x (if i <= 1 then n else g (i - 1))
+               in foldr f (\ _ -> n) l m)
 --takeInt  0     _	=  []
 --takeInt  _     []	=  []
 --takeInt  n l | n > 0    = primTake n l

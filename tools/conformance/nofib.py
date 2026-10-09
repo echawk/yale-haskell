@@ -37,6 +37,7 @@ EXTENSIONS = re.compile(r'\{-#\s*LANGUAGE|\bforall\b|\bunsafePerformIO\b|#!|^\s*
 KNOWN = {
     'spectral/sphere': 'its hash relies on 64-bit Int wrap-around (H98 leaves overflow undefined; Int is the 62-bit fixnum range)',
     'spectral/mandel': 'uses hSetBinaryMode (not Haskell 98)',
+    'spectral/secretary': 'Monte Carlo over Random: H98 does not fix the generator (ours is the Report/Hugs L\'Ecuyer one, GHC\'s random uses SplitMix); results agree statistically (~0.36 vs ~0.36)',
     'spectral/mandel2': 'uses <$> (not in the Haskell 98 Prelude)',
     'spectral/life': 'uses <$> (not in the Haskell 98 Prelude)',
     'spectral/simple': 'uses <$> (not in the Haskell 98 Prelude)',
