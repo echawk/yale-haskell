@@ -22,7 +22,9 @@
   ".wfasl"
   #+wcl
   ".o"
-  #-(or sbcl lucid allegro cmu akcl mcl lispworks wcl)
+  #+ecl
+  ".o"
+  #-(or ecl sbcl lucid allegro cmu akcl mcl lispworks wcl)
   (error "Don't know how to initialize *LISP-BINARY-FILE-TYPE*.")
   )
 
@@ -36,6 +38,7 @@
   #+mcl "mcl"
   #+lispworks "lispworks"
   #+wcl "wcl"
-  #-(or sbcl lucid allegro cmu akcl mcl lispworks wcl)
+  #+ecl "ecl"
+  #-(or ecl sbcl lucid allegro cmu akcl mcl lispworks wcl)
   (error "Don't know how to initialize *LISP-IMPLEMENTATION-NAME*.")
   )

@@ -18,8 +18,21 @@
 #+sbcl
 (unless (find-package "LISP")
   (sb-ext:without-package-locks
+   (rename-package "COMMON-LISP" "COMMON-LISP"
+                   (cons "LISP" (package-nicknames "COMMON-LISP")))))
+
+#+ecl
+(unless (find-package "LISP")
+  (handler-bind
+      ((package-error
+         (lambda (condition)
+           (declare (ignore condition))
+           (let ((restart (find-restart 'continue)))
+             (when restart
+               (invoke-restart restart))))))
     (rename-package "COMMON-LISP" "COMMON-LISP"
-		    (cons "LISP" (package-nicknames "COMMON-LISP")))))
+                    (cons "LISP"
+                          (package-nicknames "COMMON-LISP")))))
 
 ;;; COMMON-LISP stays locked: mumble never redefines its symbols (see
 ;;; dynamic-let in cl-definitions.lisp and the printer variables in
