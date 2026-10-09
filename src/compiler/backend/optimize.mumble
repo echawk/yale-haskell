@@ -868,9 +868,22 @@
 (define-optimize flic-ref (object)
   (optimize-flic-ref-aux object))
 
+;;; The variables whose values are being inlined (optimized after copying)
+;;; at this point.  One of them is not inlined again inside its own
+;;; expansion: a value that leads back to the variable (boyer's divides,
+;;; through the lemma tables it builds) would otherwise be inlined forever.
+
+(define *inlining-vars* '())
+
+(define (optimize-inline var value)
+  (dynamic-let ((*inlining-vars* (cons var (dynamic *inlining-vars*))))
+    (optimize (copy-flic-top value))))
+
 (define (optimize-flic-ref-aux object)
   (let ((var     (flic-ref-var object)))
-    (cond ((var-single-ref var)
+    (cond ((memq var (dynamic *inlining-vars*))
+	   object)
+	  ((var-single-ref var)
 	   ;; (or (eqv? (var-single-ref var) (dynamic *lambda-depth*)))
 	   ;; *** The lambda-depth test is too conservative to handle
 	   ;; *** inlining of stuff necessary for foldr/build optimizations.
@@ -883,18 +896,18 @@
 	   ;; We copy the value anyway to avoid problems with shared
 	   ;; structure in the multiple reference case.
 	   (record-hack 'ref-inline-single-ref var)
-	   (optimize (copy-flic-top (var-value var))))
+	   (optimize-inline var (var-value var)))
 	  ((and (var-inline-value var) (dynamic *do-inline-optimizations*))
 	   ;; Use the previously saved value in preference to the current
 	   ;; value of the variable.
 	   (record-hack 'ref-inline-foldr-hack)
-	   (optimize (copy-flic-top (var-inline-value var))))
+	   (optimize-inline var (var-inline-value var)))
 	  ((and (var-simple? var)
 		(or (dynamic *do-inline-optimizations*)
 		    (not (var-toplevel? var))))
 	   ;; Can substitute, but must copy.
 	   (record-hack 'ref-inline var)
-	   (optimize (copy-flic-top (var-value var))))
+	   (optimize-inline var (var-value var)))
 	  ((eq? var (core-symbol "foldr"))
 	   ;; Magic stuff for deforestation
 	   (if (> (the fixnum (dynamic *current-optimize-iteration*))
