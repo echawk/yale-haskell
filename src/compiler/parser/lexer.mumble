@@ -32,7 +32,38 @@
 ;;; *** instead of characters and vectors of integers instead of characters
 ;;; *** throughout the compiler.
 
-(define *max-char* 255)  ; highest char-code allowed.
+;;; Highest character code: Unicode in Haskell 98, Latin-1 in 1.2.
+
+(define (max-char-code)
+  (if (feature? 'h98-lexing) #x10FFFF 255))
+
+;;; Characters beyond ASCII in Haskell 98 source (report 2.2):
+;;; letters (lower- or uncased: small; upper: large), symbols and
+;;; punctuation (symbol), space separators (whitechar), and any printable
+;;; character in literals (graphic).  The char-case classes call these
+;;; (parser-macros.mumble); C may be the end-of-file object.
+
+(define (uni-char? c)
+  (and (char? c) (> (char->integer c) 127) (feature? 'h98-lexing)))
+
+(define (uni-small-char? c)
+  (and (uni-char? c) (lisp:alpha-char-p c) (not (lisp:upper-case-p c))))
+
+(define (uni-large-char? c)
+  (and (uni-char? c) (lisp:upper-case-p c)))
+
+(define (uni-symbol-char? c)
+  (and (uni-char? c)
+       #+sbcl (memq (sb-unicode:general-category c) '(:Sm :Sc :Sk :So :Pd :Po))
+       #-sbcl '#f))
+
+(define (uni-white-char? c)
+  (and (uni-char? c)
+       #+sbcl (eq? (sb-unicode:general-category c) ':Zs)
+       #-sbcl '#f))
+
+(define (uni-graphic-char? c)
+  (and (uni-char? c) (lisp:graphic-char-p c)))
 
 ;;; This defines the long names of the control chars.  Note that some of
 ;;; this duplicates the table above & the reader.
@@ -825,7 +856,7 @@
 ;;; *** supports 255 characters.
 
 (define (convert-num-to-char num)
-  (cond ((and (>= num 0) (>= *max-char* num))
+  (cond ((and (>= num 0) (>= (max-char-code) num))
 	 (integer->char num))
 	(else
 	 (signal-char-out-of-range num)

@@ -1,0 +1,10 @@
+héllo wörld λ → € 中文
+"h\233llo w\246rld \955 \8594 \8364 \20013\25991"
+(42,3,Groß,3.14159)
+("STRA\223E \923 \376 \924","\224\955\963")
+([True,False,True,False],[True,True,False,False],[True,False,True,True,False])
+([955,8364,20013],'\8364','\1114111')
+('\955','\955',"\8594",3,"\956")
+(["a\12288b"],True)
+(True,20)
+文中 € → λ dlröw olléh

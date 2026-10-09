@@ -24,7 +24,7 @@ import PreludePrims
 
 minChar, maxChar	:: Char
 minChar			= '\0'
-maxChar			= '\255'
+maxChar			= '\1114111'
 
 ord			:: Char -> Int
 ord 			=  primCharToInt
@@ -41,18 +41,20 @@ isLatin1 c	=  c <= '\255'
 
 isControl c	=  c < ' ' || (c >= '\DEL' && c <= '\159')
 
-isPrint c	=  (c >= ' ' && c <= '~') || (c >= '\160' && c /= '\173')
+-- Char is Unicode (report 6.1.2): letters, case and printability follow
+-- the Unicode character properties (the host's tables); isAlpha is
+-- any letter, as in GHC.  isSpace, isDigit, isControl and the
+-- hexadecimal and octal tests are the Report's.
+isPrint c	=  primUnicodeIsPrint c
 
 isSpace c	=  c == ' '  || c == '\t' || c == '\n' ||
 		   c == '\r' || c == '\f' || c == '\v' || c == '\160'
 
-isUpper c	=  (c >= 'A' && c <= 'Z') ||
-		   (c >= '\192' && c <= '\222' && c /= '\215')
+isUpper c	=  primUnicodeIsUpper c
 
-isLower c	=  (c >= 'a' && c <= 'z') || c == '\181' ||
-		   (c >= '\223' && c /= '\247')
+isLower c	=  primUnicodeIsLower c
 
-isAlpha c	=  isUpper c || isLower c
+isAlpha c	=  primUnicodeIsAlpha c
 
 isDigit c	=  c >= '0' && c <= '9'
 
@@ -76,16 +78,7 @@ intToDigit i
   | i >= 10 && i <= 15	 =  chr (ord 'a' + i - 10)
   | otherwise		 =  error "Char.intToDigit: not a digit"
 
--- Latin-1 case mapping: the upper and lower ranges differ by 32,
--- except for the multiplication and division signs; sharp s, micro
--- and y-diaeresis have no Latin-1 counterpart.
+-- Unicode simple case mapping.
 toUpper, toLower	:: Char -> Char
-toUpper c
-  | c >= 'a' && c <= 'z'			= chr (ord c - 32)
-  | c >= '\224' && c <= '\254' && c /= '\247'	= chr (ord c - 32)
-  | otherwise					= c
-
-toLower c
-  | c >= 'A' && c <= 'Z'			= chr (ord c + 32)
-  | c >= '\192' && c <= '\222' && c /= '\215'	= chr (ord c + 32)
-  | otherwise					= c
+toUpper c		=  primUnicodeToUpper c
+toLower c		=  primUnicodeToLower c

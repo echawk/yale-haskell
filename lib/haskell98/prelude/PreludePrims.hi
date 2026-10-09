@@ -21,6 +21,9 @@ primIntToChar :: Int -> Char
 primEqChar, primNeqChar, primLeChar, primGtChar, primLsChar, primGeChar
   :: Char -> Char -> Bool
 primMaxChar :: Int
+primUnicodeIsUpper, primUnicodeIsLower, primUnicodeIsAlpha, primUnicodeIsPrint
+                :: Char -> Bool
+primUnicodeToUpper, primUnicodeToLower :: Char -> Char
 primEqFloat, primNeqFloat, primLeFloat, primGtFloat, primLsFloat, primGeFloat
   :: Float -> Float -> Bool
 primFloatMax, primFloatMin :: Float -> Float -> Float
@@ -122,6 +125,12 @@ primGtChar ::       LispName("prim.not-le-char"), Complexity(1), NoConversion
 primLsChar ::       LispName("prim.lt-char"), Complexity(1), NoConversion
 primGeChar ::       LispName("prim.not-lt-char"), Complexity(1), NoConversion
 primMaxChar ::      LispName("prim.max-char"), NoConversion
+primUnicodeIsUpper :: LispName("prim.unicode-is-upper"), Complexity(2), NoConversion
+primUnicodeIsLower :: LispName("prim.unicode-is-lower"), Complexity(2), NoConversion
+primUnicodeIsAlpha :: LispName("prim.unicode-is-alpha"), Complexity(2), NoConversion
+primUnicodeIsPrint :: LispName("prim.unicode-is-print"), Complexity(2), NoConversion
+primUnicodeToUpper :: LispName("prim.unicode-to-upper"), Complexity(2), NoConversion
+primUnicodeToLower :: LispName("prim.unicode-to-lower"), Complexity(2), NoConversion
 primEqFloat ::      LispName("prim.eq-float"), Complexity(1)
 primNeqFloat ::     LispName("prim.not-eq-float"), Complexity(1)
 primLeFloat  ::     LispName("prim.le-float"), Complexity(1)

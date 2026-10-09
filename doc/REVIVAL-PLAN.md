@@ -282,9 +282,12 @@ after M1 in parallel with M3–M6, but it touches every name lookup.
 **M8 — System libraries.**  System, CPUTime, Directory, IO, Time,
 Locale and Random.
 
-**M9 — Remaining items.**  Polymorphic recursion, Unicode, and a
-conformance pass against the Report (e.g. the Hugs test suite and
-nofib's `imaginary` and `spectral` programs).
+**M9 — Remaining items** (✅ 2026-10-08).  Polymorphic recursion,
+Unicode, and a conformance pass: nofib's `imaginary` and `spectral`
+programs through `tools/conformance/nofib.py` (43 pass, 7 known
+deviations, no failures; STRATEGY.md "Conformance: nofib").  With M9
+the Haskell 98 work list is done; what remains are documented
+deviations (Int is the 62-bit fixnum range; the M7 `[Red..]` lexing).
 
 **M10 — Command line and interactive system** (✅ first version
 2026-10-08: `src/cli/cli.lisp` over clingon is the image's entry point;

@@ -24,16 +24,16 @@
 (define *lex-definitions*
   '((vtab 11)  ; define by ascii code to avoid relying of the reader
     (formfeed 12) 
-    (whitechar #\newline #\space #\tab formfeed vtab)
-    (small #\a - #\z)
-    (large #\A - #\Z)
+    (whitechar #\newline #\space #\tab formfeed vtab (:pred uni-white-char?))
+    (small #\a - #\z (:pred uni-small-char?))
+    (large #\A - #\Z (:pred uni-large-char?))
     (digit #\0 - #\9)
     (symbol #\! #\# #\$ #\% #\& #\* #\+ #\. #\/ #\< #\= #\> #\? #\@
-      #\\ #\^ #\|)
+      #\\ #\^ #\| (:pred uni-symbol-char?))
     (presymbol #\- #\~)
     (exponent #\e #\E)
     (latin1 161 - 255)  ; the printable ISO 8859-1 characters above ASCII
-    (graphic large small digit latin1
+    (graphic large small digit latin1 (:pred uni-graphic-char?)
              #\! #\" #\# #\$ #\% #\& #\' #\( #\) #\* #\+
              #\, #\- #\. #\/ #\: #\; #\< #\= #\> #\? #\@
 	     #\[ #\\ #\] #\^ #\_ #\` #\{ #\| #\} #\~)
@@ -73,9 +73,19 @@
 		    ,body
 		    ,rest))))))
 
+;;; A class may include (:pred fn): FN is also called on the character
+;;; (lexer.mumble's uni-*-char? predicates, for Unicode beyond Latin-1).
+
 (define (gen-char-tests temp tests)
-  (gen-char-tests-1 temp
-	(sort-list (gather-char-tests tests) (function char<?))))
+  (let* ((all    (gather-char-tests tests))
+	 (preds  '())
+	 (chars  '()))
+    (dolist (x all)
+      (if (pair? x)
+	  (when (not (member x preds)) (push x preds))
+	  (push x chars)))
+    (append (gen-char-tests-1 temp (sort-list chars (function char<?)))
+	    (map (lambda (p) `(,(cadr p) ,temp)) (reverse preds)))))
 
 (define (gen-char-tests-1 temp chars)
   (cond ((null? chars)
@@ -105,6 +115,8 @@
 (define (gather-char-tests tests)
   (cond ((null? tests)
 	 '())
+	((and (pair? (car tests)) (eq? (caar tests) ':pred))
+	 (cons (car tests) (gather-char-tests (cdr tests))))
 	((symbol? (car tests))
 	 (let ((new-test (assq (car tests) *lex-definitions*)))
 	   (if new-test
