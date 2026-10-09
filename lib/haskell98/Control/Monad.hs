@@ -2,7 +2,7 @@
 -- Haskell's Haskell 98 dialect.  It re-exports the Haskell 98 module Monad
 -- and the Prelude names the 2010 Report lists, plus what 2010 added.
 module Control.Monad (
-    MonadPlus(mzero, mplus),
+    Functor(fmap), Monad((>>=), (>>), return, fail), MonadPlus(mzero, mplus),
     mapM, mapM_, forM, forM_, sequence, sequence_, (=<<), (>=>), (<=<),
     forever, void, join, msum, filterM, mapAndUnzipM, zipWithM, zipWithM_,
     foldM, foldM_, replicateM, replicateM_, guard, when, unless,

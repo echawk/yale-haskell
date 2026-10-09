@@ -189,7 +189,10 @@
 (define (wrapup-module mod-ast)
   (setf (module-decls mod-ast)
 	(nreverse (module-decls mod-ast)))
-  (when (and (null? (module-imports mod-ast))
+  ;; Haskell 98 allows an empty body (module M (x) where re-exporting
+  ;; only the Prelude's names, or module Main where with nothing)
+  (when (and (not (haskell98?))
+	     (null? (module-imports mod-ast))
 	     (null? (module-decls mod-ast))
 	     (null? (module-algdatas mod-ast))
 	     (null? (module-synonyms mod-ast))

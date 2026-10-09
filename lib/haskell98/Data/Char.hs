@@ -2,6 +2,7 @@
 -- Haskell's Haskell 98 dialect.  It re-exports the Haskell 98 module Char
 -- and the Prelude names the 2010 Report lists, plus what 2010 added.
 module Data.Char (
+    Char, String,
     isControl, isSpace, isLower, isUpper, isAlpha, isLetter, isDigit,
     isOctDigit, isHexDigit, isAlphaNum, isPrint, isPunctuation, isSymbol,
     isSeparator, isMark, isNumber, isAscii, isLatin1, isAsciiUpper, isAsciiLower,

@@ -430,14 +430,16 @@
     (let ((pmod (locate-module '|Prelude|)))
       (setf *prelude-symbol-table* (prelude-exported-symbol-table pmod))
       (setf *prelude-fixity-table* (module-fixity-table pmod))
-      (when (eq? (module-inverted-symbol-table pmod) '#f)
-	(let ((table (make-table)))
-	  (table-for-each (lambda (name def)
-			    (setf (table-entry table def) name))
-			  *prelude-symbol-table*)
-	  (setf (module-inverted-symbol-table pmod) table)))
-      (setf *prelude-inverted-symbol-table*
-	    (module-inverted-symbol-table pmod)))
+      ;; The names the Prelude exports, by definition.  (Not the Prelude
+      ;; module's own inverted table, which lacks names it re-exports,
+      ;; such as Maybe's constructors.)
+      (let ((table (make-table)))
+	(table-for-each (lambda (name def)
+			  (setf (table-entry table def) name))
+			*prelude-symbol-table*)
+	(when (eq? (module-inverted-symbol-table pmod) '#f)
+	  (setf (module-inverted-symbol-table pmod) table))
+	(setf *prelude-inverted-symbol-table* table)))
     (setf *prelude-initialized* '#t)))
 
 
