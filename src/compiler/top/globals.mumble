@@ -167,3 +167,47 @@
 
 (define (haskell98?)
   (eq? *haskell-dialect* 'haskell98))
+
+;;; Haskell 2010 mode (yale-haskell --haskell2010, YALE_HASKELL_2010=1):
+;;; the Haskell 98 dialect with the 2010 Report's changes that would
+;;; break Haskell 98 programs.  So far: the Prelude does not export
+;;; catch (*not-in-2010-prelude*; use System.IO.Error.catchIOError or
+;;; Control.Exception.catch).
+
+(define *haskell2010?* '#f)
+
+(define (haskell2010?)
+  (and (haskell98?)
+       (or (dynamic *haskell2010?*)
+	   (env-flag? "YALE_HASKELL_2010")
+	   (modern-prelude?))))
+
+;;; The modern Prelude (yale-haskell --modern-prelude,
+;;; YALE_HASKELL_MODERN=1): Haskell 2010 mode, and every module also
+;;; imports PreludeModern (lib/haskell98/PreludeModern.hs) implicitly --
+;;; the names GHC's base Prelude adds: Applicative, Alternative,
+;;; MonadFail (whose fail replaces the Prelude's), Semigroup, Monoid,
+;;; <$>.  doc/plans/MICROCABAL.md, step 2.
+
+(define *modern-prelude?* '#f)
+
+(define (modern-prelude?)
+  (and (haskell98?)
+       (or (dynamic *modern-prelude?*) (env-flag? "YALE_HASKELL_MODERN"))))
+
+;;; Library modules are compiled the same in every mode, so that their
+;;; compiled units can be shared.  *compiling-library?* is bound while a
+;;; library unit compiles (locally-compile).
+
+(define *compiling-library?* '#f)
+
+(define (library-source-file? file)
+  (and (string? file)
+       (or (string-starts? "$HASKELL_LIBRARY/" file)
+	   (string-starts? "$PRELUDE/" file))))
+
+(define (env-flag? name)
+  (let ((env  (getenv name)))
+    (and env (not (string=? env "")) (not (string=? env "0")))))
+
+(define *not-in-2010-prelude* '(|catch|))

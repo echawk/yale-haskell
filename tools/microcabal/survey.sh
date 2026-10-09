@@ -23,10 +23,10 @@ for f in Text/ParserComb.hs MicroCabal/Regex.hs MicroCabal/Glob.hs \
          MicroCabal/Backend/GHC.hs MicroCabal/Backend/MHS.hs \
          MicroCabal/Main.hs; do
   total=$((total+1))
-  out=$(perl -e 'alarm 300; exec @ARGV' "$top/bin/yale-haskell" --haskell98 \
+  out=$(perl -e 'alarm 300; exec @ARGV' "$top/bin/yale-haskell" --haskell98 --modern-prelude \
         -e ":load $f" 2>&1 | grep -v '^$')
   case "$out" in
-    "Ok, modules loaded"*) ok=$((ok+1)); echo "ok    $f" ;;
+    *"Ok, modules loaded"*) ok=$((ok+1)); echo "ok    $f" ;;
     *) echo "FAIL  $f"; echo "$out" | head -"$lines" | sed 's/^/      /' ;;
   esac
 done

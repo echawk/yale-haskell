@@ -10,6 +10,7 @@ module Foreign.Marshal.Alloc (
   ) where
 
 import ForeignPrims
+import PreludeIO (catch)
 import Foreign.Ptr
 import Foreign.Storable
 

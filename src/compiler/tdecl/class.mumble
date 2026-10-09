@@ -184,10 +184,16 @@
   (let ((res '()))
     (dolist (c (cons class (class-super* class)))
       (dolist (m (class-method-vars c))
+	;; a superclass's method's selector names that class too: the
+	;; method may have the same name as one of this class's
+	;; (MonadFail's fail and Monad's fail)
 	(let* ((var (make-new-var
 	        (string-append "sel-"
 			       (symbol->string (def-name class))
 			       "/"
+			       (if (eq? c class)
+				   ""
+				   (string-append (symbol->string (def-name c)) "."))
 			       (symbol->string (def-name m)))))
 	       (sel-body (create-selector-code class m)))
 	  (setf (var-selector-fn? var) '#t)

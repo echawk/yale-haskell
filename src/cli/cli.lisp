@@ -35,6 +35,10 @@
    (clingon:make-option :string :long-name "printers" :short-name #\p
                         :key :printers :persistent t
                         :description "compiler passes to print, comma-separated (e.g. grin,codegen)")
+   (clingon:make-option :flag :long-name "haskell2010" :key :haskell2010 :persistent t
+                        :description "Haskell 2010 mode: the 2010 Prelude (no catch)")
+   (clingon:make-option :flag :long-name "modern-prelude" :key :modern-prelude :persistent t
+                        :description "GHC base's Prelude names too (Applicative, MonadFail, Semigroup, ...); implies --haskell2010")
    (clingon:make-option :flag :long-name "no-optimize" :short-name #\O
                       :key :no-optimize :persistent t
                       :description "turn off the FLIC optimizer")
@@ -83,6 +87,10 @@
                   (mumble-call "SET-PRINTERS"
                                (uiop:split-string printers :separator ",")
                                (intern "=" "MUMBLE-USER"))))
+    (when (clingon:getopt* cmd :haskell2010)
+      (mumble-set "*HASKELL2010?*" t))
+    (when (clingon:getopt* cmd :modern-prelude)
+      (mumble-set "*MODERN-PRELUDE?*" t))
     (when (clingon:getopt* cmd :no-optimize)
       (mumble-set "*OPTIMIZERS*" '()))
     (dolist (lib (clingon:getopt* cmd :foreign-library))

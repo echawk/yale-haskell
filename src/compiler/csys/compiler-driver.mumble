@@ -478,7 +478,11 @@
 	    (setf defined (append (car scan) defined))
 	    (when (source-extension? (filename-type file))
 	      (dolist (m (cdr scan))
-		(push (cons m file) imports)))))
+		(push (cons m file) imports))
+	      ;; imported implicitly (init-standard-module)
+	      (when (and (modern-prelude?)
+			 (not (library-source-file? (ucache-ufile c))))
+		(push (cons '|PreludeModern| file) imports)))))
 	(let ((available
 	       (map (lambda (m) (module-name m))
 		    (collect-all-modules-1 (ucache-explicit-imports c) '() '()))))
@@ -747,7 +751,9 @@
 ;;; This does the actual job of compilation.
 
 (define (locally-compile c cflags)
-  (dynamic-let ((*printers*
+  (dynamic-let ((*compiling-library?*
+		  (library-source-file? (ucache-ufile c)))
+		(*printers*
 		  (if (ucache-printers-set? c)
 		      (ucache-printers c)
 		      (dynamic *printers*)))

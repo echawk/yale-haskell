@@ -71,9 +71,7 @@
     (setf (var-strictness var) '())
     `(define ,(fullname var)
              (delay
-	       ,(if (eq? conversion-fn '#f)
-		    (var-optimized-entry var)
-		    `(,@conversion-fn ,(var-optimized-entry var)))))))
+	       ,(apply-conversion conversion-fn (var-optimized-entry var))))))
 
 (define (maybe-expand-io-type ty)
   (cond ((and (ntycon? ty)

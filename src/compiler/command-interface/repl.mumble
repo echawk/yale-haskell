@@ -387,6 +387,11 @@
 ;;; on top of it.  Returns #f if it did not compile.
 
 (define (repl-scratch-module)
+  ;; compiling it may compile library units, whose Lisp warnings are noise
+  (lisp:handler-bind ((lisp:warning (function lisp:muffle-warning)))
+    (repl-scratch-module-1)))
+
+(define (repl-scratch-module-1)
   (let ((file  (repl-scratch-file)))
     (call-with-output-file file
       (lambda (port)
@@ -434,6 +439,10 @@
 	   (repl-scratch-module)))))
 
 (define (repl-load files)
+  (lisp:handler-bind ((lisp:warning (function lisp:muffle-warning)))
+    (repl-load-1 files)))
+
+(define (repl-load-1 files)
   (setf *repl-files* files)
   (setf *repl-definitions* '())
   (setf *repl-imports* '())

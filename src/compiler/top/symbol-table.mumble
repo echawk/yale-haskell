@@ -260,7 +260,7 @@
 	  ((def-prelude? old-definition)
 	   (signal-core-redefinition name))
 	  ((and (module-uses-standard-prelude? *module*)
-		(table-entry *prelude-symbol-table* name))
+		(prelude-symbol-entry name))
 	   (if (haskell98?)
 	       (install-clashing-definition name def old-definition '#t)
 	       (if (eq? (def-module def) *module-name*)
@@ -370,7 +370,21 @@
 (define (hidden-core-name? name)
   (and (haskell98?)
        (not (module-prelude? *module*))
-       (memq name '(|Assoc| |;:=|))))
+       (or (memq name '(|Assoc| |;:=|))
+	   ;; the Monad fail; PreludeModern's MonadFail(fail) replaces it
+	   (and (eq? name '|fail|) (monadfail-fail-module?)))))
+
+;;; Modules where fail is MonadFail's (PreludeModern) rather than the
+;;; Haskell 98 Monad method: user modules under --modern-prelude, and
+;;; modules defining or importing it.
+
+(define (monadfail-fail-module?)
+  (or (and (modern-prelude?) (not (module-library? *module*)))
+      (memq *module-name* '(|PreludeModern| |Control.Monad.Fail|))
+      (lisp:some (lambda (i)
+		   (memq (import-decl-module-name i)
+			 '(|PreludeModern| |Control.Monad.Fail|)))
+		 (module-imports *module*))))
 
 ;;; Clashing names (install-clashing-definition), by module name: an
 ;;; alist of the name and a description of the candidates.  The kept
@@ -396,13 +410,21 @@
 	  ((name-clash name)
 	   (resolve-toplevel-name-1 name))
 	  ((module-uses-standard-prelude? *module*)
-	   (let ((res (table-entry *prelude-symbol-table* name)))
+	   (let ((res (prelude-symbol-entry name)))
 	     (if (eq? res '#f)
 		 (or (resolve-toplevel-name-1 name)
 		     (resolve-implicit-prelude-qualified name))
 		 res)))
 	  (else
 	   (resolve-toplevel-name-1 name)))))
+
+;;; A name the implicitly imported Prelude exports, or #f.
+
+(define (prelude-symbol-entry name)
+  (and (not (and (memq name *not-in-2010-prelude*)
+		 (haskell2010?)
+		 (not (module-library? *module*))))
+       (table-entry *prelude-symbol-table* name)))
 
 ;;; Prelude.x when the Prelude is imported implicitly: its names are not
 ;;; in the module's symbol table (they are looked up in the prelude
@@ -413,7 +435,7 @@
        (mlet (((base mod) (split-qualified-name name)))
 	 (and (eq? mod '|Prelude|)
 	      (or (table-entry *prelude-core-symbols* base)
-		  (table-entry *prelude-symbol-table* base))))))
+		  (prelude-symbol-entry base))))))
 
 (define (resolve-toplevel-name-1 name)
   (cond ((eq? (module-inherited-env *module*) '#f)

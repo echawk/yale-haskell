@@ -41,7 +41,7 @@ module IO (
     bracket, bracket_, try
     ) where
 
-import PreludeIO(IOError(..), thenIO, thenIO_, returnIO)
+import PreludeIO(IOError(..), thenIO, thenIO_, returnIO, catch)
 import IOPrims
 
 -- IOErrors.  The wrappers exist because Yale requires instances to be

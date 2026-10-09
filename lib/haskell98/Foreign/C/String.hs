@@ -18,6 +18,7 @@ module Foreign.C.String (
 import Data.Int
 import Data.Char (ord, chr)
 import ForeignPrims
+import PreludeIO (catch)
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.C.Types

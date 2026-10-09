@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Debug/
+:o= all
+Trace.hs

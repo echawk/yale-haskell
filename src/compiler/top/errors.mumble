@@ -101,7 +101,28 @@
 
 ;;; This deals with error at runtime
 
+;;; Inside Control.Exception's catch (prim.catch-any, src/base/
+;;; base-runtime.lisp) a runtime error -- error, a failed pattern match --
+;;; is signalled as a haskell-error-call condition the catch can handle;
+;;; otherwise it aborts the program as always.
+
+(define *catch-runtime-errors* '#f)
+
+(lisp:define-condition haskell-error-call (lisp:error)
+  ((message :initarg :message :reader haskell-error-call-message))
+  (:report (lisp:lambda (c stream)
+	     (lisp:write-string (haskell-error-call-message c) stream))))
+
+;;; *runtime-error-hook*, if set, handles an uncaught runtime error
+;;; instead (batch mode: report it and exit, tools/build/image.lisp).
+
+(define *runtime-error-hook* '#f)
+
 (define (haskell-runtime-error msg)
+  (when (dynamic *catch-runtime-errors*)
+    (lisp:error 'haskell-error-call :message msg))
+  (when (dynamic *runtime-error-hook*)
+    (funcall (dynamic *runtime-error-hook*) msg))
   (format '#t "~&Haskell runtime abort.~%~A~%" msg)
   (funcall (dynamic *runtime-abort*)))
 

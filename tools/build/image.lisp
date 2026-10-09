@@ -39,7 +39,7 @@
   (setf *error-output-port* lisp:*error-output*)
   ;; Haskell runtime errors (error, head [], ...) normally return to the
   ;; REPL; in batch mode they end the program with status 1.
-  (setf (lisp:symbol-function 'haskell-runtime-error)
+  (setf *runtime-error-hook*
 	(lambda (msg)
 	  (lisp:force-output)
 	  (lisp:format lisp:*error-output* "~&Haskell runtime abort.~%~a~%" msg)
@@ -92,7 +92,11 @@
 	   (lisp:*readtable* (lisp:copy-readtable lisp:nil)))
   (lisp:load (lisp:compile-file "src/ffi/ffi-runtime.lisp"
 				:output-file (lisp:merge-pathnames
-					      "build/sbcl/ffi-runtime.fasl" (lisp:truename "./")))))
+					      "build/sbcl/ffi-runtime.fasl" (lisp:truename "./"))))
+  ;; the other base-library primitives (src/base/), likewise plain CL
+  (lisp:load (lisp:compile-file "src/base/base-runtime.lisp"
+				:output-file (lisp:merge-pathnames
+					      "build/sbcl/base-runtime.fasl" (lisp:truename "./")))))
 
 ;;; cli.lisp is plain CL: compile it in CL-USER with the standard readtable.
 (lisp:let ((lisp:*package* (lisp:find-package "CL-USER"))

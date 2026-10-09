@@ -1,0 +1,68 @@
+-- BasePrims.hi -- primitives under the base library modules that are not
+-- the FFI's: exceptions, processes, the platform, the environment and
+-- directories (src/base/base-runtime.lisp).
+
+interface BasePrims where
+
+import PreludeCore(Int,Integer,Bool,Char)
+
+-- an exception: a Lisp condition (Control.Exception)
+data Exc
+
+primCatchAny       :: IO a -> (Exc -> IO a) -> IO a
+primThrowExc       :: Exc -> a
+primExcKind        :: Exc -> Int
+primExcMessage     :: Exc -> String
+primMakeErrorCall  :: String -> Exc
+-- between Exc and the Prelude's IOErrorObj (both conditions); the other
+-- type is left polymorphic, and fixed by Control.Exception
+primExcToObj       :: Exc -> b
+primObjToExc       :: b -> Exc
+
+-- the argument evaluated when the action runs (Control.Exception.evaluate)
+primEvaluate       :: a -> IO a
+
+primSystem         :: String -> IO Int
+primLastExitCode      :: IO Int
+primReadProcessOutput :: String -> String -> IO String
+
+primOS             :: String
+primArch           :: String
+
+primEnvIsSet       :: String -> IO Bool
+primEnvValue       :: String -> IO String
+primSetEnv         :: String -> String -> IO ()
+primUnsetEnv       :: String -> IO ()
+primHomeDirectory  :: IO String
+primTemporaryDirectory :: IO String
+
+primCreateDirectoryIfMissing :: Bool -> String -> IO ()
+primRemoveDirectoryRecursive :: String -> IO ()
+primCopyFile       :: String -> String -> IO ()
+primFindExecutable :: String -> IO String
+
+{-#
+primCatchAny       :: LispName("prim.catch-any"), Strictness("N,S,S")
+primThrowExc       :: LispName("prim.throw-exc")
+primExcKind        :: LispName("prim.exc-kind")
+primExcMessage     :: LispName("prim.exc-message")
+primMakeErrorCall  :: LispName("prim.make-error-call")
+primExcToObj       :: LispName("prim.identity")
+primObjToExc       :: LispName("prim.identity")
+primEvaluate       :: LispName("prim.identity"), NoConversion
+primSystem         :: LispName("prim.system")
+primLastExitCode      :: LispName("prim.last-exit-code")
+primReadProcessOutput :: LispName("prim.read-process-output")
+primOS             :: LispName("prim.os")
+primArch           :: LispName("prim.arch")
+primEnvIsSet       :: LispName("prim.env-is-set")
+primEnvValue       :: LispName("prim.env-value")
+primSetEnv         :: LispName("prim.set-env")
+primUnsetEnv       :: LispName("prim.unset-env")
+primHomeDirectory  :: LispName("prim.home-directory")
+primTemporaryDirectory :: LispName("prim.temporary-directory")
+primCreateDirectoryIfMissing :: LispName("prim.create-directory-if-missing")
+primRemoveDirectoryRecursive :: LispName("prim.remove-directory-recursive")
+primCopyFile       :: LispName("prim.copy-file")
+primFindExecutable :: LispName("prim.find-executable")
+#-}

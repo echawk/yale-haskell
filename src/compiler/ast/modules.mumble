@@ -118,6 +118,9 @@
 
     ;; Used to avoid copy of Prelude symbols.
     (uses-standard-prelude? (type bool) (default '#f))
+    ;; from the library ($HASKELL_LIBRARY, $PRELUDE): Haskell 2010 mode and
+    ;; the modern Prelude apply only to other modules (user-module-mode?)
+    (library? (type bool) (default '#f))
     ;; maps symbols in scope to definitions
     (symbol-table (type (table symbol def)) (default (make-table)))
     ;; maps names onto groups.

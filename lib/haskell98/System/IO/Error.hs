@@ -9,6 +9,7 @@ module System.IO.Error (
   ) where
 
 import IO
+import PreludeIO (catch)
 
 catchIOError :: IO a -> (IOError -> IO a) -> IO a
 catchIOError = catch
