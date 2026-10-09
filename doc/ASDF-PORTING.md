@@ -203,8 +203,11 @@ Testing on ECL and ABCL is a later goal (see `notes`).
 
 ## 5. Next steps
 
-- **External dependencies.**  `:depends-on (:cl-unicode)` can now be
-  added when LG-UNICODE needs it.
+- **External dependencies.**  Lisp libraries are installed with ocicl
+  (`ocicl.csv`, `make deps`).  The executable uses clingon (the command
+  line, src/cli/cli.lisp), loaded by `tools/build/image.lisp` in CL-USER
+  with the standard readtable.  Unicode (M9) needed no library: SBCL's
+  tables suffice, so cl-unicode is not used.
 - **Mumble as its own project.**  `mumble.asd` does not depend on Yale
   Haskell; the only remaining coupling is `compile.mumble`'s
   `$Y2/build/<lisp>/` output tree for units under `$Y2`.  Moving mumble

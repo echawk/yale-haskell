@@ -322,6 +322,34 @@ compiles, expressions cannot be typed at the prompt, and options are
   (tests/run-tests), the old command interface reachable during the
   transition.
 
+**M11 — Haskell 2010 (planned 2026-10-08).**  Haskell 2010 is Haskell
+98 plus a short list of changes (Report 2010, "Changes since Haskell
+98").  Status and plan for each, with the notes of
+doc/GEMINI-HASKELL2010-PORTING-NOTES.md weighed against how Yale works:
+
+| Change | Status / plan | Effort |
+|---|---|---|
+| Relaxed dependency analysis (4.5.2: references to a variable with a signature do not create dependencies) | ✅ already done in M9 (`type-recursive-group`, polymorphic recursion) | — |
+| Hierarchical module names | Lexing done (M7).  Needs `A/B/C.hs` file lookup and the 2010 library names (`Data.List`, `Data.Char`, `Control.Monad`, `System.IO`, `System.Environment`, `System.Exit`, `Data.Array`, `Data.Ix`, `Data.Maybe`, `Data.Ratio`, `Data.Complex`, `Numeric`, `System.IO.Error`, plus new `Data.Bits`, `Data.Int`, `Data.Word`, `Foreign.*`).  The H98 modules become thin `module M` re-exports of them (that export form works since M9) | S–M |
+| Empty data declarations (`data T`) | Parser and type declarations accept zero constructors; nothing reaches the back end | S |
+| Pattern guards (`f x \| Just y <- g x = ...`) | The match compiler (cfn) already falls through between guards with `block`/`return-from`; a pattern guard becomes `case e of pat -> rhs; _ -> next guard`, with the fall-through as that jump.  No code duplication, so the Gemini concern (exponential desugaring) does not apply | M |
+| `LANGUAGE` pragma | Recognised; known extensions enable dialect features, unknown ones are an error (Yale annotations `{-# ... #-}` keep working) | S |
+| n+k patterns removed | A feature gate (`n+k-patterns`, off in 2010) | S |
+| Fixity resolution (10.6) | Check our resolution against the Report's algorithm; probably already equivalent | S |
+| Layout: no nested context at the same indentation (NondecreasingIndentation off) | Check the layout algorithm's `<` vs `<=` | S |
+| Foreign function interface (chapter 8) | `foreign import ccall` maps onto the existing LispName primitive path (interface-codegen): generate a wrapper doing `sb-alien:alien-funcall` with marshalling of the H2010 foreign types (`Int`, `Double`, `Char`, `Bool`, `Ptr a`, `FunPtr`, `Int8..Word64`).  Only those types cross, and they are evaluated scalars or addresses, so no heap object needs pinning (the Gemini GC concern is about passing Haskell heap objects, which the FFI does not allow; `Foreign.Marshal` buffers are malloc'ed or SBCL pinned vectors).  `foreign export` / `FunPtr` callbacks via `sb-alien::define-alien-callable`.  The runtime side is plain CL (the todo's point about CFFI access is answered by writing it in CL) | L |
+
+Not part of Haskell 2010, from the same notes: a `RULES` engine (we have
+foldr/build hard-wired; a general rewrite pass on FLIC is a separate
+project), and join points as `tagbody`/`go` (we already emit
+`block`/`return-from` and local `labels`, which SBCL compiles to jumps).
+
+Dialect: a `haskell2010` level after `haskell98` in `*dialect-features*`
+(top/globals.mumble), with `lib/haskell2010/` sharing the H98 Prelude
+source.  Order: hierarchical libraries and file lookup, empty data,
+LANGUAGE, n+k gate, layout/fixity checks (small, together), pattern
+guards, then the FFI.
+
 ## 5. Repository restructuring and scripts
 
 ### 5.1 Done
