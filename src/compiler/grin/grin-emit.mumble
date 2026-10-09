@@ -30,8 +30,10 @@
 (define (grin-emit-def def)
   (if (eq? (grin-def-kind def) 'value)
       `(define ,(grin-def-name def) ,(grin-emit (grin-def-body def)))
-      (let ((opt  `(define (,(grin-def-optname def) ,@(grin-def-params def))
-		     ,@(grin-emit-self-local def))))
+      (let ((opt  `(begin
+		     ,@(grin-ftype-declamation def)
+		     (define (,(grin-def-optname def) ,@(grin-def-params def))
+		       ,@(grin-emit-self-local def)))))
 	(if (grin-def-selector? def)
 	    opt
 	    `(begin
@@ -59,6 +61,29 @@
 ;;; local calls.  SBCL then keeps arguments in registers and turns a
 ;;; self tail call into a jump; a 5-argument tail loop ran 4x faster.
 
+;;; ftype: (declaim (ftype (function (arg-types) result-type) f/OPT)) when
+;;; the function's type gives a primitive result or parameter types, so
+;;; that callers know them.
+
+(define (grin-ftype-declamation def)
+  (let ((ptypes  (map (lambda (p ty) (declare (ignore p))
+			(if ty (grin-lisp-type-symbol ty) 'lisp:t))
+		      (grin-def-params def)
+		      (grin-padded-types (grin-def-params def) (grin-def-param-types def))))
+	(rtype   (grin-def-result-type def)))
+    (if (and (grin-opt? 'ftype)
+	     (or rtype (lisp:some (lambda (ty) (not (eq? ty 'lisp:t))) ptypes)))
+	`((lisp:declaim (lisp:ftype (lisp:function ,ptypes
+						    ,(if rtype (grin-lisp-type-symbol rtype) 'lisp:t))
+				    ,(grin-def-optname def))))
+	'())))
+
+(define (grin-padded-types params types)
+  (if (null? params)
+      '()
+      (cons (if (null? types) '#f (car types))
+	    (grin-padded-types (cdr params) (if (null? types) '() (cdr types))))))
+
 (define (grin-emit-self-local def)
   (let ((name    (grin-def-optname def))
 	(params  (grin-def-params def))
@@ -66,7 +91,7 @@
 		   ,@(grin-type-declarations (grin-def-params def)
 					     (grin-def-param-types def))
 		   ,(grin-emit (grin-def-body def)))))
-    (if (grin-calls? (grin-def-body def) name)
+    (if (and (grin-opt? 'self-local) (grin-calls? (grin-def-body def) name))
 	`((labels ((,name ,params ,@body))
 	    (,name ,@params)))
 	body)))
@@ -74,6 +99,11 @@
 ;;; (declare (type fixnum x) ...) for parameters with a representation type.
 
 (define (grin-type-declarations params types)
+  (if (not (grin-opt? 'rep-types))
+      '()
+      (grin-type-declarations-1 params types)))
+
+(define (grin-type-declarations-1 params types)
   (let ((decls  '()))
     (do ((ps params (cdr ps))
 	 (ts types (if (null? ts) '() (cdr ts))))
@@ -126,9 +156,12 @@
 ;;; an evaluated value is inline, and only a thunk calls force-thunk.
 
 (define-grin-emit grin-eval (object)
-  (if (grin-eval-known-evaluated? object)
-      `(unbox ,(grin-emit (grin-eval-arg object)))
-      `(force-inline ,(grin-emit (grin-eval-arg object)))))
+  (cond ((grin-eval-known-evaluated? object)
+	 `(unbox ,(grin-emit (grin-eval-arg object))))
+	((grin-opt? 'inline-eval)
+	 `(force-inline ,(grin-emit (grin-eval-arg object))))
+	(else
+	 `(force ,(grin-emit (grin-eval-arg object))))))
 
 (define-grin-emit grin-delay (object)
   `(delay ,(grin-emit (grin-delay-body object))))
@@ -191,6 +224,7 @@
 (define (grin-fundef-labels-binding f)
   `(,(grin-fundef-optname f) ,(grin-fundef-params f)
     ,@(grin-ignore-declarations (grin-fundef-ignored f))
+    ,@(grin-type-declarations (grin-fundef-params f) (grin-fundef-param-types f))
     ,(grin-emit (grin-fundef-body f))))
 
 ;;; As codegen-letrec: functions in the function namespace (labels),

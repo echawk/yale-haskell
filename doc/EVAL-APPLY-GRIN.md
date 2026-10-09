@@ -506,7 +506,7 @@ list.
 | Optimisation | Status |
 |---|---|
 | Strictness analysis | FLIC (Consel), before GRIN |
-| Worker/wrapper, unboxed arguments | Partial: strict `Int`/`Char`/`Double`/`Float` parameters of top-level functions are declared (§9 minimum).  Next: local functions, unboxed `Double` across calls, results |
+| Worker/wrapper, unboxed arguments | Partial: strict `Int`/`Char`/`Double`/`Float` parameters of top-level and local (`labels`) functions are declared (§9 minimum, `rep-types`), and top-level functions get an `ftype` declamation with their result type (`ftype`).  Next: unboxed `Double` across calls |
 | Uncurrying / arity | Done: eval/apply (P2), direct `/OPT` calls; arity raising (§5.4 item 5) open |
 | Deforestation | foldr/build in the FLIC optimizer |
 | Join points | `block`/`return-from`, `labels`; self-calls of top-level functions are local `labels` calls |
@@ -518,6 +518,18 @@ list.
 | SpecConstr | Open |
 | Specialisation of overloaded code | Open (§9); matters for `Num a =>` code |
 | HPT, dead field elimination, generated eval | Whole-program (P6), assessed not worth it yet |
+
+**Switches.**  Each GRIN optimisation can be turned off, to measure it
+or to rule it out when hunting a bug: `*grin-optimizations*` in
+grin-opt.mumble, `yale-haskell -g LIST` (e.g. `-g -ftype,-rep-types`,
+`-g none`, `-g fold,speculate`) and `:set grin ...` / `:unset grin ...`
+at the prompt.  The names: `fold`, `speculate`, `inline-eval`,
+`self-local`, `rep-types`, `ftype`.  New optimisations should get one.
+Measured 2026-10-08 (bench/run-bench, whole runs): `-rep-types` makes
+loop 0.31 → 0.49 s and a local `Int -> Double -> Double` loop
+0.29 → 0.35 s; `ftype` is within noise on every benchmark (SBCL already
+infers the results of the arithmetic), kept for callers in other
+modules.
 
 **Observed, not yet acted on** (from profiles and the GHC comparison,
 bench/RESULTS.md):

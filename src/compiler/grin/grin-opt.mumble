@@ -4,7 +4,53 @@
 ;;; *grin-optimizations*.  grin-rewrite! is the generic bottom-up walker
 ;;; they share.
 
-(define *grin-optimizations* '(fold speculate))
+;;; Every GRIN optimisation has a switch, so that each can be measured
+;;; against the others and turned off if it is suspected of a bug
+;;; (yale-haskell --grin-optimizations ..., :set grin ... at the prompt):
+;;;   fold         constant folding (encode-double of literals)
+;;;   speculate    dynamic cheap eagerness, trivial suspensions removed
+;;;   inline-eval  eval as an inline test, not a call of force
+;;;   self-local   a self-recursive function's calls as local calls
+;;;   rep-types    fixnum/double-float declarations for strict parameters
+;;;   ftype        result types declared for top-level functions
+
+(define *all-grin-optimizations*
+  '(fold speculate inline-eval self-local rep-types ftype))
+
+(define *grin-optimizations* *all-grin-optimizations*)
+
+(define (grin-opt? name)
+  (memq name (dynamic *grin-optimizations*)))
+
+;;; The GRIN optimisations after applying WORDS (strings) to CURRENT:
+;;; "all", "none", a name to add it ("+name" too) or "-name" to remove
+;;; it.  If the first word is a plain name, the list starts empty, so
+;;; "fold speculate" means exactly those.  Unknown names are reported
+;;; and ignored.
+
+(define (grin-optimization-list words0 current)
+  (let* ((words (lisp:remove "" words0 :test (function string=?)))
+	 (opts  (if (and (not (null? words))
+			(not (memv (lisp:char (car words) 0) '(#\+ #\-))))
+		   '()
+		   current)))
+    (dolist (w words)
+      (let* ((sign  (lisp:char w 0))
+	     (name  (if (memv sign '(#\+ #\-)) (lisp:subseq w 1) w))
+	     (sym   (lisp:find-symbol (lisp:string-upcase name) "MUMBLE-USER")))
+	(cond ((lisp:string-equal name "all")
+	       (setf opts *all-grin-optimizations*))
+	      ((lisp:string-equal name "none")
+	       (setf opts '()))
+	      ((not (memq sym *all-grin-optimizations*))
+	       (lisp:format lisp:t "~&unknown GRIN optimization ~A (~(~{~A~^ ~}~))~%"
+			    name *all-grin-optimizations*))
+	      ((eqv? sign #\-)
+	       (setf opts (lisp:remove sym opts)))
+	      ((not (memq sym opts))
+	       (setf opts (append opts (list sym)))))))
+    ;; in the order of *all-grin-optimizations*
+    (lisp:remove-if-not (lambda (o) (memq o opts)) *all-grin-optimizations*)))
 
 ;;; A top-level value's body runs when the module is loaded, outside the
 ;;; program's float-trap masking (call-with-ieee-floats), so it is not

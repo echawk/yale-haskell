@@ -14,7 +14,8 @@ bin/yale-haskell --haskell98 -e 'f 3' prog.hs   # ... with prog.hs loaded
 
 The dialect (`--haskell98`, `--haskell1.2`, or `$YALE_HASKELL_DIALECT`)
 is fixed for the session.  `yale-haskell --help` lists the options:
-`--backend grin|flic`, `--printers P,...`, `--no-optimize`, `--version`.
+`--backend grin|flic`, `--printers P,...`, `--no-optimize`,
+`--grin-optimizations O,...`, `--version`.
 
 With `rlwrap` installed and a terminal, input has line editing and a
 history in `~/.yale_haskell_history`; `YALE_HASKELL_RLWRAP=no` turns it
@@ -67,6 +68,7 @@ Any unique prefix works, as in GHCi: `:t`, `:l`, `:r`, `:q`, `:b`, `:i`, `:m`.
 | `:flic EXPR` | the optimised FLIC code (the `optimize` printer) |
 | `:set backend grin` / `flic` | the code generator for what is compiled next |
 | `:set printers P ...` | print these compiler passes for everything compiled (`:set printers` alone turns them off); the pass names are those of `--printers` and `*all-printers*` (`parse`, `type`, `flic`, `optimize`, `strictness`, `grin`, `codegen`, `phase-time`, ...) |
+| `:set grin O ...` | the GRIN optimizations (`fold speculate inline-eval self-local rep-types ftype`): names alone set exactly those, `+o`/`-o` add or remove one, `all`/`none`; `:unset grin O` removes; `:set grin` shows them.  On the command line, `-g`/`--grin-optimizations` with the same words comma-separated |
 | `:set optimizers O ...` | the FLIC optimizer passes (`foldr inline constant lisp`); `:set noopt` turns them off, `:unset noopt` on |
 | `:profile EXPR` | evaluate under SBCL's statistical profiler and print the top of a flat report (`make profile FILE=...` does this for a whole program) |
 

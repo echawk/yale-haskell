@@ -568,11 +568,12 @@
 
 (define-repl-command ("set") (rest)
   ":set [option]             +t types, +s statistics, backend flic|grin,
-                            printers p.., optimizers o.., noopt; none: show"
+                            printers p.., optimizers o.., noopt,
+                            grin o.. (GRIN optimizations); none: show"
   (repl-set (repl-words rest) '#t))
 
 (define-repl-command ("unset") (rest)
-  ":unset <option>           undo a :set (+t, +s)"
+  ":unset <option>           undo a :set (+t, +s, grin o..)"
   (repl-set (repl-words rest) '#f))
 
 (define-repl-command ("grin") (rest)
@@ -610,9 +611,21 @@
 
 (define (repl-set words on?)
   (cond ((null? words)
-	 (repl-say "~&options: ~:[-~;+~]t ~:[-~;+~]s; backend ~(~A~); printers ~(~A~); optimizers ~(~A~)~%"
+	 (repl-say "~&options: ~:[-~;+~]t ~:[-~;+~]s; backend ~(~A~); printers ~(~A~); optimizers ~(~A~); grin ~(~:[none~;~:*~{~A~^ ~}~]~)~%"
 	      *repl-show-type?* *repl-stats?* (current-backend)
-	      *printers* *optimizers*))
+	      *printers* *optimizers* *grin-optimizations*))
+	((string=? (car words) "grin")
+	 (cond ((null? (cdr words))
+		(repl-say "~&GRIN optimizations: ~(~:[none~;~:*~{~A~^ ~}~]~) (of ~(~{~A~^ ~}~))~%"
+			  *grin-optimizations* *all-grin-optimizations*))
+	       (on?
+		(setf *grin-optimizations*
+		      (grin-optimization-list (cdr words) *grin-optimizations*)))
+	       (else
+		(setf *grin-optimizations*
+		      (grin-optimization-list
+		       (map (lambda (w) (string-append "-" w)) (cdr words))
+		       *grin-optimizations*)))))
 	((string=? (car words) "+t") (setf *repl-show-type?* on?))
 	((string=? (car words) "+s") (setf *repl-stats?* on?))
 	((string=? (car words) "backend")

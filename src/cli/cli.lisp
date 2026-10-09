@@ -38,13 +38,17 @@
    (clingon:make-option :flag :long-name "no-optimize" :short-name #\O
                       :key :no-optimize :persistent t
                       :description "turn off the FLIC optimizer")
+   (clingon:make-option :string :long-name "grin-optimizations" :short-name #\g
+                        :key :grin-optimizations :persistent t
+                        :description "GRIN optimizations, comma-separated: names (exactly these), +name, -name, all, none; of fold,speculate,inline-eval,self-local,rep-types,ftype")
    (clingon:make-option :list :long-name "eval" :short-name #\e
                         :key :eval :persistent t
                         :description "evaluate an expression (repeatable) and exit")))
 
 ;;; Options that take a value, for splitting the program's own arguments
 ;;; off the command line.
-(defparameter *value-options* '("-b" "--backend" "-p" "--printers" "-e" "--eval"))
+(defparameter *value-options*
+  '("-b" "--backend" "-p" "--printers" "-e" "--eval" "-g" "--grin-optimizations"))
 
 (defparameter *sub-commands* '("repl" "run" "help"))
 
@@ -76,7 +80,13 @@
                                (uiop:split-string printers :separator ",")
                                (intern "=" "MUMBLE-USER"))))
     (when (clingon:getopt* cmd :no-optimize)
-      (mumble-set "*OPTIMIZERS*" '()))))
+      (mumble-set "*OPTIMIZERS*" '()))
+    (let ((grin (clingon:getopt* cmd :grin-optimizations)))
+      (when grin
+        (mumble-set "*GRIN-OPTIMIZATIONS*"
+                    (mumble-call "GRIN-OPTIMIZATION-LIST"
+                                 (uiop:split-string grin :separator ",")
+                                 (mumble-value "*GRIN-OPTIMIZATIONS*")))))))
 
 (defun top-handler (cmd)
   (apply-options cmd)

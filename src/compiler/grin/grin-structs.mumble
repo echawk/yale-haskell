@@ -67,7 +67,9 @@
   (body (type grin-node))
   ;; per parameter: its Lisp type when it is a strict parameter of a
   ;; primitive type (fixnum, double-float, single-float), else #f
-  (param-types (type list) (default '())))
+  (param-types (type list) (default '()))
+  ;; the Lisp type of the result when the type gives a primitive one
+  (result-type (type t) (default '#f)))
 
 
 ;;;; Atoms
@@ -181,7 +183,8 @@
   (strict? (type bool))
   (opt? (type bool))
   (std? (type bool))
-  (body (type grin-node)))
+  (body (type grin-node))
+  (param-types (type list) (default '())))
 
 ;;; Dispatch on an evaluated SCRUTINEE.  KIND is TAG (ALTS keyed by
 ;;; constructor, of algebraic type ALG) or LIT (ALTS keyed by fixnum

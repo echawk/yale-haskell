@@ -15,7 +15,7 @@
   (let ((exp  (var-value var)))
     (if (not (flic-lambda? exp))
 	(make-grin-def 'value (fullname var) '#f '() '() '() '#f '#f
-		       (grin-lower exp) '())
+		       (grin-lower exp) '() '#f)
 	(let* ((vars  (flic-lambda-vars exp))
 	       (def   (make-grin-def 'fun (fullname var) (optname var)
 				     (map (function fullname) vars)
@@ -24,9 +24,11 @@
 				     (var-selector-fn? var)
 				     (var-strict? var)
 				     (grin-lower (flic-lambda-body exp))
-				     '())))
+				     '() '#f)))
 	  (setf (grin-def-param-types def)
 		(grin-param-types var (length vars) (var-strictness var)))
+	  (setf (grin-def-result-type def)
+		(grin-result-type var (length vars)))
 	  def))))
 
 
@@ -39,15 +41,40 @@
 ;;; wrong declaration at safety 0 would be silently wrong code.
 
 (define (grin-param-types var n strictness)
-  (let ((ty  (var-type var)))
-    (if (and (gtype? ty)
-	     (every-1 (function null?) (gtype-context ty))
+  (let ((ty  (grin-unoverloaded-type var)))
+    (if (and (not (eq? ty '#f))
 	     (eqv? (length strictness) n))
-	(let ((types  (grin-arrow-arg-types (gtype-type ty) n)))
+	(let ((types  (grin-arrow-arg-types ty n)))
 	  (if (eq? types 'no-arrows)
 	      (map (lambda (s) (declare (ignore s)) '#f) strictness)
 	      (map (lambda (type strict?) (and strict? type)) types strictness)))
 	(map (lambda (s) (declare (ignore s)) '#f) strictness))))
+
+;;; The type of VAR when it has no class context (no dictionary
+;;; parameters): a generalised type without context, or a local
+;;; monomorphic one; else #f.
+
+(define (grin-unoverloaded-type var)
+  (let ((ty  (var-type var)))
+    (cond ((gtype? ty)
+	   (and (every-1 (function null?) (gtype-context ty))
+		(gtype-type ty)))
+	  ((or (ntycon? ty) (ntyvar? ty)) ty)
+	  (else '#f))))
+
+;;; The Lisp type of VAR's result after N arguments, or #f.
+
+(define (grin-result-type var n)
+  (let ((ty  (grin-unoverloaded-type var)))
+    (and (not (eq? ty '#f))
+	 (grin-arrow-result ty n))))
+
+(define (grin-arrow-result type n)
+  (let ((ty  (maybe-expand-io-type (expand-ntype-synonym (prune type)))))
+    (cond ((eqv? n 0) (grin-lisp-type ty))
+	  ((and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "Arrow")))
+	   (grin-arrow-result (cadr (ntycon-args ty)) (1- n)))
+	  (else '#f))))
 
 ;;; The Lisp types of the first N argument types of TYPE, or NO-ARROWS if
 ;;; TYPE does not have N arrows.  (Not #f: in mumble #f and '() are the
@@ -56,7 +83,7 @@
 (define (grin-arrow-arg-types type n)
   (if (eqv? n 0)
       '()
-      (let ((ty  (maybe-expand-io-type (expand-ntype-synonym type))))
+      (let ((ty  (maybe-expand-io-type (expand-ntype-synonym (prune type)))))
 	(if (and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "Arrow")))
 	    (let ((rest  (grin-arrow-arg-types (cadr (ntycon-args ty)) (1- n))))
 	      (if (eq? rest 'no-arrows)
@@ -65,7 +92,7 @@
 	    'no-arrows))))
 
 (define (grin-lisp-type type)
-  (let ((ty  (expand-ntype-synonym type)))
+  (let ((ty  (expand-ntype-synonym (prune type))))
     (if (and (ntycon? ty) (null? (ntycon-args ty)))
 	(let ((tycon  (ntycon-tycon ty)))
 	  (cond ((or (eq? tycon (core-symbol "Int"))
@@ -196,7 +223,9 @@
 				   (var-strict? var)
 				   (var-optimized-refs? var)
 				   (var-standard-refs? var)
-				   (grin-lower (flic-lambda-body value))))
+				   (grin-lower (flic-lambda-body value))
+				   (grin-param-types var (length params)
+						     (var-strictness var))))
 	       (make-grin-valbind (fullname var) (grin-lower value)))))
        vars))
 
