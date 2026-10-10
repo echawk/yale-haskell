@@ -599,6 +599,11 @@
   ":flic <expr>              show the optimised FLIC code for an expression"
   (repl-show-pass rest '(optimize)))
 
+(define-repl-command ("asm") (rest)
+  ":asm <expr>               show the machine code for an expression, or
+                            for a function's name, the function's"
+  (repl-asm rest))
+
 (define-repl-command ("profile") (rest)
   ":profile <expr>           evaluate under the statistical profiler"
   (repl-profile rest))
@@ -658,6 +663,59 @@
   (incf *repl-counter*)
   (dynamic-let ((*printers* printers))
     (repl-compile (repl-binding (repl-temp-name "it") text))))
+
+;;; :asm shows the host's disassembly (SBCL's disassemble).  For a name
+;;; bound to a function: the entry that takes all the arguments (/OPT),
+;;; when there is one, and the curried function value.  For any other
+;;; expression: the code of the thunk that evaluates it, which is where
+;;; the expression's own code is (the functions it calls are shown by
+;;; naming them).
+
+(define (repl-asm text)
+  (let* ((name  (repl-trim text))
+	 (def   (and (not (string=? name ""))
+		     (lisp:every (function repl-ident-char?) name)
+		     (repl-lookup (string->symbol name)))))
+    (if (and def (var? def))
+	(repl-disassemble-var def name)
+	(begin
+	  (incf *repl-counter*)
+	  (let ((ext  (dynamic-let ((*printers* '()))
+			(repl-compile (repl-binding (repl-temp-name "it") text)))))
+	    (when ext
+	      (repl-disassemble-var (car (module-vars ext)) name)))))))
+
+(define (repl-disassemble-var var label)
+  (let ((shown  '#f)
+	(entry  (var-optimized-entry var))
+	(name   (fullname var)))
+    (when (and entry (lisp:fboundp entry))
+      (repl-disassemble (lisp:symbol-function entry)
+			(format '#f "~A (entry taking all its arguments, ~A)"
+				label entry))
+      (setf shown '#t))
+    (when (lisp:boundp name)
+      (let ((value  (lisp:symbol-value name)))
+	(cond ((lisp:functionp value)
+	       (repl-disassemble value (format '#f "~A (function value, ~A)"
+					       label name))
+	       (setf shown '#t))
+	      ((and (pair? value) (eq? (car value) '|%thunk-unevaluated%|))
+	       (repl-disassemble (cdr value) (format '#f "~A (thunk)" label))
+	       (setf shown '#t))
+	      ((and (pair? value) (eq? (car value) '|%thunk-evaluated%|)
+		    (lisp:functionp (cdr value)))
+	       (repl-disassemble (cdr value) (format '#f "~A (function value, ~A)"
+						     label name))
+	       (setf shown '#t)))))
+    (when (not shown)
+      (repl-say "~&~A has no code of its own to show (it is a constant or ~
+                 already evaluated).~%" label))))
+
+(define (repl-disassemble fn title)
+  (repl-say "~&;;; ~A~%" title)
+  (lisp:let ((lisp:*standard-output* (current-output-port)))
+    (lisp:disassemble fn)))
 
 (define (repl-profile text)
   #+sbcl
@@ -728,4 +786,6 @@
 	    (setf found v)))))
     (or found
 	(let ((mod  (table-entry *modules* *repl-module*)))
-	  (and mod (table-entry (module-symbol-table mod) name))))))
+	  (and mod (table-entry (module-symbol-table mod) name)))
+	;; the Prelude's names are not copied into each module's table
+	(table-entry *prelude-symbol-table* name))))

@@ -67,6 +67,7 @@ Any unique prefix works, as in GHCi: `:t`, `:l`, `:r`, `:q`, `:b`, `:i`, `:m`.
 | `:grin EXPR` | the GRIN intermediate code (LGRIN, doc/EVAL-APPLY-GRIN.md) for an expression |
 | `:lisp EXPR` | the Common Lisp generated for it |
 | `:flic EXPR` | the optimised FLIC code (the `optimize` printer) |
+| `:asm EXPR` | the machine code SBCL compiled for it (`disassemble`): for a function's name, the function's entry points; for another expression, the thunk that evaluates it |
 | `:set backend grin` / `flic` | the code generator for what is compiled next |
 | `:set printers P ...` | print these compiler passes for everything compiled (`:set printers` alone turns them off); the pass names are those of `--printers` and `*all-printers*` (`parse`, `type`, `flic`, `optimize`, `strictness`, `grin`, `codegen`, `phase-time`, ...) |
 | `:set grin O ...` | the GRIN optimizations (`fold speculate inline-eval self-local rep-types ftype`): names alone set exactly those, `+o`/`-o` add or remove one, `all`/`none`; `:unset grin O` removes; `:set grin` shows them.  On the command line, `-g`/`--grin-optimizations` with the same words comma-separated |
