@@ -109,7 +109,8 @@ tools/build/compiler.lisp
 ```
 
 `tools/build/prelude.lisp` extends this by compiling the Haskell
-prelude.  `tools/build/image.lisp` saves a standalone executable (SBCL; see doc/plans/PORTABILITY.md for other Lisps).
+prelude.  `tools/build/image.lisp` saves a standalone executable with
+ASDF (SBCL; see below, and doc/plans/PORTABILITY.md for other Lisps).
 
 ## 2. The ASDF systems
 
@@ -169,6 +170,21 @@ symbols in the current package).
 (yale-haskell:run-file "examples/demo/queens.hs")
 (asdf:test-system :yale-haskell)          ; make test
 ```
+
+### `yale-haskell/executable` — the `yale-haskell` command
+
+`(asdf:make :yale-haskell/executable)` saves the executable with ASDF's
+`program-op`; the Makefile runs it through `tools/build/image.lisp`.
+- It loads `:yale-haskell`, then the plain-CL runtime and the command line
+  as ordinary components:
+  - `tools/build/executable.lisp` (`:yale-cffi`, muffled notes, `sb-sprof`);
+  - `src/ffi/ffi-runtime`, the `errno` table and `src/base/base-runtime`;
+  - `src/cli/cli`, whose `main` is the entry point.
+- It is written to `$YALE_HASKELL_EXECUTABLE`, or else
+  `build/<lisp>/<dialect>/yale-haskell`.
+- It is SBCL only. On ECL, `program-op` would link only ASDF components,
+  and the compiler's `.mumble` files are not ASDF components. Those Lisps
+  keep the launcher script (`tools/build/launcher.lisp`).
 
 Like the Makefile, the prelude unit is `:stable`: after editing
 `lib/<dialect>/prelude/`, delete `build/<lisp>/<dialect>/prelude/`.

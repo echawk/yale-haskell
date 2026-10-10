@@ -130,6 +130,42 @@
              (declare (ignore o))
              (bootstrap (system-source-directory c) "haskell-1.2")))
 
+;;; The yale-haskell executable for the dialect loaded (as :yale-haskell
+;;; picks it), saved by program-op on SBCL:
+;;;
+;;;   (asdf:make :yale-haskell/executable)
+;;;
+;;; It is written to $YALE_HASKELL_EXECUTABLE, or else
+;;; build/<lisp>/<dialect>/yale-haskell.  The Makefile builds it with
+;;; tools/build/image.lisp.  The heap and stack sizes are those of the
+;;; Lisp that saves it (save-runtime-options).
+
+(defclass executable-system (system) ())
+
+(defmethod output-files ((o program-op) (s executable-system))
+  (let ((out (uiop:getenv "YALE_HASKELL_EXECUTABLE")))
+    (values (list (if (and out (plusp (length out)))
+                      (uiop:ensure-absolute-pathname
+                       (uiop:parse-native-namestring out) (uiop:getcwd))
+                      (merge-pathnames
+                       (format nil "build/~a/~a/yale-haskell"
+                               (lisp-name) (default-dialect))
+                       (system-source-directory s))))
+            t)))
+
+(defsystem :yale-haskell/executable
+  :description "The yale-haskell command line: the compiler, the prelude, the runtime and the CLI, saved as an executable."
+  :class executable-system
+  :depends-on (:yale-haskell :clingon :cffi)
+  :serial t
+  :components ((:file "tools/build/executable")
+               (:file "src/ffi/ffi-runtime")
+               (:file "src/ffi/errno-darwin" :if-feature :darwin)
+               (:file "src/base/base-runtime")
+               (:file "src/cli/cli"))
+  :build-operation "program-op"
+  :entry-point "yale-haskell-cli:main")
+
 (defsystem :yale-haskell/test
   :description "Run the Yale Haskell test suite (make test)."
   :perform (test-op (o c)

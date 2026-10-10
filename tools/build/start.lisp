@@ -1,5 +1,5 @@
 ;;; start.lisp -- the yale-haskell executable on Lisps that cannot save
-;;; an image (see image.lisp): load the system built by image.lisp from
+;;; an image (see launcher.lisp): load the system built by launcher.lisp from
 ;;; $Y2, quietly, then run the command line with this process's
 ;;; arguments.
 

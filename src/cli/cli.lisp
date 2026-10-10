@@ -184,4 +184,6 @@
   (setf *package* (find-package "MUMBLE-USER"))
   (setf *readtable* (symbol-value (find-symbol "*MUMBLE-READTABLE*"
                                                "MUMBLE-IMPLEMENTATION")))
-  (clingon:run (command) (split-program-args argv)))
+  (clingon:run (command) (split-program-args argv))
+  ;; the executable's entry point (uiop:restore-image): true is status 0
+  t)

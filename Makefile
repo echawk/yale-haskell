@@ -97,8 +97,16 @@ $(BUILD)/%/.prelude-stamp: $(BUILD)/.compiler-stamp $$(wildcard lib/%/prelude/*)
 	  echo "*** $*-prelude had compile errors; full log in $(LOGS)/$*-prelude.log"; exit 1; fi
 	@touch $@
 
+# SBCL saves an image with ASDF's program-op (tools/build/image.lisp,
+# yale-haskell.asd); other Lisps get a launcher script (launcher.lisp).
+ifeq ($(LISP),sbcl)
+$(BUILD)/%/yale-haskell: $(BUILD)/%/.prelude-stamp yale-haskell.asd mumble.asd
+	$(call step,$*-image,env $(call dialect_env,$*) YALE_HASKELL_DIALECT=$* \
+	  YALE_HASKELL_EXECUTABLE=$(Y2)/$@ $(RUN_LISP) tools/build/image.lisp)
+else
 $(BUILD)/%/yale-haskell: $(BUILD)/%/.prelude-stamp
-	$(call step,$*-image,env $(call dialect_env,$*) $(RUN_LISP) tools/build/image.lisp $(ARGS_SEP) $(Y2)/$@)
+	$(call step,$*-image,env $(call dialect_env,$*) $(RUN_LISP) tools/build/launcher.lisp $(ARGS_SEP) $(Y2)/$@)
+endif
 
 deps:
 	ocicl install

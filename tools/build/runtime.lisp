@@ -1,8 +1,9 @@
 ;;; runtime.lisp -- load the compiler, the compiled prelude, the
 ;;; command line and the base and FFI runtimes: everything the
-;;; yale-haskell executable holds.  image.lisp saves the result (SBCL)
-;;; or writes a launcher that loads it at startup (start.lisp, other
-;;; Lisps).  Run from the top of the source tree ($Y2).  This is read
+;;; yale-haskell executable holds, on Lisps other than SBCL:
+;;; launcher.lisp writes a launcher that loads it at startup
+;;; (start.lisp).  On SBCL the executable is built with ASDF instead
+;;; (yale-haskell/executable in yale-haskell.asd, tools/build/image.lisp).  Run from the top of the source tree ($Y2).  This is read
 ;;; in MUMBLE-USER after the first form, where CL symbols need a lisp:
 ;;; prefix.
 
