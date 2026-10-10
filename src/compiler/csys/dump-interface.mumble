@@ -361,6 +361,10 @@
     (push '#f (con-slot-strict? con)))
   con)
 
+(define (set-instance-head-args inst head-args)
+  (setf (instance-head-args inst) head-args)
+  inst)
+
 (define (set-instance-mp-slots inst mp-types mcontext)
   (setf (instance-mp-types inst) mp-types)
   (setf (instance-mcontext inst) mcontext)
@@ -787,6 +791,9 @@
 		 ,(dump-object (instance-gcontext o))
 		 ,(dump-object (instance-dictionary o))
 		 ,(dump-object (instance-methods o)))))
+    (when (not (null? (instance-head-args o)))
+      (setf code `(set-instance-head-args ,code
+					  ,(dump-object (instance-head-args o)))))
     (if (and (null? (instance-mp-types o)) (null? (instance-mcontext o)))
 	code
 	;; an instance of a multi-parameter class, or with multi-parameter

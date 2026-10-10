@@ -393,7 +393,10 @@
 	     (signal-fixity-in-instance)
 	     (setf decls (remove-fixity-decls decls))))
 	(if simple
-	    (check-simple simple '#f "instance declaration")
+	    ;; FlexibleInstances (GHC): any arguments (tdecl/instance.mumble)
+	    (if (and (haskell98?) (tycon? simple))
+		'#t
+		(check-simple simple '#f "instance declaration"))
 	    (dolist (ty types)
 	      (when (not (tyvar? ty))
 		(check-simple ty '#f "instance declaration"))))

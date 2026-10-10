@@ -164,6 +164,10 @@
 		 (make context (class class) (tyvar (tyvar-name (car types)))))
 		((and (pair? types) (pair? (cdr types)))
 		 (**mp-context class types))
+		;; C t, t not a type variable (FlexibleContexts): reduced
+		;; to constraints on type variables by resolve-signature
+		((pair? types)
+		 (**mp-context class types))
 		(else (signal-missing-token "<tyvar>" "class assertion"))))
 	(token-case
 	  (tyvar

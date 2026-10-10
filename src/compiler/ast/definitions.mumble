@@ -225,5 +225,8 @@
    ;; GeneralizedNewtypeDeriving: the instance of the newtype's underlying
    ;; type whose dictionary and methods this one shares
    (newtype-of (type (maybe instance)) (default '#f))
+   ;; FlexibleInstances: the head's argument types when they are not
+   ;; distinct type variables (instance C [Char]); tyvars are theirs
+   (head-args (type (list type)) (default '()))
    ))
 

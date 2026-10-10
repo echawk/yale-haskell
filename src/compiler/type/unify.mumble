@@ -216,15 +216,21 @@
 ;;; decl is found, contexts are propagated to the component types.
 
 (define (propagate-single-class type class)
-  (let ((instance (lookup-instance (ntycon-tycon type) class)))
-    (cond ((eq? instance '#f)
+  (let* ((instance (lookup-instance (ntycon-tycon type) class))
+	 (args (and instance (instance-head-matches? instance type)
+		    (instance-arg-types instance type))))
+    (cond ((and instance (not (instance-head-matches? instance type)))
+	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
+	   (type-error "Type ~A is not in class ~A: the instance is for ~A"
+		       type class (make-instance-type instance)))
+	  ((eq? instance '#f)
 	   ;; This remove the instantiation which caused the type
 	   ;; error - perhaps stop error propagation & make
 	   ;; error message better.
 	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
 	   (type-error "Type ~A is not in class ~A" type class))
 	  ((not (eqv? (length (instance-gcontext instance))
-		      (length (ntycon-args type))))
+		      (length args)))
 	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
 	   (type-error "Kind mismatch: ~A cannot be in class ~A" type class))
 	  (else
@@ -233,9 +239,32 @@
 	   ;; type constructor with the context required by the instance
 	   ;; decl.
 	   (dolist2 (classes (instance-gcontext instance))
-		    (arg (ntycon-args type))
+		    (arg args)
 	     (propagate-contexts/inner arg classes)))))
   'OK)
+
+;;; The types an instance's tyvars stand for at TYPE (an ntycon of the
+;;; instance's type constructor): its arguments, or for a flexible head
+;;; (instance C [Char]) what matching the head binds (when
+;;; instance-head-matches?).  A tyvar the head does not bind gets a fresh
+;;; type variable.  (A list, possibly empty: not #f.)
+
+(define (instance-head-matches? instance type)
+  (or (null? (instance-head-args instance))
+      (not (eq? (instance-head-bindings instance type) '#f))))
+
+(define (instance-head-bindings instance type)
+  (match-head-type (make-instance-type instance) type
+		   (list (tuple '|%none| '|%none|))))
+
+(define (instance-arg-types instance type)
+  (if (null? (instance-head-args instance))
+      (ntycon-args type)
+      (let ((b (instance-head-bindings instance type)))
+	(map (lambda (v)
+	       (let ((x (and b (assq v b))))
+		 (if x (tuple-2-2 x) (**ntyvar))))
+	     (instance-tyvars instance)))))
 
 ;;; The routines which handle contexts (merge-contexts and context-implies?)
 ;;; are in type-utils.  The occurs check is also there.

@@ -182,6 +182,7 @@
 	   (setf (placeholder-exp p) code)
 	   (setf deferred def1))
 	(let ((method (method-placeholder-method p)))
+	  (instance-arg-types/checked instance tycon)
 	  (if (and (every (function null?) (instance-gcontext instance))
 		   (null? (instance-mcontext instance)))
 	      (let ((mvar (tuple-2-2
@@ -202,7 +203,7 @@
 (define (generate-dict-ref instance type deferred decls edecls var)
   (let* ((ctxt (instance-gcontext instance))
 	 (dict (dict-ref-code instance)))
-    (do-contexts (class ctxt) (ty (ntycon-args type))
+    (do-contexts (class ctxt) (ty (instance-arg-types/checked instance type))
       (let ((ntype (prune ty)))
 	(cond
 	 ((ntycon? ntype)
@@ -267,6 +268,13 @@
     (**var/def (tuple-2-2 (assq class vmap)))))
 
 ;;; This is used to get the code for a specific dictionary reference.
+
+(define (instance-arg-types/checked instance type)
+  (when (not (instance-head-matches? instance type))
+    (phase-error 'no-instance
+      "No instance of ~A for ~A: the instance is for ~A."
+      (instance-class instance) type (make-instance-type instance)))
+  (instance-arg-types instance type))
 
 (define (dict-ref-code instance)
   (**var/def (instance-dictionary instance)))

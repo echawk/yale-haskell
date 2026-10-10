@@ -91,11 +91,18 @@
     (with-slots instance-decl (context class simple decls mcontext) inst-decl
       (resolve-type-1 simple '() '#t)
       (resolve-class class)
+      ;; instance C String (TypeSynonymInstances): the synonym's expansion
+      (do () ((not (and (haskell98?) (tycon? simple)
+			(synonym? (tycon-def simple)))))
+	(setf simple (expand-synonym simple)))
       (let ((alg-def (tycon-def simple))
-	    (class-def (class-ref-class class)))
+	    (class-def (class-ref-class class))
+	    (flexible? (flexible-instance-head? simple)))
         (when (not (algdata? (tycon-def simple)))
 	  (signal-datatype-required (tycon-def simple)))
-        (let ((tyvars (simple-tyvar-list simple)))
+        (let ((tyvars (if flexible?
+			  (flexible-head-tyvars (tycon-args simple) '())
+			  (simple-tyvar-list simple))))
 	  (resolve-signature-aux tyvars context)
 	  ;; Haskell 98 has no C-T rule: an instance may be declared in any
 	  ;; module (duplicates are still rejected below).
@@ -108,6 +115,8 @@
 		       (not (instance-special? old-inst)))
 	    (signal-multiple-instance class-def alg-def))
 	    (let ((inst (new-instance class-def alg-def tyvars)))
+	      (when flexible?
+		(setf (instance-head-args inst) (tycon-args simple)))
 	      (setf (instance-context inst) context)
 	      ;; multi-parameter constraints in the context
 	      (dolist (c mcontext)
@@ -116,6 +125,32 @@
 	      (setf (instance-decls inst) decls)
 	      (setf (instance-ok? inst) '#t)
 	      inst))))))))
+
+;;; FlexibleInstances (GHC): the head is T t1 ... tn with the ti not all
+;;; distinct type variables.  Its tyvars are those of the ti, in order.
+;;; There is still one instance per class and type constructor; a use at
+;;; T u1 ... un must match the head (instance-arg-types, type/unify.mumble).
+
+(define (flexible-instance-head? simple)
+  (and (haskell98?)
+       (let ((args (tycon-args simple)))
+	 (not (and (every (function tyvar?) args)
+		   (null? (find-duplicates (map (function tyvar-name) args))))))))
+
+(define (flexible-head-tyvars types vars)
+  (if (null? types)
+      (reverse vars)
+      (let ((ty (car types)))
+	(flexible-head-tyvars
+	 (cdr types)
+	 (cond ((tyvar? ty)
+		(if (memq (tyvar-name ty) vars) vars (cons (tyvar-name ty) vars)))
+	       ((tycon? ty)
+		(reverse (flexible-head-tyvars (tycon-args ty) (reverse vars))))
+	       ((tyapp? ty)
+		(reverse (flexible-head-tyvars (cons (tyapp-fun ty) (tyapp-args ty))
+					       (reverse vars))))
+	       (else vars))))))
 
 (define (signal-datatype-required def)
   (phase-error 'datatype-required
@@ -243,7 +278,7 @@
   (when (instance-ok? inst)
     (check-inst-type inst)
     (with-slots instance (class algdata dictionary decls context tyvars) inst
-     (let ((simple (**tycon/def algdata (map (function **tyvar) tyvars))))
+     (let ((simple (make-instance-type inst)))
       (setf (instance-gcontext inst)
 	    (gtype-context (ast->gtype/inst context simple)))
       (with-slots class (super* method-vars) class
@@ -252,6 +287,9 @@
 	(let ((new-tyvars (map (lambda (tyvar) (tuple tyvar (gentyvar "tv")))
 			       (instance-tyvars inst))))
 	  (setf (instance-tyvars inst) (map (function tuple-2-2) new-tyvars))
+	  (setf (instance-head-args inst)
+		(map (lambda (ty) (rename-ast-tyvars ty new-tyvars))
+		     (instance-head-args inst)))
 	  (setf (instance-context inst)
    	    (map (lambda (c)
                   (**context (context-class c)
@@ -398,7 +436,9 @@
 
 (define (make-instance-type inst)
   (**tycon/def (instance-algdata inst)
-	       (map (function **tyvar) (instance-tyvars inst))))
+	       (if (null? (instance-head-args inst))
+		   (map (function **tyvar) (instance-tyvars inst))
+		   (instance-head-args inst))))
 
 (define (generate-dictionary-signature inst)
   (let ((sig (**signature (sort-inst-context-by-tyvar

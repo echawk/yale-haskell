@@ -8,6 +8,7 @@
 ;;; The list of variables used in the signature is returned.
 
 (define (resolve-signature signature)
+  (reduce-flexible-contexts signature)
   (with-slots signature (context type mcontext) signature
     (let ((tyvars (resolve-type type)))
       ;; a multi-parameter constraint may mention tyvars the type does
@@ -20,6 +21,58 @@
 	      (push v tyvars)))))
       (resolve-signature-aux tyvars context)
       tyvars)))
+
+;;; FlexibleContexts (GHC): C t for a one-parameter class C and a type t
+;;; that is not a type variable (parsed as a multi-parameter constraint
+;;; with one type) is reduced through t's instance of C to constraints on
+;;; type variables: Show [a] is Show a, Eq (Maybe Int) is nothing.  A
+;;; constraint on an application of a type variable (Show (f a)) cannot
+;;; be reduced, and is an error.
+
+(define (reduce-flexible-contexts signature)
+  (let ((keep '())
+	(added '()))
+    (dolist (c (signature-mcontext signature))
+      (resolve-class (mp-context-class c))
+      (let ((class (class-ref-class (mp-context-class c))))
+	(if (and (null? (cdr (mp-context-types c)))
+		 (class? class)
+		 (null? (cdr (class-tyvars class))))
+	    (setf added (append (reduce-context-type class (car (mp-context-types c)))
+				added))
+	    (push c keep))))
+    (when (not (null? added))
+      (setf (signature-context signature)
+	    (append (signature-context signature) added))
+      (setf (signature-mcontext signature) (reverse keep)))))
+
+(define (reduce-context-type class type)
+  (resolve-type type)
+  (cond ((tyvar? type)
+	 (list (make context (class (**class/def class)) (tyvar (tyvar-name type)))))
+	((and (tycon? type) (synonym? (tycon-def type)))
+	 (reduce-context-type class (expand-synonym type)))
+	((and (tycon? type) (algdata? (tycon-def type)))
+	 (let ((inst (lookup-instance (tycon-def type) class)))
+	   (when (eq? inst '#f)
+	     (phase-error 'no-instance-for-context
+	       "No instance of ~A for ~A, in a context." class type))
+	   (let ((result '()))
+	     (dolist (ic (instance-context inst))
+	       (setf result
+		     (append (reduce-context-type
+			      (class-ref-class (context-class ic))
+			      (find-corresponding-tyvar
+			       (context-tyvar ic) (instance-tyvars inst)
+			       (tycon-args type)))
+			     result)))
+	     result)))
+	(else
+	 (phase-error 'unsupported-context
+	   "The context ~A (~A) is not supported: it is on an application of a~%~
+            type variable."
+	   class type)
+	 '())))
 
 (define (resolve-signature-aux tyvars context)
   (dolist (ctxt context)
