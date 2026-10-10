@@ -171,6 +171,23 @@
 	    (cdr res)))))
 
 (define (dump-gtype/cse g)
+  (if (null? (gtype-mcontext g))
+      (dump-gtype/cse-1 g)
+      ;; multi-parameter constraints: a new gtype, not shared
+      (cse-ref-code
+       (remember-dumped-object
+	`(gtype-with-mcontext
+	  ,(dump-gtype/cse-1 g)
+	  (list ,@(map (lambda (c)
+			 `(cons ,(dump-class/n (tuple-2-1 c))
+				,(cse-ref-code (dump-gtype-list (tuple-2-2 c)))))
+		       (gtype-mcontext g))))))))
+
+(define (gtype-with-mcontext g mcontext)
+  (make gtype (context (gtype-context g)) (type (gtype-type g))
+	      (mcontext mcontext)))
+
+(define (dump-gtype/cse-1 g)
  (cse-ref-code
   (let* ((context (dump-context-list (gtype-context g)))
 	 (type (dump-gtype-1 (gtype-type g)))

@@ -81,6 +81,11 @@
   (every (lambda (i) (mp-type-equal? (list-ref types1 i) (list-ref types2 i)))
 	 positions))
 
+;;; Does the type mention a type variable that is not an enclosing
+;;; binding's?
+(define (mp-type-generic? type)
+  (some (lambda (v) (not (non-generic? v))) (collect-tyvars type)))
+
 ;;; Does the type mention a type variable of an enclosing binding?
 
 (define (mp-type-non-generic? type)
@@ -289,8 +294,9 @@
 
 ;;; The multi-parameter constraints a binding without a signature is
 ;;; generalized over: those of PLACEHOLDERS that no instance resolves and
-;;; that mention no type variable of an enclosing binding, as distinct
-;;; (class . types).
+;;; that mention one of its own (generic) type variables, as distinct
+;;; (class . types).  (A constraint mentioning only an enclosing
+;;; binding's type variables is passed out to it.)
 
 (define (mp-generalizable-constraints placeholders)
   (let ((res '()))
@@ -299,7 +305,7 @@
 		 (eq? (mp-placeholder-exp p) '#f))
 	(let ((class (mp-placeholder-class p))
 	      (types (mp-placeholder-types p)))
-	  (when (and (not (some (function mp-type-non-generic?) types))
+	  (when (and (some (function mp-type-generic?) types)
 		     (eq? (find-mp-instance class types) '#f)
 		     (not (some (lambda (c)
 				  (and (eq? (tuple-2-1 c) class)
@@ -395,8 +401,10 @@
 			    (mp-param-types (car params)) types))
 	 (dolist2 (t1 (mp-param-types (car params))) (t2 types)
 	   (type-unify t1 t2
-	     (type-error "The constraint ~A ~A does not match the given ~A ~A."
-			 class types class (mp-param-types (car params)))))
+	     (type-error "The constraint ~A does not match the given ~A."
+			 (**mp-context (**class/def class) types)
+			 (**mp-context (**class/def class)
+				       (mp-param-types (car params))))))
 	 (car params))
 	(else (find-mp-param-1 (cdr params) class types))))
 
@@ -428,5 +436,44 @@
 
 (define (signal-unresolved-mp-constraint p)
   (phase-error 'unresolved-mp-constraint
-    "No instance for ~A ~A~%(and no constraint in the type signature provides it)."
-    (mp-placeholder-class p) (mp-placeholder-types p)))
+    "No instance for ~A~%(and no constraint in the type signature provides it)."
+    (**mp-context (**class/def (mp-placeholder-class p))
+		  (mp-placeholder-types p))))
+
+;;; Recursive calls within a group generalized over multi-parameter
+;;; constraints pass the caller's dictionaries for the callee's
+;;; constraints (the same ones: the group shares its type variables).
+
+(define (recursive-mp-dict-args exp from-decl to-decl)
+  (dolist (param (valdef-mp-dict-params to-decl))
+    (let ((mine (find-mp-param-1/exact (valdef-mp-dict-params from-decl)
+					(mp-param-class param)
+					(mp-param-types param))))
+      (setf exp (**app exp (**var/def (mp-param-var mine))))))
+  exp)
+
+(define (find-mp-param-1/exact params class types)
+  (cond ((null? params)
+	 (error "Lost a multi-parameter dictionary in a recursive group."))
+	((and (eq? (mp-param-class (car params)) class)
+	      (mp-types-equal? (mp-param-types (car params)) types))
+	 (car params))
+	(else (find-mp-param-1/exact (cdr params) class types))))
+
+;;; A one-parameter instance's multi-parameter constraints (instance C a b
+;;; => D (T a b)), at the type TYPE (a T ...): placeholders applied to
+;;; DICT after its one-parameter dictionaries, and resolved.  Returns the
+;;; dictionary code and the placeholders still to be resolved.
+
+(define (instance-mp-dict-args instance type dict deferred decls edecls var)
+  (let ((bindings (list (tuple '|%none| '|%none|))))
+    (dolist2 (tv (instance-tyvars instance)) (ty (ntycon-args type))
+      (push (tuple tv ty) bindings))
+    (dolist (c (instance-mcontext instance))
+      (mlet (((types b1) (ast->ntype/bindings/l (mp-context-types c) bindings))
+	     (p (**mp-placeholder (class-ref-class (mp-context-class c)) types
+				  '#f edecls var)))
+	(setf bindings b1)
+	(setf dict (**app dict p))
+	(setf deferred (process-mp-placeholder p deferred decls))))
+    (values dict deferred)))

@@ -354,6 +354,11 @@
     (push '#f (con-slot-strict? con)))
   con)
 
+(define (set-instance-mp-slots inst mp-types mcontext)
+  (setf (instance-mp-types inst) mp-types)
+  (setf (instance-mcontext inst) mcontext)
+  inst)
+
 (define (make-new-instance algdata tyvars class context gcontext dictionary m)
   (make instance
 	(algdata algdata)
@@ -749,7 +754,7 @@
   (with-new-def (dexp class *number-classes-dumped*)
     (dump-def-slots class class dexp
 		    (super super* tyvar method-vars selectors kind
-		     n-methods dict-size))))
+		     n-methods dict-size tyvars fundeps))))
 
 
 ;;;==================================================================
@@ -763,14 +768,21 @@
 (define-walker-method dump instance (o)
   (if (not (instance-ok? o))
       (error "Attempt to dump instance that's not ok!"))
-  `(make-new-instance
-     ,(dump-object (instance-algdata o))
-     ,(dump-object (instance-tyvars o))
-     ,(dump-object (instance-class o))
-     ,(dump-object (instance-context o))
-     ,(dump-object (instance-gcontext o))
-     ,(dump-object (instance-dictionary o))
-     ,(dump-object (instance-methods o))))
+  (let ((code `(make-new-instance
+		 ,(dump-object (instance-algdata o))
+		 ,(dump-object (instance-tyvars o))
+		 ,(dump-object (instance-class o))
+		 ,(dump-object (instance-context o))
+		 ,(dump-object (instance-gcontext o))
+		 ,(dump-object (instance-dictionary o))
+		 ,(dump-object (instance-methods o)))))
+    (if (and (null? (instance-mp-types o)) (null? (instance-mcontext o)))
+	code
+	;; an instance of a multi-parameter class, or with multi-parameter
+	;; constraints in its context
+	`(set-instance-mp-slots ,code
+				,(dump-object (instance-mp-types o))
+				,(dump-object (instance-mcontext o))))))
 
 
 
@@ -807,7 +819,12 @@
 
 (define-walker-method dump signature (o)
   `(make signature (context ,(dump-object (signature-context o)))
-	           (type ,(dump-object (signature-type o)))))
+	           (type ,(dump-object (signature-type o)))
+		   (mcontext ,(dump-object (signature-mcontext o)))))
+
+(define-walker-method dump mp-context (o)
+  `(**mp-context ,(dump-object (mp-context-class o))
+		 ,(dump-object (mp-context-types o))))
 
 ;;; All ntyvars should be instantiated at this point
 

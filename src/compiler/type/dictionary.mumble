@@ -159,7 +159,8 @@
 	   (setf (placeholder-exp p) code)
 	   (setf deferred def1))
 	(let ((method (method-placeholder-method p)))
-	  (if (every (function null?) (instance-gcontext instance))
+	  (if (and (every (function null?) (instance-gcontext instance))
+		   (null? (instance-mcontext instance)))
 	      (let ((mvar (tuple-2-2
 			   (assq method (instance-methods instance)))))
 		(setf (placeholder-exp p) (**var/def mvar)))
@@ -212,6 +213,12 @@
 	 (else
 	  (let ((p (locate-params (ntyvar-dict-params ntype) edecls decls)))
 	    (setf dict (**app dict (dict-reference-code class p))))))))
+    ;; then the instance's multi-parameter constraints (mp-classes.mumble)
+    (when (not (null? (instance-mcontext instance)))
+      (mlet (((d1 def1) (instance-mp-dict-args instance type dict deferred
+					     decls edecls var)))
+	(setf dict d1)
+	(setf deferred def1)))
     (values dict deferred)))
 
 ;;; The following routines deal with recursive placeholders.  The basic

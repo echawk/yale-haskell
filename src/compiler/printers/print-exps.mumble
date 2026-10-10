@@ -408,6 +408,14 @@
 	 (write-string (symbol->string
 			(def-name (dict-placeholder-class object))) xp))))
 
+(define-ast-printer mp-placeholder (object xp)
+  (cond ((not (eq? (mp-placeholder-exp object) '#f))
+	 (write (mp-placeholder-exp object) xp))
+	(else
+	 (write-string "%" xp)
+	 (write-string (symbol->string
+			(def-name (mp-placeholder-class object))) xp))))
+
 (define-ast-printer recursive-placeholder (object xp)
   (cond ((not (eq? (recursive-placeholder-exp object) '#f))
 	 (write (recursive-placeholder-exp object) xp))

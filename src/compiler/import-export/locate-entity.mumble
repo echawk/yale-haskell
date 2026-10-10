@@ -92,7 +92,8 @@
     (cond ((eq? def '#f)
 	   'not-found)
 	  ((is-type? 'entity-var entity)
-	   (if (method-var? def)
+	   ;; Haskell 98 5.2: a class method may be exported by name
+	   (if (and (method-var? def) (not (haskell98?)))
 	       (signal-export-method-var name)
 	       (make-group name def)))
 	  ((is-type? 'entity-con entity)

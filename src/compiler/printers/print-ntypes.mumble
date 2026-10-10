@@ -29,6 +29,8 @@
 	 (dolist (class classes)
 	    (push (**context (**class/def class) v) res)))
        (incf var))
+    (dolist (c (gtype-mcontext object))
+      (push (**mp-context (**class/def (tuple-2-1 c)) (tuple-2-2 c)) res))
     (write-contexts (reverse res) xp)
     (write (gtype-type object) xp)))
           

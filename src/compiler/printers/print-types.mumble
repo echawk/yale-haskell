@@ -126,8 +126,18 @@
     (write-avarid (context-tyvar object) xp)))
 
 (define-ast-printer signature (object xp)
-  (write-contexts (signature-context object) xp)
+  (write-contexts (append (signature-context object)
+			  (signature-mcontext object))
+		  xp)
   (write (signature-type object) xp))
+
+;;; C t1 ... tn (the types may be ASTs or ntypes)
+(define-ast-printer mp-context (object xp)
+  (with-ast-block (xp)
+    (write (mp-context-class object) xp)
+    (dolist (ty (mp-context-types object))
+      (write-whitespace xp)
+      (write-atype ty xp))))
 
 (define (write-contexts contexts xp)
   (when (not (null? contexts))
