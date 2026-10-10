@@ -1,0 +1,1 @@
+--emit scope,depend,cfn,depend2,flic,optimize,strictness,grin,codegen,lisp,asm

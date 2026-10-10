@@ -36,7 +36,20 @@ bin/yale-haskell --haskell98                    # the interactive system
 bin/yale-haskell --haskell98 repl prog.hs       # ... with prog.hs loaded
 bin/yale-haskell --haskell98 -e 'sum [1..100]'  # evaluate and exit
 bin/yale-haskell --help                         # options: --backend, --printers, ...
+bin/yale-haskell --haskell98 compile prog.hs --emit lisp -o prog.lisp   # compile only
 ```
+
+`compile FILE --emit STAGES` writes compiler stages for the program's own
+modules instead of running it, to `-o FILE` or stdout.  STAGES is a
+comma-separated list:
+- the passes `scope`, `depend`, `cfn`, `flic`, `optimize`,
+  `strictness`, `grin` and `codegen`, as `--printers` shows them;
+- `lisp`, the whole generated Lisp file;
+- `asm`, SBCL's disassembly of each top-level function.
+
+To see what the optimizations do, combine it with `--optimizers` (FLIC:
+`foldr,inline,constant,lisp`), `--grin-optimizations` (`-g`) and
+`--backend`. Each list takes names, `+name`, `-name`, `all` or `none`.
 
 The interactive system works like GHCi: type an expression to evaluate
 it (an `IO` action is run), a definition (`x = ...`, `f x = ...`,

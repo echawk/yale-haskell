@@ -35,35 +35,8 @@
 (lisp:declaim (sb-ext:muffle-conditions lisp:style-warning
 					sb-ext:compiler-note))
 
-(define (batch-run file args)
-  ;; getArgs, getProgName and exitWith (src/runtime/system-prims.mumble)
-  (set-haskell-program-args file args)
-  (setf *haskell-batch-mode* '#t)
-  ;; compiled units are kept between runs (src/compiler/csys/unit-cache.mumble)
-  (setup-unit-cache-for 'all)
-  ;; compiler diagnostics go to stderr, leaving stdout to the program
-  (setf *error-output-port* lisp:*error-output*)
-  ;; Haskell runtime errors (error, head [], ...) normally return to the
-  ;; REPL; in batch mode they end the program with status 1.
-  (setf *runtime-error-hook*
-	(lambda (msg)
-	  (lisp:force-output)
-	  (lisp:format lisp:*error-output* "~&Haskell runtime abort.~%~a~%" msg)
-	  (lisp:finish-output lisp:*error-output*)
-	  (exit 1)))
-  (let ((status
-	 (lisp:handler-case
-	     (lisp:handler-bind ((lisp:warning
-				  (lambda (c)
-				    (lisp:muffle-warning c))))
-	       (if (run-program file) 0 1))
-	   (lisp:error (c)
-	     (lisp:force-output)
-	     (lisp:format lisp:*error-output* "~&yale-haskell: ~a~%" c)
-	     1))))
-    (lisp:force-output)
-    (lisp:finish-output lisp:*error-output*)
-    (exit status)))
+;;; batch-run and emit-run, the command line's drivers, are in
+;;; src/compiler/command-interface/batch.mumble.
 
 
 ;;; The statistical profiler, for the interactive system's :profile: a

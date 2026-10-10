@@ -1,0 +1,123 @@
+;;; batch.mumble -- the command line's drivers (src/cli/cli.lisp):
+;;;
+;;;   yale-haskell FILE ARGS...              batch-run: compile, run Main.main
+;;;   yale-haskell compile FILE --emit S..   emit-run: compile, write stages
+
+;;; Batch mode: the program's output is the only thing on stdout;
+;;; compiler diagnostics go to stderr, and a compile error or a runtime
+;;; error ends the run with status 1.
+
+(define (setup-batch-mode)
+  (setf *haskell-batch-mode* '#t)
+  ;; compiler diagnostics go to stderr, leaving stdout to the program
+  (setf *error-output-port* lisp:*error-output*)
+  ;; Haskell runtime errors (error, head [], ...) normally return to the
+  ;; REPL; in batch mode they end the program with status 1.
+  (setf *runtime-error-hook*
+	(lambda (msg)
+	  (lisp:force-output)
+	  (lisp:format lisp:*error-output* "~&Haskell runtime abort.~%~a~%" msg)
+	  (lisp:finish-output lisp:*error-output*)
+	  (exit 1))))
+
+;;; Runs THUNK, which returns true on success, and exits with its status.
+;;; The host compiler's warnings about generated code are muffled.
+
+(define (exit-with-batch-status thunk)
+  (let ((status
+	 (lisp:handler-case
+	     (lisp:handler-bind ((lisp:warning
+				  (lambda (c)
+				    (lisp:muffle-warning c))))
+	       (if (funcall thunk) 0 1))
+	   (lisp:error (c)
+	     (lisp:force-output)
+	     (lisp:format lisp:*error-output* "~&yale-haskell: ~a~%" c)
+	     1))))
+    (lisp:force-output)
+    (lisp:finish-output lisp:*error-output*)
+    (exit status)))
+
+(define (batch-run file args)
+  ;; getArgs, getProgName and exitWith (src/runtime/system-prims.mumble)
+  (set-haskell-program-args file args)
+  (setup-batch-mode)
+  ;; compiled units are kept between runs (src/compiler/csys/unit-cache.mumble)
+  (setup-unit-cache-for 'all)
+  (exit-with-batch-status (lambda () (run-program file))))
+
+
+;;; Emitting the compiler's intermediate forms.  STAGES are names (strings):
+;;;
+;;;   scope depend cfn depend2 flic optimize strictness grin codegen
+;;;          the compiler's printers for those passes (as -p shows them)
+;;;   lisp   the unit's generated Lisp, as one file of top-level forms
+;;;   asm    SBCL's disassembly of the unit's top-level functions
+;;;
+;;; Only the program's own units are shown, not the library's.  The
+;;; program is compiled and loaded but not run.  OUTPUT is a file name,
+;;; or '#f for stdout.
+
+(define *emit-stages*
+  '(scope depend cfn depend2 flic optimize strictness grin codegen
+    codegen-flic lisp asm))
+
+(define (emit-run file stage-names output)
+  (setup-batch-mode)
+  (let ((stages  (map (lambda (s)
+			(or (lisp:find (lisp:string-upcase s) *emit-stages*
+				       :test (function lisp:string=))
+			    (begin
+			      (lisp:format lisp:*error-output*
+				 "yale-haskell: unknown stage ~A (~(~{~A~^ ~}~))~%"
+				 s *emit-stages*)
+			      (exit 64))))
+		      stage-names)))
+    ;; the program's units are compiled (so that they print), the
+    ;; library's may come from the cache
+    (setup-unit-cache 'library (unit-cache-mode-key))
+    (exit-with-batch-status
+     (lambda ()
+       (if output
+	   (lisp:with-open-file (port (lisp:ensure-directories-exist
+				       (absolute-filename output))
+				      :direction :output
+				      :if-exists :supersede)
+	     (emit-stages file stages port))
+	   (emit-stages file stages (current-output-port)))))))
+
+(define (emit-stages file stages port)
+  (lisp:let ((lisp:*standard-output* port))
+    (let ((mods  (dynamic-let ((*printers*
+				(lisp:intersection stages *all-printers*))
+			       (*print-library-units?* '#f)
+			       (*emit-lisp-port* (if (memq 'lisp stages)
+						     port
+						     '#f)))
+		   (compile/load file))))
+      (when (and mods (memq 'asm stages))
+	(dolist (name mods)
+	  (let ((mod  (table-entry *modules* name)))
+	    (when mod
+	      (dolist (v (module-vars mod))
+		(when (var? v)
+		  (emit-asm-var v)))))))
+      (force-output port)
+      (if mods '#t '#f))))
+
+;;; Only vars with code are shown (repl-disassemble-var in repl.mumble
+;;; also reports the others).
+
+(define (emit-asm-var var)
+  (let ((entry  (var-optimized-entry var))
+	(name   (fullname var)))
+    (when (or (and entry (lisp:fboundp entry))
+	      (and (lisp:boundp name)
+		   (let ((value  (lisp:symbol-value name)))
+		     (or (lisp:functionp value)
+			 (and (pair? value)
+			      (memq (car value) '(|%thunk-unevaluated%|
+						  |%thunk-evaluated%|))
+			      (lisp:functionp (cdr value)))))))
+      (repl-disassemble-var var (symbol->string (def-name var)))
+      (lisp:terpri))))

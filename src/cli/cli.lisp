@@ -42,6 +42,12 @@
    (clingon:make-option :flag :long-name "no-optimize" :short-name #\O
                       :key :no-optimize :persistent t
                       :description "turn off the FLIC optimizer")
+   (clingon:make-option :string :long-name "optimizers" :key :optimizers :persistent t
+                        :description "FLIC optimizers, comma-separated: names (exactly these), +name, -name, all, none; of foldr,inline,constant,lisp")
+   (clingon:make-option :string :long-name "emit" :key :emit :persistent t
+                        :description "compile without running and write these stages, comma-separated: scope,depend,cfn,flic,optimize,strictness,grin,codegen,lisp,asm")
+   (clingon:make-option :string :long-name "output" :short-name #\o :key :output :persistent t
+                        :description "file for --emit's output (default: standard output)")
    (clingon:make-option :string :long-name "grin-optimizations" :short-name #\g
                         :key :grin-optimizations :persistent t
                         :description "GRIN optimizations, comma-separated: names (exactly these), +name, -name, all, none; of fold,speculate,inline-eval,self-local,rep-types,ftype")
@@ -56,9 +62,9 @@
 ;;; off the command line.
 (defparameter *value-options*
   '("-b" "--backend" "-p" "--printers" "-e" "--eval" "-g" "--grin-optimizations"
-    "-l" "--foreign-library"))
+    "-l" "--foreign-library" "--optimizers" "--emit" "-o" "--output"))
 
-(defparameter *sub-commands* '("repl" "run" "help"))
+(defparameter *sub-commands* '("repl" "run" "compile" "help"))
 
 ;;; yale-haskell [opts] FILE ARGS...: everything after FILE belongs to the
 ;;; program, so it is passed after "--" (clingon would parse "-x" as ours).
@@ -93,6 +99,14 @@
       (mumble-set "*MODERN-PRELUDE?*" t))
     (when (clingon:getopt* cmd :no-optimize)
       (mumble-set "*OPTIMIZERS*" '()))
+    (let ((opts (clingon:getopt* cmd :optimizers)))
+      (when opts
+        (mumble-set "*OPTIMIZERS*"
+                    (mumble-call "OPTION-LIST"
+                                 (uiop:split-string opts :separator ",")
+                                 (mumble-value "*OPTIMIZERS*")
+                                 (mumble-value "*ALL-OPTIMIZERS*")
+                                 "optimizer"))))
     (dolist (lib (clingon:getopt* cmd :foreign-library))
       (handler-case (mumble-call "PRIM.LOAD-LIBRARY" lib)
         (error (c)
@@ -105,13 +119,30 @@
                                  (uiop:split-string grin :separator ",")
                                  (mumble-value "*GRIN-OPTIMIZATIONS*")))))))
 
+(defun emit-stages (cmd)
+  (let ((emit (clingon:getopt* cmd :emit)))
+    (and emit (uiop:split-string emit :separator ","))))
+
 (defun top-handler (cmd)
   (apply-options cmd)
   (let ((args (clingon:command-arguments cmd))
         (exprs (clingon:getopt* cmd :eval)))
     (cond (exprs (mumble-call "REPL-BATCH-EVAL" args exprs))
+          ((and args (emit-stages cmd)) (compile-handler cmd))
           (args (mumble-call "BATCH-RUN" (first args) (rest args)))
           (t (mumble-call "REPL" '())))))
+
+;;; yale-haskell compile FILE [--emit STAGES] [-o OUT]: compile without
+;;; running (src/compiler/command-interface/batch.mumble).  Without
+;;; --emit it only reports errors.
+(defun compile-handler (cmd)
+  (apply-options cmd)
+  (let ((args (clingon:command-arguments cmd)))
+    (unless (= (length args) 1)
+      (format *error-output* "yale-haskell compile: one FILE expected~%")
+      (uiop:quit 64))
+    (mumble-call "EMIT-RUN" (first args) (emit-stages cmd)
+                 (clingon:getopt* cmd :output))))
 
 (defun run-handler (cmd)
   (apply-options cmd)
@@ -133,13 +164,16 @@
    :name "yale-haskell"
    :description "the Yale Haskell compiler and interactive system"
    :version (mumble-value "*HASKELL-COMPILER-VERSION*")
-   :usage "[options] [FILE [ARGS...] | repl [FILE...] | -e EXPR [FILE...]]"
+   :usage "[options] [FILE [ARGS...] | repl [FILE...] | compile FILE --emit STAGES [-o OUT] | -e EXPR [FILE...]]"
    :options (options)
    :handler #'top-handler
    :sub-commands
    (list (clingon:make-command :name "repl" :usage "[FILE...]"
                                :description "the interactive system (GHCi-like)"
                                :handler #'repl-handler)
+         (clingon:make-command :name "compile" :usage "FILE [--emit STAGES] [-o OUT]"
+                               :description "compile FILE without running it; --emit writes compiler stages"
+                               :handler #'compile-handler)
          (clingon:make-command :name "run" :usage "FILE [ARGS...]"
                                :description "compile FILE and run Main.main"
                                :handler #'run-handler))))

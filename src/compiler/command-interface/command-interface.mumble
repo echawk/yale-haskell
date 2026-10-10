@@ -1,4 +1,5 @@
-;;; csys.mumble -- compilation unit definition for the compilation system
+;;; command-interface.mumble -- compilation unit definition for the
+;;; command interface
 
 (define-compilation-unit command-interface
   (source-filename "$Y2/src/compiler/command-interface/")
@@ -11,4 +12,7 @@
     (source-filename "incremental-compiler.mumble"))
   (unit repl
     (source-filename "repl.mumble")
-    (require command command-utils incremental-compiler)))
+    (require command command-utils incremental-compiler))
+  (unit batch
+    (source-filename "batch.mumble")
+    (require repl)))

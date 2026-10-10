@@ -29,6 +29,13 @@
 ;;; and ignored.
 
 (define (grin-optimization-list words0 current)
+  (option-list words0 current *all-grin-optimizations* "GRIN optimization"))
+
+;;; WORDS (strings) applied to the list CURRENT, a subset of ALL: names
+;;; (exactly these), +name, -name, all, none.  Used for the command
+;;; line's --grin-optimizations and --optimizers.
+
+(define (option-list words0 current all what)
   (let* ((words (lisp:remove "" words0 :test (function string=?)))
 	 (opts  (if (and (not (null? words))
 			(not (memv (lisp:char (car words) 0) '(#\+ #\-))))
@@ -39,18 +46,18 @@
 	     (name  (if (memv sign '(#\+ #\-)) (lisp:subseq w 1) w))
 	     (sym   (lisp:find-symbol (lisp:string-upcase name) "MUMBLE-USER")))
 	(cond ((lisp:string-equal name "all")
-	       (setf opts *all-grin-optimizations*))
+	       (setf opts all))
 	      ((lisp:string-equal name "none")
 	       (setf opts '()))
-	      ((not (memq sym *all-grin-optimizations*))
-	       (lisp:format lisp:t "~&unknown GRIN optimization ~A (~(~{~A~^ ~}~))~%"
-			    name *all-grin-optimizations*))
+	      ((not (memq sym all))
+	       (lisp:format lisp:*error-output* "~&unknown ~A ~A (~(~{~A~^ ~}~))~%"
+			    what name all))
 	      ((eqv? sign #\-)
 	       (setf opts (lisp:remove sym opts)))
 	      ((not (memq sym opts))
 	       (setf opts (append opts (list sym)))))))
-    ;; in the order of *all-grin-optimizations*
-    (lisp:remove-if-not (lambda (o) (memq o opts)) *all-grin-optimizations*)))
+    ;; in the order of all
+    (lisp:remove-if-not (lambda (o) (memq o opts)) all)))
 
 ;;; A top-level value's body runs when the module is loaded, outside the
 ;;; program's float-trap masking (call-with-ieee-floats), so it is not
