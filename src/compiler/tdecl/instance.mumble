@@ -388,7 +388,15 @@
   (let ((decl-vars (collect-pattern-vars (valdef-lhs decl))))
     (dolist (var decl-vars)
       (resolve-var var)
-      (let ((method (var-ref-var var)))
+      ;; An instance's binding names the class's method, whatever is in
+      ;; scope under that name (H2010 4.3.2): a module's fail or foldr may be
+      ;; the Prelude's while the class is PreludeModern's.
+      (let* ((by-name (lisp:find (var-ref-name var) new-instance-vars
+				 :key (lambda (m-v) (def-name (tuple-2-1 m-v)))))
+	     (method (if (and by-name
+			      (not (assq (var-ref-var var) new-instance-vars)))
+			 (tuple-2-1 by-name)
+			 (var-ref-var var))))
         (when (not (eq? method *undefined-def*))
          (let ((m-v (assq method new-instance-vars)))
           (cond ((memq method methods-used)
@@ -416,10 +424,25 @@
 
 (define (method-def-var method-var inst)
   (make-new-var
+   (unique-instance-name
     (string-append "i-"
 		   (symbol->string (print-name (instance-class inst))) "-"
 		   (instance-type-name inst) "-"
-		   (symbol->string (def-name method-var)))))
+		   (symbol->string (def-name method-var))))))
+
+;;; Two instances in a module can have the same type name (a lazy and a
+;;; strict StateT, from different modules): later ones get -2, -3, ...
+
+(define *instance-names* (make-table))
+
+(define (unique-instance-name name)
+  (let* ((key  (string->symbol (string-append (symbol->string *module-name*)
+					      "." name)))
+	 (n    (or (table-entry *instance-names* key) 0)))
+    (setf (table-entry *instance-names* key) (1+ n))
+    (if (eqv? n 0)
+	name
+	(format '#f "~A-~A" name (1+ n)))))
 
 (define (generate-method-signature inst method-var keep-method-context?)
   (let* ((class-context (instance-context inst))

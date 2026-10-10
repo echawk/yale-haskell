@@ -99,7 +99,10 @@
 		 (type-mismatch (tuple-2-1 d)
 			  "Decl type mismatch" lhs-type rhs-type))))
        (setf (dynamic *non-generic-tyvars*) old-ng)
+       (setf (dynamic *given-mp-constraints*) '())
        (let ((sig-contexts (check-user-signatures all-vars)))
+	 (improve-mp-placeholders/given (dynamic *placeholders*)
+					(dynamic *given-mp-constraints*))
 
 ;;; This generalizes the signatures of recursive decls.  First, the
 ;;; context of the declaration group is computed.  Any tyvar in the
@@ -185,6 +188,11 @@
 
 ;;; SIGNED?: the body sees the variable at its signature (type-recursive-group).
 
+(define (main-var? vars)
+  (and (pair? vars) (null? (cdr vars))
+       (eq? (def-name (car vars)) '|main|)
+       (eq? (def-module (car vars)) '|Main|)))
+
 (define (type-non-recursive decl . signed?)
  (remember-context decl
   (fresh-type lhs-type
@@ -204,10 +212,19 @@
 	(type-unify lhs-type rhs-type
            (type-mismatch decl
 	       "Decl type mismatch" lhs-type rhs-type)))
+      ;; Main.main has type IO t (H98 5): known before the monomorphism
+      ;; restriction and defaulting, so main = return () is IO ()
+      (when (and (haskell98?) (main-var? all-vars))
+	(let ((io (**ntycon (core-symbol "IO") (list (**ntyvar)))))
+	  (type-unify lhs-type io
+	    (type-mismatch decl "main must have an IO type" lhs-type io))))
+      (setf (dynamic *given-mp-constraints*) '())
       (check-user-signatures all-vars)
       ;; multi-parameter constraints (mp-classes.mumble): improve by
       ;; functional dependencies, then those to generalize over, when
       ;; there is no signature to give them
+      (improve-mp-placeholders/given (dynamic *placeholders*)
+				     (dynamic *given-mp-constraints*))
       (improve-mp-placeholders (dynamic *placeholders*))
       (let* ((all-tyvars (collect-tyvars lhs-type))
 	     (overloaded-tyvars '())
@@ -321,7 +338,11 @@
 
 
 (define (check-var-signature var sig)
-  (mlet (((sig-type sig-vars) (instantiate-gtype/newvars sig)))
+  (mlet (((sig-type sig-vars givens) (instantiate-gtype/mp sig)))
+    ;; the signature's multi-parameter constraints, for fundep
+    ;; improvement before defaulting (mp-classes.mumble)
+    (setf (dynamic *given-mp-constraints*)
+	  (append givens (dynamic *given-mp-constraints*)))
     (dolist (tyvar sig-vars)
       (setf (ntyvar-read-only? tyvar) '#t))
     (type-unify (remove-recursive-type (var-type var)) sig-type

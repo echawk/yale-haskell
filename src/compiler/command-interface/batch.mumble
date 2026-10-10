@@ -28,7 +28,17 @@
 	 (lisp:handler-case
 	     (lisp:handler-bind ((lisp:warning
 				  (lambda (c)
-				    (lisp:muffle-warning c))))
+				    (lisp:muffle-warning c)))
+				 ;; YALE_HASKELL_DEBUG=1: a Lisp backtrace for
+				 ;; an internal error
+				 (lisp:error
+				  (lambda (c)
+				    (declare (ignore c))
+				    (when (env-flag? "YALE_HASKELL_DEBUG")
+				      #+sbcl
+				      (lisp:funcall
+				       (lisp:find-symbol "PRINT-BACKTRACE" "SB-DEBUG")
+				       ':count 40 ':stream lisp:*error-output*)))))
 	       (if (funcall thunk) 0 1))
 	   (lisp:error (c)
 	     (lisp:force-output)

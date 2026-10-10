@@ -203,10 +203,12 @@
 			     (class class)
 			     (gcontext '())
 			     (context '())
-			     (dictionary (make-new-var dict-name))
+			     (dictionary (make-new-var (unique-instance-name dict-name)))
 			     (mp-types types))))
    (link-instance inst)
    inst))
+
+(predefine (unique-instance-name name))  ; in tdecl/instance.mumble
 
 (define (new-instance class algdata tyvars)
  (let* ((dict-name
@@ -218,7 +220,7 @@
 		             (class class)
 			     (gcontext '())
 			     (context '())
-			     (dictionary (make-new-var dict-name)))))
+			     (dictionary (make-new-var (unique-instance-name dict-name))))))
    (link-instance inst)
    inst))
 

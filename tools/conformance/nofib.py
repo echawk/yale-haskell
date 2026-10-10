@@ -27,8 +27,24 @@ MODULE_MAP = {
     'System.Time': 'Time', 'System.Locale': 'Locale',
 }
 # Modules Yale Haskell does not have yet: the program is skipped.
-NON_H98 = re.compile(r'^>?\s*import\s+(qualified\s+)?(Data\.(IntMap\.Strict|Map\.Strict|Array\.\w+)|Control\.(Monad\.(?!Fail\b|ST\b)\w+|Concurrent|Parallel|DeepSeq)|GHC\.|Text\.(?!Read\b|Printf\b|PrettyPrint\b)|System\.Mem)', re.M)
-EXTENSIONS = re.compile(r'\{-#\s*LANGUAGE(?!\s+CPP\s*#-\})|\bforall\b|\bunsafePerformIO\b|#!', re.M)
+NON_H98 = re.compile(r'^>?\s*import\s+(qualified\s+)?(Data\.(IntMap\.Strict|Map\.Strict|Array\.\w+)|Control\.(Monad\.(?!Fail\b|ST\b|Trans\b|State\b|Reader\b|Writer\b|Except\b)\w+|Concurrent|Parallel|DeepSeq)|GHC\.|Text\.(?!Read\b|Printf\b|PrettyPrint\b)|System\.Mem)', re.M)
+EXTENSIONS = re.compile(r'\bforall\b|\bunsafePerformIO\b|#!', re.M)
+# LANGUAGE pragmas naming only these are fine (tools/conformance/extensions.py)
+SUPPORTED = set('''CPP BangPatterns LambdaCase TupleSections MultiWayIf
+    BinaryLiterals NumericUnderscores InstanceSigs KindSignatures
+    NamedFieldPuns RecordWildCards GADTSyntax StandaloneDeriving EmptyCase
+    EmptyDataDecls FlexibleInstances FlexibleContexts TypeSynonymInstances
+    MultiParamTypeClasses FunctionalDependencies DeriveFunctor DeriveFoldable
+    DeriveTraversable GeneralizedNewtypeDeriving'''.split())
+LANGUAGE = re.compile(r'\{-#\s*LANGUAGE\s+([^#]*)#-\}')
+
+def unsupported_extension(src):
+    for m in LANGUAGE.finditer(src):
+        for ext in re.split(r'[\s,]+', m.group(1).strip()):
+            if ext and ext not in SUPPORTED:
+                return 'LANGUAGE ' + ext
+    m = EXTENSIONS.search(src)
+    return m.group(0).strip() if m else None
 # Programs compiled with -cpp (their Makefile's SRC_HC_OPTS) or this
 # pragma get --cpp, as GHC preprocesses them
 CPP_PRAGMA = re.compile(r'\{-#\s*LANGUAGE\s+CPP\s*#-\}')
@@ -98,8 +114,9 @@ def run_program(d, timeout, verbose):
                 src = read(p)
                 if NON_H98.search(src):
                     return 'SKIP', 'imports %s' % NON_H98.search(src).group(0).split()[-1]
-                if EXTENSIONS.search(src):
-                    return 'SKIP', 'extension: %s' % EXTENSIONS.search(src).group(0).strip()
+                ext = unsupported_extension(src)
+                if ext:
+                    return 'SKIP', 'extension: %s' % ext
                 cpp = cpp or bool(CPP_PRAGMA.search(src))
                 with open(os.path.join(work, f), 'w', encoding='latin-1') as g:
                     g.write(map_imports(src))

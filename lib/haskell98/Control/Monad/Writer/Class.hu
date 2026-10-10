@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Control/Monad/Writer/
+:o= all
+Class.hs

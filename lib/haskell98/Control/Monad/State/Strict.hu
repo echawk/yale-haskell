@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Control/Monad/State/
+:o= all
+Strict.hs

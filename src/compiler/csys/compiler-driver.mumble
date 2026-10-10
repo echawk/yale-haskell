@@ -526,15 +526,18 @@
 (define (locate-module-unit name importing-file)
   (let ((dirs  (module-search-dirs importing-file))
 	(n     (module-name->path (symbol->string name))))
-    (or (first-found
+    ;; base's version of a module (--modern-prelude) wins everywhere, also
+    ;; over a library module's neighbour of that name: one program has one
+    ;; Control.Monad
+    (or (and (modern-prelude?)
+	     (existing-file
+	      (string-append "$HASKELL_LIBRARY/modern/" n *unit-file-extension*)))
+	(first-found
 	 (lambda (dir)
 	   (or (existing-file (string-append dir n *unit-file-extension*))
 	       (source-file-defining (string-append dir n ".hs") name)
 	       (source-file-defining (string-append dir n ".lhs") name)))
 	 dirs)
-	(and (modern-prelude?)
-	     (existing-file
-	      (string-append "$HASKELL_LIBRARY/modern/" n *unit-file-extension*)))
 	(existing-file
 	  (string-append "$HASKELL_LIBRARY/" n *unit-file-extension*)))))
 
@@ -707,7 +710,10 @@
 ;;; This determines whether a unit is valid.
 
 (define (unit-valid? c cflags)
-  (and (or (ucache-stable? c)
+  (and (or (not (unit-in-cache? c))
+	   (ucache-ifile-loaded c)
+	   (unit-imports-unchanged? c))
+       (or (ucache-stable? c)
 	   ;; If the unit is not stable, make sure its source files
 	   ;; haven't changed.
 	   (and (all-imports-current (ucache-imported-units c)
@@ -852,6 +858,8 @@
 		   (elapsed-time (- current-time phase-start-time)))
 	      (format '#t "Interface complete: ~A seconds~%" elapsed-time)
 	      (force-output)))))
+      (when (unit-in-cache? c)
+	(write-unit-imports c))
       ;; Write code file if necessary.
       (when (cflags-write-code? cflags)
 	(if (cflags-compile-code? cflags)

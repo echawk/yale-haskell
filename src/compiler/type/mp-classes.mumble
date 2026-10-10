@@ -243,15 +243,41 @@
 ;;; of the same class agreeing on the determining types.  Repeated while
 ;;; something changes.
 
+;;; The constraints of the signatures being checked, (class . ntypes)
+;;; (type-decl.mumble's check-var-signature).
+(define *given-mp-constraints* '())
+
+;;; Fundep improvement against the signature's own constraints: a
+;;; placeholder that agrees with a given one at the determining positions
+;;; gets its other types.  Before defaulting, so that put 100 under
+;;; MonadState Int m makes 100 an Int.
+
+(define (improve-mp-placeholders/given placeholders givens)
+  (when (not (null? givens))
+    (dolist (p placeholders)
+      (when (and (mp-placeholder? p)
+		 (not (null? (class-fundeps (mp-placeholder-class p)))))
+	(let ((class (mp-placeholder-class p))
+	      (types (mp-placeholder-types p)))
+	  (dolist (g givens)
+	    (when (and (eq? (tuple-2-1 g) class)
+		       (mp-equal-at? (mp-determining-positions class)
+				     (tuple-2-2 g) types))
+	      (dolist2 (t1 (tuple-2-2 g)) (t2 types)
+		(type-unify t1 t2 '#f)))))))))
+
 (define (improve-mp-placeholders placeholders)
   (let ((mps '()))
     (dolist (p placeholders)
       (when (and (mp-placeholder? p)
 		 (not (null? (class-fundeps (mp-placeholder-class p)))))
 	(push p mps)))
-    (improve-mp-loop mps)))
+    (improve-mp-loop mps 50)))
 
-(define (improve-mp-loop mps)
+;;; Repeats while types change; a type error can leave them changing, so
+;;; there is a limit.
+
+(define (improve-mp-loop mps limit)
   (let ((changed '#f))
     (dolist (p mps)
       (let* ((class (mp-placeholder-class p))
@@ -259,15 +285,32 @@
 	     (before (map (function mp-type-snapshot) types))
 	     (found (find-mp-instance class types)))
 	(when found
-	  (improve-from-instance (tuple-2-1 found) (tuple-2-2 found) types))
+	  (improve-through-instance (tuple-2-1 found) (tuple-2-2 found) types 8))
 	(dolist (q mps)
 	  (when (and (not (eq? p q))
 		     (eq? (mp-placeholder-class q) class))
 	    (improve-by-fundeps class types (mp-placeholder-types q))))
 	(when (not (equal? before (map (function mp-type-snapshot) types)))
 	  (setf changed '#t))))
-    (when changed
-      (improve-mp-loop mps))))
+    (when (and changed (> limit 0))
+      (improve-mp-loop mps (1- limit)))))
+
+;;; Improvement by an instance's head, then by its context's
+;;; multi-parameter constraints (instance MonadState s m => MonadState s
+;;; (WriterT w m): MonadState Int (WriterT w (StateT t Identity)) makes t
+;;; Int through the StateT instance), DEPTH levels deep.
+
+(define (improve-through-instance inst bindings types depth)
+  (let ((bindings (improve-from-instance inst bindings types)))
+    (when (> depth 0)
+      (dolist (c (instance-mcontext inst))
+	(let ((class (class-ref-class (mp-context-class c))))
+	  (when (not (null? (class-fundeps class)))
+	    (mlet (((ctypes _) (ast->ntype/bindings/l (mp-context-types c) bindings)))
+	      (let ((found (find-mp-instance class ctypes)))
+		(when found
+		  (improve-through-instance (tuple-2-1 found) (tuple-2-2 found)
+					    ctypes (1- depth)))))))))))
 
 ;;; For each fundep whose `from' types agree, unify the `to' types.
 (define (improve-by-fundeps class types1 types2)
@@ -412,7 +455,21 @@
 ;;; types so that its own context's dictionaries are supplied (as new
 ;;; placeholders, resolved here).
 
+(define *mp-resolve-depth* 0)
+
 (define (resolve-mp-by-instance p inst bindings deferred decls)
+  ;; instance contexts nest only so deep; deeper is a loop, as after a
+  ;; type error in improvement
+  (if (> (dynamic *mp-resolve-depth*) 40)
+      (begin
+	(phase-error 'mp-instance-loop
+	  "Resolving the constraint ~A loops through instance contexts."
+	  (mp-placeholder-class p))
+	deferred)
+      (dynamic-let ((*mp-resolve-depth* (1+ (dynamic *mp-resolve-depth*))))
+	(resolve-mp-by-instance-1 p inst bindings deferred decls))))
+
+(define (resolve-mp-by-instance-1 p inst bindings deferred decls)
   (let* ((bindings (improve-from-instance inst bindings (mp-placeholder-types p)))
 	 (dict-var (instance-dictionary inst))
 	 (new-placeholders '())
@@ -422,7 +479,10 @@
       (dynamic-let ((*placeholders* '())
 		    (*enclosing-decls* (placeholder-enclosing-decls p)))
 	(mlet (((dict-type tyvars mps)
-		(instantiate-gtype/mp (var-signature dict-var))))
+		;; (from an interface file the type is var-type: signatures
+		;; are the module's own)
+		(instantiate-gtype/mp (or (var-signature dict-var)
+					  (var-type dict-var)))))
 	  (type-unify dict-type expected
 	    (type-error "Internal error: dictionary type of ~A ~A."
 			(instance-class inst) (instance-mp-types inst)))

@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Data/Functor/
+:o= all
+Identity.hs

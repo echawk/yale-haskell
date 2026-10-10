@@ -133,6 +133,31 @@
 		       (substring abs 1 (string-length abs))
 		       abs))))
 
+;;; The units a cached unit was compiled against, beside its files
+;;; (<cfile>.imports): if another unit now provides one of its imports
+;;; (a new M.hs next to the program, --modern-prelude's Control.Monad),
+;;; dates alone would not show it stale.
+
+(define (unit-imports-filename c)
+  (string-append (ucache-cfile c) ".imports"))
+
+(define (write-unit-imports c)
+  (call-with-output-file (unit-imports-filename c)
+    (lambda (port)
+      (dolist (u (ucache-imported-units c))
+	(write-string u port)
+	(write-char #\newline port)))))
+
+(define (unit-imports-unchanged? c)
+  (let ((file  (unit-imports-filename c)))
+    (and (file-exists? file)
+	 (equal? (call-with-input-file file
+		   (lambda (port)
+		     (do ((line (read-line port) (read-line port))
+			  (lines '() (cons line lines)))
+			 ((eof-object? line) (reverse lines)))))
+		 (ucache-imported-units c)))))
+
 (define (unit-in-cache? c)
   (and *unit-cache-directory*
        (string-starts? *unit-cache-directory* (ucache-cfile c))))

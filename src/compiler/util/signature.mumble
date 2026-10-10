@@ -125,12 +125,37 @@
 	   (when (not (eq? def *undefined-def*))
 	     (cond ((eqv? (tycon-def-arity def) -1)
 		    (setf (tycon-def-arity def) (length args)))
+		   ;; a synonym for a partial application, applied to more:
+		   ;; type State s = StateT s Identity; State s a (GHC)
+		   ((and (> (length args) (tycon-def-arity def))
+			 (synonym? def) (haskell98?)
+			 (expand-over-applied-synonym type))
+		    (return-from resolve-type-1
+		      (resolve-type-1 type vars partial-ok?)))
 		   ((> (length args) (tycon-def-arity def))
 		    (signal-tycon-arity name type))
 		   ((and (< (length args) (tycon-def-arity def))
 			 (or (not partial-ok?) (synonym? def)))
 		    (signal-tycon-arity name type))))
 	   (resolve-type/list args vars)))))
+
+;;; TYPE, a synonym applied to more arguments than it has, becomes in
+;;; place its expansion applied to the rest; #f if the expansion is not a
+;;; type constructor application.
+
+(define (expand-over-applied-synonym type)
+  (let* ((def    (tycon-def type))
+	 (n      (tycon-def-arity def))
+	 (args   (tycon-args type))
+	 (head   (make tycon (name (tycon-name type)) (def def)
+		       (args (lisp:subseq args 0 n))))
+	 (exp    (expand-synonym head)))
+    (and (tycon? exp)
+	 (begin
+	   (setf (tycon-name type) (tycon-name exp))
+	   (setf (tycon-def type) (tycon-def exp))
+	   (setf (tycon-args type) (append (tycon-args exp) (lisp:nthcdr n args)))
+	   '#t))))
 
 (define (resolve-type/list args vars)
   (if (null? args)

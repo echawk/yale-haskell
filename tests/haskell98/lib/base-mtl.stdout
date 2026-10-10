@@ -1,0 +1,6 @@
+((2,1),(200,100))
+in app: 6
+("50",6)
+(((),["saw 7","saw 8"]),9)
+(Right 5,Right 14)
+Left "divide by zero"
