@@ -22,8 +22,15 @@
 			   (tuple (fundep-positions (tuple-2-1 fd) class-vars c)
 				  (fundep-positions (tuple-2-2 fd) class-vars c)))
 			 fundeps))
-	      (when (not (null? super-classes))
-		(signal-mp-superclasses-unsupported class)))
+	      ;; superclasses of a multi-parameter class: one-parameter
+	      ;; classes of its type variables
+	      (setf (class-mp-supers def)
+		    (map (lambda (context)
+			   (resolve-class (context-class context))
+			   (tuple (class-ref-class (context-class context))
+				  (locate-in-list (context-tyvar context) class-vars 0)))
+			 super-classes))
+	      (setf super-classes '()))
 	    (dolist (context super-classes)
               (with-slots context (class tyvar) context
 		(when (not (eq? class-var tyvar))

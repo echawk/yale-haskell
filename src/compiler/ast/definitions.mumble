@@ -192,6 +192,11 @@
    ;; over them; '() for a one-parameter class
    (tyvars (type (list symbol)) (default '()))
    (fundeps (type (list (tuple (list int) (list int)))) (default '()))
+   ;; a multi-parameter class's superclasses: (superclass . position of
+   ;; the type variable it constrains), as Monad m in
+   ;; class Monad m => MonadReader r m (signature.mumble adds them to
+   ;; contexts with the class)
+   (mp-supers (type (list (tuple class int))) (default '()))
    ))
 
 ;;; Since instances are not named there is no need to include def.  
