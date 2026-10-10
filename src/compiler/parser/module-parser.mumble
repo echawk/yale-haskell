@@ -138,6 +138,17 @@
 		    (remove-fixity-decls (class-decl-decls class-decl)))
 	      (push-decl-list class-decl (module-classes mod-ast)))
 	    (terminate-topdecl mod-ast in-layout? 'topdecl))
+   ;; StandaloneDeriving (GHC): deriving instance [ctx =>] C (T a ...)
+   ((no-advance satisfies at-standalone-deriving?)
+    (advance-token)
+    (advance-token)
+    (parse-optional-context)   ; the derived instance's context is inferred
+    (let* ((class (class->ast))
+	   (type (parse-atype)))
+      (when (not (tycon? type))
+	(signal-invalid-syntax "a standalone deriving declaration"))
+      (push (tuple class (tycon-name type)) *standalone-derivings*))
+    (terminate-topdecl mod-ast in-layout? 'topdecl))
    (|instance| (let ((instance-decl (parse-instance-decl '#f)))
 		 (push-decl-list instance-decl (module-instances mod-ast)))
 	       (terminate-topdecl mod-ast in-layout? 'topdecl))
@@ -189,7 +200,28 @@
 	(else
 	 (signal-invalid-syntax "a topdecl"))))
 
+(define *standalone-derivings* '())   ; (tuple class-ast type-name)
+
+(define (at-standalone-deriving?)
+  (and (haskell98?) (eq-token? '|deriving|) (eq? (peek-1-type) '|instance|)))
+
+;;; A standalone deriving declaration adds the class to the deriving
+;;; clause of the type's declaration, which must be in this module.
+
+(define (attach-standalone-derivings mod-ast)
+  (dolist (d (reverse *standalone-derivings*))
+    (let ((decl (lisp:find (tuple-2-2 d) (module-algdatas mod-ast)
+			   :key (lambda (dd) (tycon-name (data-decl-simple dd))))))
+      (if decl
+	  (setf (data-decl-deriving decl)
+		(append (data-decl-deriving decl) (list (tuple-2-1 d))))
+	  (parser-error 'standalone-deriving-elsewhere
+	    "Standalone deriving for ~A, which is not declared in this module, is not supported."
+	    (tuple-2-2 d)))))
+  (setf *standalone-derivings* '()))
+
 (define (wrapup-module mod-ast)
+  (attach-standalone-derivings mod-ast)
   (setf (module-decls mod-ast)
 	(nreverse (module-decls mod-ast)))
   ;; Haskell 98 allows an empty body (module M (x) where re-exporting

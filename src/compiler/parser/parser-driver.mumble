@@ -70,6 +70,7 @@
       (format '#t "Reading Haskell source file ~s.~%" filename))
   (when (not (file-exists? filename))
     (signal-file-not-found filename))
+  (setf *standalone-derivings* '())
   (dynamic-let ((*current-file* filename))
     (let ((mods '()))
       (call-with-input-file filename

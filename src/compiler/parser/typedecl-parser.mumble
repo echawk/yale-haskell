@@ -12,16 +12,13 @@
     (let ((annotations (parse-constr-annotations)))
      (token-case
       (= (setf constrs (parse-constrs))
-	 (token-case
-	  (|deriving|
-	   (setf deriving
-	     (token-case
-		 (\( 
-		  (token-case
-		   (\) '())
-		   (else (parse-class-list))))
-		 (tycon (list (class->ast)))
-		 (else (signal-invalid-syntax "a deriving clause")))))))
+	 (setf deriving (parse-optional-deriving)))
+      ;; GADTSyntax (GHC): data T a where C :: t -> T a
+      ((no-advance satisfies at-gadt-where?)
+       (advance-token)
+       (setf constrs (start-layout
+		      (lambda (in-layout?) (parse-gadt-constrs simple in-layout?))))
+       (setf deriving (parse-optional-deriving)))
       (else
        ;; data T with no constructors is Haskell 2010 (report 4.2.1)
        (when (not (or interface? (haskell98?)))
@@ -29,6 +26,97 @@
     (make data-decl (context contexts) (simple simple)
 		    (constrs constrs) (deriving deriving)
 		    (annotations annotations))))))
+
+(define (parse-optional-deriving)
+  (token-case
+   (|deriving|
+    (token-case
+     (\(
+      (token-case
+       (\) '())
+       (else (parse-class-list))))
+     (tycon (list (class->ast)))
+     (else (signal-invalid-syntax "a deriving clause"))))
+   (else '())))
+
+(define (at-gadt-where?)
+  (and (haskell98?) (eq-token? '|where|)))
+
+;;; The constructors of data T a1 ... an where, in GADT syntax:
+;;;   C1, C2 :: [forall ...] t1 -> ... -> T b1 ... bn
+;;; Only ordinary data types: the result is T applied to distinct type
+;;; variables, renamed to a1 ... an (a GADT proper refines the result type,
+;;; which Yale Haskell does not support).  A field may be strict (!t).
+
+(define (parse-gadt-constrs simple in-layout?)
+  (token-case
+   (\; (parse-gadt-constrs simple in-layout?))
+   (con
+    (let* ((cons (parse-gadt-con-names))
+	   (_ (require-token \:\: (signal-missing-token "`::'" "GADT constructor")))
+	   (_ (skip-explicit-forall))
+	   (args+res (parse-gadt-con-type))
+	   (types (gadt-rename-fields simple (car args+res) (cdr args+res)))
+	   (constrs (map (lambda (con) (make constr (constructor con) (types types)))
+			 cons)))
+      (token-case
+       (\; (append constrs (parse-gadt-constrs simple in-layout?)))
+       (else (close-layout in-layout?)
+	     constrs))))
+   (else (close-layout in-layout?)
+	 '())))
+
+(define (parse-gadt-con-names)
+  (let ((con (con->ast)))
+    (token-case
+     (\, (cons con (token-case
+		    (con (parse-gadt-con-names))
+		    (else (signal-missing-token "<con>" "GADT constructors")))))
+     (else (list con)))))
+
+;;; Returns ((tuple type annotations) ...) for the fields, and the result.
+
+(define (parse-gadt-con-type)
+  (let ((t+a (if (at-strictness-flag?)
+		 (parse-strict-atype)
+		 (tuple (parse-btype) '()))))
+    (token-case
+     (-> (let ((rest (parse-gadt-con-type)))
+	   (cons (cons t+a (car rest)) (cdr rest))))
+     (else
+      (when (not (null? (tuple-2-2 t+a)))
+	(signal-invalid-syntax "a GADT constructor's result type"))
+      (cons '() (tuple-2-1 t+a))))))
+
+(define (gadt-rename-fields simple fields result)
+  (when (not (and (tycon? result)
+		  (eq? (tycon-name result) (tycon-name simple))
+		  (eqv? (length (tycon-args result)) (length (tycon-args simple)))
+		  (every (function tyvar?) (tycon-args result))
+		  (null? (find-duplicates (map (function tyvar-name)
+					       (tycon-args result))))))
+    (parser-error 'gadt-not-supported
+      "A GADT constructor's result must be ~A applied to distinct type variables~%(GADTs proper are not supported)."
+      (tycon-name simple)))
+  (let ((renaming (map (lambda (r s) (tuple (tyvar-name r) (tyvar-name s)))
+		       (tycon-args result) (tycon-args simple))))
+    (map (lambda (f) (tuple (rename-type-tyvars (tuple-2-1 f) renaming)
+			    (tuple-2-2 f)))
+	 fields)))
+
+(define (rename-type-tyvars type renaming)
+  (cond ((tyvar? type)
+	 (let ((r (assq (tyvar-name type) renaming)))
+	   (if r (make tyvar (name (tuple-2-2 r))) type)))
+	((tycon? type)
+	 (make tycon (name (tycon-name type)) (def (tycon-def type))
+	       (args (map (lambda (a) (rename-type-tyvars a renaming))
+			  (tycon-args type)))))
+	((tyapp? type)
+	 (make tyapp (fun (rename-type-tyvars (tyapp-fun type) renaming))
+	       (args (map (lambda (a) (rename-type-tyvars a renaming))
+			  (tyapp-args type)))))
+	(else type)))
 
 (define (check-newtype-decl decl)
   (let ((constrs (data-decl-constrs decl)))
