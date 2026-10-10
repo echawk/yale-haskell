@@ -152,15 +152,27 @@ REAL-WORLD-TARGETS.md takes over.
 | 2026-10-09 | 4 of 14 load (Regex, YAML, Macros, StackageList) with `--modern-prelude`.  Done: step 1 libraries (Control.Exception, System.Directory/Process/Info, Data.Version/Function, Debug.Trace, Text.Read, lookupEnv; BasePrims.hi over src/base/base-runtime.lisp); step 2a (PreludeModern: Applicative, Alternative, MonadFail, Semigroup/Monoid; `--haskell2010`, `--modern-prelude`) |
 | 2026-10-09 | 10 of 14 load.  Fixed: derived Show of a type with more than 6 constructors required Read (bffd7a4); System.IO gained openTempFile and the 2010 operations (505e867).  Blockers left are extensions, not Report gaps |
 
-**Next (where work stopped):**
-1. **Pattern type signatures** (ScopedTypeVariables): MicroCabal/Glob.hs
-   line 36, `catch` with `\ (_ :: SomeException) -> ...`.  Blocks Glob and
-   Main.  Either patch the source in tools/microcabal/, or add pattern
-   signatures: a `(pat :: type)` pattern node through parse, scope,
-   depend, type (unify the pattern's type with the signature) and cfn,
-   as pattern guards were added.
-2. **TokenMachine** (Text/ParserComb.hs line 47, step 3): a
-   multi-parameter class with a functional dependency.  Patch it in
-   tools/microcabal/ or implement multi-parameter classes.  Blocks
-   ParserComb and Parse.
-3. Rerun `tools/microcabal/survey.sh`.
+| 2026-10-10 | 14 of 14 load, and mcabal runs.  Done: pattern type signatures (9c98600); multi-parameter classes with functional dependencies (e19c23a, 9ffb5a5), so Text/ParserComb.hs is unpatched; base's Control.Monad for `--modern-prelude` (0c15ed4); tools/microcabal/mcabal.hs, a `Main` wrapper (b7d7efd); compiled units cached between runs (e8aa2aa): a cold run takes about 7 s, a warm one 0.3 s |
+
+**Running it:**
+
+    MHS=ghc bin/yale-haskell --haskell98 --modern-prelude tools/microcabal/mcabal.hu parse FILE.cabal
+
+mcabal wants `$MHS` (or `mhs` on the path) at startup, even for `parse`.
+
+**Step 4 results:** `--version`, `help` and `parse` agree with a GHC-built
+mcabal on 19 `.cabal` files: MicroCabal's own, MicroHs.cabal, MicroHs's
+base.cabal, Hugs's Cabal.cabal and nhc98's 15 library packages.
+- 14 files parse identically.
+- Five (nhc98's base, Cabal, containers, directory and process) use `{ }` blocks after `if`, which MicroCabal does not parse. Both
+  builds report the same parse error.
+  - Yale's stdout also has the partial line printed before the error.
+    GHC's block-buffered `hPutStr` discards a partly written string when
+    an exception interrupts it. Haskell does not specify either way.
+
+**Next:**
+1. A Stackage snapshot list (`mcabal` with a `snapshot` file) and the
+   `build` / `install` commands, which run `$MHS`: try with `MHS=ghc`.
+2. A saved executable for mcabal. The unit cache already removes most
+   of the startup time.
+3. Step 5.
