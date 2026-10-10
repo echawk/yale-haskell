@@ -139,9 +139,24 @@
 
 (define (expand-instance-decls inst)
   (when (instance-ok? inst)
-    (if (not (null? (instance-mp-types inst)))
-	(expand-mp-instance-decls inst)
-	(expand-instance-decls-1 inst))))
+    (cond ((instance-newtype-of inst)
+	   (expand-newtype-derived-instance inst))
+	  ((not (null? (instance-mp-types inst)))
+	   (expand-mp-instance-decls inst))
+	  (else
+	   (expand-instance-decls-1 inst)))))
+
+;;; A newtype is the same as its underlying type at run time, so a
+;;; newtype-derived instance (derived/derived-instances.mumble) shares the
+;;; underlying instance's dictionary and methods.
+
+(define (expand-newtype-derived-instance inst)
+  (let ((under  (instance-newtype-of inst)))
+    (setf (instance-dictionary inst) (instance-dictionary under))
+    (setf (instance-methods inst) (instance-methods under))
+    (setf (instance-gcontext inst) '())
+    (setf (instance-context inst) '())
+    (setf (instance-decls inst) '())))
 
 ;;; As expand-instance-decls, for a multi-parameter class: there are no
 ;;; superclasses, and the class's tyvars are replaced by the head types.

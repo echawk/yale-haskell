@@ -222,5 +222,8 @@
    ;; #f) and the multi-parameter constraints of its context
    (mp-types (type (list type)) (default '()))
    (mcontext (type (list mp-context)) (default '()))
+   ;; GeneralizedNewtypeDeriving: the instance of the newtype's underlying
+   ;; type whose dictionary and methods this one shares
+   (newtype-of (type (maybe instance)) (default '#f))
    ))
 

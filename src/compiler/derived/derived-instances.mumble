@@ -62,9 +62,41 @@
 		    (signal-cant-derive-bounded alg)))
 	       ((constructor-class-derivable? class)
 		(setf insts (add-constructor-class-instance insts alg class)))
+	       ((and (haskell98?) (algdata-newtype? alg))
+		(add-newtype-derived-instance alg class))
 	       (else
 		(signal-not-derivable class)))))
     insts))
+
+;;; GeneralizedNewtypeDeriving (GHC): newtype N ... = N t deriving (C)
+;;; for any other class C, when t's instance of C has no context and is
+;;; from another module.  The instance shares that one's dictionary
+;;; (tdecl/instance.mumble's expand-newtype-derived-instance).
+
+(define (add-newtype-derived-instance alg class)
+  (let* ((field  (car (con-types (car (algdata-constrs alg)))))
+	 (type   (newtype-underlying-type field))
+	 (under  (and type (lookup-instance (tycon-def type) class))))
+    (cond ((lookup-instance alg class)
+	   (signal-instance-exists alg class))
+	  ((or (not under)
+	       (not (null? (instance-context under)))
+	       (eq? (def-module (tycon-def type)) *module-name*))
+	   (phase-error 'cannot-derive-instance
+	     "Instance ~A(~A) cannot be derived through the newtype: it needs an~%~
+              instance of ~A for ~A, without a context, from another module."
+	     class alg class field))
+	  (else
+	   (let ((inst (new-instance class alg (algdata-tyvars alg))))
+	     (setf (instance-ok? inst) '#t)
+	     (setf (instance-newtype-of inst) under)
+	     (push inst (module-instance-defs *module*)))))))
+
+(define (newtype-underlying-type type)
+  (cond ((and (tycon? type) (synonym? (tycon-def type)))
+	 (newtype-underlying-type (expand-synonym type)))
+	((and (tycon? type) (algdata? (tycon-def type))) type)
+	(else '#f)))
 
 (define (signal-cant-derive-bounded alg)
   (phase-error 'cant-derive-Bounded
