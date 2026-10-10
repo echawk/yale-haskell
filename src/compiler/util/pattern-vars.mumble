@@ -42,5 +42,33 @@
 ;;; con { field = pat, ... } binds the variables of its field patterns.
 
 (define-walker-method collect-pattern-vars record-pat (object vars-so-far)
+  (expand-record-pat-wildcard object)
   (collect-pattern-vars/list (map (function tuple-2-2) (record-pat-fields object))
 			     vars-so-far))
+
+;;; C {f = p, ..} (RecordWildCards): the .. becomes f' = f' for each other
+;;; field f' of C, in place, so that the variables collected here are the
+;;; pattern's (the scope phase desugars the explicit fields).
+
+(define (expand-record-pat-wildcard pat)
+  (let ((fields  (record-pat-fields pat)))
+    (when (lisp:some (lambda (b) (eq? (tuple-2-1 b) '|..|)) fields)
+      (let* ((pcon  (record-pat-con pat))
+	     (con   (if (eq? (pcon-con pcon) *undefined-def*)
+			(lookup-toplevel-name (pcon-name pcon))
+			(pcon-con pcon)))
+	     (given (map (lambda (b) (var-ref-name (tuple-2-1 b)))
+			 (lisp:remove '|..| fields :key (function tuple-2-1))))
+	     (new   '()))
+	(when (con? con)
+	  (dolist (label (con-field-labels con))
+	    (when (and label (not (memq (def-name label) given)))
+	      (push (tuple (make var-ref (name (def-name label)) (infix? '#f)
+				 (var *undefined-def*))
+			   (make var-pat (var (make var-ref (name (def-name label))
+						    (infix? '#f)
+						    (var *undefined-def*)))))
+		    new))))
+	(setf (record-pat-fields pat)
+	      (append (lisp:remove '|..| fields :key (function tuple-2-1))
+		      (reverse new)))))))

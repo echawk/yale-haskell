@@ -62,7 +62,10 @@
   (make record-pat
 	(con pcon)
 	(fields (parse-field-bindings
-		 (function parse-pat) "`='" "record pattern"))))
+		 (function parse-pat) "`='" "record pattern"
+		 (lambda (name)
+		   (make var-pat (var (make var-ref (name name) (infix? '#f)
+					    (var *undefined-def*)))))))))
 
 ;;; (,), (,,), ... as constructors (H98).  The scanner is at the `('.
 

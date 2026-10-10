@@ -196,7 +196,8 @@
       (begin
 	(advance-token)
 	(let ((fields (parse-field-bindings
-		       (function parse-exp) "`='" "record expression")))
+		       (function parse-exp) "`='" "record expression"
+		       (lambda (name) (generated-var-ref name)))))
 	  (parse-record-suffixes
 	   (if (and (con-ref? exp) (not (con-ref-infix? exp)))
 	       (make record-con (con exp) (fields fields))
@@ -210,7 +211,14 @@
 ;;; field = item, ..., after the {.  Returns a list of (tuple var-ref item).
 ;;; Used for expressions and (with parse-pat) patterns.
 
-(define (parse-field-bindings parse-item eq-name what)
+;;; GHC's NamedFieldPuns and RecordWildCards (Haskell 98 dialect):
+;;;   C {f}     is C {f = f}: MAKE-PUN makes the item for a field name;
+;;;   C {.., }  is every other field of C bound to (pattern) or taken
+;;;             from (expression) the variable of its name: the binding
+;;;             (tuple '|..| '#f), which the scope phase expands
+;;;             (scope.mumble's record-wildcard-binds).
+
+(define (parse-field-bindings parse-item eq-name what make-pun)
   (token-case
    (\} '())
    (else
@@ -220,14 +228,32 @@
 	(token-case
 	 (var
 	  (let ((field (var->ast)))
-	    (require-token = (signal-missing-token eq-name what))
-	    (push (tuple field (funcall parse-item)) bindings)))
+	    (if (and (haskell98?) (not (eq-token? '=)))
+		(push (tuple field
+			     (funcall make-pun
+				      (unqualified-name (var-ref-name field))))
+		      bindings)
+		(begin
+		  (require-token = (signal-missing-token eq-name what))
+		  (push (tuple field (funcall parse-item)) bindings)))))
+	 (\.\.
+	  (if (haskell98?)
+	      (push (tuple '|..| '#f) bindings)
+	      (signal-missing-token "<var>" what)))
 	 (else (signal-missing-token "<var>" what)))
 	(token-case
 	 (\, '#t)
 	 (\} (setf more? '#f))
 	 (else (signal-missing-token "`,' or `}'" what))))
       (reverse bindings)))))
+
+(define (unqualified-name name)
+  (let* ((s  (symbol->string name))
+	 (i  (lisp:position #\. s :from-end '#t)))
+    (if (and i (> i 0) (< (1+ i) (string-length s))
+	     (char-upper-case? (string-ref s 0)))
+	(string->symbol (substring s (1+ i) (string-length s)))
+	name)))
 
 (define (parse-aexp-1)
  (trace-parser aexp

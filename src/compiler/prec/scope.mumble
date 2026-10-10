@@ -544,18 +544,27 @@
 ;;; Field names are top-level names; local variables do not hide them.
 
 (define-walker-method scope record-con (object env)
-  (scope-ast-1 (desugar-record-con object) env))
+  (scope-ast-1 (desugar-record-con object env) env))
 
 (define-walker-method scope record-update (object env)
   (scope-ast-1 (desugar-record-update object) env))
 
-(define (desugar-record-con object)
+(define (desugar-record-con object env)
   (let* ((con-ref (record-con-con object))
 	 (con (lookup-toplevel-name (con-ref-name con-ref)))
 	 (binds (resolve-field-bindings (record-con-fields object))))
     (if (not (con? con))
 	(**abort "Bad record construction")
 	(begin
+	  ;; C {..}: the other fields from local variables of their names
+	  (when (record-wildcard? (record-con-fields object))
+	    (setf binds
+		  (append binds
+			  (record-wildcard-binds
+			   con binds
+			   (lambda (name)
+			     (and (lisp:some (lambda (frame) (assq name frame)) env)
+				  (**var name)))))))
 	  (check-fields-of-con binds con)
 	  (**app/l (**con/def con)
 		   (record-con-args con binds))))))
@@ -635,9 +644,24 @@
 ;;; list of (tuple field-var item).  Unknown names and duplicates are
 ;;; errors (and are dropped).
 
+(define (record-wildcard? bindings)
+  (lisp:some (lambda (b) (eq? (tuple-2-1 b) '|..|)) bindings))
+
+;;; (tuple field item) for the fields of CON not in BINDS, with
+;;; (MAKE-ITEM field-name) as the item ('#f leaves the field out).
+
+(define (record-wildcard-binds con binds make-item)
+  (let ((result '()))
+    (dolist (label (con-field-labels con))
+      (when (and label (not (assq label binds)))
+	(let ((item (funcall make-item (def-name label))))
+	  (when item
+	    (push (tuple label item) result)))))
+    (reverse result)))
+
 (define (resolve-field-bindings bindings)
   (let ((result '()))
-    (dolist (b bindings)
+    (dolist (b (lisp:remove '|..| bindings :key (function tuple-2-1)))
       (let* ((name (var-ref-name (tuple-2-1 b)))
 	     (def (lookup-toplevel-name name)))
 	(cond ((eq? def *undefined-def*))
