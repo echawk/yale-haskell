@@ -133,7 +133,9 @@
 ;;; feature replaces them (Show and Read replace Text and Binary).
 
 (define *feature-retired-names*
-  '((show-read |Text| |Binary| |Bin| |readBin| |showBin|)))
+  '((show-read |Text| |Binary| |Bin| |readBin| |showBin|)
+    ;; Haskell 98 has no MonadZero (its MonadPlus is the Monad library's)
+    (monad-fail |MonadZero| |zero|)))
 
 (define (core-name-active? name)
   (and (every (lambda (entry)

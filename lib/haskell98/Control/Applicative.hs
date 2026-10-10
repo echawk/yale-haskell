@@ -2,7 +2,8 @@
 -- classes are PreludeModern's (doc/plans/MICROCABAL.md step 2).
 module Control.Applicative (
     Applicative(pure, (<*>), (*>), (<*)), Alternative(empty, (<|>), some, many),
-    (<$>), (<$), (<**>), liftA, liftA2, liftA3, optional
+    (<$>), (<$), (<**>), liftA, liftA2, liftA3, optional,
+    WrappedMonad(WrapMonad, unwrapMonad)
   ) where
 
 import PreludeModern

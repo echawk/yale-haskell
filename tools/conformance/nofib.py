@@ -26,8 +26,8 @@ MODULE_MAP = {
     'System.CPUTime': 'CPUTime', 'System.Random': 'Random',
     'System.Time': 'Time', 'System.Locale': 'Locale',
 }
-# Modules with no Haskell 98 counterpart: the program is skipped.
-NON_H98 = re.compile(r'^>?\s*import\s+(qualified\s+)?(Data\.(IORef|Map|Set|IntMap|STRef|Array\.\w+)|Control\.(Monad\.(?!Fail\b)\w+|Concurrent|Parallel|DeepSeq)|GHC\.|Text\.(?!Read\b)|System\.Mem)', re.M)
+# Modules Yale Haskell does not have yet: the program is skipped.
+NON_H98 = re.compile(r'^>?\s*import\s+(qualified\s+)?(Data\.(IntMap\.Strict|Map\.Strict|Array\.\w+)|Control\.(Monad\.(?!Fail\b|ST\b)\w+|Concurrent|Parallel|DeepSeq)|GHC\.|Text\.(?!Read\b)|System\.Mem)', re.M)
 EXTENSIONS = re.compile(r'\{-#\s*LANGUAGE(?!\s+CPP\s*#-\})|\bforall\b|\bunsafePerformIO\b|#!', re.M)
 # Programs compiled with -cpp (their Makefile's SRC_HC_OPTS) or this
 # pragma get --cpp, as GHC preprocesses them

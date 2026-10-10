@@ -21,7 +21,7 @@ module PreludeModern (
              null, length, elem, maximum, minimum, sum, product),
     Traversable(traverse, sequenceA, mapM, sequence),
     mapM_, sequence_, concat, concatMap, and, or, any, all, notElem,
-    find, maximumBy, minimumBy
+    find, maximumBy, minimumBy, WrappedMonad(WrapMonad, unwrapMonad)
   ) where
 
 import PreludeIO (catch)
@@ -304,16 +304,13 @@ instance Foldable ((,) a) where
   length _ = 1
 
 -- Monad has no Applicative superclass here, so mapM goes through this
--- Applicative for any Monad.
-newtype WrapMonad m a = WrapMonad (m a)
+-- Applicative for any Monad (Control.Applicative's).
+newtype WrappedMonad m a = WrapMonad { unwrapMonad :: m a }
 
-unwrapMonad :: WrapMonad m a -> m a
-unwrapMonad (WrapMonad m) = m
-
-instance Monad m => Functor (WrapMonad m) where
+instance Monad m => Functor (WrappedMonad m) where
   fmap f (WrapMonad m) = WrapMonad (m >>= \x -> return (f x))
 
-instance Monad m => Applicative (WrapMonad m) where
+instance Monad m => Applicative (WrappedMonad m) where
   pure x = WrapMonad (return x)
   WrapMonad f <*> WrapMonad a = WrapMonad (f >>= \g -> a >>= \x -> return (g x))
 

@@ -391,10 +391,14 @@
 	 (collect-all-modules-1 (cdr units) mods-so-far units-seen))
 	(else
 	 (let ((u (lookup-compilation-unit (car units))))
-	   (collect-all-modules-1
-	    (append (ucache-imported-units u) (cdr units))
-	    (append (ucache-modules u) mods-so-far)
-	    (cons (ucache-ufile u) units-seen))))
+	   (if (eq? u '#f)
+	       ;; not loaded (its .hu file changed since): nothing to add
+	       (collect-all-modules-1 (cdr units) mods-so-far
+				      (cons (car units) units-seen))
+	       (collect-all-modules-1
+		(append (ucache-imported-units u) (cdr units))
+		(append (ucache-modules u) mods-so-far)
+		(cons (ucache-ufile u) units-seen)))))
 	))
 
 (define (collect-prelude-modules)

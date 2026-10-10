@@ -109,6 +109,12 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
      types.
    - Imports and hiding lists can now name a class method or field by
      itself (`import Data.Foldable (toList)`).
+   - **containers:** Data.Map, Data.Set, Data.IntMap, Data.IntSet,
+     Data.Sequence and Data.Tree. They are version 0.3.0.0 as nhc98 ships
+     it (Haskell 98 with CPP), imported by tools/gen/import-containers.py
+     without Data.Typeable.
+     - Still missing: Data.Graph, which needs Data.Array.ST, and the
+       `.Strict` modules.
 6. **Multi-parameter type classes:** done (e19c23a, 9ffb5a5), with
    functional dependencies, instance contexts, recursive bindings and
    interface files. Tests are in tests/haskell98/language/mptc-*.

@@ -263,6 +263,12 @@
 	     (setf (table-entry *inverted-symbol-table* def) name)))
 	  ((supersedes-prelude-def? name old-definition def)
 	   'OK)
+	  ((and (def-prelude? old-definition)
+		(haskell98?)
+		(memq name *ix-core-names*)
+		(eq? (def-module def) *module-name*))
+	   (setf (table-entry *symbol-table* name) def)
+	   (setf (table-entry *inverted-symbol-table* def) name))
 	  ((def-prelude? old-definition)
 	   (signal-core-redefinition name))
 	  ((and (module-uses-standard-prelude? *module*)
@@ -446,9 +452,23 @@
   (let ((entry  (assq name (table-entry *name-clashes* *module-name*))))
     (and entry (cdr entry))))
 
+;;; Ix's methods are core names, but in Haskell 98 they are the Ix
+;;; library's, not the Prelude's: a module may define its own (Data.Sequence
+;;; has an index), which then shadows the core one in that module.  (Other
+;;; uses, as in derived Ix instances, are the core's.)
+
+(define *ix-core-names* '(|index| |range| |inRange| |rangeSize|))
+
+(define (own-definition-shadows-core? name)
+  (and (haskell98?)
+       (memq name *ix-core-names*)
+       (let ((d  (table-entry *symbol-table* name)))
+	 (and d (eq? (def-module d) *module-name*)))))
+
 (define (resolve-toplevel-name name)
   (let ((pc (table-entry *prelude-core-symbols* name)))
-    (cond ((and (not (eq? pc '#f)) (not (hidden-core-name? name)))
+    (cond ((and (not (eq? pc '#f)) (not (hidden-core-name? name))
+		(not (own-definition-shadows-core? name)))
 	   pc)
 	  ((name-clash name)
 	   (resolve-toplevel-name-1 name))

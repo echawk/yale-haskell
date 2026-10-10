@@ -49,9 +49,24 @@
 	  (setf *unit-cache-policy* 'off)
 	  (setf *unit-cache-directory* '#f))
 	(begin
+	  (when (not (file-exists? (string-append root build "/")))
+	    (remove-old-unit-caches root build))
 	  (setf *unit-cache-policy* policy)
 	  (setf *unit-cache-directory*
 		(string-append root build "/" mode-key "/"))))))
+
+;;; A new build starts a new cache directory: the old builds' ones (the
+;;; same Lisp and dialect, another date) are removed then.
+
+(define (remove-old-unit-caches root build)
+  (let ((prefix  (substring build 0 (1+ (lisp:position #\- build :from-end '#t)))))
+    (dolist (dir (lisp:funcall (lisp:find-symbol "SUBDIRECTORIES" "UIOP")
+			       (absolute-filename root)))
+      (let ((name  (car (lisp:last (lisp:pathname-directory dir)))))
+	(when (and (string-starts? prefix name) (not (string=? name build)))
+	  (lisp:ignore-errors
+	   (lisp:funcall (lisp:find-symbol "DELETE-DIRECTORY-TREE" "UIOP")
+			 dir ':validate '#t)))))))
 
 (define (unit-cache-root)
   (let ((dir   (getenv "YALE_HASKELL_CACHE_DIR"))
