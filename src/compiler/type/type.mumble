@@ -30,6 +30,9 @@
   (unit expression-typechecking
 	(require type-macros)
 	(source-filename "expression-typechecking.mumble"))
+  (unit scoped-tyvars
+	(require type-macros)
+	(source-filename "scoped-tyvars.mumble"))
   (unit type-error-handlers
 	(require type-macros)
 	(source-filename "type-error-handlers.mumble")))

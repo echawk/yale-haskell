@@ -206,26 +206,39 @@
       '()))
 
 (define (parse-signature)
-  (skip-explicit-forall)
-  (mlet (((contexts mcontexts) (split-contexts (parse-optional-context)))
-	 (type (parse-type)))
-    (make signature (context contexts) (type type) (mcontext mcontexts))))
+  (let ((foralls (skip-explicit-forall)))
+    (mlet (((contexts mcontexts) (split-contexts (parse-optional-context)))
+	   (type (parse-type)))
+      (make signature (context contexts) (type type) (mcontext mcontexts)
+	              (foralls foralls)))))
 
 ;;; forall a b . t (GHC's ExplicitForAll): the quantifier is implicit
 ;;; anyway.  In Haskell 98 forall is an ordinary name, but it cannot
 ;;; begin a type, so this changes no valid program.
 (define (skip-explicit-forall)
-  (when (and (haskell98?) (eq-token? 'varid)
-	     (string=? (car *token-args*) "forall"))
-    (advance-token)
-    (skip-forall-tyvars)))
+  (if (and (haskell98?) (eq-token? 'varid)
+	   (string=? (car *token-args*) "forall"))
+      (begin
+	(advance-token)
+	(skip-forall-tyvars))
+      '()))
+
+;;; The forall's type variables: a, or (a :: kind).  Returns their names.
 
 (define (skip-forall-tyvars)
   (token-case
-   (varid (skip-forall-tyvars))
+   ((no-advance varid)
+    (let ((name (token->symbol)))
+      (cons name (skip-forall-tyvars))))
+   ((no-advance \()
+    (advance-token)
+    (let ((name (token->symbol)))
+      (require-token \:\: (signal-missing-token "`::'" "forall kind signature"))
+      (skip-kind)
+      (cons name (skip-forall-tyvars))))
    ((no-advance varsym)
     (if (string=? (car *token-args*) ".")
-	(advance-token)
+	(begin (advance-token) '())
 	(signal-missing-token "`.'" "forall type")))
    (else (signal-missing-token "`.'" "forall type"))))
 

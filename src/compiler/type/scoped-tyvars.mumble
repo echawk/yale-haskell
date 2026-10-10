@@ -1,0 +1,75 @@
+;;; scoped-tyvars.mumble -- GHC's ScopedTypeVariables
+;;;
+;;; In  f :: forall a. ... ; f = ... where g :: a -> String
+;;; the forall's a scopes over f's body: g's a is f's a, not a new type
+;;; variable.  While f's body is type checked, *scoped-tyvars* binds each
+;;; name a forall bound to the type variable of f's signature instance
+;;; (which f's type is unified with first).  An inner signature that
+;;; mentions such a name is then an annotation, not a generalization:
+;;; the binding's type is unified with the signature's instance, the
+;;; scoped names taking their bound types, and the binding is inferred.
+;;; Expression signatures (e :: a) are bindings too (exp-sign), and pattern
+;;; signatures use the same instance.
+;;;
+;;; The names come from the signature's gtype (gtype-tyvar-names, and
+;;; gtype-scoped for a forall's; util/type-utils.mumble).
+
+(define *scoped-tyvars* '())   ; (tuple name ntype)
+
+;;; The instance of a signature with an explicit forall for checking its
+;;; binding's body, and the bindings of the forall's names.  The second
+;;; value is '() when there is none.
+
+(define (scoped-signature-instance g)
+  (if (or (null? (gtype-scoped g)) (null? (gtype-tyvar-names g)))
+      (values '#f '())
+      (mlet (((type tyvars) (instantiate-gtype/newvars g)))
+	(let ((alist '()))
+	  (dolist2 (name (gtype-tyvar-names g)) (tv tyvars)
+	    (when (memq name (gtype-scoped g))
+	      (push (tuple name tv) alist)))
+	  (values type alist)))))
+
+;;; Whether a signature mentions a scoped name.
+
+(define (scoped-gtype? g)
+  (and (not (null? (dynamic *scoped-tyvars*)))
+       (lisp:some (lambda (n) (assq n (dynamic *scoped-tyvars*)))
+		  (gtype-tyvar-names g))))
+
+;;; The signature's instance with the scoped names' types; the other type
+;;; variables are new.
+
+(define (instantiate-gtype/scoped g)
+  (if (null? (gtype-tyvar-names g))
+      (instantiate-gtype g)
+      (let ((tyvars (map (lambda (name ctx)
+			   (let ((b (assq name (dynamic *scoped-tyvars*))))
+			     (if b
+				 (tuple-2-2 b)
+				 (let ((v (**ntyvar)))
+				   (setf (ntyvar-context v) ctx)
+				   v))))
+			 (gtype-tyvar-names g) (gtype-context g))))
+	(copy-gtype (gtype-type g) tyvars))))
+
+;;; Before a binding group's right-hand sides are typed: each var whose
+;;; signature mentions a scoped name has its type unified with the
+;;; signature's instance and no longer has the signature.  TYPES are the
+;;; vars' types (lhs types).  Returns the scoped bindings to add for the
+;;; group's bodies (from the vars' own forall signatures).
+
+(define (scoped-signatures vars types)
+  (let ((added '()))
+    (dolist2 (v vars) (ty types)
+      (let ((sig (var-signature v)))
+	(when sig
+	  (cond ((scoped-gtype? sig)
+		 (type-unify ty (instantiate-gtype/scoped sig) '#f)
+		 (setf (var-signature v) '#f))
+		(else
+		 (mlet (((inst alist) (scoped-signature-instance sig)))
+		   (when inst
+		     (type-unify ty inst '#f)
+		     (setf added (append alist added)))))))))
+    added))

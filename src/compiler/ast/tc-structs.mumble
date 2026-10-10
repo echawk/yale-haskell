@@ -59,7 +59,12 @@
    (context (type (list (list class))))
    (type (type ntype))
    ;; multi-parameter constraints: (class . types) over the gtyvars
-   (mcontext (type (list (tuple class (list ntype)))) (default '()))))
+   (mcontext (type (list (tuple class (list ntype)))) (default '()))
+   ;; from a signature (signature->gtype): the gtyvars' names, and those
+   ;; an explicit forall binds, which scope over the binding's body
+   ;; (ScopedTypeVariables; type/scoped-tyvars.mumble)
+   (tyvar-names (type (list symbol)) (default '()))
+   (scoped (type (list symbol)) (default '()))))
 
 ;;; These tyvars just index a list of pre-allocated tyvars.
 

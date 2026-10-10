@@ -92,12 +92,23 @@
 ;;; tyvar corresponding to the lhs.  Before checking the signatures, the
 ;;; ng-list is restored.  
 
-       (dolist (d decls+tyvars)
-	 (let ((rhs-type (type-decl-rhs (tuple-2-1 d)))
-	       (lhs-type (tuple-2-2 d)))
-	   (type-unify lhs-type rhs-type
-		 (type-mismatch (tuple-2-1 d)
-			  "Decl type mismatch" lhs-type rhs-type))))
+       ;; ScopedTypeVariables (scoped-tyvars.mumble)
+       (let ((scoped '()))
+	 (dolist (d decls+tyvars)
+	   (let ((vs (map (function var-ref-var)
+			  (collect-pattern-vars (valdef-lhs (tuple-2-1 d))))))
+	     (when (null? (cdr vs))
+	       (setf scoped (append (scoped-signatures
+				     vs (list (remove-recursive-type
+					       (tuple-2-2 d))))
+				    scoped)))))
+	(dynamic-let ((*scoped-tyvars* (append scoped (dynamic *scoped-tyvars*))))
+	 (dolist (d decls+tyvars)
+	   (let ((rhs-type (type-decl-rhs (tuple-2-1 d)))
+		 (lhs-type (tuple-2-2 d)))
+	     (type-unify lhs-type rhs-type
+		   (type-mismatch (tuple-2-1 d)
+			    "Decl type mismatch" lhs-type rhs-type))))))
        (setf (dynamic *non-generic-tyvars*) old-ng)
        (setf (dynamic *given-mp-constraints*) '())
        (let ((sig-contexts (check-user-signatures all-vars)))
@@ -206,12 +217,18 @@
 	(setf (dynamic *placeholders*) old-placeholders)
         (funcall r))
       (type-decl-lhs decl lhs-type)
-      (let ((rhs-type (if (and (pair? signed?) (car signed?))
-			  (type-decl-rhs/at-signature decl all-vars)
-			  (type-decl-rhs decl))))
-	(type-unify lhs-type rhs-type
-           (type-mismatch decl
-	       "Decl type mismatch" lhs-type rhs-type)))
+      ;; ScopedTypeVariables (scoped-tyvars.mumble)
+      (let ((scoped (if (null? (cdr all-vars))
+			(scoped-signatures all-vars (list lhs-type))
+			'())))
+       (dynamic-let ((*scoped-tyvars* (append scoped (dynamic *scoped-tyvars*))))
+	(let ((rhs-type (if (and (pair? signed?) (car signed?)
+				 (var-signature (car all-vars)))
+			    (type-decl-rhs/at-signature decl all-vars)
+			    (type-decl-rhs decl))))
+	  (type-unify lhs-type rhs-type
+	     (type-mismatch decl
+		 "Decl type mismatch" lhs-type rhs-type)))))
       ;; Main.main has type IO t (H98 5): known before the monomorphism
       ;; restriction and defaulting, so main = return () is IO ()
       (when (and (haskell98?) (main-var? all-vars))

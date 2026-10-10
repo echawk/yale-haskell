@@ -69,7 +69,7 @@
   (type-check sig-pat pattern pattern-type
     (let ((sig  (sig-pat-signature object)))
       (type-unify pattern-type
-		  (instantiate-gtype (signature->gtype sig))
+		  (instantiate-gtype/scoped (signature->gtype sig))
 	(type-mismatch/fixed object
 	  "The pattern does not have its signature's type" pattern-type))
       (return-type object pattern-type))))

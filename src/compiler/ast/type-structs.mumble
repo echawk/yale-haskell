@@ -81,7 +81,9 @@
    (context (type (list context)))
    (type (type type))
    ;; multi-parameter constraints
-   (mcontext (type (list mp-context)) (default '()))))
+   (mcontext (type (list mp-context)) (default '()))
+   ;; the type variables of an explicit forall (ScopedTypeVariables)
+   (foralls (type (list symbol)) (default '()))))
 
 
 ;;; Major type declarations.  Note: no explicit structures for <simple>
