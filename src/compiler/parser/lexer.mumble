@@ -293,7 +293,11 @@
 
 (define (pragma-word? word)
   (and (pair? (cdr word))
-       (pragma-word-1? word)))
+       (or (pragma-word-1? word)
+	   ;; GHC's pragma names are not case-sensitive ({-# Language CPP #-})
+	   (mem-string (lisp:string-upcase (list->string word))
+		       '("LANGUAGE" "OPTIONS" "OPTIONS_GHC" "OPTIONS_HADDOCK"
+			 "INCLUDE")))))
 
 (define (pragma-word-1? word)
   (or (null? word)

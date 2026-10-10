@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 -- Data.IntMap from the containers package, version 0.3.0.0 (BSD license:
 -- LICENSE.containers), as nhc98 ships it, imported by
--- tools/gen/import-containers.py: without Data.Typeable, and with a
+-- tools/gen/import-nhc98-libs.py: without Data.Typeable, and with a
 -- Semigroup instance beside the Monoid one.  Edit the script, not this file.
 
 {-# OPTIONS_GHC -cpp -XNoBangPatterns #-}

@@ -103,6 +103,9 @@
 
 (define (parse-module-decls mod-ast in-layout? state)
   (token-case
+   ;; an empty declaration (H98 grammar): `x :: T;' at the end of a line
+   ;; is followed by layout's own `;'
+   (\; (parse-module-decls mod-ast in-layout? state))
    (|import| (let ((import (parse-import)))
 	       (if (eq? state 'import)
 		   (push-decl-list import (module-imports mod-ast))

@@ -48,18 +48,17 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
 - Derived `Show` of types with more than 6 constructors no longer
   needs `Read`.
 
-**nofib:** 62 pass, 5 known deviations, 8 skipped, no failures
-(2026-10-10; 45 and 25 skipped before CPP).
+**nofib:** 63 pass, 5 known deviations, 7 skipped, no failures
+(2026-10-10; 45 and 25 skipped before CPP and the base libraries).
 - **Known deviations:**
   - mandel: `hSetBinaryMode`.
   - minimax: correct but slow at its size.
   - secretary: a different random generator.
   - sphere: 64-bit `Int` wrap-around.
   - simple: exhausts the heap; see below.
-- **Skips:** libraries we lack: Control.Monad.ST (kahan),
-  Control.Monad.Trans (cryptarithm2, lambda), Data.IntMap (dom-lt) and
-  Text.Printf (last-piece). The other three have no `Main`, or no expected
-  output that GHC can make.
+- **Skips:** libraries we lack: Data.Array.ST/Data.Array.Base (kahan,
+  dom-lt) and mtl's Control.Monad.Trans (cryptarithm2, lambda). The other
+  three have no `Main`, or no expected output that GHC can make.
 - **CPP** (`--cpp`, `{-# LANGUAGE CPP #-}`; src/compiler/parser/cpp.mumble):
   - The 14 hartel programs pass through it. Their `Fast2haskell.hs` uses
     GHC's unboxed primitives, so tools/conformance/Fast2haskell.hs, a
@@ -89,8 +88,13 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
      files are dependencies in the unit cache.
    - Not yet: `##` and `#` in macro bodies, and Cabal's
      `MIN_VERSION_pkg(...)` macros (they are 0 for now).
-4. **Text.Printf** (base) for last-piece and real code. It needs a
-   class-based variadic `printf`, which Haskell 98 can express.
+4. **Text.Printf:** done, with **Text.PrettyPrint** (`pretty`'s
+   HughesPJ). Both are nhc98's Haskell 98 versions, imported by
+   tools/gen/import-nhc98-libs.py, and the output matches GHC's.
+   last-piece passes.
+   - Fixed for them: pragma names are not case-sensitive
+     (`{-# Language CPP #-}`), a class may be exported by its bare name,
+     and empty top-level declarations (`x :: T;` at a line's end) parse.
 5. **Monad with an Applicative superclass** in `--modern-prelude`
    (MICROCABAL.md step 2b).
    - **Foldable/Traversable:** done. They are PreludeModern's, and in a

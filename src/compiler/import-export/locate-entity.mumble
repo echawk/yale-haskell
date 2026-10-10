@@ -40,6 +40,9 @@
 			(if (haskell98?)
 			    group
 			    (signal-synonym-needs-dots name (module-name mod))))
+		       ((and (class? def) (haskell98?))
+			;; a class by its bare name: without its methods
+			(list (car group)))
 		       (else
 			(signal-wrong-definition
 			  "type constructor" name (module-name mod)))))
@@ -120,6 +123,9 @@
 		  (if (haskell98?)
 		      (make-group name def)
 		      (signal-synonym-needs-dots name *module-name*)))
+		 ;; Haskell 98 5.2: a class by its bare name, without its methods
+		 ((and (class? def) (haskell98?))
+		  (make-group name def))
 		 (else
 		  (signal-wrong-definition
 		    "type constructor" name *module-name*))))
