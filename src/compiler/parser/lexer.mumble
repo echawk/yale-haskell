@@ -243,6 +243,8 @@
        (cond ((string=/list? word "INLINE")
 	      (emit-token 'begin-annotation)
 	      (emit-token/string 'conid word))
+	     ((string=/list? word "LINE")
+	      (lex-line-pragma))
 	     ((and (pragma-word? word)
 		   (not (string=/list? word "STRICT")))
 	      (skip-pragma *current-line*))
@@ -251,6 +253,35 @@
 	      (emit-token/string 'conid word)))))
     (else
      (emit-token 'begin-annotation))))
+
+;;; {-# LINE n "file" #-}: the next line is line n.  The C preprocessor
+;;; (cpp.mumble) puts these around an #include's text, so that the lines
+;;; after it keep their numbers.  The file name is not used.
+
+(define (lex-line-pragma)
+  (skip-blanks-on-line)
+  (let ((n  0))
+    (do ()
+	((or *at-eof?* (not (char-numeric? *char*))))
+      (setf n (+ (* n 10) (char->digit *char* 10)))
+      (advance-char))
+    (skip-pragma-text *current-line*)
+    ;; the newline after the pragma makes it n
+    (setf *current-line* (1- n))
+    (lex-one-token)))
+
+(define (skip-pragma-text start-line)
+  (cond (*at-eof?*
+	 (lexer-eof-in-comment start-line))
+	((and (char=? *char* #\#)
+	      (char=? *peek-char* #\-)
+	      (char=? (peek-char-2) #\}))
+	 (advance-char)
+	 (advance-char)
+	 (advance-char))
+	(else
+	 (advance-char)
+	 (skip-pragma-text start-line))))
 
 (define (skip-blanks-on-line)
   (when (and (not *at-eof?*)

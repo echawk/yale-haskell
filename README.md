@@ -39,6 +39,10 @@ bin/yale-haskell --help                         # options: --backend, --printers
 bin/yale-haskell --haskell98 compile prog.hs --emit lisp -o prog.lisp   # compile only
 ```
 
+Files with `{-# LANGUAGE CPP #-}` go through a built-in C preprocessor
+(`#include`, `#define`, `#if`); `--cpp` applies it to every file, and
+`-D NAME[=VALUE]` and `-I DIR` work as for cpp.
+
 `compile FILE --emit STAGES` writes compiler stages for the program's own
 modules instead of running it, to `-o FILE` or stdout.  STAGES is a
 comma-separated list:

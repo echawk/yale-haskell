@@ -224,7 +224,8 @@
 (define (unit-cache-mode-key)
   (let ((settings  (format '#f "~S"
 			   (list (current-backend) *optimizers*
-				 *grin-optimizations*))))
+				 *grin-optimizations*
+				 *cpp?* *cpp-defines* *cpp-include-dirs*))))
     (lisp:format lisp:nil "~A-~36R"
 	    (cond ((modern-prelude?) "modern")
 		  ((haskell2010?) "h2010")

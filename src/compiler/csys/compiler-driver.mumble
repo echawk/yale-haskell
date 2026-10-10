@@ -615,6 +615,8 @@
 (predefine (lex-port port literate?))  ; in parser/lexer.mumble
 (predefine (latex-literate-file? file)) ; in parser/parser-driver.mumble
 (predefine (latex-literate-code file))
+(predefine (preprocessed-source file literate?))
+(predefine (cpp-included-files file))      ; in parser/cpp.mumble
 
 (define (lex-file-quietly file ext)
   (let ((tokens '()))
@@ -622,15 +624,31 @@
       (call-with-output-string
 	(lambda (port)
 	  (dynamic-let ((*error-output-port* port))
-	    (if (and (string=? ext ".lhs") (latex-literate-file? file))
-		;; \begin{code} literate style, as the parser reads it
-		(setf tokens (lex-port (lisp:make-string-input-stream
-					(latex-literate-code file))
-				       '#f))
-		(call-with-input-file file
-		  (lambda (in)
-		    (setf tokens (lex-port in (string=? ext ".lhs"))))))))))
+	    (let ((text  (and (source-extension? ext)
+			      (preprocess-quietly file (string=? ext ".lhs")))))
+	      (cond (text
+		     ;; CPP, as the parser reads it
+		     (setf tokens (lex-port (lisp:make-string-input-stream text)
+					    '#f)))
+		    ((and (string=? ext ".lhs") (latex-literate-file? file))
+		     ;; \begin{code} literate style, as the parser reads it
+		     (setf tokens (lex-port (lisp:make-string-input-stream
+					     (latex-literate-code file))
+					    '#f)))
+		    (else
+		     (call-with-input-file file
+		       (lambda (in)
+			 (setf tokens (lex-port in (string=? ext ".lhs"))))))))))))
     tokens))
+
+;;; A CPP error here (an #include not found, #error) would end the
+;;; compilation with its message unseen, so the file is scanned as it is,
+;;; and the parse that comes later reports the error.
+
+(define (preprocess-quietly file literate?)
+  (let/cc fail
+    (dynamic-let ((*abort-compilation*  (lambda () (funcall fail '#f))))
+      (preprocessed-source file literate?))))
 
 (define (layout-token? tok)
   (memq (car tok) '(line col file)))
@@ -698,7 +716,7 @@
 		(or (not (unit-extension? (filename-type (ucache-ufile c))))
 		    (all-sources-current (list (ucache-ufile c))
 					 (ucache-idate c)))
-		(all-sources-current (ucache-source-files c)
+		(all-sources-current (unit-source-dependencies c)
 				     (ucache-idate c))
 		(all-lisp-sources-current (ucache-lisp-files c)
 					  (ucache-idate c))))
@@ -739,6 +757,13 @@
 	   (and (not *compile-interface*)
 		(file-exists? (ucache-sifile c))))
        ))
+
+;;; A unit's source files and the files they #include (cpp.mumble).
+
+(define (unit-source-dependencies c)
+  (let ((files  (ucache-source-files c)))
+    (append files
+	    (concat (map (function cpp-included-files) files)))))
 
 (define (all-sources-current sources unit-write-date)
   (every (lambda (s)

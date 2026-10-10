@@ -153,6 +153,12 @@
                        (system-source-directory s))))
             t)))
 
+;;; The image holds the compiler and the prelude, which are not ASDF
+;;; components (mumble's units compile them), so ASDF cannot tell when it
+;;; is out of date: it is always saved again.  The Makefile decides when.
+(defmethod operation-done-p ((o program-op) (s executable-system))
+  nil)
+
 (defsystem :yale-haskell/executable
   :description "The yale-haskell command line: the compiler, the prelude, the runtime and the CLI, saved as an executable."
   :class executable-system

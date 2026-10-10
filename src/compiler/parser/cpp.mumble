@@ -1,0 +1,746 @@
+;;; cpp.mumble -- the C preprocessor, for Haskell sources that use it
+;;;
+;;; A file is preprocessed when it says {-# LANGUAGE CPP #-} (or
+;;; {-# OPTIONS_GHC -cpp #-} / -XCPP), or for every file with the command
+;;; line's --cpp.  As GHC does, a literate file is unlit first.
+;;;
+;;; This is a cpp for Haskell, in the manner of cpphs and GHC's
+;;; `cpp -traditional': lines with # in the first column are directives,
+;;; and macros are expanded in the other lines, but not inside string
+;;; or character literals; a trailing \ continues a directive only, as
+;;; Haskell's string gaps also end lines in \.
+;;;
+;;;   #include "file"  (the including file's directory, then -I dirs)
+;;;   #include <file>  (the -I directories)
+;;;   #define NAME body   #define NAME(a, b) body   #undef NAME
+;;;   #if EXPR  #ifdef NAME  #ifndef NAME  #elif EXPR  #else  #endif
+;;;   #error message   #warning message   (#line and #pragma are ignored)
+;;;
+;;; An #if expression has C's integer operators and defined(NAME); a name
+;;; that is not a macro is 0 (and so is a call of one, such as
+;;; MIN_VERSION_base(4,8,0)).  __YALE_HASKELL__ is defined; GHC's
+;;; __GLASGOW_HASKELL__ is not, so code for other compilers is chosen.
+;;; Lines are kept: a directive or a skipped line becomes a blank line, and
+;;; an included file is bracketed by {-# LINE #-} pragmas (lexer.mumble).
+
+(define *cpp?* '#f)               ; --cpp: every source file
+(define *cpp-defines* '())        ; -D: "NAME" or "NAME=VALUE" strings
+(define *cpp-include-dirs* '())   ; -I: directories
+
+(define *cpp-macros* '#f)         ; name -> (params . body); params '#f
+				  ; for an object-like macro
+(define *cpp-includes* '())       ; the files included, for the unit cache
+(define *cpp-file* "")
+(define *cpp-line* 0)
+
+
+;;;=====================================================================
+;;; Does a file use CPP?
+;;;=====================================================================
+
+;;; The pragmas before the module header (at most 200 lines are read).
+
+(define (cpp-file? filename)
+  (or (dynamic *cpp?*)
+      (call-with-input-file filename
+	(lambda (port)
+	  (let ((head  (lisp:with-output-to-string (out)
+			 (do ((line (read-line port) (read-line port))
+			      (i 0 (1+ i)))
+			     ((or (eof-object? line) (> i 200)
+				  (string-starts? "module" line)))
+			   (write-string line out)
+			   (write-char #\newline out)))))
+	    (cpp-pragma? head))))))
+
+(define (cpp-pragma? text)
+  (let ((start  (lisp:search "{-#" text)))
+    (and start
+	 (let* ((end    (or (lisp:search "#-}" text :start2 start)
+			    (string-length text)))
+		(words  (cpp-words (substring text (+ start 3) end))))
+	   (or (and (not (null? words))
+		    (or (and (string=? (lisp:string-upcase (car words))
+				       "LANGUAGE")
+			     (mem-string "CPP" (cdr words)))
+			(and (string-starts? "OPTIONS"
+					     (lisp:string-upcase (car words)))
+			     (or (mem-string "-cpp" (cdr words))
+				 (mem-string "-XCPP" (cdr words))))))
+	       (cpp-pragma? (substring text end (string-length text))))))))
+
+(define (cpp-words s)
+  (let ((words  '())
+	(start  '#f))
+    (dotimes (i (1+ (string-length s)))
+      (let ((sep?  (or (= i (string-length s))
+		       (memv (string-ref s i)
+			     '(#\space #\tab #\newline #\return #\,)))))
+	(cond ((and sep? start)
+	       (push (substring s start i) words)
+	       (setf start '#f))
+	      ((and (not sep?) (not start))
+	       (setf start i)))))
+    (nreverse words)))
+
+
+;;;=====================================================================
+;;; Entry points
+;;;=====================================================================
+
+;;; The text of FILE after preprocessing.  TEXT is its contents
+;;; (unlit, for a literate file).
+
+(define (cpp-source filename text)
+  (dynamic-let ((*cpp-macros*    (lisp:make-hash-table :test 'lisp:equal))
+		(*cpp-includes*  '()))
+    (cpp-define-string "__YALE_HASKELL__=1")
+    (dolist (d (dynamic *cpp-defines*))
+      (cpp-define-string d))
+    (lisp:with-output-to-string (out)
+      (cpp-process filename text out 0))))
+
+;;; The files FILE includes (for the unit cache: a change to one makes
+;;; the unit stale), or '() if FILE does not use CPP.
+
+(define (cpp-included-files filename)
+  (if (and (source-extension? (filename-type filename))
+	   (file-exists? filename)
+	   (cpp-file? filename))
+      (dynamic-let ((*cpp-includes* '()))
+	;; an error (reported when the file is compiled) ends the list
+	(let/cc stop
+	  (dynamic-let ((*cpp-macros*  (lisp:make-hash-table :test 'lisp:equal))
+			(*error-output-port* (lisp:make-broadcast-stream))
+			(*abort-compilation* (lambda () (funcall stop '#f))))
+	    (cpp-define-string "__YALE_HASKELL__=1")
+	    (dolist (d (dynamic *cpp-defines*))
+	      (cpp-define-string d))
+	    (cpp-process filename (read-file-text filename)
+			 (lisp:make-broadcast-stream) 0)))
+	(dynamic *cpp-includes*))
+      '()))
+
+;;; "NAME" or "NAME=VALUE", as for -D.
+
+(define (cpp-define-string d)
+  (let ((eq  (lisp:position #\= d)))
+    (if eq
+	(cpp-define-line (string-append (substring d 0 eq) " "
+					(substring d (1+ eq) (string-length d))))
+	(cpp-define-line (string-append d " 1")))))
+
+(define (read-file-text filename)
+  (lisp:with-output-to-string (out)
+    (call-with-input-file filename
+      (lambda (port)
+	(do ((line (read-line port) (read-line port)))
+	    ((eof-object? line))
+	  (write-string line out)
+	  (write-char #\newline out))))))
+
+;;; Bird-style literate code (Report 9.4), as GHC's unlit: code lines lose
+;;; their >, # lines stay for cpp, and the rest become blank.
+
+(define (bird-unlit text)
+  (lisp:with-output-to-string (out)
+    (dolist (line (split-lines text))
+      (cond ((string-starts? ">" line)
+	     (write-char #\space out)
+	     (write-string (substring line 1 (string-length line)) out))
+	    ((string-starts? "#" line)
+	     (write-string line out)))
+      (write-char #\newline out))))
+
+(define (split-lines text)
+  (let ((lines  '())
+	(start  0)
+	(n      (string-length text)))
+    (dotimes (i n)
+      (when (char=? (string-ref text i) #\newline)
+	(push (substring text start i) lines)
+	(setf start (1+ i))))
+    (when (< start n)
+      (push (substring text start n) lines))
+    (nreverse lines)))
+
+
+;;;=====================================================================
+;;; Lines and directives
+;;;=====================================================================
+
+;;; A conditional: (active? . taken?) -- active? is whether its lines are
+;;; kept now, taken? whether one of its branches has been.
+
+(define (cpp-process file text out depth)
+  (when (> depth 100)
+    (cpp-error "#include nested too deeply (a cycle?)"))
+  (dynamic-let ((*cpp-file*  file)
+		(*cpp-line*  0))
+    (let ((lines  (split-lines text))
+	  (conds  '()))
+      (do ()
+	  ((null? lines))
+	(let ((line  (car lines)))
+	  (setf lines (cdr lines))
+	  (incf (dynamic *cpp-line*))
+	  (if (cpp-directive-line? line)
+	      ;; a directive continues over lines ending in \
+	      (let ((extra  0))
+		(do ()
+		    ((not (and (> (string-length line) 0)
+			       (char=? (string-ref line (1- (string-length line)))
+				       #\\)
+			       (not (null? lines)))))
+		  (setf line (string-append
+			      (substring line 0 (1- (string-length line)))
+			      " " (car lines)))
+		  (setf lines (cdr lines))
+		  (incf extra))
+		(setf conds (cpp-directive line conds out depth))
+		(dotimes (i extra)
+		  (incf (dynamic *cpp-line*))
+		  (write-char #\newline out)))
+	      (begin
+		(when (cpp-active? conds)
+		  (write-string (cpp-expand line '()) out))
+		(write-char #\newline out)))))
+      (when (not (null? conds))
+	(cpp-error "#if without #endif")))))
+
+(define (cpp-active? conds)
+  (or (null? conds) (car (car conds))))
+
+;;; # in the first column, then a directive's name (or nothing).  Other
+;;; lines starting with # (a #! line, a #-} closing a pragma) are text.
+
+(define (cpp-directive-line? line)
+  (and (string-starts? "#" line)
+       (let ((word  (cpp-directive-word line)))
+	 (if (string=? (car word) "")
+	     ;; the null directive, and a #! line
+	     (or (string=? (cdr word) "") (string-starts? "#!" line))
+	     (mem-string (car word)
+			 '("include" "define" "undef" "if" "ifdef" "ifndef"
+			   "elif" "else" "endif" "error" "warning" "line"
+			   "pragma" "include_next"))))))
+
+;;; (word . rest) for a directive line.
+
+(define (cpp-directive-word line)
+  (let* ((n      (string-length line))
+	 (start  (cpp-skip-blanks line 1))
+	 (end    (do ((i start (1+ i)))
+		     ((or (= i n) (not (char-alphabetic? (string-ref line i))))
+		      (if (and (< i n) (char=? (string-ref line i) #\_))
+			  ;; include_next
+			  (do ((j i (1+ j)))
+			      ((or (= j n)
+				   (not (or (char-alphabetic? (string-ref line j))
+					    (char=? (string-ref line j) #\_))))
+			       j))
+			  i)))))
+    (cons (substring line start end)
+	  (lisp:string-trim '(#\space #\tab) (substring line end n)))))
+
+(define (cpp-skip-blanks s i)
+  (if (and (< i (string-length s))
+	   (memv (string-ref s i) '(#\space #\tab)))
+      (cpp-skip-blanks s (1+ i))
+      i))
+
+;;; Returns the new conditional stack.
+
+(define (cpp-directive line conds out depth)
+  (let* ((dw      (cpp-directive-word line))
+	 (word    (car dw))
+	 (rest    (cdr dw))
+	 (active? (cpp-active? conds)))
+    (cond ((mem-string word '("if" "ifdef" "ifndef"))
+	   (let ((true? (and active?
+			     (cond ((string=? word "if") (cpp-eval-if rest))
+				   ((string=? word "ifdef") (cpp-defined? rest))
+				   (else (not (cpp-defined? rest)))))))
+	     (write-char #\newline out)
+	     (cons (cons true? (or true? (not active?))) conds)))
+	  ((string=? word "elif")
+	   (cpp-check-open conds "#elif")
+	   (let* ((frame   (car conds))
+		  (outer?  (cpp-active? (cdr conds)))
+		  (true?   (and outer? (not (cdr frame)) (cpp-eval-if rest))))
+	     (write-char #\newline out)
+	     (cons (cons true? (or (cdr frame) true?)) (cdr conds))))
+	  ((string=? word "else")
+	   (cpp-check-open conds "#else")
+	   (let* ((frame   (car conds))
+		  (outer?  (cpp-active? (cdr conds))))
+	     (write-char #\newline out)
+	     (cons (cons (and outer? (not (cdr frame))) '#t) (cdr conds))))
+	  ((string=? word "endif")
+	   (cpp-check-open conds "#endif")
+	   (write-char #\newline out)
+	   (cdr conds))
+	  ((not active?)
+	   (write-char #\newline out)
+	   conds)
+	  ((mem-string word '("include" "include_next"))
+	   (cpp-include rest out depth)
+	   conds)
+	  (else
+	   (cond ((string=? word "define") (cpp-define-line rest))
+		 ((string=? word "undef")
+		  (lisp:remhash (cpp-first-name rest) (dynamic *cpp-macros*)))
+		 ((string=? word "error")
+		  (cpp-error "#error ~A" rest))
+		 ((string=? word "warning")
+		  (haskell-warning 'cpp-warning "~A, line ~A: #warning ~A"
+				   (dynamic *cpp-file*) (dynamic *cpp-line*) rest)))
+	   (write-char #\newline out)
+	   conds))))
+
+(define (cpp-check-open conds what)
+  (when (null? conds)
+    (cpp-error "~A without #if" what)))
+
+(define (cpp-error fmt . args)
+  (fatal-error 'cpp-error "~A, line ~A: ~A"
+	       (dynamic *cpp-file*) (dynamic *cpp-line*)
+	       (lisp:apply (function lisp:format) lisp:nil fmt args)))
+
+(define (cpp-first-name s)
+  (let ((end  (cpp-name-end s 0)))
+    (substring s 0 end)))
+
+(define (cpp-defined? rest)
+  (let ((name  (cpp-first-name rest)))
+    (if (string=? name "")
+	(cpp-error "a name is needed")
+	(lisp:nth-value 1 (lisp:gethash name (dynamic *cpp-macros*))))))
+
+;;; #define NAME body, or NAME(a, b) body (the parenthesis right after the
+;;; name).
+
+(define (cpp-define-line rest)
+  (let* ((n     (string-length rest))
+	 (end   (cpp-name-end rest 0))
+	 (name  (substring rest 0 end)))
+    (when (string=? name "")
+      (cpp-error "#define needs a name"))
+    (if (and (< end n) (char=? (string-ref rest end) #\())
+	(let ((close  (or (lisp:position #\) rest :start end)
+			  (cpp-error "missing ) in #define ~A" name))))
+	  (setf (lisp:gethash name (dynamic *cpp-macros*))
+		(cons (map (lambda (p) (lisp:string-trim '(#\space #\tab) p))
+			   (cpp-split-commas (substring rest (1+ end) close)))
+		      (lisp:string-trim '(#\space #\tab)
+					(substring rest (1+ close) n)))))
+	(setf (lisp:gethash name (dynamic *cpp-macros*))
+	      (cons '#f (lisp:string-trim '(#\space #\tab)
+					  (substring rest end n)))))))
+
+(define (cpp-split-commas s)
+  (if (string=? (lisp:string-trim '(#\space #\tab) s) "")
+      '()
+      (let ((parts  '())
+	    (start  0))
+	(dotimes (i (string-length s))
+	  (when (char=? (string-ref s i) #\,)
+	    (push (substring s start i) parts)
+	    (setf start (1+ i))))
+	(push (substring s start (string-length s)) parts)
+	(nreverse parts))))
+
+;;; #include "file" or <file>.
+
+(define (cpp-include rest out depth)
+  (let* ((n       (string-length rest))
+	 (quote?  (and (> n 0) (char=? (string-ref rest 0) #\")))
+	 (close   (and (> n 0)
+		       (lisp:position (if quote? #\" #\>) rest :start 1))))
+    (when (or (= n 0) (not (memv (string-ref rest 0) '(#\" #\<))) (not close))
+      (cpp-error "#include needs \"file\" or <file>"))
+    (let* ((name   (substring rest 1 close))
+	   (dirs   (append (if quote?
+			       (list (filename-place (dynamic *cpp-file*)))
+			       '())
+			   (map (function cpp-directory-name)
+				(dynamic *cpp-include-dirs*))))
+	   (found  (block search
+		     (dolist (d dirs)
+		       (let ((f  (string-append d name)))
+			 (when (file-exists? f)
+			   (return-from search f))))
+		     '#f)))
+      (when (not found)
+	(cpp-error "cannot find #include file ~A" name))
+      (push found (dynamic *cpp-includes*))
+      (let ((line  (dynamic *cpp-line*))
+	    (file  (dynamic *cpp-file*)))
+	(lisp:format out "{-# LINE 1 ~S #-}~%" found)
+	(cpp-process found (read-file-text found) out (1+ depth))
+	(lisp:format out "{-# LINE ~A ~S #-}~%" (1+ line) file)))))
+
+(define (cpp-directory-name dir)
+  (if (and (> (string-length dir) 0)
+	   (char=? (string-ref dir (1- (string-length dir))) #\/))
+      dir
+      (string-append dir "/")))
+
+
+;;;=====================================================================
+;;; Macro expansion
+;;;=====================================================================
+
+(define (cpp-ident-start? c)
+  (or (char-alphabetic? c) (char=? c #\_)))
+
+(define (cpp-ident-char? c)
+  (or (char-alphabetic? c) (char-numeric? c) (char=? c #\_) (char=? c #\')))
+
+(define (cpp-name-end s i)
+  (if (and (< i (string-length s))
+	   (or (char-alphabetic? (string-ref s i))
+	       (char=? (string-ref s i) #\_)
+	       (and (> i 0) (char-numeric? (string-ref s i)))))
+      (cpp-name-end s (1+ i))
+      i))
+
+;;; S with its macros expanded; HIDDEN are the macros being expanded (not
+;;; expanded again inside themselves).  String and character literals
+;;; are copied.
+
+(define (cpp-expand s hidden)
+  (let ((n  (string-length s)))
+    (if (not (cpp-may-expand? s))
+	s
+	(lisp:with-output-to-string (out)
+	  (do ((i 0))
+	      ((>= i n))
+	    (let ((c  (string-ref s i)))
+	      (cond ((char=? c #\")
+		     (let ((end  (cpp-literal-end s i #\")))
+		       (write-string (substring s i end) out)
+		       (setf i end)))
+		    ((and (char=? c #\')
+			  (or (= i 0) (not (cpp-ident-char? (string-ref s (1- i)))))
+			  (cpp-char-literal-end s i))
+		     (let ((end  (cpp-char-literal-end s i)))
+		       (write-string (substring s i end) out)
+		       (setf i end)))
+		    ((char-numeric? c)
+		     (let ((end  (do ((j i (1+ j)))
+				     ((or (= j n)
+					  (not (or (char-alphabetic? (string-ref s j))
+						   (char-numeric? (string-ref s j))
+						   (char=? (string-ref s j) #\_))))
+				      j))))
+		       (write-string (substring s i end) out)
+		       (setf i end)))
+		    ((cpp-ident-start? c)
+		     (let* ((end    (do ((j i (1+ j)))
+				       ((or (= j n)
+					    (not (cpp-ident-char? (string-ref s j))))
+					j)))
+			    (name   (substring s i end))
+			    (macro  (and (not (mem-string name hidden))
+					 (lisp:gethash name (dynamic *cpp-macros*)))))
+		       (cond ((not macro)
+			      (write-string name out)
+			      (setf i end))
+			     ((not (car macro))
+			      (write-string (cpp-expand (cdr macro) (cons name hidden))
+					    out)
+			      (setf i end))
+			     (else
+			      (let ((call  (cpp-macro-args s end)))
+				(if (not call)
+				    (begin (write-string name out)
+					   (setf i end))
+				    (begin
+				      (write-string
+				       (cpp-expand
+					(cpp-substitute (cdr macro) (car macro)
+							(map (lambda (a)
+							       (cpp-expand a hidden))
+							     (car call)))
+					(cons name hidden))
+				       out)
+				      (setf i (cdr call)))))))))
+		    (else
+		     (write-char c out)
+		     (setf i (1+ i))))))))))
+
+;;; Whether S has a name that is a macro (most lines have none).
+
+(define (cpp-may-expand? s)
+  (let ((n  (string-length s))
+	(found?  '#f))
+    (do ((i 0))
+	((or found? (>= i n)) found?)
+      (if (cpp-ident-start? (string-ref s i))
+	  (let ((end  (do ((j i (1+ j)))
+			  ((or (= j n) (not (cpp-ident-char? (string-ref s j))))
+			   j))))
+	    (when (lisp:nth-value 1 (lisp:gethash (substring s i end)
+						  (dynamic *cpp-macros*)))
+	      (setf found? '#t))
+	    (setf i end))
+	  (setf i (1+ i))))))
+
+;;; The end of the string literal starting at I (just past its close).
+
+(define (cpp-literal-end s i close)
+  (let ((n  (string-length s)))
+    (do ((j (1+ i) (1+ j)))
+	((or (>= j n) (char=? (string-ref s j) close))
+	 (min n (1+ j)))
+      (when (char=? (string-ref s j) #\\)
+	(setf j (1+ j))))))
+
+;;; A character literal at I ('x', '\n', '\''), or '#f.
+
+(define (cpp-char-literal-end s i)
+  (let ((n  (string-length s)))
+    (cond ((>= (+ i 2) n) '#f)
+	  ((char=? (string-ref s (1+ i)) #\\)
+	   (let ((close  (lisp:position #\' s :start (+ i 3))))
+	     (and close (< (- close i) 12) (1+ close))))
+	  ((char=? (string-ref s (+ i 2)) #\')
+	   (+ i 3))
+	  (else '#f))))
+
+;;; The arguments of a call at I: (args . end), or '#f if no ( follows.
+
+(define (cpp-macro-args s i)
+  (let* ((n      (string-length s))
+	 (start  (cpp-skip-blanks s i)))
+    (and (< start n)
+	 (char=? (string-ref s start) #\()
+	 (let ((args   '())
+	       (depth  0)
+	       (arg    (+ start 1))
+	       (end    '#f))
+	   (do ((j (1+ start)))
+	       ((or end (>= j n)))
+	     (let ((c  (string-ref s j)))
+	       (cond ((char=? c #\")
+		      (setf j (cpp-literal-end s j #\")))
+		     ((memv c '(#\( #\[))
+		      (incf depth) (setf j (1+ j)))
+		     ((and (memv c '(#\) #\])) (> depth 0))
+		      (decf depth) (setf j (1+ j)))
+		     ((char=? c #\))
+		      (push (substring s arg j) args)
+		      (setf end (1+ j)))
+		     ((and (char=? c #\,) (= depth 0))
+		      (push (substring s arg j) args)
+		      (setf arg (1+ j))
+		      (setf j (1+ j)))
+		     (else (setf j (1+ j))))))
+	   (and end
+		(cons (map (lambda (a) (lisp:string-trim '(#\space #\tab) a))
+			   (if (and (= (length args) 1)
+				    (string=? (lisp:string-trim '(#\space #\tab)
+								(car args))
+					      ""))
+			       '()
+			       (reverse args)))
+		      end))))))
+
+;;; BODY with each parameter replaced by its argument.
+
+(define (cpp-substitute body params args)
+  (when (not (= (length params) (length args)))
+    (cpp-error "macro expects ~A arguments, given ~A"
+	       (length params) (length args)))
+  (let ((n  (string-length body)))
+    (lisp:with-output-to-string (out)
+      (do ((i 0))
+	  ((>= i n))
+	(let ((c  (string-ref body i)))
+	  (if (cpp-ident-start? c)
+	      (let* ((end   (do ((j i (1+ j)))
+			       ((or (= j n) (not (cpp-ident-char? (string-ref body j))))
+				j)))
+		     (name  (substring body i end))
+		     (pos   (lisp:position name params :test (function string=?))))
+		(write-string (if pos (lisp:nth pos args) name) out)
+		(setf i end))
+	      (begin
+		(write-char c out)
+		(setf i (1+ i)))))))))
+
+
+;;;=====================================================================
+;;; #if expressions
+;;;=====================================================================
+
+(define *cpp-tokens* '())
+
+(define (cpp-eval-if text)
+  (let ((expanded  (cpp-expand (cpp-replace-defined text) '())))
+    (dynamic-let ((*cpp-tokens*  (cpp-tokenize expanded)))
+      (let ((v  (cpp-parse-cond)))
+	(when (not (null? (dynamic *cpp-tokens*)))
+	  (cpp-error "cannot read #if ~A" text))
+	(not (eqv? v 0))))))
+
+;;; defined NAME and defined(NAME) become 1 or 0 before expansion.
+
+(define (cpp-replace-defined s)
+  (let ((pos  (lisp:search "defined" s)))
+    (if (or (not pos)
+	    (and (> pos 0) (cpp-ident-char? (string-ref s (1- pos)))))
+	s
+	(let* ((i      (cpp-skip-blanks s (+ pos 7)))
+	       (paren? (and (< i (string-length s)) (char=? (string-ref s i) #\()))
+	       (i      (if paren? (cpp-skip-blanks s (1+ i)) i))
+	       (end    (cpp-name-end s i))
+	       (name   (substring s i end))
+	       (after  (if paren?
+			   (1+ (or (lisp:position #\) s :start end)
+				   (cpp-error "missing ) after defined")))
+			   end)))
+	  (string-append
+	   (substring s 0 pos)
+	   (if (lisp:nth-value 1 (lisp:gethash name (dynamic *cpp-macros*)))
+	       " 1 " " 0 ")
+	   (cpp-replace-defined (substring s after (string-length s))))))))
+
+;;; Numbers, names (0, and a call of one is 0) and operators.
+
+(define (cpp-tokenize s)
+  (let ((n     (string-length s))
+	(toks  '()))
+    (do ((i 0))
+	((>= i n))
+      (let ((c  (string-ref s i)))
+	(cond ((memv c '(#\space #\tab))
+	       (setf i (1+ i)))
+	      ((char-numeric? c)
+	       (let ((end  (do ((j i (1+ j)))
+			       ((or (= j n)
+				    (not (or (char-alphabetic? (string-ref s j))
+					     (char-numeric? (string-ref s j)))))
+				j))))
+		 (push (cpp-parse-number (substring s i end)) toks)
+		 (setf i end)))
+	      ((cpp-ident-start? c)
+	       (let* ((end   (cpp-name-end s i))
+		      (call  (cpp-macro-args s end)))
+		 (push 0 toks)
+		 (setf i (if call (cdr call) end))))
+	      ((and (char=? c #\') (cpp-char-literal-end s i))
+	       (let ((end  (cpp-char-literal-end s i)))
+		 (push (char->integer (string-ref s (1+ i))) toks)
+		 (setf i end)))
+	      (else
+	       (let ((op  (block find
+			    (dolist (o '("||" "&&" "==" "!=" "<=" ">=" "<<" ">>"))
+			      (when (and (<= (+ i 2) n)
+					 (string=? o (substring s i (+ i 2))))
+				(return-from find o)))
+			    (string c))))
+		 (when (not (mem-string op '("||" "&&" "==" "!=" "<=" ">=" "<<"
+					     ">>" "!" "~" "*" "/" "%" "+" "-"
+					     "<" ">" "&" "^" "|" "?" ":"
+					     "(" ")")))
+		   (cpp-error "unexpected ~A in #if" op))
+		 (push op toks)
+		 (setf i (+ i (string-length op))))))))
+    (nreverse toks)))
+
+(define (cpp-parse-number s)
+  (let* ((digits  (string-right-trim-chars s "uUlL"))
+	 (v       (cond ((or (string-starts? "0x" digits)
+			     (string-starts? "0X" digits))
+			 (lisp:parse-integer digits :start 2 :radix 16
+					     :junk-allowed '#t))
+			((and (> (string-length digits) 1)
+			      (char=? (string-ref digits 0) #\0))
+			 (lisp:parse-integer digits :radix 8 :junk-allowed '#t))
+			(else
+			 (lisp:parse-integer digits :junk-allowed '#t)))))
+    (or v (cpp-error "bad number ~A in #if" s))))
+
+(define (string-right-trim-chars s chars)
+  (lisp:string-right-trim (lisp:coerce chars 'lisp:list) s))
+
+(define (cpp-peek) (and (not (null? (dynamic *cpp-tokens*))) (car (dynamic *cpp-tokens*))))
+
+(define (cpp-next)
+  (let ((tok  (cpp-peek)))
+    (when (null? (dynamic *cpp-tokens*))
+      (cpp-error "#if expression ends early"))
+    (setf (dynamic *cpp-tokens*) (cdr (dynamic *cpp-tokens*)))
+    tok))
+
+(define (cpp-op? tok op)
+  (and (string? tok) (string=? tok op)))
+
+(define (cpp-bool b) (if b 1 0))
+
+;;; cond ? a : b, then the binary operators by C's precedence.
+
+(define (cpp-parse-cond)
+  (let ((c  (cpp-parse-binary 0)))
+    (if (cpp-op? (cpp-peek) "?")
+	(begin
+	  (cpp-next)
+	  (let ((a  (cpp-parse-cond)))
+	    (when (not (cpp-op? (cpp-next) ":"))
+	      (cpp-error "missing : in #if"))
+	    (let ((b  (cpp-parse-cond)))
+	      (if (eqv? c 0) b a))))
+	c)))
+
+(define *cpp-binary-levels*
+  '(("||") ("&&") ("|") ("^") ("&") ("==" "!=") ("<" ">" "<=" ">=")
+    ("<<" ">>") ("+" "-") ("*" "/" "%")))
+
+(define (cpp-parse-binary level)
+  (if (>= level (length *cpp-binary-levels*))
+      (cpp-parse-unary)
+      (let ((ops  (lisp:nth level *cpp-binary-levels*))
+	    (v    (cpp-parse-binary (1+ level))))
+	(do ()
+	    ((not (and (string? (cpp-peek)) (mem-string (cpp-peek) ops)))
+	     v)
+	  (let* ((op  (cpp-next))
+		 (w   (cpp-parse-binary (1+ level))))
+	    (setf v (cpp-apply op v w)))))))
+
+(define (cpp-apply op a b)
+  (cond ((string=? op "||") (cpp-bool (or (not (eqv? a 0)) (not (eqv? b 0)))))
+	((string=? op "&&") (cpp-bool (and (not (eqv? a 0)) (not (eqv? b 0)))))
+	((string=? op "|") (lisp:logior a b))
+	((string=? op "^") (lisp:logxor a b))
+	((string=? op "&") (lisp:logand a b))
+	((string=? op "==") (cpp-bool (= a b)))
+	((string=? op "!=") (cpp-bool (not (= a b))))
+	((string=? op "<") (cpp-bool (< a b)))
+	((string=? op ">") (cpp-bool (> a b)))
+	((string=? op "<=") (cpp-bool (<= a b)))
+	((string=? op ">=") (cpp-bool (>= a b)))
+	((string=? op "<<") (lisp:ash a b))
+	((string=? op ">>") (lisp:ash a (- b)))
+	((string=? op "+") (+ a b))
+	((string=? op "-") (- a b))
+	((string=? op "*") (* a b))
+	((eqv? b 0) (cpp-error "division by zero in #if"))
+	((string=? op "/") (lisp:truncate a b))
+	(else (lisp:rem a b))))
+
+(define (cpp-parse-unary)
+  (let ((tok  (cpp-next)))
+    (cond ((integer? tok) tok)
+	  ((cpp-op? tok "!") (cpp-bool (eqv? (cpp-parse-unary) 0)))
+	  ((cpp-op? tok "~") (lisp:lognot (cpp-parse-unary)))
+	  ((cpp-op? tok "-") (- (cpp-parse-unary)))
+	  ((cpp-op? tok "+") (cpp-parse-unary))
+	  ((cpp-op? tok "(")
+	   (let ((v  (cpp-parse-cond)))
+	     (when (not (cpp-op? (cpp-next) ")"))
+	       (cpp-error "missing ) in #if"))
+	     v))
+	  (else (cpp-error "unexpected ~A in #if" tok)))))

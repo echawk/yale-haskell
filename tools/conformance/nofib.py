@@ -28,7 +28,10 @@ MODULE_MAP = {
 }
 # Modules with no Haskell 98 counterpart: the program is skipped.
 NON_H98 = re.compile(r'^>?\s*import\s+(qualified\s+)?(Data\.(IORef|Map|Set|IntMap|STRef|Array\.\w+)|Control\.(Monad\.(?!Fail\b)\w+|Concurrent|Parallel|DeepSeq)|GHC\.|Text\.(?!Read\b)|System\.Mem)', re.M)
-EXTENSIONS = re.compile(r'\{-#\s*LANGUAGE|\bforall\b|\bunsafePerformIO\b|#!|^\s*#\s*(if|include|define)', re.M)
+EXTENSIONS = re.compile(r'\{-#\s*LANGUAGE(?!\s+CPP\s*#-\})|\bforall\b|\bunsafePerformIO\b|#!', re.M)
+# Programs compiled with -cpp (their Makefile's SRC_HC_OPTS) or this
+# pragma get --cpp, as GHC preprocesses them
+CPP_PRAGMA = re.compile(r'\{-#\s*LANGUAGE\s+CPP\s*#-\}')
 
 # Programs that cannot pass for a known reason outside Haskell 98
 # conformance: reported as KNOWN with the reason.
@@ -79,6 +82,7 @@ def run_program(d, timeout, verbose):
     work = os.path.join(OUT, suite, name)
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(work)
+    cpp = '-cpp' in mk
     for f in os.listdir(d):
         p = os.path.join(d, f)
         if f == 'NofibUtils.hs':
@@ -96,6 +100,7 @@ def run_program(d, timeout, verbose):
                     return 'SKIP', 'imports %s' % NON_H98.search(src).group(0).split()[-1]
                 if EXTENSIONS.search(src):
                     return 'SKIP', 'extension: %s' % EXTENSIONS.search(src).group(0).strip()
+                cpp = cpp or bool(CPP_PRAGMA.search(src))
                 with open(os.path.join(work, f), 'w', encoding='latin-1') as g:
                     g.write(map_imports(src))
             else:
@@ -106,7 +111,14 @@ def run_program(d, timeout, verbose):
             if a.endswith(('.hs', '.lhs')) and os.path.isfile(os.path.join(d, a)) else a
             for a in args]
     # nofib targets GHC: its Prelude (Applicative, <$>, ...) is the modern one
-    cmd = [os.path.join(ROOT, 'bin', 'yale-haskell'), '--haskell98', '--modern-prelude', main] + args
+    # CPP: #include "../x" is relative to the original directory, except
+    # the hartel programs' ../Fast2haskell.hs, whose stand-in (GHC's uses
+    # its unboxed primitives) is put beside the copy, where it is found first
+    flags = ['--cpp', '-I', d] if cpp else []
+    if cpp and suite == 'hartel':
+        shutil.copy(os.path.join(ROOT, 'tools', 'conformance', 'Fast2haskell.hs'),
+                    os.path.join(OUT, suite, 'Fast2haskell.hs'))
+    cmd = [os.path.join(ROOT, 'bin', 'yale-haskell'), '--haskell98', '--modern-prelude'] + flags + [main] + args
     t0 = time.time()
     try:
         with open(stdin_file or os.devnull, 'rb') as inp:

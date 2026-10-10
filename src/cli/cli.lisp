@@ -44,6 +44,12 @@
                       :description "turn off the FLIC optimizer")
    (clingon:make-option :string :long-name "optimizers" :key :optimizers :persistent t
                         :description "FLIC optimizers, comma-separated: names (exactly these), +name, -name, all, none; of foldr,inline,constant,lisp")
+   (clingon:make-option :flag :long-name "cpp" :key :cpp :persistent t
+                        :description "run the C preprocessor on every source file (files with {-# LANGUAGE CPP #-} always are)")
+   (clingon:make-option :list :long-name "define" :short-name #\D :key :define :persistent t
+                        :description "define a CPP macro: NAME or NAME=VALUE (repeatable)")
+   (clingon:make-option :list :long-name "include-dir" :short-name #\I :key :include-dir :persistent t
+                        :description "a directory for CPP's #include (repeatable)")
    (clingon:make-option :string :long-name "emit" :key :emit :persistent t
                         :description "compile without running and write these stages, comma-separated: scope,depend,cfn,flic,optimize,strictness,grin,codegen,lisp,asm")
    (clingon:make-option :string :long-name "output" :short-name #\o :key :output :persistent t
@@ -62,7 +68,7 @@
 ;;; off the command line.
 (defparameter *value-options*
   '("-b" "--backend" "-p" "--printers" "-e" "--eval" "-g" "--grin-optimizations"
-    "-l" "--foreign-library" "--optimizers" "--emit" "-o" "--output"))
+    "-l" "--foreign-library" "-D" "--define" "-I" "--include-dir" "--optimizers" "--emit" "-o" "--output"))
 
 (defparameter *sub-commands* '("repl" "run" "compile" "help"))
 
@@ -97,6 +103,16 @@
       (mumble-set "*HASKELL2010?*" t))
     (when (clingon:getopt* cmd :modern-prelude)
       (mumble-set "*MODERN-PRELUDE?*" t))
+    (when (clingon:getopt* cmd :cpp)
+      (mumble-set "*CPP?*" t))
+    (when (clingon:getopt* cmd :define)
+      (mumble-set "*CPP-DEFINES*" (clingon:getopt* cmd :define)))
+    (when (clingon:getopt* cmd :include-dir)
+      (mumble-set "*CPP-INCLUDE-DIRS*"
+                  (mapcar (lambda (d) (namestring (merge-pathnames
+                                                   (uiop:ensure-directory-pathname d)
+                                                   (uiop:getcwd))))
+                          (clingon:getopt* cmd :include-dir))))
     (when (clingon:getopt* cmd :no-optimize)
       (mumble-set "*OPTIMIZERS*" '()))
     (let ((opts (clingon:getopt* cmd :optimizers)))

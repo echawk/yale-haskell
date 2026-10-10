@@ -21,9 +21,12 @@
   (unit token
     (source-filename "token.mumble")
     (require parser-macros))
+  (unit cpp
+    (source-filename "cpp.mumble")
+    (require parser-macros))
   (unit parser-driver
     (source-filename "parser-driver.mumble")
-    (require parser-macros))
+    (require parser-macros cpp))
   (unit module-parser
     (source-filename "module-parser.mumble")
     (require parser-macros))

@@ -51,6 +51,20 @@
 		(code? (write-string line out)))
 	  (write-char #\newline out))))))
 
+;;; The text to lex for a source file that uses CPP (cpp.mumble): unlit
+;;; if literate, then preprocessed.  '#f for one that does not, which is
+;;; lexed as it is.
+
+(define (preprocessed-source filename literate?)
+  (and (cpp-file? filename)
+       (cpp-source filename
+		   (cond ((not literate?)
+			  (read-file-text filename))
+			 ((latex-literate-file? filename)
+			  (latex-literate-code filename))
+			 (else
+			  (bird-unlit (read-file-text filename)))))))
+
 (define (parse-single-file-1 filename literate? interface?)
   (when (memq 'reading *printers*)
       (format '#t "Reading Haskell source file ~s.~%" filename))
@@ -60,12 +74,18 @@
     (let ((mods '()))
       (call-with-input-file filename
         (lambda (port)
-	  (let* ((tokens (dynamic-let ((*lexing-interface?* interface?))
-			   (if (and literate? (latex-literate-file? filename))
+	  (let* ((text   (and (not interface?)
+			      (preprocessed-source filename literate?)))
+		 (tokens (dynamic-let ((*lexing-interface?* interface?))
+			   (cond
+			    (text
+			     (lex-port (lisp:make-string-input-stream text) '#f))
+			    ((and literate? (latex-literate-file? filename))
 			       (lex-port (lisp:make-string-input-stream
 					  (latex-literate-code filename))
-					 '#f)
-			       (lex-port port literate?))))
+					 '#f))
+			    (else
+			     (lex-port port literate?)))))
 		 (module-asts (if interface?
 				  (parse-tokens/interface tokens)
 				  (parse-tokens tokens))))
