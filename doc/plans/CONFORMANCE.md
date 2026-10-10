@@ -80,8 +80,12 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
    class-based variadic `printf`, which Haskell 98 can express.
 5. **Monad with an Applicative superclass** in `--modern-prelude`
    (MICROCABAL.md step 2b), and **Foldable/Traversable**.
-6. **Multi-parameter type classes** (MicroCabal's `TokenMachine`). Not
-   in either Report, but common in real code.
+6. **Multi-parameter type classes:** done (e19c23a, 9ffb5a5), with
+   functional dependencies, instance contexts, recursive bindings and
+   interface files. Tests are in tests/haskell98/language/mptc-*.
+   Left to do:
+   - superclasses of a multi-parameter class (rejected);
+   - FlexibleInstances heads, such as `C [Char] t` (rejected).
 7. **`foreign export` and `"wrapper"` imports** (doc/FFI.md).
 8. **A broader corpus:** nofib `real`, then the programs of
    REAL-WORLD-TARGETS.md.
