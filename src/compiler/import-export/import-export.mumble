@@ -62,7 +62,17 @@
      (cond ((in-hiding-list? group hiding)
 	    (setf hiding (remove-entity group hiding)))
 	   (else
-	    (import-group (rename-group group renamings) module))))
+	    ;; a method, field or constructor hidden by its own name
+	    (let ((kept  (cons (car group)
+			       (lisp:remove-if
+				(lambda (n-d)
+				  (lisp:find (tuple-2-1 n-d) hiding
+					     :key (function entity-name)))
+				(cdr group)))))
+	      (dolist (n-d (cdr group))
+		(setf hiding (lisp:remove (tuple-2-1 n-d) hiding
+					  :key (function entity-name))))
+	      (import-group (rename-group kept renamings) module)))))
    (module-export-table module))
   (when (not (null? hiding))
     (remember-context import-decl

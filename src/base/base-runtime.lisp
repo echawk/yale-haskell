@@ -7,6 +7,24 @@
 
 (cl:in-package "MUMBLE-USER")
 
+;;; Mutable references (Data.IORef, Data.STRef) are the runtime's cells
+;;; (prim.new-ref etc., src/runtime/handle-prims.mumble).
+
+(cl:defun prim.ref-eq (a b) (cl:eq a b))
+
+;;; Running an IO action outside IO (System.IO.Unsafe, runST): it is
+;;; applied to the state token as the IO monad's bind does.
+
+(cl:defun run-io-action (action)
+  (force (apply-1 (force action) (box 'state))))
+
+(cl:defun prim.unsafe-perform-io (action)
+  (force (run-io-action action)))
+
+;;; The action runs when its result is first demanded.
+(cl:defun prim.unsafe-interleave-io (action)
+  (delay (force (run-io-action action))))
+
 ;;; Exceptions.  An exception is a Lisp condition: haskell-io-error (an
 ;;; IOError, src/runtime/io-errors.mumble), haskell-error-call (error and
 ;;; pattern-match failure, src/compiler/top/errors.mumble) or an

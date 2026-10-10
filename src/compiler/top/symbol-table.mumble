@@ -257,6 +257,12 @@
 		(signal-multiple-name-conflict name (local-name def) def))))
 	  ((eq? old-definition def)
 	   'OK)
+	  ((supersedes-prelude-def? name def old-definition)
+	   (setf (table-entry *symbol-table* name) def)
+	   (when (eq? (local-name def) '#f)
+	     (setf (table-entry *inverted-symbol-table* def) name)))
+	  ((supersedes-prelude-def? name old-definition def)
+	   'OK)
 	  ((def-prelude? old-definition)
 	   (signal-core-redefinition name))
 	  ((and (module-uses-standard-prelude? *module*)
@@ -372,7 +378,44 @@
        (not (module-prelude? *module*))
        (or (memq name '(|Assoc| |;:=|))
 	   ;; the Monad fail; PreludeModern's MonadFail(fail) replaces it
-	   (and (eq? name '|fail|) (monadfail-fail-module?)))))
+	   (and (eq? name '|fail|) (monadfail-fail-module?))
+	   ;; the list foldr; PreludeModern's Foldable foldr replaces it
+	   (and (memq name *foldable-prelude-names*) (foldable-prelude-module?)))))
+
+;;; The Prelude's list functions that base's Prelude has over Foldable or
+;;; Traversable (PreludeModern's).  In a user module under
+;;; --modern-prelude, the Prelude's are left out of its implicit import
+;;; (prelude-symbol-entry), and an explicit import of them gives way to
+;;; PreludeModern's (insert-top-definition).
+
+(define *foldable-prelude-names*
+  '(|foldr| |foldl| |foldr1| |foldl1| |null| |length| |elem| |notElem|
+    |maximum| |minimum| |sum| |product| |concat| |concatMap| |and| |or|
+    |any| |all| |mapM_| |sequence_| |mapM| |sequence|))
+
+(define (foldable-prelude-module?)
+  (and (modern-prelude?) (not (module-library? *module*))))
+
+;;; Whether DEF, PreludeModern's, replaces OLD, the Prelude's, for NAME.
+
+;;; OLD is a list version: the Prelude's, or List's or Data.List's (which
+;;; re-export the Prelude's and define foldl', find, ...).
+
+(define (supersedes-prelude-def? name def old)
+  (and (or (memq name *foldable-prelude-names*)
+	   (memq name *foldable-list-names*))
+       (foldable-prelude-module?)
+       (eq? (def-module def) '|PreludeModern|)
+       (not (eq? (def-module old) '|PreludeModern|))
+       (or (eq? old (table-entry *prelude-symbol-table* name))
+	   (eq? old (table-entry *prelude-core-symbols* name))
+	   (memq (def-module old) '(|List| |Data.List|)))))
+
+;;; Data.List's own functions that base has over Foldable
+;;; (Data.Foldable's, defined in PreludeModern).
+
+(define *foldable-list-names*
+  '(|foldl'| |find| |maximumBy| |minimumBy|))
 
 ;;; Modules where fail is MonadFail's (PreludeModern) rather than the
 ;;; Haskell 98 Monad method: user modules under --modern-prelude, and
@@ -424,6 +467,8 @@
   (and (not (and (memq name *not-in-2010-prelude*)
 		 (haskell2010?)
 		 (not (module-library? *module*))))
+       (not (and (memq name *foldable-prelude-names*)
+		 (foldable-prelude-module?)))
        (table-entry *prelude-symbol-table* name)))
 
 ;;; Prelude.x when the Prelude is imported implicitly: its names are not

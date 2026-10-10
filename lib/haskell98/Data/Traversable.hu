@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Data/
+:o= all
+Traversable.hs

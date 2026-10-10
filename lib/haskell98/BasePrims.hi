@@ -9,6 +9,20 @@ import PreludeCore(Int,Integer,Bool,Char)
 -- an exception: a Lisp condition (Control.Exception)
 data Exc
 
+-- a mutable reference (Data.IORef, Data.STRef): the runtime's cell
+-- (src/runtime/handle-prims.mumble, as RandomPrims.hi); the value is
+-- stored unevaluated
+data Ref a
+
+primNewRef         :: a -> IO (Ref a)
+primReadRef        :: Ref a -> IO a
+primWriteRef       :: Ref a -> a -> IO ()
+primRefEq          :: Ref a -> Ref a -> Bool
+
+-- System.IO.Unsafe (and runST)
+primUnsafePerformIO    :: IO a -> a
+primUnsafeInterleaveIO :: IO a -> IO a
+
 primCatchAny       :: IO a -> (Exc -> IO a) -> IO a
 primThrowExc       :: Exc -> a
 primExcKind        :: Exc -> Int
@@ -48,6 +62,12 @@ primTruncateFile   :: String -> Integer -> IO ()
 primCreateTempFile :: String -> String -> String -> IO String
 
 {-#
+primNewRef         :: LispName("prim.new-ref"), Strictness("N,S")
+primReadRef        :: LispName("prim.read-ref")
+primWriteRef       :: LispName("prim.write-ref"), Strictness("S,N,S")
+primRefEq          :: LispName("prim.ref-eq")
+primUnsafePerformIO    :: LispName("prim.unsafe-perform-io")
+primUnsafeInterleaveIO :: LispName("prim.unsafe-interleave-io")
 primCatchAny       :: LispName("prim.catch-any"), Strictness("N,S,S")
 primThrowExc       :: LispName("prim.throw-exc")
 primExcKind        :: LispName("prim.exc-kind")

@@ -96,7 +96,9 @@
 (define *not-in-ghc-prelude*
   (cons (make entity-con (name '|Alternative|))
 	(map (lambda (name) (make entity-var (name name)))
-	     '(|<**>| |liftA| |liftA3| |optional|))))
+	     '(|<**>| |liftA| |liftA3| |optional|
+	       ;; Data.Foldable's
+	       |toList| |foldl'| |foldr'| |find| |maximumBy| |minimumBy|))))
 
 (define (filter-complete-module-exports exports)
   (if (null? exports)

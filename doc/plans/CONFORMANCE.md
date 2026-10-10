@@ -92,7 +92,23 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
 4. **Text.Printf** (base) for last-piece and real code. It needs a
    class-based variadic `printf`, which Haskell 98 can express.
 5. **Monad with an Applicative superclass** in `--modern-prelude`
-   (MICROCABAL.md step 2b), and **Foldable/Traversable**.
+   (MICROCABAL.md step 2b).
+   - **Foldable/Traversable:** done. They are PreludeModern's, and in a
+     user module under `--modern-prelude` they replace the Prelude's list
+     functions (`length`, `sum`, `elem`, `mapM_`, `mapM`, ...).
+   - For that, symbol-table.mumble's `*foldable-prelude-names*` leaves
+     those names out of the implicit Prelude, and lets PreludeModern's win
+     over an explicit `import Prelude` or `Data.List`.
+   - The list instance's methods are `Inline`, so code at list type is
+     the same as with the Haskell 98 Prelude (nofib times unchanged).
+   - New base modules: Data.Foldable, Data.Traversable, Data.Monoid,
+     Data.Ord, Data.Either, Data.Tuple, Data.Functor, Data.Bifunctor,
+     Data.IORef, Control.Monad.ST (.Strict, .Lazy), Data.STRef,
+     System.IO.Unsafe.
+   - runST has the Haskell 98 type `ST s a -> a`, as there are no rank-2
+     types.
+   - Imports and hiding lists can now name a class method or field by
+     itself (`import Data.Foldable (toList)`).
 6. **Multi-parameter type classes:** done (e19c23a, 9ffb5a5), with
    functional dependencies, instance contexts, recursive bindings and
    interface files. Tests are in tests/haskell98/language/mptc-*.

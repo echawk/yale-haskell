@@ -5,9 +5,26 @@
 ;;; 'not-found.  When force-error? is true, signal an error when
 ;;; the module is not found & return 'error.
 
+;;; A class method or record field named by itself (import M (method)):
+;;; a group of just that member, from the class's or type's export group.
+
+(define (group-member-group name mod)
+  (let ((found  '#f))
+    (table-for-each
+     (lambda (key group)
+       (declare (ignore key))
+       (when (not found)
+	 (dolist (n-d (cdr group))
+	   (when (and (eq? (tuple-2-1 n-d) name) (var? (tuple-2-2 n-d)))
+	     (setf found (list n-d))))))
+     (module-export-table mod))
+    found))
+
 (define (locate-entity/export-table entity mod force-error?)
   (let* ((name (entity-name entity))
-	 (group (table-entry (module-export-table mod) name)))
+	 (group (or (table-entry (module-export-table mod) name)
+		    (and (is-type? 'entity-var entity)
+			 (group-member-group name mod)))))
     (if (eq? group '#f)
 	(if (not force-error?)
 	    'not-found

@@ -1,7 +1,8 @@
 -- Control.Monad as in GHC's base, for --modern-prelude (modules under
 -- lib/haskell98/modern/ are found before the library's own,
 -- csys/compiler-driver.mumble): as the 2010 Report's, but guard is
--- Alternative's (base's), and base's additions.
+-- Alternative's (base's), mapM, forM, sequence, msum and their _ forms are
+-- over Traversable or Foldable (base's), and base's additions.
 module Control.Monad (
     Functor(fmap), Monad((>>=), (>>), return, fail), MonadPlus(mzero, mplus),
     mapM, mapM_, forM, forM_, sequence, sequence_, (=<<), (>=>), (<=<),
@@ -10,8 +11,22 @@ module Control.Monad (
     liftM, liftM2, liftM3, liftM4, liftM5, ap
   ) where
 
-import ControlMonadBase hiding (guard)
-import PreludeModern (Applicative(pure), Alternative(empty))
+import Prelude hiding (mapM, mapM_, sequence, sequence_, foldr)
+import ControlMonadBase hiding (guard, mapM, mapM_, forM, forM_, sequence,
+                               sequence_, msum)
+import PreludeModern (Applicative(pure), Alternative(empty),
+                      Traversable(mapM, sequence), Foldable(foldr),
+                      mapM_, sequence_)
+
+-- over any Traversable or Foldable, as base's
+forM :: (Traversable t, Monad m) => t a -> (a -> m b) -> m (t b)
+forM t f = mapM f t
+
+forM_ :: (Foldable t, Monad m) => t a -> (a -> m b) -> m ()
+forM_ t f = mapM_ f t
+
+msum :: (Foldable t, MonadPlus m) => t (m a) -> m a
+msum t = foldr mplus mzero t
 
 infixl 4 <$!>
 
