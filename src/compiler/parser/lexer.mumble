@@ -135,6 +135,7 @@
       (advance-char-1)))
 
 (define (advance-char-1)
+  (setf *prev-char* *char*)
   (cond ((eqv? *char* #\newline)
 	 (setf *on-new-line?* '#t)
 	 (incf (the fixnum *current-line*))
@@ -160,6 +161,7 @@
 (define (lex-one-token)
  (setf *start-line* *current-line*) ; capture the loc at the start of the token
  (setf *start-col* *current-col*)
+ (setf *char-before-token* *prev-char*)
  (unless *at-eof?*
   (char-case *char*
     (whitechar
@@ -571,6 +573,8 @@
 		(char=? *char* #\}))
 	   (advance-char)
 	   (emit-token 'end-annotation))
+	  ((and (string=/list? sym "!") (bang-shaped?))
+	   (emit-token 'varsym "!" 'prefix))
 	  (else
 	   (parse-reserved sym varsym
 	      ".."
@@ -580,6 +584,18 @@
 	      "|"
 	      "~"
 	      "->" "<-")))))
+
+;;; BangPatterns (GHC): a ! with white space or an opening bracket before it
+;;; and none after, as in f !x, is a prefix bang (pattern-parser.mumble).
+;;; The token stays the operator ! (a ! i) and a strictness flag (!Int).
+;;; *char* is the character after the !.
+
+(define (bang-shaped?)
+  (and (haskell98?)
+       (memv *char-before-token*
+	     '(#\space #\tab #\newline #\( #\[ #\, #\; #\{))
+       (or (char-alphabetic? *char*) (char-numeric? *char*)
+	   (memv *char* '(#\_ #\( #\[ #\~ #\' #\")))))
 
 (define (all-dashes? sym)
   (or (null? sym)
@@ -603,6 +619,7 @@
 (define (lex-integer-1 radix psum)
   (declare (type fixnum radix)
 	   (type integer psum))
+  (skip-digit-separator radix)
   (let ((d  (char->digit *char* radix)))
     (if d
 	(begin
@@ -612,6 +629,7 @@
 
 (define (lex-fraction int-part denominator)
   (declare (type integer int-part denominator))
+  (skip-digit-separator 10)
   (let ((d  (char->digit *char* 10)))
     (if d
 	(begin
@@ -619,6 +637,15 @@
 	  (lex-fraction
 	    (+ (* int-part 10) (the fixnum d)) (* denominator 10)))
 	(values int-part denominator))))
+
+;;; NumericUnderscores (GHC): an _ between two digits, as in 1_000_000,
+;;; is skipped.  (In Haskell 98 1_000 is 1 and the name _000.)
+
+(define (skip-digit-separator radix)
+  (when (and (haskell98?)
+	     (char=? *char* #\_)
+	     (char->digit *peek-char* radix))
+    (advance-char)))
 
 ;;; Hexadecimal (0x1F, 0X1F) and octal (0o17, 0O17) literals are from
 ;;; Haskell 98.  They are a pure extension, so both dialects get them.
@@ -629,6 +656,8 @@
 		    (char-case *peek-char*
 		      ((#\x #\X) 16)
 		      ((#\o #\O) 8)
+		      ;; BinaryLiterals (GHC)
+		      ((#\b #\B) (and (haskell98?) 2))
 		      (else '#f)))))
     (if (and radix (char->digit (peek-char-2) radix))
 	(begin

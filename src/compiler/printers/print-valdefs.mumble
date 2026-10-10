@@ -115,6 +115,10 @@
   (write-string "~" xp)
   (write-apat (irr-pat-pattern object) xp))
 
+(define-ast-printer bang-pat (object xp)
+  (write-string "!" xp)
+  (write-apat (bang-pat-pattern object) xp))
+
 (define-ast-printer sig-pat (object xp)
   (write-char #\( xp)
   (write (sig-pat-pattern object) xp)

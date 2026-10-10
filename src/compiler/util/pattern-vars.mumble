@@ -35,7 +35,7 @@
 	  )))
 
 (define-collecting-walker-methods collect-pattern-vars
-  (as-pat irr-pat sig-pat var-pat wildcard-pat const-pat plus-pat pcon list-pat
+  (as-pat irr-pat sig-pat bang-pat var-pat wildcard-pat const-pat plus-pat pcon list-pat
 	  pp-pat-list pp-pat-plus pp-pat-negated)
   collect-pattern-vars-processor)
 

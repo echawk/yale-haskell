@@ -195,6 +195,12 @@
    (pattern (type pattern))
    (signature (type signature))))
 
+(define-struct bang-pat  ;; !pat (GHC's BangPatterns): matching evaluates
+  (include apat)         ;; the value first.  Gone after cfn.
+  (predicate bang-pat?)
+  (slots
+   (pattern (type pattern))))
+
 (define-struct var-pat  ;; v
   (include apat)
   (predicate var-pat?)

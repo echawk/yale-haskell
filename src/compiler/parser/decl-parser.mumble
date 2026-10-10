@@ -28,6 +28,7 @@
 	  (token-case
 	   (var (scan-var)
 		(token-case
+		 ((no-advance satisfies at-bang?) 'fundef)
 		 ((\, \:\:) 'signdecl)
 		 (apat-start 'fundef)
 		 (+ 'plus-def)
@@ -212,6 +213,10 @@
    ;; an empty declaration (H98: `a = 1;' at the end of a layout line)
    (\; (parse-decl-list-1 in-layout?))
    ((apat-start begin-annotation)
+    (let ((decl (parse-decl)))
+      (parse-decl-list-2 decl in-layout?)))
+   ;; let !x = e (BangPatterns)
+   ((no-advance satisfies at-bang?)
     (let ((decl (parse-decl)))
       (parse-decl-list-2 decl in-layout?)))
    ;; Local fixity declarations (H98).  The scope phase attaches them to

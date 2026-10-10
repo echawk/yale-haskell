@@ -48,6 +48,27 @@
 (define (parse-lambda)
   (trace-parser lambda
    (save-parser-context
+    (if (and (haskell98?) (eq-token? '|case|))
+	(parse-lambda-case)
+	(parse-lambda-1)))))
+
+;;; LambdaCase (GHC): \case alts is \v -> case v of alts.  (A \case
+;;; inside another rebinds v, which only its own case uses.)
+
+(define (parse-lambda-case)
+  (advance-token)
+  (let ((alts (start-layout (function parse-alts))))
+    (make lambda
+	  (pats (list (make var-pat (var (generated-var-ref '|lambda-case-v|)))))
+	  (body (make case (exp (generated-var-ref '|lambda-case-v|))
+		           (alts alts))))))
+
+(define (generated-var-ref name)
+  (make var-ref (name name) (infix? '#f) (var *undefined-def*)))
+
+(define (parse-lambda-1)
+  (trace-parser lambda
+   (save-parser-context
     (let ((pats (parse-apat-list)))
       (require-token -> (signal-missing-token "`->'" "lambda expression"))
       (let ((exp (parse-exp)))
@@ -71,6 +92,26 @@
     (advance-token)))
 
 (define (parse-if)
+  (if (and (haskell98?) (eq-token? '\|))
+      (parse-multiway-if)
+      (parse-if-1)))
+
+;;; MultiWayIf (GHC): if | g1 -> e1 | g2 -> e2 ... is
+;;; case () of _ | g1 -> e1 | g2 -> e2 ...
+
+(define (parse-multiway-if)
+  (trace-parser if
+   (save-parser-context
+    (begin
+      (advance-token)
+      (let ((rhs-list (parse-guarded-alt-rhs)))
+	(make case
+	      (exp (**con/def (core-symbol "UnitConstructor")))
+	      (alts (list (make alt (pat (make wildcard-pat))
+				    (rhs-list rhs-list)
+				    (where-decls '()))))))))))
+
+(define (parse-if-1)
   (trace-parser if
    (save-parser-context
     (let ((test-exp (parse-exp)))
@@ -197,7 +238,7 @@
     (\(
      (token-case
        (\) (**con/def (core-symbol "UnitConstructor")))
-       (\, (**con/def (tuple-constructor (parse-tuple-con-commas 2))))
+       (\, (parse-tuple-slots (list '#f)))
        ((no-advance -) (parse-exp-or-tuple))
        (varop
 	(let ((varop (varop->ast)))
@@ -261,7 +302,50 @@
   (let ((exp (parse-exp)))
     (token-case
      (\) exp)  ; Note - sections ending in an op are parsed elsewhere
-     (else (make-tuple-cons (cons exp (parse-tuple-exp)))))))
+     (\, (parse-tuple-slots (list exp)))
+     (else (signal-missing-token
+	    "`)' or `,'" "tuple or parenthesized expression")))))
+
+;;; The rest of a tuple after a comma; SLOTS are the components so far,
+;;; reversed, '#f for an empty one.  (,) and (,,) are constructors (H98);
+;;; with some components given, a tuple section (TupleSections, GHC):
+;;; (,e) is \v -> (v, e).
+
+(define (parse-tuple-slots slots)
+  (token-case
+   ((no-advance \,)
+    (advance-token)
+    (parse-tuple-slots (cons '#f slots)))
+   ((no-advance \))
+    (advance-token)
+    (make-tuple-slots (reverse (cons '#f slots))))
+   (else
+    (let ((exp (parse-exp)))
+      (token-case
+       (\, (parse-tuple-slots (cons exp slots)))
+       (\) (make-tuple-slots (reverse (cons exp slots))))
+       (else (signal-missing-token "`)' or `,'" "tuple expression")))))))
+
+(define (make-tuple-slots slots)
+  (cond ((every (lambda (s) (eq? s '#f)) slots)
+	 (**con/def (tuple-constructor (length slots))))
+	((every (lambda (s) (not (eq? s '#f))) slots)
+	 (make-tuple-cons slots))
+	(else
+	 (let ((names  '())
+	       (i      0))
+	   (let ((args (map (lambda (s)
+			      (if (eq? s '#f)
+				  (let ((name (string->symbol
+					       (format '#f "tuple-section-~A" (incf i)))))
+				    (push name names)
+				    (generated-var-ref name))
+				  s))
+			    slots)))
+	     (make lambda
+		   (pats (map (lambda (n) (make var-pat (var (generated-var-ref n))))
+			      (reverse names)))
+		   (body (make-tuple-cons args))))))))
 
 (define (parse-tuple-exp)
   (token-case

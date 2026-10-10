@@ -46,6 +46,8 @@
 	    (let ((type (parse-type)))
 	      (token-case
 	       (\) type)
+	       ;; KindSignatures (GHC): (t :: kind); the kind is inferred
+	       (\:\: (skip-kind) type)
 	       (\, (let ((types  (cons type (parse-type-list))))
 		     (**tycon/def (tuple-tycon (length types)) types)))
 	       (else
@@ -58,6 +60,19 @@
 	     (**tycon/def (core-symbol "List") (list type))))))
     (else
      (signal-invalid-syntax "an atype"))))
+
+;;; The rest of a parenthesised kind signature, through its `)': a kind
+;;; (*, Type, k -> k, Constraint, ...) is not checked.
+
+(define (skip-kind)
+  (skip-kind-1 0))
+
+(define (skip-kind-1 depth)
+  (token-case
+   (\( (skip-kind-1 (1+ depth)))
+   (\) (when (> depth 0) (skip-kind-1 (1- depth))))
+   (eof (signal-missing-token "`)'" "kind signature"))
+   (else (advance-token) (skip-kind-1 depth))))
 
 ;;; `(,' has been read; count the commas up to the `)' of `(,,)'.
 (define (token-case-loop-commas n)

@@ -247,6 +247,7 @@
 	    (as-pat       (function match-as-pat))
 	    (irr-pat      (function match-irr-pat))
 	    (sig-pat      (function match-sig-pat))
+	    (bang-pat     (function match-bang-pat))
 	    (const-pat    (function match-const-pat))
 	    (plus-pat     (function match-plus-pat))
 	    (list-pat     (function match-list-pat))
@@ -352,6 +353,25 @@
   (match-pattern (cons exp exps) (cons (sig-pat-pattern pat) pats)
 		 alt block-name))
 
+;;; !pat: the value is evaluated (seq) before the rest of the match.
+
+(define (match-bang-pat pat exp pats exps alt block-name)
+  (let* ((var?  (is-type? 'var-ref exp))
+	 (var   (if var? (var-ref-var exp) (create-temp-var 'bangexp)))
+	 (tail  (match-pattern (cons (**var/def var) exps)
+			       (cons (bang-pat-pattern pat) pats)
+			       alt block-name)))
+    (setf tail (**app (**var/def (prelude-seq)) (**var/def var) tail))
+    (if var?
+	tail
+	(**let (list (**valdef/def var (cfn-ast-1 exp))) tail))))
+
+;;; The Prelude's seq (BangPatterns are Haskell 98 dialect only).
+
+(define (prelude-seq)
+  (or (table-entry *prelude-symbol-table* '|seq|)
+      (error "BangPatterns: the Prelude's seq is not found.")))
+
 (define (match-irr-pat pat exp pats exps alt block-name)
   (let ((subpat  (irr-pat-pattern pat)))
     (push (**valdef/pat subpat exp) (alt-where-decls alt))
@@ -434,6 +454,10 @@
       (do-cfn-pattern-def-top object))
     (sig-pat
       (setf (valdef-lhs object) (sig-pat-pattern (valdef-lhs object)))
+      (do-cfn-pattern-def-top object))
+    ;; let !p = e: bound as p (a strict binding is not yet strict)
+    (bang-pat
+      (setf (valdef-lhs object) (bang-pat-pattern (valdef-lhs object)))
       (do-cfn-pattern-def-top object))
     (wildcard-pat
      ;; Wildcards are no-ops.
@@ -577,6 +601,10 @@
       (values pat '() '()))
     (sig-pat
       (copy-pattern-variables (sig-pat-pattern pat)))
+    (bang-pat
+      (multiple-value-bind (new-pat vars new-vars)
+	  (copy-pattern-variables (bang-pat-pattern pat))
+	(values (make bang-pat (pattern new-pat)) vars new-vars)))
     (plus-pat
       (multiple-value-bind (new-pat vars new-vars)
 	  (copy-pattern-variables (plus-pat-pattern pat))

@@ -212,10 +212,17 @@
   (let ((supers (parse-optional-context)))
     (token-case
      (tycon
-      (let ((class (class->ast)))
+      (let* ((class (class->ast))
+	     ;; KindSignatures (GHC): class C (f :: * -> *)
+	     (kinded? (and (haskell98?) (eq-token? '\()
+			   (begin (advance-token) '#t))))
 	(token-case
 	 (tyvar
 	  (let* ((class-var (token->symbol))
+		 (_ (when kinded?
+		      (require-token \:\:
+			(signal-missing-token "`::'" "kind signature"))
+		      (skip-kind)))
 		 ;; a multi-parameter class: C a b [| a -> b]
 		 (more-vars (parse-more-context-tyvars))
 		 (fundeps (if (and (not (null? more-vars)) (eq-token? '\|))
@@ -289,6 +296,11 @@
 	  (signal-missing-token "<type>" "instance declaration"))
 	(when (not interface?)
 	   (setf decls (parse-where-decls))
+	   ;; InstanceSigs (GHC): a method's signature in the instance is
+	   ;; dropped (GHC checks it against the instance's type)
+	   (when (haskell98?)
+	     (setf decls (lisp:remove-if (lambda (d) (is-type? 'signdecl d))
+					 decls)))
 	   (when (some (lambda (d) (is-type? 'fixity-decl d)) decls)
 	     (signal-fixity-in-instance)
 	     (setf decls (remove-fixity-decls decls))))

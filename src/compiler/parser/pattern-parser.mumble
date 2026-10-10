@@ -89,6 +89,19 @@
      (else '())))
 
 (define (parse-apat)
+ (if (at-bang?)
+     (begin (advance-token)
+	    (make bang-pat (pattern (parse-apat))))
+     (parse-apat-1)))
+
+;;; A bang pattern's ! (lexer.mumble's bang-shaped?).
+
+(define (at-bang?)
+  (and (eq? *token* 'varsym)
+       (pair? (cdr *token-args*))
+       (eq? (cadr *token-args*) 'prefix)))
+
+(define (parse-apat-1)
  (trace-parser apat
    (token-case
      (var (let ((var (var->ast)))
@@ -143,6 +156,12 @@
 	"pattern")))))
 
 (define (parse-apat-list)  ;; space separated
+  (if (at-bang?)
+      (let ((pat (parse-apat)))
+	(cons pat (parse-apat-list)))
+      (parse-apat-list-1)))
+
+(define (parse-apat-list-1)
   (token-case
     (apat-start
      (let ((pat (parse-apat)))
@@ -185,6 +204,11 @@
    (else '#t)))
 
 (define (scan-apat)
+  (if (at-bang?)
+      (begin (advance-token) (scan-apat))
+      (scan-apat-1)))
+
+(define (scan-apat-1)
   (token-case
    (var (scan-var)
 	(token-case
@@ -218,6 +242,11 @@
 	(else '#f))))
 
 (define (scan-apat-list)
+  (if (at-bang?)
+      (and (scan-apat) (scan-apat-list))
+      (scan-apat-list-1)))
+
+(define (scan-apat-list-1)
   (token-case
    (apat-start
     (and (scan-apat)
