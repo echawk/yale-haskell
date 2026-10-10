@@ -40,7 +40,7 @@
 -- equality.
 -----------------------------------------------------------------------------
 
-module Data.Set  ( 
+module Data.Set  ( foldl, foldr', foldl', 
             -- * Set type
               Set          -- instance Eq,Ord,Show,Read,Data,Typeable
 
@@ -107,6 +107,7 @@ module Data.Set  (
             , valid
             ) where
 
+import qualified Data.List as YaleList
 import Prelude hiding (filter,foldr,null,map)
 import qualified Data.List as List
 import Data.Monoid (Monoid(..))
@@ -1184,3 +1185,9 @@ prop_List :: [Int] -> Bool
 prop_List xs
   = (sort (nub xs) == toList (fromList xs))
 -}
+
+
+-- Folds of newer containers (tools/gen/import-nhc98-libs.py)
+foldl f z s = YaleList.foldl f z (toAscList s)
+foldr' f z s = YaleList.foldr f z (toAscList s)
+foldl' f z s = YaleList.foldl' f z (toAscList s)

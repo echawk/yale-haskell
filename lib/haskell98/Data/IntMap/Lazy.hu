@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Data/IntMap/
+:o= all
+Lazy.hs

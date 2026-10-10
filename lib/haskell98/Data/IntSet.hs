@@ -42,7 +42,7 @@
 -- (32 or 64).
 -----------------------------------------------------------------------------
 
-module Data.IntSet  ( 
+module Data.IntSet  ( foldl, foldr', foldl', 
             -- * Set type
               IntSet          -- instance Eq,Show
 
@@ -107,6 +107,7 @@ module Data.IntSet  (
             ) where
 
 
+import qualified Data.List as YaleList
 import Prelude hiding (lookup,filter,foldr,foldl,null,map)
 import Data.Bits 
 
@@ -1118,3 +1119,9 @@ prop_isProperSubsetOf2 :: IntSet -> IntSet -> Bool
 prop_isProperSubsetOf2 a b = isProperSubsetOf a c == (a /= c) where
   c = union a b
 -}
+
+
+-- Folds of newer containers (tools/gen/import-nhc98-libs.py)
+foldl f z s = YaleList.foldl f z (toAscList s)
+foldr' f z s = YaleList.foldr f z (toAscList s)
+foldl' f z s = YaleList.foldl' f z (toAscList s)

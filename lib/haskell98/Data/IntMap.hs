@@ -45,7 +45,7 @@
 -- (32 or 64).
 -----------------------------------------------------------------------------
 
-module Data.IntMap  ( 
+module Data.IntMap  ( foldl, foldl', foldrWithKey, foldlWithKey, foldrWithKey', foldlWithKey', 
             -- * Map type
               IntMap, Key          -- instance Eq,Show
 
@@ -168,6 +168,7 @@ module Data.IntMap  (
             ) where
 
 
+import qualified Data.List as YaleList
 import Prelude hiding (lookup,map,filter,foldr,foldl,null)
 import Data.Bits 
 import qualified Data.IntSet as IntSet
@@ -1922,3 +1923,12 @@ prop_UpdateMinMax xs =
   in  all (>=minKey) xs && all (<=maxKey) xs
 
 -}
+
+
+-- Folds of newer containers (tools/gen/import-nhc98-libs.py)
+foldl f z m = YaleList.foldl f z (elems m)
+foldl' f z m = YaleList.foldl' f z (elems m)
+foldrWithKey f z m = YaleList.foldr (\(k, v) acc -> f k v acc) z (toAscList m)
+foldlWithKey f z m = YaleList.foldl (\acc (k, v) -> f acc k v) z (toAscList m)
+foldrWithKey' f z m = YaleList.foldr (\(k, v) acc -> f k v acc) z (toAscList m)
+foldlWithKey' f z m = YaleList.foldl' (\acc (k, v) -> f acc k v) z (toAscList m)

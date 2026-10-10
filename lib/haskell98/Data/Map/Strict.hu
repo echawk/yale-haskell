@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Data/Map/
+:o= all
+Strict.hs

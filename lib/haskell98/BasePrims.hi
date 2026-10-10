@@ -19,6 +19,15 @@ primReadRef        :: Ref a -> IO a
 primWriteRef       :: Ref a -> a -> IO ()
 primRefEq          :: Ref a -> Ref a -> Bool
 
+-- a mutable array (Data.Array.Base): a Lisp simple vector; elements are
+-- stored unevaluated
+data MutArr a
+
+primNewMutArr      :: Int -> a -> IO (MutArr a)
+primReadMutArr     :: MutArr a -> Int -> IO a
+primWriteMutArr    :: MutArr a -> Int -> a -> IO ()
+primMutArrEq       :: MutArr a -> MutArr a -> Bool
+
 -- System.IO.Unsafe (and runST)
 primUnsafePerformIO    :: IO a -> a
 primUnsafeInterleaveIO :: IO a -> IO a
@@ -66,6 +75,10 @@ primNewRef         :: LispName("prim.new-ref"), Strictness("N,S")
 primReadRef        :: LispName("prim.read-ref")
 primWriteRef       :: LispName("prim.write-ref"), Strictness("S,N,S")
 primRefEq          :: LispName("prim.ref-eq")
+primNewMutArr      :: LispName("prim.new-mut-arr"), Strictness("S,N,S")
+primReadMutArr     :: LispName("prim.read-mut-arr")
+primWriteMutArr    :: LispName("prim.write-mut-arr"), Strictness("S,S,N,S")
+primMutArrEq       :: LispName("prim.ref-eq")
 primUnsafePerformIO    :: LispName("prim.unsafe-perform-io")
 primUnsafeInterleaveIO :: LispName("prim.unsafe-interleave-io")
 primCatchAny       :: LispName("prim.catch-any"), Strictness("N,S,S")

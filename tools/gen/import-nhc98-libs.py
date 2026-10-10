@@ -21,6 +21,8 @@ of each module says how:
     in today's base (PreludeModern).
   * Data.Sequence hides Data.Foldable's length and null, methods since
     base 4.8, as it defines its own.
+  * Map, IntMap, Set and IntSet get the folds of newer containers they
+    lack (foldrWithKey, foldlWithKey', foldr', ...), through toAscList.
 """
 
 import os
@@ -76,7 +78,46 @@ def patch_containers(name, src):
     if name == 'Data.Sequence':
         src = re.sub(r'^import Data\.Foldable$',
                      'import Data.Foldable hiding (length, null)', src, flags=re.M)
+    src = add_newer_folds(name, src)
     return CONTAINERS_NOTE % name + src
+
+
+# Folds newer containers have, defined through the ascending list (the
+# module's own toAscList/elems), for the modules that lack them.
+KEYED_FOLDS = {
+    'foldr': 'foldr f z m = YaleList.foldr f z (elems m)',
+    'foldl': 'foldl f z m = YaleList.foldl f z (elems m)',
+    "foldr'": "foldr' f z m = YaleList.foldr f z (elems m)",
+    "foldl'": "foldl' f z m = YaleList.foldl' f z (elems m)",
+    'foldrWithKey': 'foldrWithKey f z m = YaleList.foldr (\\(k, v) acc -> f k v acc) z (toAscList m)',
+    'foldlWithKey': 'foldlWithKey f z m = YaleList.foldl (\\acc (k, v) -> f acc k v) z (toAscList m)',
+    "foldrWithKey'": "foldrWithKey' f z m = YaleList.foldr (\\(k, v) acc -> f k v acc) z (toAscList m)",
+    "foldlWithKey'": "foldlWithKey' f z m = YaleList.foldl' (\\acc (k, v) -> f acc k v) z (toAscList m)",
+}
+SET_FOLDS = {
+    'foldr': 'foldr f z s = YaleList.foldr f z (toAscList s)',
+    'foldl': 'foldl f z s = YaleList.foldl f z (toAscList s)',
+    "foldr'": "foldr' f z s = YaleList.foldr f z (toAscList s)",
+    "foldl'": "foldl' f z s = YaleList.foldl' f z (toAscList s)",
+}
+
+def add_newer_folds(name, src):
+    folds = {'Data.Map': KEYED_FOLDS, 'Data.IntMap': KEYED_FOLDS,
+             'Data.Set': SET_FOLDS, 'Data.IntSet': SET_FOLDS}.get(name)
+    if not folds:
+        return src
+    missing = [f for f in folds if not re.search(r'^' + re.escape(f) + r'\s', src, re.M)]
+    if not missing:
+        return src
+    src = src.replace('module %s ' % name, 'module %s ' % name, 1)
+    src = re.sub(r'^(module ' + re.escape(name) + r'\s*\()', r'\1 ' + ', '.join(missing) + ',',
+                 src, count=1, flags=re.M)
+    # the first import, then (once) the qualified list module
+    src = re.sub(r'^import ', 'import qualified Data.List as YaleList\nimport ', src,
+                 count=1, flags=re.M)
+    defs = '\n'.join(folds[f] for f in missing)
+    return src + ('\n\n-- Folds of newer containers (tools/gen/import-nhc98-libs.py)\n'
+                  + defs + '\n')
 
 
 def main():

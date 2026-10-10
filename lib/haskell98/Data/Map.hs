@@ -43,7 +43,7 @@
 -- the Big-O notation <http://en.wikipedia.org/wiki/Big_O_notation>.
 -----------------------------------------------------------------------------
 
-module Data.Map  ( 
+module Data.Map  ( foldr, foldl, foldr', foldl', foldrWithKey', foldlWithKey', 
             -- * Map type
               Map          -- instance Eq,Show,Read
 
@@ -180,6 +180,7 @@ module Data.Map  (
             , valid
             ) where
 
+import qualified Data.List as YaleList
 import Prelude hiding (lookup,map,filter,null)
 import qualified Data.Set as Set
 import qualified Data.List as List
@@ -2349,3 +2350,12 @@ prop_List :: [Int] -> Bool
 prop_List xs
   = (sort (nub xs) == [x | (x,()) <- toList (fromList [(x,()) | x <- xs])])
 -}
+
+
+-- Folds of newer containers (tools/gen/import-nhc98-libs.py)
+foldr f z m = YaleList.foldr f z (elems m)
+foldl f z m = YaleList.foldl f z (elems m)
+foldr' f z m = YaleList.foldr f z (elems m)
+foldl' f z m = YaleList.foldl' f z (elems m)
+foldrWithKey' f z m = YaleList.foldr (\(k, v) acc -> f k v acc) z (toAscList m)
+foldlWithKey' f z m = YaleList.foldl' (\acc (k, v) -> f acc k v) z (toAscList m)

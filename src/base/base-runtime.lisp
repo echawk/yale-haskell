@@ -12,6 +12,12 @@
 
 (cl:defun prim.ref-eq (a b) (cl:eq a b))
 
+;;; Mutable arrays (Data.Array.Base): simple vectors of unevaluated values.
+
+(cl:defun prim.new-mut-arr (n x) (cl:make-array n :initial-element x))
+(cl:defun prim.read-mut-arr (a i) (cl:svref a i))
+(cl:defun prim.write-mut-arr (a i x) (cl:setf (cl:svref a i) x) 0)
+
 ;;; Running an IO action outside IO (System.IO.Unsafe, runST): it is
 ;;; applied to the state token as the IO monad's bind does.
 
