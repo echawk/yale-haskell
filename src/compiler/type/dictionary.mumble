@@ -118,10 +118,26 @@
 ;;; super classes and generates a selector to get the needed dictionary.
 
 (define (search-superclasses class param-vars)
-  (let ((pclass (tuple-2-1 (car param-vars))))
-    (if (memq class (class-super* pclass))
-	(**dsel/dict pclass class (**var/def (tuple-2-2 (car param-vars))))
-	(search-superclasses class (cdr param-vars)))))
+  (search-superclasses-1 class param-vars param-vars))
+
+(define (search-superclasses-1 class params all-params)
+  (if (null? params)
+      (monad-implied-dict class all-params)
+      (let ((pclass (tuple-2-1 (car params))))
+	(if (memq class (class-super* pclass))
+	    (**dsel/dict pclass class (**var/def (tuple-2-2 (car params))))
+	    (search-superclasses-1 class (cdr params) all-params)))))
+
+;;; Functor m or Applicative m from Monad m (type-utils.mumble's
+;;; monad-implied-class?): the instance for WrappedMonad m, a newtype,
+;;; applied to the Monad dictionary.
+
+(define (monad-implied-dict class param-vars)
+  (let ((wrapped  (prelude-modern-def '|WrappedMonad|)))
+    (when (or (not (monad-implied-class? class)) (eq? wrapped '#f))
+      (error "No dictionary for class ~A." (def-name class)))
+    (**app (dict-ref-code (lookup-instance wrapped class))
+	   (dict-reference-code (core-symbol "Monad") param-vars))))
 
 (define (placeholder->method p param-vars decls)
   (let* ((method (method-placeholder-method p))
@@ -132,13 +148,20 @@
 	  (method-reference-code method class params))))
 
 (define (method-reference-code m c param-vars)
- (let ((pclass (tuple-2-1 (car param-vars))))
-  (if (or (eq? c pclass)
-	  (memq c (class-super* pclass)))
-      (let* ((msel (assq m (class-selectors pclass)))
-	     (mvar (tuple-2-2 msel)))
-	(**app (**var/def mvar) (**var/def (tuple-2-2 (car param-vars)))))
-      (method-reference-code m c (cdr param-vars)))))
+  (method-reference-code-1 m c param-vars param-vars))
+
+(define (method-reference-code-1 m c params all-params)
+ (if (null? params)
+     ;; a Functor or Applicative method from a Monad dictionary
+     (**app (**var/def (tuple-2-2 (assq m (class-selectors c))))
+	    (monad-implied-dict c all-params))
+     (let ((pclass (tuple-2-1 (car params))))
+       (if (or (eq? c pclass)
+	       (memq c (class-super* pclass)))
+	   (let* ((msel (assq m (class-selectors pclass)))
+		  (mvar (tuple-2-2 msel)))
+	     (**app (**var/def mvar) (**var/def (tuple-2-2 (car params)))))
+	   (method-reference-code-1 m c (cdr params) all-params)))))
 
 ;;; This is for tyvars instantiated to a tycon.  A reference to the
 ;;; appropriate dictionary is generated.  This reference must be recursively

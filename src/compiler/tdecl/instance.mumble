@@ -193,6 +193,15 @@
       (add-new-module-signature dictionary (generate-dictionary-signature inst))
       (setf (instance-decls inst) '()))))
 
+;;; Today's base defaults Monad's return to pure; the Haskell 98 Prelude's
+;;; Monad has no default.  While PreludeModern is loaded, an instance
+;;; without return gets PreludeModern's pure (which needs the type's
+;;; Applicative instance, as base does).  Returns pure's var, or '#f.
+
+(define (monad-return-default method-var)
+  (and (eq? method-var (core-symbol "return"))
+       (prelude-modern-def '|pure|)))
+
 (define (rename-ast-tyvars type new-tyvars)
   (if (null? new-tyvars)
       type
@@ -258,11 +267,15 @@
             (if (memq method-var methods-used)
 		(add-new-module-signature definition-var signature)
 		(let ((method-body
-		       (if (eq? (method-var-default method-var) '#f)
+		       (cond
+			((monad-return-default method-var)
+			 (**var/def (monad-return-default method-var)))
+			((eq? (method-var-default method-var) '#f)
 			   (**abort (format '#f
      "No method declared for method ~A in instance ~A(~A)."
-                              method-var class algdata))
-			   (**var/def (method-var-default method-var)))))
+                              method-var class algdata)))
+			(else
+			   (**var/def (method-var-default method-var))))))
 		  (add-new-module-def definition-var method-body)
 		  (add-new-module-signature definition-var signature)))))
 	  (setf (instance-methods inst) new-instance-vars)

@@ -329,7 +329,33 @@
 (define (single-class-implies? ctxt class)
   (and (not (null? ctxt))
        (or (memq class ctxt)
-	   (super-class-implies? ctxt class))))
+	   (super-class-implies? ctxt class)
+	   (and (monad-implied-class? class) (context-has-monad? ctxt)))))
+
+;;; The Functor-Applicative-Monad hierarchy of today's base: Monad m
+;;; implies Functor m and Applicative m.  The Haskell 98 Prelude's Monad
+;;; has no superclasses, so this is an extra entailment; the dictionaries
+;;; are WrappedMonad's (PreludeModern), whose instances need only Monad m
+;;; (dictionary.mumble's monad-implied-dict).  Only while PreludeModern is
+;;; loaded, as its classes and instances are needed.
+
+(define (monad-implied-class? class)
+  (and (table-entry *modules* '|PreludeModern|)
+       (or (eq? class (core-symbol "Functor"))
+	   (eq? class (prelude-modern-def '|Applicative|)))))
+
+(define (context-has-monad? ctxt)
+  (lisp:some (function monad-class?) ctxt))
+
+(define (monad-class? class)
+  (let ((monad  (core-symbol "Monad")))
+    (or (eq? class monad) (memq monad (class-super* class)))))
+
+;;; A name PreludeModern defines, or '#f.
+
+(define (prelude-modern-def name)
+  (let ((m  (table-entry *modules* '|PreludeModern|)))
+    (and m (table-entry (module-symbol-table m) name))))
 
 (define (super-class-implies? ctxt class)
   (and (not (null? ctxt))
