@@ -16,6 +16,8 @@
     (source-filename "ix-enum"))
   (unit text-binary
     (source-filename "text-binary"))
+  (unit functor
+    (source-filename "functor"))
   )
 
 

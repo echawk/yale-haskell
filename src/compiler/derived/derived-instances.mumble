@@ -60,6 +60,8 @@
 			(algdata-tuple? alg))
 		    (setf insts (add-derivable-instance insts alg class '#f))
 		    (signal-cant-derive-bounded alg)))
+	       ((constructor-class-derivable? class)
+		(setf insts (add-constructor-class-instance insts alg class)))
 	       (else
 		(signal-not-derivable class)))))
     insts))
@@ -116,7 +118,9 @@
 ;;; #f to mark the instance as bogus.
 
 (define (propagate-di-context inst)
-  (when (instance-ok? inst)
+  ;; (a derived Functor, Foldable or Traversable has its context already)
+  (when (and (instance-ok? inst)
+	     (not (constructor-class-derivable? (instance-class inst))))
     (propagate-constructor-contexts inst
 			   (algdata-constrs (instance-algdata inst)))))
 
@@ -265,7 +269,13 @@
 	  ((eq? class (core-symbol "Read"))
 	   (add-instance inst (list (cadr (text-fns alg '#f)))))
 	  ((eq? class (core-symbol "Binary"))
-	   (add-instance inst (binary-fns alg))))))
+	   (add-instance inst (binary-fns alg)))
+	  ((eq? class (core-symbol "Functor"))
+	   (add-instance inst (functor-fns alg)))
+	  ((eq? class (prelude-modern-def '|Foldable|))
+	   (add-instance inst (foldable-fns alg)))
+	  ((eq? class (prelude-modern-def '|Traversable|))
+	   (add-instance inst (traversable-fns alg))))))
 
 (define (add-instance inst decls)
   (setf (instance-decls inst) decls))

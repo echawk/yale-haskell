@@ -1,0 +1,192 @@
+;;; functor.mumble -- derived Functor, Foldable and Traversable instances
+;;; (GHC's DeriveFunctor, DeriveFoldable, DeriveTraversable)
+;;;
+;;; For data T b1 ... bk a, the instance is for T b1 ... bk, over the
+;;; last type variable a.  Each field of type t is mapped by how t
+;;; mentions a:
+;;;   not at all             fmap: x            foldr: acc     traverse: pure x
+;;;   a                      f x                f x acc        f x
+;;;   F ... u  (a not in ...)  fmap g x         foldr g acc x  traverse g x
+;;; where g does the same for u (F a type constructor, or a type variable
+;;; bi, which then needs Functor bi etc. in the instance's context).  Any
+;;; other use of a (a function type, a in two arguments) is not derivable.
+;;; Foldable and Traversable are PreludeModern's classes.
+
+(define (constructor-class-derivable? class)
+  (or (eq? class (core-symbol "Functor"))
+      (and (prelude-modern-def '|Foldable|)
+	   (or (eq? class (prelude-modern-def '|Foldable|))
+	       (eq? class (prelude-modern-def '|Traversable|))))))
+
+;;; The instance, with the context it needs (find-derivable-instances).
+
+(define (add-constructor-class-instance insts alg class)
+  (let ((tyvars (algdata-tyvars alg)))
+    (cond ((null? tyvars)
+	   (phase-error 'cannot-derive-instance
+	     "Instance ~A(~A) cannot be derived: ~A has no type parameter."
+	     class alg alg)
+	   insts)
+	  ((lookup-instance alg class)
+	   (signal-instance-exists alg class)
+	   insts)
+	  (else
+	   (let* ((a     (car (lisp:last tyvars)))
+		  (inst  (new-instance class alg (lisp:butlast tyvars)))
+		  (vars  '()))
+	     (dolist (con (algdata-constrs alg))
+	       (dolist (ty (con-types con))
+		 (setf vars (functor-context-tyvars ty a vars))))
+	     (setf (instance-context inst)
+		   (map (lambda (v) (**context (**class/def class) v)) vars))
+	     (setf (instance-decls inst) '())
+	     (setf (instance-ok? inst) '#t)
+	     (setf (instance-suppress-readers? inst) '#f)
+	     (cons inst insts))))))
+
+;;; The type variables applied (in the last position) to something that
+;;; mentions a.
+
+(define (functor-context-tyvars ty a vars)
+  (let ((ty  (functor-expand ty)))
+    (cond ((tyapp? ty)
+	   (let ((fun  (tyapp-fun ty)))
+	     (functor-context-tyvars
+	      (car (lisp:last (tyapp-args ty))) a
+	      (if (and (tyvar? fun)
+		       (mentions-tyvar? (car (lisp:last (tyapp-args ty))) a)
+		       (not (memq (tyvar-name fun) vars)))
+		  (cons (tyvar-name fun) vars)
+		  vars))))
+	  ((and (tycon? ty) (not (null? (tycon-args ty))))
+	   (functor-context-tyvars (car (lisp:last (tycon-args ty))) a vars))
+	  (else vars))))
+
+(define (functor-expand ty)
+  (if (and (tycon? ty) (synonym? (tycon-def ty)))
+      (functor-expand (expand-synonym ty))
+      ty))
+
+(define (mentions-tyvar? ty a)
+  (let ((ty  (functor-expand ty)))
+    (cond ((tyvar? ty) (eq? (tyvar-name ty) a))
+	  ((tycon? ty) (lisp:some (lambda (u) (mentions-tyvar? u a)) (tycon-args ty)))
+	  ((tyapp? ty) (or (mentions-tyvar? (tyapp-fun ty) a)
+			   (lisp:some (lambda (u) (mentions-tyvar? u a))
+				      (tyapp-args ty))))
+	  (else '#f))))
+
+;;; For a type F t1 ... tn: its last argument, if only it mentions a.
+
+(define (functor-last-arg ty a class)
+  (let* ((ty    (functor-expand ty))
+	 (args  (cond ((tyapp? ty) (tyapp-args ty))
+		      ((tycon? ty) (tycon-args ty))
+		      (else '()))))
+    (when (or (null? args)
+	      (lisp:some (lambda (u) (mentions-tyvar? u a)) (lisp:butlast args))
+	      (and (tycon? ty) (eq? (tycon-def ty) (core-symbol "Arrow"))))
+      (phase-error 'cannot-derive-instance
+	"Instance ~A cannot be derived: a field's type uses the last type variable~%~
+         other than as the last argument of a type."
+	class))
+    (car (lisp:last args))))
+
+(define *functor-var-count* 0)
+
+(define (functor-temp root)
+  (string->symbol (format '#f "~A~A" root (incf *functor-var-count*))))
+
+(define (functor-method name)
+  (if (eq? name '|fmap|)
+      (core-symbol "fmap")
+      (prelude-modern-def name)))
+
+;;; fmap f (C x1 ... xn) = C e1 ... en
+
+(define (functor-fns alg)
+  (let ((a  (car (lisp:last (algdata-tyvars alg)))))
+    (list
+     (**define '|fmap| '(|f%| |x%|)
+       (**case/con alg (**var '|x%|)
+	 (lambda (con vars)
+	   (**app/l (**con/def con)
+		    (map (lambda (v ty) (fmap-field ty a (**var '|f%|) (**var v)))
+			 vars (con-types con)))))))))
+
+(define (fmap-field ty a f x)
+  (cond ((not (mentions-tyvar? ty a)) x)
+	((tyvar? (functor-expand ty)) (**app f x))
+	(else
+	 (**app (**var/def (functor-method '|fmap|))
+		(fmap-fn (functor-last-arg ty a (core-symbol "Functor")) a f)
+		x))))
+
+(define (fmap-fn ty a f)
+  (if (tyvar? (functor-expand ty))
+      f
+      (let ((y  (functor-temp "y%")))
+	(**lambda (list y) (fmap-field ty a f (**var y))))))
+
+;;; foldr f z (C x1 ... xn) = g1 (g2 ... (gn z))
+
+(define (foldable-fns alg)
+  (let ((a  (car (lisp:last (algdata-tyvars alg)))))
+    (list
+     (**define '|foldr| '(|f%| |z%| |x%|)
+       (**case/con alg (**var '|x%|)
+	 (lambda (con vars)
+	   (let ((acc  (**var '|z%|)))
+	     (dolist (v+ty (reverse (map (function cons) vars (con-types con))))
+	       (setf acc (foldr-field (cdr v+ty) a (**var '|f%|)
+				      (**var (car v+ty)) acc)))
+	     acc)))))))
+
+(define (foldr-field ty a f x acc)
+  (cond ((not (mentions-tyvar? ty a)) acc)
+	((tyvar? (functor-expand ty)) (**app f x acc))
+	(else
+	 (**app (**var/def (functor-method '|foldr|))
+		(foldr-fn (functor-last-arg ty a (prelude-modern-def '|Foldable|))
+			  a f)
+		acc x))))
+
+(define (foldr-fn ty a f)
+  (if (tyvar? (functor-expand ty))
+      f
+      (let ((y    (functor-temp "y%"))
+	    (acc  (functor-temp "acc%")))
+	(**lambda (list y acc) (foldr-field ty a f (**var y) (**var acc))))))
+
+;;; traverse f (C x1 ... xn) = pure C <*> h1 <*> ... <*> hn
+
+(define (traversable-fns alg)
+  (let ((a  (car (lisp:last (algdata-tyvars alg)))))
+    (list
+     (**define '|traverse| '(|f%| |x%|)
+       (**case/con alg (**var '|x%|)
+	 (lambda (con vars)
+	   (let ((exp  (**app (**var/def (functor-method '|pure|)) (**con/def con))))
+	     (dolist (v+ty (map (function cons) vars (con-types con)))
+	       (setf exp (**app (**var/def (functor-method '|<*>|))
+				exp
+				(traverse-field (cdr v+ty) a (**var '|f%|)
+						(**var (car v+ty))))))
+	     exp)))))))
+
+(define (traverse-field ty a f x)
+  (cond ((not (mentions-tyvar? ty a))
+	 (**app (**var/def (functor-method '|pure|)) x))
+	((tyvar? (functor-expand ty)) (**app f x))
+	(else
+	 (**app (**var/def (functor-method '|traverse|))
+		(traverse-fn (functor-last-arg ty a
+					       (prelude-modern-def '|Traversable|))
+			     a f)
+		x))))
+
+(define (traverse-fn ty a f)
+  (if (tyvar? (functor-expand ty))
+      f
+      (let ((y  (functor-temp "y%")))
+	(**lambda (list y) (traverse-field ty a f (**var y))))))

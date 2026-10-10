@@ -153,6 +153,18 @@ main = do
   print (sum (N L (3 :: Int) (N L 4 L)), length (N L 'a' L))
   print (traverse (\\x -> if x > 0 then Just x else Nothing) (N L (1 :: Int) L))
 ''',
+    'DeriveNested': '''{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+data W f a = W (f a) [a] (Maybe [a]) Int deriving (Functor, Foldable, Traversable)
+showW :: Show a => W Maybe a -> String
+showW (W m xs mm n) = show (m, xs, mm, n)
+data P a = P a a | Q deriving (Show, Functor, Foldable, Traversable)
+main = do
+  let w = W (Just 1) [2, 3] (Just [4]) 9 :: W Maybe Int
+  putStrLn (showW (fmap (* 10) w))
+  print (sum w, length w, foldr (:) [] w)
+  print (fmap showW (traverse (\\x -> if x > 0 then Right x else Left x) w))
+  print (fmap show (P 1 (2 :: Int)), sum (P 3 (4 :: Int)), sequenceA (P [1, 2] [3 :: Int]))
+''',
     'GeneralizedNewtypeDeriving': '''{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 newtype Age = Age Int deriving (Show, Eq, Ord, Num)
 main = print (Age 3 + Age 4, Age 1 < Age 2)
