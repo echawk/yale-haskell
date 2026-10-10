@@ -11,6 +11,31 @@
 
 (lisp:setq lisp:*readtable* mumble-implementation:*mumble-readtable*)
 
+;;; The environment the compiler reads (as the Makefile's dialect_env),
+;;; and a check that the build is current: the launcher would otherwise
+;;; recompile stale files at startup, unsafely when several run at once.
+
+(define (launcher-environment root out)
+  (let* ((build    (lisp:namestring
+		    (lisp:make-pathname :name lisp:nil :defaults out)))
+	 (dialect  (car (lisp:last (lisp:pathname-directory out))))
+	 (lisp     (car (lisp:last (lisp:butlast (lisp:pathname-directory out))))))
+    (format '#f "Y2=${Y2:-~a}
+HASKELL=$Y2
+PRELUDE=$Y2/lib/~a/prelude
+PRELUDEBIN=~aprelude
+HASKELL_LIBRARY=$Y2/lib/~a
+LIBRARYBIN=~alib
+export Y2 HASKELL PRELUDE PRELUDEBIN HASKELL_LIBRARY LIBRARYBIN
+if [ -n \"$(find \"$Y2/src\" \"$Y2/tools/build\" -newer \"$Y2/build/~a/.compiler-stamp\" -name '*.*' 2>/dev/null | head -1)\" ]; then
+  echo \"yale-haskell: sources changed since the build; run make LISP=~a.\" >&2
+  exit 1
+fi"
+	    (string-right-trim-slash root) dialect build dialect build lisp lisp)))
+
+(define (string-right-trim-slash s)
+  (lisp:string-right-trim "/" s))
+
 (let* ((out   (car (last (uiop:raw-command-line-arguments))))
        (start (lisp:namestring (lisp:truename "tools/build/start.lisp")))
        (lisp-command
@@ -30,9 +55,9 @@ exec ecl --norc --c-stack $stack --lisp-stack 268435456 --shell '~a' -- \"$@\"" 
 		       start)))
   (lisp:with-open-file (s (lisp:ensure-directories-exist out)
 			  :direction :output :if-exists :supersede)
-    (format s "#!/bin/sh~%# yale-haskell on ~a: load the compiled system and run.~%: \"${Y2:=~a}\"~%export Y2~%~a~%"
+    (format s "#!/bin/sh~%# yale-haskell on ~a: load the compiled system and run.~%~a~%~a~%"
 	    (lisp:lisp-implementation-type)
-	    (lisp:namestring (lisp:truename "./"))
+	    (launcher-environment (lisp:namestring (lisp:truename "./")) out)
 	    lisp-command))
   (uiop:run-program (list "chmod" "+x" out))
   (exit 0))

@@ -7,7 +7,7 @@
 ;;;;
 ;;;; Plain Common Lisp over clingon; the compiler and the interactive
 ;;;; system (command-interface/repl.mumble) are mumble, in MUMBLE-USER.
-;;;; The dialect is chosen by bin/yale-haskell, which picks the image.
+;;;; An image holds one dialect; src/cli/startup.lisp picks the image.
 
 (defpackage :yale-haskell-cli
   (:use :cl)
@@ -179,6 +179,10 @@
                                :handler #'run-handler))))
 
 (defun main (&optional (argv (uiop:command-line-arguments)))
+  ;; The saved executable sets up its environment and picks the image
+  ;; (src/cli/startup.lisp); a launcher script does that on other Lisps.
+  (when (fboundp 'startup)
+    (setf argv (funcall 'startup argv)))
   ;; The compiler interns symbols in the current package and reads with
   ;; mumble's readtable.
   (setf *package* (find-package "MUMBLE-USER"))

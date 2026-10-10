@@ -162,7 +162,8 @@
                (:file "src/ffi/ffi-runtime")
                (:file "src/ffi/errno-darwin" :if-feature :darwin)
                (:file "src/base/base-runtime")
-               (:file "src/cli/cli"))
+               (:file "src/cli/cli")
+               (:file "src/cli/startup"))
   :build-operation "program-op"
   :entry-point "yale-haskell-cli:main")
 

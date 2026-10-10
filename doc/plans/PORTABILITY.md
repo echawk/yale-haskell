@@ -24,7 +24,7 @@ is mostly a matter of finding the SBCL-specific bits.
 - **Elsewhere**, image.lisp writes `build/<lisp>/<dialect>/yale-haskell` as a
   shell script. It starts the Lisp on `tools/build/start.lisp`, which loads
   the compiled files from `$Y2` and calls the CLI with the arguments after `--`.
-- **Stale builds:** `bin/yale-haskell` refuses to start a non-SBCL build whose
+- **Stale builds:** the launcher script refuses to start a build whose
   sources are newer than the build. Otherwise the launcher would recompile
   them, and parallel test runs corrupt the fasls that way.
 - **Running the build steps:** the Makefile's `RUN_LISP` runs each step:

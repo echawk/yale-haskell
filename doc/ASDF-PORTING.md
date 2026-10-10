@@ -150,7 +150,7 @@ Makefile.  `yale-haskell` depends on `mumble` and, after loading,
 
 1. sets the environment the compiler reads — `Y2`, `PRELUDE`,
    `PRELUDEBIN`, `HASKELL_LIBRARY`, `LIBRARYBIN` — as the Makefile's
-   `dialect_env` and `bin/yale-haskell` do;
+   `dialect_env` and the executable (src/cli/startup.lisp) do;
 2. `(mumble:load "$Y2/src/compiler/system")` and `(compile-haskell)`
    (`system.mumble` skips `support.mumble` when `:mumble` is a feature);
 3. compiles the prelude with `tools/build/prelude.lisp`'s settings if

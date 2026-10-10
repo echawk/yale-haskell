@@ -10,8 +10,10 @@
 #
 # Dialects are the Prelude/library trees under lib/: haskell-1.2 (the
 # original system) and haskell98 (in progress).  Each gets its own
-# compiled prelude and executable, build/$(LISP)/<dialect>/yale-haskell;
-# bin/yale-haskell picks one.  Build logs go to build/$(LISP)/logs.
+# compiled prelude and executable, build/$(LISP)/<dialect>/yale-haskell.
+# bin/yale-haskell is a link to the haskell-1.2 one; an SBCL executable
+# runs another (--haskell98, $YALE_HASKELL_DIALECT, $YALE_HASKELL_LISP)
+# itself (src/cli/startup.lisp).  Build logs go to build/$(LISP)/logs.
 #
 # LISP=sbcl (the default), ecl or abcl picks the host Lisp
 # (doc/PORTABILITY.md).
