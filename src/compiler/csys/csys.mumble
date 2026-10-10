@@ -5,8 +5,11 @@
   (require global runtime flic)
   (unit cache-structs
     (source-filename "cache-structs.mumble"))
-  (unit compiler-driver
+  (unit unit-cache
     (require cache-structs)
+    (source-filename "unit-cache.mumble"))
+  (unit compiler-driver
+    (require cache-structs unit-cache)
     (source-filename "compiler-driver.mumble"))
   (unit dump-params
     (require cache-structs)

@@ -143,7 +143,11 @@
 		       stable? load-prelude?
 		       printers-set? printers optimizers-set? optimizers
 		       chunk-size)
-  (let* ((cifilename
+  (let* ((output-filename
+	  (if (cache-unit-output? filename stable? lisp-files)
+	      (unit-cache-filename output-filename)
+	      output-filename))
+	 (cifilename
 	  (make-cifilename output-filename))
 	 (sifilename
 	  (make-sifilename output-filename))
@@ -379,9 +383,11 @@
 	      (append (ucache-explicit-imports c) implicit))
 	(dolist (filename implicit)
 	  (load-compilation-unit filename cflags))))
-    (if (unit-valid? c cflags)
-	(load-compiled-unit c (cflags-load-code? cflags))
-	(locally-compile c cflags)))
+    ;; a unit in the cache (unit-cache.mumble) writes its files
+    (let ((cflags  (unit-cflags c cflags)))
+      (if (unit-valid? c cflags)
+	  (load-compiled-unit c (cflags-load-code? cflags))
+	  (locally-compile c cflags))))
   (setf (ucache-status c) 'loaded)
   ;; Hack, hack.  When loading the prelude, make sure magic symbol
   ;; table stuff is initialized.
@@ -682,6 +688,10 @@
 	   ;; haven't changed.
 	   (and (all-imports-current (ucache-imported-units c)
 				     (ucache-idate c))
+		;; the .hu file itself, which may list other files now
+		(or (not (unit-extension? (filename-type (ucache-ufile c))))
+		    (all-sources-current (list (ucache-ufile c))
+					 (ucache-idate c)))
 		(all-sources-current (ucache-source-files c)
 				     (ucache-idate c))
 		(all-lisp-sources-current (ucache-lisp-files c)
@@ -730,10 +740,14 @@
 	     (and d (> unit-write-date d))))
 	 sources))
 
+;;; Dates are in seconds, and a unit is often written in the same second
+;;; as the units it imports, so equal dates count as current here.  (Not
+;;; for sources: one edited just after the unit was written is newer.)
+
 (define (all-imports-current imports unit-write-date)
   (every (lambda (s)
 	   (let ((u  (lookup-compilation-unit s)))
-	     (and u (> unit-write-date (ucache-idate u)))))
+	     (and u (>= unit-write-date (ucache-idate u)))))
 	 imports))
 
 (define (all-lisp-sources-current lisp-files unit-write-date)
@@ -766,7 +780,10 @@
 		(*optimizers*
 		  (if (ucache-optimizers-set? c)
 		      (ucache-optimizers c)
-		      (dynamic *optimizers*))))
+		      (dynamic *optimizers*)))
+		;; the cache's interfaces are compiled, for loading speed
+		(*compile-interface*
+		  (or (unit-in-cache? c) (dynamic *compile-interface*))))
     (when (memq 'compiling *printers*)
        (format '#t "~&Compiling unit ~s.~%Optimizers: ~A~%"
 	       (ucache-ufile c)
@@ -816,15 +833,45 @@
 		 (cflags-compile-code? cflags))
 	    (load (ucache-cfile c))
 	    ;; in-core compilation at the quality a code file would get
-	    (dynamic-let ((*code-quality*
-			   (if (memq 'lisp (dynamic *optimizers*))
-			       (dynamic *optimized-code-quality*)
-			       (dynamic *default-code-quality*))))
-	      (eval code (cflags-compile-code? cflags))))
+	    (load-code-in-core
+	      code
+	      (cflags-compile-code? cflags)
+	      (if (memq 'lisp (dynamic *optimizers*))
+		  (dynamic *optimized-code-quality*)
+		  (dynamic *default-code-quality*))
+	      (or (ucache-chunk-size c) (dynamic *code-chunk-size*))))
 	(setf (ucache-code-loaded c) '#t))
       )))
 
 
+
+;;; SBCL evaluates a large program form by form much more slowly than it
+;;; compiles the same forms as a file: MicroCabal takes 100 seconds one
+;;; way and 7 the other.  So there the code goes through a temporary
+;;; file, which is deleted after loading.
+
+(define *code-file-count* 0)
+
+(define (load-code-in-core code compile? quality chunk-size)
+  #+sbcl
+  (let* ((dir   (lisp:merge-pathnames
+		 (lisp:format lisp:nil "yale-haskell-~A-code~A/"
+			      (host-pid) (incf *code-file-count*))
+		 (lisp:funcall
+		  (lisp:find-symbol "TEMPORARY-DIRECTORY" "UIOP"))))
+	 (file  (simple-string-of
+		 (lisp:namestring
+		  (lisp:merge-pathnames
+		   (string-append "code" binary-file-type) dir)))))
+    (unwind-protect
+	 (begin
+	   (write-compiled-code-file file code quality chunk-size)
+	   (load file))
+      (lisp:funcall (lisp:find-symbol "DELETE-DIRECTORY-TREE" "UIOP")
+		    dir ':validate '#t ':if-does-not-exist ':ignore)))
+  #-sbcl
+  (dynamic-let ((*code-quality* quality))
+    (eval code compile?)))
 
 ;;;=====================================================================
 ;;; Cache manager

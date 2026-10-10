@@ -206,3 +206,37 @@
 	 (string->symbol (string-upcase x)))
        l))
 
+
+
+;;; The unit cache (csys/unit-cache.mumble): POLICY is all for batch
+;;; runs and library for the interactive system.  Printers are for
+;;; watching the program compile, so they leave its units uncached.
+
+(define (setup-unit-cache-for policy)
+  (setup-unit-cache (if (and (eq? policy 'all) (not (null? *printers*)))
+			'library
+			policy)
+		    (unit-cache-mode-key)))
+
+;;; The settings that change compiled code, as a directory name:
+;;; "h98-", "h2010-" or "modern-" and a hash of the rest.
+
+(define (unit-cache-mode-key)
+  (let ((settings  (format '#f "~S"
+			   (list (current-backend) *optimizers*
+				 *grin-optimizations*))))
+    (lisp:format lisp:nil "~A-~36R"
+	    (cond ((modern-prelude?) "modern")
+		  ((haskell2010?) "h2010")
+		  ((haskell98?) "h98")
+		  (else "h12"))
+	    (string-hash-fnv settings))))
+
+;;; FNV-1a, 32 bits: the same in every Lisp and every run.
+
+(define (string-hash-fnv s)
+  (let ((h  2166136261))
+    (dotimes (i (string-length s))
+      (setf h (lisp:logand (* (lisp:logxor h (char->integer (string-ref s i))) 16777619)
+		      4294967295)))
+    h))

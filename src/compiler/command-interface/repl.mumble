@@ -31,6 +31,7 @@
 
 (define (repl files)
   (initialize-haskell-system)
+  (setup-unit-cache-for 'library)
   (load-init-files)
   (setf *emacs-mode* '#f)
   (setf *repl-quit?* '#f)
@@ -51,6 +52,7 @@
 
 (define (repl-batch-eval files exprs)
   (initialize-haskell-system)
+  (setup-unit-cache-for 'library)
   (dynamic-let ((*repl-quiet?* '#t))
     (if (null? files)
 	(repl-scratch-module)

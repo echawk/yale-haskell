@@ -118,6 +118,19 @@ Left for later.  What was seen:
 - **The remaining failures** (system/*, cputime, random, blackhole-loop)
   have not been examined.
 
+## The unit cache on ECL and ABCL
+
+Compiled units are cached between runs (src/compiler/csys/unit-cache.mumble).
+This is tested on SBCL only.
+- Cached units are written with `compile-file`. On ECL that runs the C
+  compiler for each unit, so a cold run is slow; later runs load the
+  `.fas` files.
+- The in-core path (`load-code-in-core` in compiler-driver.mumble) goes
+  through a temporary file only on SBCL. There `eval` of a whole program
+  is about 14 times slower than `compile-file`; other Lisps still use `eval`.
+- Check `rename-file-replacing` (cl-definitions.lisp) on each Lisp: the
+  cache relies on renaming over an existing file.
+
 ## Next steps
 
 1. **CFFI-based POSIX layer** for the `#-sbcl` system primitives (ECL item 3).

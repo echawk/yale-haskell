@@ -95,7 +95,14 @@
 
 (define (write-compiled-code-file-aux filename code)
   (dynamic-let ((*form-to-compile*  code))
-    (compile-file (dynamic *magic-file-to-compile*) filename)))
+    ;; Written under a temporary name and renamed, so that another
+    ;; process (sharing the unit cache) never loads a partial file.
+    (let ((temp  (assemble-filename
+		  (filename-place filename)
+		  (format '#f "~a-tmp~a" (filename-name filename) (host-pid))
+		  (filename-type filename))))
+      (compile-file (dynamic *magic-file-to-compile*) temp)
+      (rename-file-replacing temp filename))))
 
 (define-syntax (magic-form-to-compile)
   (dynamic *form-to-compile*))

@@ -1,0 +1,140 @@
+;;; unit-cache.mumble -- compiled units kept on disk between runs
+;;;
+;;; Without a cache, every run compiles every unit it loads except the
+;;; Prelude: the program and the library modules it imports.  With one,
+;;; a unit compiled once writes its code and interface files under the
+;;; cache directory, and later runs load those while they are current
+;;; (unit-valid?: newer than the unit's sources and the units it imports).
+;;;
+;;; Each unit's files are put at the absolute name of the files a .hu
+;;; file's :output would give, under
+;;;
+;;;   <root>/<build>/<mode>/
+;;;
+;;; root   $YALE_HASKELL_CACHE_DIR, else $XDG_CACHE_HOME/yale-haskell,
+;;;        else $HOME/.cache/yale-haskell
+;;; build  the Lisp, the dialect and the executable's write date: a new
+;;;        build starts afresh, since compiled code depends on it
+;;; mode   what changes the code compiled: --haskell2010,
+;;;        --modern-prelude, the back end and the optimizers
+;;;        (unit-cache-mode-key, in command-utils.mumble)
+;;;
+;;; Which units are cached (setup-unit-cache):
+;;;   all      batch runs (yale-haskell foo.hs)
+;;;   library  only $HASKELL_LIBRARY's units: the interactive system,
+;;;            which needs the program's own modules whole (not just their
+;;;            interfaces), and runs with printers on
+;;;   off      YALE_HASKELL_CACHE=0 (or off, no)
+;;; YALE_HASKELL_CACHE=library limits batch runs to library units; the
+;;; tests do that, since cached units do not repeat their warnings.
+;;; The Prelude (in the executable) and units with Lisp files are never
+;;; cached.
+
+(define *unit-cache-directory* '#f)   ; ends in /; '#f: no cache
+(define *unit-cache-policy* 'off)     ; off, library or all
+
+;;; Turns the cache on for POLICY (all or library), within what
+;;; $YALE_HASKELL_CACHE allows.  MODE-KEY names the compilation mode.
+
+(define (setup-unit-cache policy mode-key)
+  (let* ((env      (or (getenv "YALE_HASKELL_CACHE") ""))
+	 (policy   (cond ((mem-string env '("0" "off" "no")) 'off)
+			 ((string=? env "library")
+			  (if (eq? policy 'off) 'off 'library))
+			 (else policy)))
+	 (root     (unit-cache-root))
+	 (build    (unit-cache-build-key)))
+    (if (or (eq? policy 'off) (not root) (not build))
+	(begin
+	  (setf *unit-cache-policy* 'off)
+	  (setf *unit-cache-directory* '#f))
+	(begin
+	  (setf *unit-cache-policy* policy)
+	  (setf *unit-cache-directory*
+		(string-append root build "/" mode-key "/"))))))
+
+(define (unit-cache-root)
+  (let ((dir   (getenv "YALE_HASKELL_CACHE_DIR"))
+	(xdg   (getenv "XDG_CACHE_HOME"))
+	(home  (getenv "HOME")))
+    (cond ((nonempty-string? dir)  (directory-name dir))
+	  ((nonempty-string? xdg)  (string-append (directory-name xdg)
+						  "yale-haskell/"))
+	  ((nonempty-string? home) (string-append (directory-name home)
+						  ".cache/yale-haskell/"))
+	  (else '#f))))
+
+(define (nonempty-string? s)
+  (and (string? s) (not (string=? s ""))))
+
+(define (directory-name dir)
+  (if (char=? (string-ref dir (1- (string-length dir))) #\/)
+      dir
+      (string-append dir "/")))
+
+;;; "sbcl-haskell98-<date>", from $PRELUDEBIN (build/<lisp>/<dialect>/
+;;; prelude) and the write date of the executable beside it.
+
+(define (unit-cache-build-key)
+  (let ((pbin  (getenv "PRELUDEBIN")))
+    (and (nonempty-string? pbin)
+	 (let* ((build  (filename-place
+			 (absolute-filename
+			  (string-append (directory-name pbin) "../x"))))
+		(exe    (string-append build "yale-haskell"))
+		(parts  (last-path-components build 2)))
+	   (and (file-exists? exe)
+		(format '#f "~A-~A-~A" (car parts) (cadr parts)
+			(file-write-date exe)))))))
+
+;;; The last N components of directory name DIR (ending in /).
+
+(define (last-path-components dir n)
+  (let ((result  '())
+	(end     (1- (string-length dir))))
+    (dotimes (i n)
+      (let ((start  (let ((p (lisp:position #\/ dir :end end :from-end '#t)))
+		      (if p (1+ p) 0))))
+	(push (substring dir start end) result)
+	(setf end (max 0 (1- start)))))
+    result))
+
+;;; Whether a unit's files go in the cache.
+
+(define (cache-unit-output? ufile stable? lisp-files)
+  (and *unit-cache-directory*
+       (not stable?)
+       (null? lisp-files)
+       (or (eq? *unit-cache-policy* 'all)
+	   (library-source-file? ufile))))
+
+;;; Where a unit with output name FILENAME keeps its files in the cache.
+
+(define (unit-cache-filename filename)
+  (let ((abs  (absolute-filename filename)))
+    (string-append (dynamic *unit-cache-directory*)
+		   (if (and (> (string-length abs) 0)
+			    (char=? (string-ref abs 0) #\/))
+		       (substring abs 1 (string-length abs))
+		       abs))))
+
+(define (unit-in-cache? c)
+  (and *unit-cache-directory*
+       (string-starts? *unit-cache-directory* (ucache-cfile c))))
+
+;;; Loading a cached unit compiles it and writes its files.
+
+(define *unit-cache-cflags*
+  (make cflags
+	(load-code?          '#t)
+	(compile-code?       '#t)
+	(write-code?         '#t)
+	(write-interface?    '#t)))
+
+(define (unit-cflags c cflags)
+  (if (and (cflags-load-code? cflags)
+	   (not (cflags-write-code? cflags))
+	   (not (cflags-write-interface? cflags))
+	   (unit-in-cache? c))
+      *unit-cache-cflags*
+      cflags))

@@ -48,6 +48,14 @@ code), `:set backend`, `:set printers` and `:profile`.  `:?` lists
 them.  With `rlwrap` installed it has line editing and history.  The
 full guide, including current limitations, is [doc/REPL.md](doc/REPL.md).
 
+Compiled modules are cached in `~/.cache/yale-haskell/` (or
+`$YALE_HASKELL_CACHE_DIR`), so a program compiles once and later runs
+reuse it until its sources change; the interactive system caches only
+library modules.  `YALE_HASKELL_CACHE=0` turns the cache off and
+`YALE_HASKELL_CACHE=library` limits it to library modules.  A new build
+starts a new cache; old ones can be deleted.  See
+`src/compiler/csys/unit-cache.mumble`.
+
 Programs use Haskell 1.2 conventions: `main` is a `Dialogue`, e.g.
 
 ```haskell

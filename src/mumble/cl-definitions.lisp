@@ -1097,10 +1097,16 @@
   (setq filename (expand-filename filename))
   (if (string= (mumble::filename-type filename) "")
       (setq filename (build-source-filename filename)))
-  (if binary
-      (compile-file filename
-		    :output-file (ensure-directories-exist (expand-filename binary)))
-      (compile-file filename)))
+  ;; Generated code: the host compiler's optimization notes are noise
+  ;; (and would land in a batch program's output).
+  (let ((*compile-verbose* nil)
+	(*compile-print* nil))
+    (handler-bind (#+sbcl (sb-ext:compiler-note #'muffle-warning))
+      (if binary
+	  (compile-file filename
+			:output-file
+			(ensure-directories-exist (expand-filename binary)))
+	  (compile-file filename)))))
 
 
 ;;; See cl-init.lisp for initialization of *lisp-binary-file-type*.
@@ -1533,6 +1539,28 @@
   #+ecl (ext:getpid)
   #+abcl (java:jcall "pid" (java:jstatic "current" "java.lang.ProcessHandle"))
   #-(or sbcl ecl abcl) 0)
+
+;;; FILENAME with $VARIABLE expanded, as an absolute name.  When its
+;;; directory exists, symbolic links and ".." in the directory are
+;;; resolved.
+
+(define-mumble-function mumble::absolute-filename (filename)
+  (let* ((path  (pathname (expand-filename filename)))
+	 (dir   (probe-file (make-pathname :name nil :type nil :version nil
+					   :defaults path))))
+    (coerce-to-simple-string
+     (namestring (if dir
+		     (make-pathname :name (pathname-name path)
+				    :type (pathname-type path)
+				    :defaults dir)
+		     (merge-pathnames path))))))
+
+;;; Renames FROM to TO, replacing TO: on Unix the replacement is atomic,
+;;; so that another process reads either the old file or the new one.
+
+(define-mumble-function mumble::rename-file-replacing (from to)
+  (rename-file (expand-filename from) (expand-filename to)
+	       #+ecl :if-exists #+ecl :supersede))
 
 ;;; A rational as the nearest float of TYPE (ties to even).  ECL rounds
 ;;; ties away from zero when converting large integers (10^23 becomes

@@ -98,6 +98,10 @@ case "$jobs" in ''|*[!0-9]*|0) echo "run-tests: bad -j value: $jobs" >&2; exit 2
 RT_TMP=$(mktemp -d "${TMPDIR:-/tmp}/yh-tests.XXXXXX") || exit 1
 trap 'rm -rf "$RT_TMP"' EXIT
 export RT_TMP RT_LIMIT RT_VERBOSE
+# Only library units are cached (src/compiler/csys/unit-cache.mumble):
+# a test's own modules compile each time, repeating their warnings.
+YALE_HASKELL_CACHE=${YALE_HASKELL_CACHE:-library}
+export YALE_HASKELL_CACHE
 
 # Collect the tests: .hs files (programs) and .repl files (interactive
 # sessions) with a .stdout or .exit, under a dialect directory.

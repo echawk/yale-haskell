@@ -39,6 +39,8 @@
   ;; getArgs, getProgName and exitWith (src/runtime/system-prims.mumble)
   (set-haskell-program-args file args)
   (setf *haskell-batch-mode* '#t)
+  ;; compiled units are kept between runs (src/compiler/csys/unit-cache.mumble)
+  (setup-unit-cache-for 'all)
   ;; compiler diagnostics go to stderr, leaving stdout to the program
   (setf *error-output-port* lisp:*error-output*)
   ;; Haskell runtime errors (error, head [], ...) normally return to the
