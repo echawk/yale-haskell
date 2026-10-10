@@ -325,6 +325,11 @@
 			      (annotation-decl-annotations a))))))))))
   object)
 
+(define-walker-method scope type-app (object env)
+  (resolve-type (type-app-type object))
+  (setf (type-app-exp object) (scope-ast-1 (type-app-exp object) env))
+  object)
+
 (define-walker-method scope exp-sign (object env)
   (resolve-signature (exp-sign-signature object))
   (setf (exp-sign-exp object) (scope-ast-1 (exp-sign-exp object) env))

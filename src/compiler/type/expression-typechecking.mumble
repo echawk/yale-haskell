@@ -190,6 +190,32 @@
 ;;;        temp :: type
 ;;;     in temp
 
+;;; f @T1 @T2 ...: the type arguments are collected and f's type is
+;;; instantiated with them for its first type variables (type-vars.mumble's
+;;; var-ref).  The node is replaced by f.
+
+(define *type-args* '())
+
+(define-type-checker type-app
+  (let ((args  '())
+	(exp   object))
+    (do () ((not (type-app? exp)))
+      (push (type-app-type exp) args)
+      (setf exp (type-app-exp exp)))
+    (when (not (or (var-ref? exp) (con-ref? exp)))
+      (phase-error 'type-application
+	"A type application must be to a variable or constructor, not ~A."
+	(lisp:type-of exp)))
+    (mlet (((new-exp type)
+	    (dynamic-let ((*type-args*
+			   (map (lambda (ty)
+				  (mlet (((nt _) (ast->ntype/bindings
+						  ty (dynamic *scoped-tyvars*))))
+				    nt))
+				args)))
+	      (dispatch-type-check exp))))
+      (return-type new-exp type))))
+
 (define-type-checker exp-sign
  (type-rewrite
   (let* ((temp-var (create-temp-var "TC"))
@@ -265,8 +291,31 @@
 (define (dict-sel-error)
   (fatal-error 'dict-sel-error "Bad dictSel usage."))
 
+;;; A constructor's type variables in the order of its data type's (GHC's
+;;; order for type applications): the arguments of the result type
+;;; T a1 ... an are gtyvars, numbered by first appearance in the
+;;; constructor's type.
+
+(define (con-tyvars-in-data-order gtype tyvars)
+  (let ((result (gtype-type gtype)))
+    (do () ((not (and (ntycon? result)
+		      (eq? (ntycon-tycon result) (core-symbol "Arrow")))))
+      (setf result (cadr (ntycon-args result))))
+    (if (and (ntycon? result)
+	     (every (function gtyvar?) (ntycon-args result)))
+	(map (lambda (g) (list-ref tyvars (gtyvar-varnum g))) (ntycon-args result))
+	tyvars)))
+
 (define-type-checker con-ref
-  (return-type object (instantiate-gtype (con-signature (con-ref-con object)))))
+  (let ((type-args (dynamic *type-args*)))
+    (setf (dynamic *type-args*) '())
+    (mlet (((type tyvars) (instantiate-gtype/newvars (con-signature (con-ref-con object)))))
+      ;; TypeApplications: Right @String @Int
+      (when (not (null? type-args))
+	(setf (dynamic *instance-tyvars*)
+	      (con-tyvars-in-data-order (con-signature (con-ref-con object)) tyvars))
+	(apply-type-args (con-ref-con object) type-args))
+      (return-type object type))))
 
 (define-type-checker integer-const
   (cond ((const-overloaded? object)

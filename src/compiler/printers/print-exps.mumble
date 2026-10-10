@@ -61,6 +61,11 @@
       (write (guarded-rhs-rhs r) xp))
     (write-wheredecls (alt-where-decls object) xp)))
 
+(define-ast-printer type-app (object xp)
+  (write (type-app-exp object) xp)
+  (write-string " @" xp)
+  (write (type-app-type object) xp))
+
 (define-ast-printer exp-sign (object xp)
   (with-ast-block (xp)
     (write (exp-sign-exp object) xp)

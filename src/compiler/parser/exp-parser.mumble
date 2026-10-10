@@ -30,6 +30,11 @@
 
 (define (parse-possible-app exp)
   (token-case
+    ;; f @T (TypeApplications)
+    ((no-advance satisfies at-type-application?)
+     (advance-token)
+     (let ((type (parse-atype)))
+       (parse-possible-app (make type-app (exp exp) (type type)))))
     (aexp-start
      (let ((exp2 (parse-aexp)))
       (parse-possible-app (make app (fn exp) (arg exp2)))))
@@ -44,6 +49,9 @@
 	   (list exp conop)
 	   `(,exp ,conop ,@(parse-infix-exps)))))
     (else (list exp))))
+
+(define (at-type-application?)
+  (and (haskell98?) (eq-token? '@)))
 
 (define (parse-lambda)
   (trace-parser lambda

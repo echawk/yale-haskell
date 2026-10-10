@@ -61,7 +61,7 @@
            '#f))))
 
 (define-modify-walker-methods depend
-  (lambda let if case alt exp-sign app con-ref
+  (lambda let if case alt exp-sign type-app app con-ref
    integer-const float-const char-const string-const
    list-exp sequence sequence-then sequence-to sequence-then-to
    list-comp section-l section-r qual-generator qual-filter omitted-guard

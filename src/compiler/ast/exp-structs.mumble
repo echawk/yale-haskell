@@ -79,6 +79,16 @@
    (exp (type exp))
    (signature (type signature))))
 
+;;; <exp> @<atype> (GHC's TypeApplications): the type for the first
+;;; type variable of exp's type not yet given.  Gone after type checking.
+
+(define-struct type-app
+  (include exp)
+  (predicate type-app?)
+  (slots
+   (exp (type exp))
+   (type (type type))))
+
 
 ;;; <fn-app> -> <exp> <aexp>
 

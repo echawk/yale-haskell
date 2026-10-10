@@ -6,11 +6,37 @@
 
 (define-type-checker var-ref
  (let* ((var (var-ref-var object))
-	(type (var-type var)))
+	(type (var-type var))
+	(type-args (dynamic *type-args*)))
+  (setf (dynamic *type-args*) '())
+  (mlet (((exp ntype) (type-check-var-ref object var type)))
+    (when (not (null? type-args))
+      (apply-type-args var type-args))
+    (return-type exp ntype))))
+
+;;; TypeApplications: the type arguments are unified with the new type
+;;; variables of the instance just made (*instance-tyvars*), in order.
+
+(define *instance-tyvars* '())
+
+(define (apply-type-args var args)
+  (let ((tyvars (dynamic *instance-tyvars*)))
+    (when (< (length tyvars) (length args))
+      (phase-error 'type-application
+	"~A has fewer type variables than the type application gives."
+	(def-name var)))
+    (dolist2 (ty args) (tv (lisp:subseq tyvars 0 (min (length tyvars) (length args))))
+      (type-unify tv ty
+	(type-error "The type application ~A does not fit ~A." ty (def-name var))))))
+
+(define (type-check-var-ref object var type)
+ (let ()
+   (setf (dynamic *instance-tyvars*) '())
    (cond ((and (method-var? var) (mp-class? (method-var-class var)))
 	  ;; a method of a multi-parameter class: its type's first
 	  ;; multi-parameter constraint is the class's
 	  (mlet (((ntype new-tyvars mps) (instantiate-gtype/mp type))
+		 (_ (setf (dynamic *instance-tyvars*) new-tyvars))
 		 (p (**mp-placeholder (method-var-class var) (tuple-2-2 (car mps))
 				      var (dynamic *enclosing-decls*) object))
 		 (new-object (insert-mp-placeholders
@@ -22,6 +48,7 @@
 ;;; The context of a method variable always has the carrier class
 ;;; first.
 	  (mlet (((ntype new-tyvars) (instantiate-gtype/newvars type))
+		 (_ (setf (dynamic *instance-tyvars*) new-tyvars))
 		 (carrier-tyvar (car new-tyvars))
 		 (extra-context (cdr new-tyvars))
 		 (p (**method-placeholder
@@ -36,6 +63,7 @@
 	    (return-type placeholder (recursive-type-type type))))
 	 ((gtype? type)
 	  (mlet (((ntype new-vars mps) (instantiate-gtype/mp type))
+		 (_ (setf (dynamic *instance-tyvars*) new-vars))
 		 (object1 (insert-mp-placeholders
 			   (insert-dict-placeholders object new-vars object)
 			   mps object)))
