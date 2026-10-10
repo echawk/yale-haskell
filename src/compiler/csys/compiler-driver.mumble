@@ -462,7 +462,8 @@
 ;;;
 ;;;   1. <dir>/M.hu                  dir = directory of the importing file
 ;;;   2. <dir>/M.hs, <dir>/M.lhs     (only if the file defines module M)
-;;;   3. $HASKELL_LIBRARY/M.hu
+;;;   3. $HASKELL_LIBRARY/M.hu  (with --modern-prelude, first
+;;;      $HASKELL_LIBRARY/modern/M.hu: base's versions of a few modules)
 ;;;
 ;;; The units found are returned as a list of filenames; the caller loads
 ;;; them exactly as if C's .hu file had listed them.  A module found
@@ -519,6 +520,9 @@
 	       (source-file-defining (string-append dir n ".hs") name)
 	       (source-file-defining (string-append dir n ".lhs") name)))
 	 dirs)
+	(and (modern-prelude?)
+	     (existing-file
+	      (string-append "$HASKELL_LIBRARY/modern/" n *unit-file-extension*)))
 	(existing-file
 	  (string-append "$HASKELL_LIBRARY/" n *unit-file-extension*)))))
 

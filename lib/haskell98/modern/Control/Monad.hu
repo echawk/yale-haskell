@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/modern/Control/
+:o= all
+Monad.hs
