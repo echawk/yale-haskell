@@ -57,7 +57,9 @@
   (predicate gtype?)
   (slots
    (context (type (list (list class))))
-   (type (type ntype))))
+   (type (type ntype))
+   ;; multi-parameter constraints: (class . types) over the gtyvars
+   (mcontext (type (list (tuple class (list ntype)))) (default '()))))
 
 ;;; These tyvars just index a list of pre-allocated tyvars.
 

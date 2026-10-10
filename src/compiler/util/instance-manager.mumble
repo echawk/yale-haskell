@@ -176,6 +176,38 @@
 
 (predefine (make-new-var name))  ; in tdecl/tdecl-utils.mumble
 
+;;; The instance's type(s), for generated names: T, or T1-T2 for a
+;;; multi-parameter class (a tyvar position is `a').
+
+(define (instance-type-name inst)
+  (if (null? (instance-mp-types inst))
+      (symbol->string (print-name (instance-algdata inst)))
+      (mp-types-name (instance-mp-types inst))))
+
+(define (mp-types-name types)
+  (if (null? types)
+      ""
+      (string-append
+       (if (tyvar? (car types))
+	   "a"
+	   (symbol->string (print-name (tycon-def (car types)))))
+       (if (null? (cdr types)) "" "-")
+       (mp-types-name (cdr types)))))
+
+(define (new-mp-instance class types tyvars)
+ (let* ((dict-name
+	 (string-append "dict-" (symbol->string (print-name class)) "-"
+			(mp-types-name types)))
+	(inst (make instance (algdata '#f)
+			     (tyvars tyvars)
+			     (class class)
+			     (gcontext '())
+			     (context '())
+			     (dictionary (make-new-var dict-name))
+			     (mp-types types))))
+   (link-instance inst)
+   inst))
+
 (define (new-instance class algdata tyvars)
  (let* ((dict-name
 	 (string-append "dict-"

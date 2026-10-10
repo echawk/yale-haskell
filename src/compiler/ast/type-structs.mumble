@@ -61,13 +61,27 @@
    (class (type class-ref))
    (tyvar (type symbol))))
 
+;;; A constraint of a multi-parameter class, C t1 ... tn (usually tyvars;
+;;; GHC's FlexibleContexts allows other types).  Signatures and
+;;; instance declarations keep these apart from their contexts (the
+;;; mcontext slots), so code for one-parameter classes never sees them.
+
+(define-struct mp-context
+  (include ast-node)
+  (predicate mp-context?)
+  (slots
+   (class (type class-ref))
+   (types (type (list type)))))
+
 
 ;;; Type + context
 (define-struct signature
   (include type)
   (slots
    (context (type (list context)))
-   (type (type type))))
+   (type (type type))
+   ;; multi-parameter constraints
+   (mcontext (type (list mp-context)) (default '()))))
 
 
 ;;; Major type declarations.  Note: no explicit structures for <simple>
@@ -125,7 +139,11 @@
    (class (type class-ref))
    (super-classes (type (list context)))
    (class-var (type symbol))              ; name of type var for this class in decls
-   (decls (type (list decl)))))           ; <cbody>
+   (decls (type (list decl)))             ; <cbody>
+   ;; a multi-parameter class: all its type variables (class-var is the
+   ;; first), and its functional dependencies as (from-vars . to-vars)
+   (class-vars (type (list symbol)) (default '()))
+   (fundeps (type (list (tuple (list symbol) (list symbol)))) (default '()))))
 
 
 ;;; <instance-decl> -> instance [<context> =>] <tycls> <inst>
@@ -150,6 +168,11 @@
    (simple (type type))
    ;; <valdefs>
    (decls (type (list valdef)))
+   ;; an instance of a multi-parameter class: its types (simple is the
+   ;; first),
+   ;; and multi-parameter constraints in its context
+   (types (type (list type)) (default '()))
+   (mcontext (type (list mp-context)) (default '()))
    ))
 
 

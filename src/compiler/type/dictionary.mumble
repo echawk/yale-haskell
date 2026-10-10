@@ -13,7 +13,8 @@
 ;;; definition.
 
 (define (dictionary-conversion/definition valdef tyvars)
-  (let* ((var (decl-var valdef))
+  (let* ((all-tyvars tyvars)
+	 (var (decl-var valdef))
 	 (type (var-type var))
 	 (context (gtype-context type))
 	 (dict-param-vars '()))
@@ -30,7 +31,12 @@
 	    (push var dict-param-vars)))
 	(push (tuple valdef dparams) (ntyvar-dict-params tyvar)))
        (setf tyvars (cdr tyvars))))
-    (setf (valdef-dictionary-args valdef) (nreverse dict-param-vars))))
+    ;; then one for each multi-parameter constraint (mp-classes.mumble)
+    (let ((mp-params (mp-dict-params (gtype-mcontext type) all-tyvars)))
+      (setf (valdef-mp-dict-params valdef) mp-params)
+      (setf (valdef-dictionary-args valdef)
+	    (append (nreverse dict-param-vars)
+		    (map (function mp-param-var) mp-params))))))
 
 ;;; These routines deal with dict-var processing.
 
@@ -53,6 +59,11 @@
 ;;;  e) the type variable is ambiguous (none of the above)
 
 (define (process-placeholder p deferred decls)
+  (if (mp-placeholder? p)
+      (process-mp-placeholder p deferred decls)
+      (process-placeholder-1 p deferred decls)))
+
+(define (process-placeholder-1 p deferred decls)
   (let* ((tyvar (placeholder-tyvar p))
 	 (type (prune tyvar)))
     (cond ((ntycon? type)

@@ -199,6 +199,12 @@
 (define (**context tycls tyvar)
   (make context (class tycls) (tyvar tyvar)))
 
+(define (**mp-context tycls types)
+  (make mp-context (class tycls) (types types)))
+
+(define (mp-class? class)
+  (not (null? (class-tyvars class))))
+
 ;;; From tc-structs
 
 (define (**ntyvar)
@@ -239,6 +245,11 @@
   (make dict-placeholder
 	(class class) (exp '#f) (overloaded-var var)
 	(tyvar tyvar) (enclosing-decls edecls)))
+
+(define (**mp-placeholder class types method edecls var)
+  (make mp-placeholder
+	(class class) (types types) (method method) (exp '#f)
+	(overloaded-var var) (tyvar (car types)) (enclosing-decls edecls)))
 
 (define (**method-placeholder method tyvar edecls var)
   (make method-placeholder

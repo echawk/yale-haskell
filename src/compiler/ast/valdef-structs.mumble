@@ -66,6 +66,9 @@
    (depend-val (type int) (uninitialized? #t))
    ;; this is filled in by the type phase
    (dictionary-args (type (list var)) (uninitialized? #t))
+   ;; the dictionary parameters for multi-parameter constraints:
+   ;; (class types var), the types in terms of the decl's tyvars
+   (mp-dict-params (type (list (tuple class (list ntype) var))) (default '()))
    ;; used for defaulting
    (module (type symbol) (default '|Prelude|))
    ))

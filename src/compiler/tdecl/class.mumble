@@ -11,10 +11,19 @@
      (lambda ()       
       (dolist (c (module-classes *module*))
        (remember-context c
-	(with-slots class-decl (super-classes class class-var) c
+	(with-slots class-decl (super-classes class class-var class-vars fundeps) c
 	  (let* ((def (class-ref-class class))
 		 (local-ctxts '())
 		 (super '()))
+	    (when (not (null? class-vars))
+	      (setf (class-tyvars def) class-vars)
+	      (setf (class-fundeps def)
+		    (map (lambda (fd)
+			   (tuple (fundep-positions (tuple-2-1 fd) class-vars c)
+				  (fundep-positions (tuple-2-2 fd) class-vars c)))
+			 fundeps))
+	      (when (not (null? super-classes))
+		(signal-mp-superclasses-unsupported class)))
 	    (dolist (context super-classes)
               (with-slots context (class tyvar) context
 		(when (not (eq? class-var tyvar))
@@ -38,6 +47,23 @@
 	   (dolist (s super)
 	     (setf super* (set-union super* (class-super* s)))
 	     (setf (class-super* c) super*)))))))
+
+(define (fundep-positions vars class-vars decl)
+  (map (lambda (v)
+	 (if (memq v class-vars)
+	     (locate-in-list v class-vars 0)
+	     (begin (signal-bad-fundep-var v decl) 0)))
+       vars))
+
+(define (signal-bad-fundep-var v decl)
+  (phase-error 'bad-fundep-var
+    "~A in a functional dependency of ~A is not one of the class's type variables."
+    v (class-ref-name (class-decl-class decl))))
+
+(define (signal-mp-superclasses-unsupported class)
+  (phase-error 'mp-superclasses
+    "Superclasses of a multi-parameter class (~A) are not supported yet."
+    (class-ref-name class)))
 
 (define (signal-super-class-tyvar-error class class-var tyvar)
   (recoverable-error 'super-class-tyvar-error
@@ -103,22 +129,32 @@
 
 (define (init-methods class decls)
  (let* ((tyvar (class-tyvar class))
-        (class-context (**context (**class/def class) tyvar)))
+	;; a multi-parameter class has all its tyvars
+	(class-tyvars (if (mp-class? class) (class-tyvars class) (list tyvar)))
+        (class-context (if (mp-class? class)
+			   '()
+			   (list (**context (**class/def class) tyvar))))
+	(class-mcontext (if (mp-class? class)
+			    (list (**mp-context (**class/def class)
+						(map (function **tyvar) class-tyvars)))
+			    '())))
   (dolist (decl decls)
    (remember-context decl
     (cond ((is-type? 'signdecl decl)
 	   (let* ((signature (signdecl-signature decl))
 		  (vars (resolve-signature signature)))
-	     (when (not (memq tyvar vars))
+	     (when (not (some (lambda (v) (memq v vars)) class-tyvars))
 	       (signal-class-sig-ignores-type signature))
 	     ;; Note: signature does not include defined class yet
 	     (dolist (context (signature-context signature))
-               (when (eq? tyvar (context-tyvar context))
+               (when (memq (context-tyvar context) class-tyvars)
 		 (signal-method-constrains-class-tyvar context)))
-	     (setf signature (rename-class-sig-vars signature tyvar))
-	     (let ((gtype (ast->gtype (cons class-context
-					    (signature-context signature))
-				      (signature-type signature))))
+	     (setf signature (rename-class-sig-vars signature class-tyvars))
+	     (let ((gtype (ast->gtype (append class-context
+					      (signature-context signature))
+				      (signature-type signature)
+				      (append class-mcontext
+					      (signature-mcontext signature)))))
  	       (dolist (var-ref (signdecl-vars decl))
 	         (let ((var (var-ref-var var-ref)))
 		   (setf (var-type var) gtype)
@@ -143,10 +179,12 @@
 		       (signal-multiple-definition-of-default method-name))
 		     (setf (method-var-default method-var) default-var)
 		     (let* ((sig (method-var-method-signature method-var))
-			    (context (cons class-context
-					   (signature-context sig)))
+			    (context (append class-context
+					     (signature-context sig)))
 			    (new-sig (**signature context
 						  (signature-type sig))))
+		       (setf (signature-mcontext new-sig)
+			     (append class-mcontext (signature-mcontext sig)))
 		       (add-new-module-signature default-var new-sig)))
 		   (signal-default-not-in-class method-var class)))))
 	     (add-new-module-decl decl))))))))
@@ -221,13 +259,22 @@
 ;;; dictionary signature and aliasing among different tyvars should be
 ;;; prevented.
 
-(define (rename-class-sig-vars signature tyvar)
+(define (rename-class-sig-vars signature tyvars)
   (mlet (((new-context env1)
 	  (rename-context-vars (signature-context signature)
-			       (list (tuple tyvar tyvar))))
-	 ((new-type _)
-	  (rename-type-vars (signature-type signature) env1)))
-      (**signature new-context new-type)))
+			       (map (lambda (v) (tuple v v)) tyvars)))
+	 ((new-type env2)
+	  (rename-type-vars (signature-type signature) env1))
+	 (new-sig (**signature new-context new-type)))
+    (setf (signature-mcontext new-sig)
+	  (map (lambda (c)
+		 (**mp-context (mp-context-class c)
+			       (map (lambda (ty)
+				      (mlet (((ty1 _) (rename-type-vars ty env2)))
+					ty1))
+				    (mp-context-types c))))
+	       (signature-mcontext signature)))
+    new-sig))
 
 (define (rename-context-vars contexts env)
   (if (null? contexts)

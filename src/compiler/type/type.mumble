@@ -15,6 +15,9 @@
   (unit dictionary
 	(require type-macros)
 	(source-filename "dictionary.mumble"))
+  (unit mp-classes
+	(require type-macros)
+	(source-filename "mp-classes.mumble"))
   (unit default
 	(require type-macros)
 	(source-filename "default.mumble"))

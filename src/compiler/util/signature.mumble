@@ -8,8 +8,16 @@
 ;;; The list of variables used in the signature is returned.
 
 (define (resolve-signature signature)
-  (with-slots signature (context type) signature
+  (with-slots signature (context type mcontext) signature
     (let ((tyvars (resolve-type type)))
+      ;; a multi-parameter constraint may mention tyvars the type does
+      ;; not (determined by a functional dependency)
+      (dolist (c mcontext)
+	(resolve-class (mp-context-class c))
+	(dolist (ty (mp-context-types c))
+	  (dolist (v (resolve-type ty))
+	    (when (not (memq v tyvars))
+	      (push v tyvars)))))
       (resolve-signature-aux tyvars context)
       tyvars)))
 

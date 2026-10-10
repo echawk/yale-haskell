@@ -99,6 +99,11 @@
       (error "Type checker screwed a method placeholder object ~s." object)
       (cfn-ast-1 (method-placeholder-exp object))))
 
+(define-walker-method cfn mp-placeholder (object)
+  (if (eq? (mp-placeholder-exp object) '#f)
+      (error "Type checker screwed a multi-parameter placeholder ~s." object)
+      (cfn-ast-1 (mp-placeholder-exp object))))
+
 (define-walker-method cfn recursive-placeholder (object)
   (if (eq? (recursive-placeholder-exp object) '#f)
       (error "Type checker screwed a recursive placeholder object ~s." object)

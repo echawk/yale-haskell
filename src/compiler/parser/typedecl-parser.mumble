@@ -216,9 +216,18 @@
 	(token-case
 	 (tyvar
 	  (let* ((class-var (token->symbol))
+		 ;; a multi-parameter class: C a b [| a -> b]
+		 (more-vars (parse-more-context-tyvars))
+		 (fundeps (if (and (not (null? more-vars)) (eq-token? '\|))
+			      (begin (advance-token) (parse-fundeps))
+			      '()))
 		 (decls (remove-inline-annotations (parse-where-decls))))
 	    (make class-decl (class class) (super-classes supers)
-		             (class-var class-var) (decls decls))))
+		             (class-var class-var) (decls decls)
+			     (class-vars (if (null? more-vars)
+					     '()
+					     (cons class-var more-vars)))
+			     (fundeps fundeps))))
 	 (else
 	  (signal-missing-token "<tyvar>" "class declaration")))))
      (else (signal-missing-token "<tycon>" "class declaration"))))))
@@ -227,6 +236,24 @@
 ;;; signatures and valdefs there), but H98 allows {-# INLINE m #-} on a
 ;;; class method.  Inlining is only a hint, so Inline annotations in a
 ;;; class body are dropped.
+
+;;; Functional dependencies: a b -> c, d -> a ...
+
+(define (parse-fundeps)
+  (let* ((from (parse-fundep-vars))
+	 (to (begin
+	       (require-token -> (signal-missing-token "`->'" "functional dependency"))
+	       (parse-fundep-vars))))
+    (cons (tuple from to)
+	  (token-case
+	   (\, (parse-fundeps))
+	   (else '())))))
+
+(define (parse-fundep-vars)
+  (token-case
+   (tyvar (let ((v (token->symbol)))
+	    (cons v (parse-fundep-vars))))
+   (else '())))
 
 (define (remove-inline-annotations decls)
   (cond ((null? decls) '())
@@ -250,18 +277,28 @@
 
 (define (parse-instance-decl interface?)
  (save-parser-context
-  (let ((contexts (parse-optional-context))
-	(decls '()))
+  (mlet (((contexts mcontexts) (split-contexts (parse-optional-context)))
+	 (decls '()))
     (token-case
      (tycon
       (let* ((class (class->ast))
-	     (simple (parse-type)))
+	     ;; one atype, or several for a multi-parameter class
+	     (types (if (haskell98?) (parse-atype-list) (list (parse-type))))
+	     (simple (if (null? (cdr types)) (car types) '#f)))
+	(when (null? types)
+	  (signal-missing-token "<type>" "instance declaration"))
 	(when (not interface?)
 	   (setf decls (parse-where-decls))
 	   (when (some (lambda (d) (is-type? 'fixity-decl d)) decls)
 	     (signal-fixity-in-instance)
 	     (setf decls (remove-fixity-decls decls))))
-	(check-simple simple '#f "instance declaration")
+	(if simple
+	    (check-simple simple '#f "instance declaration")
+	    (dolist (ty types)
+	      (when (not (tyvar? ty))
+		(check-simple ty '#f "instance declaration"))))
 	(make instance-decl (context contexts) (class class)
-	                    (simple simple) (decls decls))))
+	                    (simple (or simple (car types))) (decls decls)
+			    (types (if simple '() types))
+			    (mcontext mcontexts))))
      (else (signal-missing-token "<tycon>" "instance declaration"))))))

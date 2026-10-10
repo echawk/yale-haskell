@@ -1,0 +1,432 @@
+;;; type/mp-classes.mumble -- multi-parameter type classes
+;;;
+;;; A constraint C t1 ... tn of a multi-parameter class lives apart from
+;;; the one-parameter machinery, which keeps its constraints on type
+;;; variables (ntyvar-context):
+;;;  - a gtype's multi-parameter constraints are its mcontext, a list of
+;;;    (class . gtypes) (util/type-utils: ast->gtype, instantiate-gtype/mp);
+;;;  - a reference to an overloaded variable makes an mp-placeholder for
+;;;    each (type-vars.mumble), for a dictionary or, for a method of the
+;;;    class, the method;
+;;;  - a binding with multi-parameter constraints in its type gets a
+;;;    dictionary parameter for each (valdef-mp-dict-params, after the
+;;;    one-parameter ones);
+;;;  - when a binding is generalized (type-decl.mumble), each
+;;;    mp-placeholder is resolved (process-mp-placeholder): by a dictionary
+;;;    parameter of an enclosing binding, by an instance, or passed out to
+;;;    the enclosing binding when it mentions its type variables.
+;;;
+;;; Functional dependencies (class-fundeps, positions from -> to) improve
+;;; types: when a constraint's `from' types match a given constraint or an
+;;; instance, its `to' types are unified with theirs.
+;;;
+;;; An instance's dictionary is an ordinary overloaded definition whose
+;;; signature is the instance's context (tdecl/instance.mumble), so a
+;;; dictionary reference is typed like any variable reference, which
+;;; supplies its subdictionaries.
+
+;;; Dictionary parameters: (class types var).
+
+(define (mp-param-class p) (car p))
+(define (mp-param-types p) (cadr p))
+(define (mp-param-var p) (caddr p))
+
+;;; A parameter for each multi-parameter constraint of a binding's
+;;; generalized type; TYVARS are the binding's tyvars, by gtyvar number.
+
+(define (mp-dict-params gmcontext tyvars)
+  (map (lambda (c)
+	 (let ((var (create-temp-var
+		     (string-append "d_" (symbol->string (def-name (tuple-2-1 c)))))))
+	   (setf (var-force-strict? var) '#t)
+	   (list (tuple-2-1 c)
+		 (map (lambda (g) (copy-gtype g tyvars)) (tuple-2-2 c))
+		 var)))
+       gmcontext))
+
+;;; The positions of a class's types that are not determined by others
+;;; (all of them without functional dependencies).
+
+(define (mp-determining-positions class)
+  (let ((determined '()))
+    (dolist (fd (class-fundeps class))
+      (setf determined (append (tuple-2-2 fd) determined)))
+    (let ((res '()))
+      (dotimes (i (length (class-tyvars class)))
+	(when (not (memv i determined))
+	  (push i res)))
+      (nreverse res))))
+
+;;; Structural equality of ntypes (tyvars by identity).
+
+(define (mp-type-equal? t1 t2)
+  (let ((t1 (prune t1))
+	(t2 (prune t2)))
+    (cond ((eq? t1 t2) '#t)
+	  ((and (ntycon? t1) (ntycon? t2))
+	   (and (eq? (ntycon-tycon t1) (ntycon-tycon t2))
+		(mp-types-equal? (ntycon-args t1) (ntycon-args t2))))
+	  ((and (ntyapp? t1) (ntyapp? t2))
+	   (and (mp-type-equal? (ntyapp-fun t1) (ntyapp-fun t2))
+		(mp-types-equal? (ntyapp-args t1) (ntyapp-args t2))))
+	  (else '#f))))
+
+(define (mp-types-equal? l1 l2)
+  (cond ((null? l1) (null? l2))
+	((null? l2) '#f)
+	(else (and (mp-type-equal? (car l1) (car l2))
+		   (mp-types-equal? (cdr l1) (cdr l2))))))
+
+(define (mp-equal-at? positions types1 types2)
+  (every (lambda (i) (mp-type-equal? (list-ref types1 i) (list-ref types2 i)))
+	 positions))
+
+;;; Does the type mention a type variable of an enclosing binding?
+
+(define (mp-type-non-generic? type)
+  (let ((type (prune type)))
+    (cond ((ntyvar? type) (non-generic? type))
+	  ((ntycon? type) (some (function mp-type-non-generic?) (ntycon-args type)))
+	  ((ntyapp? type)
+	   (or (mp-type-non-generic? (ntyapp-fun type))
+	       (some (function mp-type-non-generic?) (ntyapp-args type))))
+	  (else '#f))))
+
+;;;=====================================================================
+;;; Instances
+;;;=====================================================================
+
+;;; The instance of CLASS whose head matches TYPES at the determining
+;;; positions, and the bindings of its tyvars: (instance . bindings), or
+;;; #f.  A binding is (tyvar-symbol . ntype).
+
+(define (find-mp-instance class types)
+  (let ((positions (mp-determining-positions class)))
+    (find-mp-instance-1 (class-instances class) positions types)))
+
+(define (find-mp-instance-1 instances positions types)
+  (if (null? instances)
+      '#f
+      (let* ((inst (car instances))
+	     (bindings (and (instance-ok? inst)
+			    (not (null? (instance-mp-types inst)))
+			    ;; (bindings start non-empty: '() is #f)
+			    (match-mp-head positions (instance-mp-types inst)
+					   types (list (tuple '|%none| '|%none|))))))
+	(if (eq? bindings '#f)
+	    (find-mp-instance-1 (cdr instances) positions types)
+	    (tuple inst bindings)))))
+
+(define (match-mp-head positions heads types bindings)
+  (if (null? positions)
+      bindings
+      (let ((b (match-head-type (list-ref heads (car positions))
+				(list-ref types (car positions))
+				bindings)))
+	(and b (match-mp-head (cdr positions) heads types b)))))
+
+;;; Matches an instance head type (an AST type) against an ntype; the
+;;; extended bindings, or #f.  The head becomes an ntype whose tyvars are
+;;; fresh pattern variables, matched structurally, type synonyms expanded
+;;; on both sides.
+
+(define (match-head-type head type bindings)
+  (mlet (((pattern vars) (ast->ntype/bindings head '())))
+    (let ((env (match-ntype pattern type (map (function tuple-2-2) vars)
+			    (list (tuple '|%none| '|%none|)))))
+      (if (eq? env '#f)
+	  '#f
+	  (bind-pattern-vars vars env bindings)))))
+
+;;; env: (pattern-var . ntype), starting with a sentinel.
+(define (match-ntype pattern type pvars env)
+  (let ((type (prune type)))
+    (cond ((eq? env '#f) '#f)
+	  ((memq pattern pvars)
+	   (let ((old (assq pattern env)))
+	     (cond ((eq? old '#f) (cons (tuple pattern type) env))
+		   ((mp-type-equal? (tuple-2-2 old) type) env)
+		   (else '#f))))
+	  ((ntycon? pattern)
+	   (let ((pattern (expand-ntype-synonym pattern))
+		 (type (if (ntycon? type) (expand-ntype-synonym type) type)))
+	     (if (and (ntycon? pattern) (ntycon? type)
+		      (eq? (ntycon-tycon pattern) (ntycon-tycon type))
+		      (eqv? (length (ntycon-args pattern)) (length (ntycon-args type))))
+		 (match-ntypes (ntycon-args pattern) (ntycon-args type) pvars env)
+		 (if (ntycon? pattern)
+		     '#f
+		     (match-ntype pattern type pvars env)))))
+	  ((ntyapp? pattern)
+	   (if (ntyapp? type)
+	       (match-ntypes (ntyapp-args pattern) (ntyapp-args type) pvars
+			     (match-ntype (ntyapp-fun pattern) (ntyapp-fun type)
+					  pvars env))
+	       '#f))
+	  (else (if (eq? pattern type) env '#f)))))
+
+(define (match-ntypes patterns types pvars env)
+  (cond ((eq? env '#f) '#f)
+	((null? patterns) (if (null? types) env '#f))
+	((null? types) '#f)
+	(else (match-ntypes (cdr patterns) (cdr types) pvars
+			    (match-ntype (car patterns) (car types) pvars env)))))
+
+;;; The head's tyvars (symbol . pattern-var) bound by ENV, into BINDINGS.
+(define (bind-pattern-vars vars env bindings)
+  (cond ((null? vars) bindings)
+	((eq? bindings '#f) '#f)
+	(else
+	 (let ((b (assq (tuple-2-2 (car vars)) env)))
+	   (bind-pattern-vars (cdr vars) env
+	     (if (eq? b '#f)
+		 bindings
+		 (bind-head-tyvar (tuple-2-1 (car vars)) (tuple-2-2 b) bindings)))))))
+
+(define (bind-head-tyvar sym type bindings)
+  (let ((old (assq sym bindings)))
+    (cond ((eq? old '#f) (cons (tuple sym type) bindings))
+	  ((mp-type-equal? (tuple-2-2 old) type) bindings)
+	  (else '#f))))
+
+;;; An AST type as an ntype, its tyvars by BINDINGS; unbound tyvars get
+;;; fresh ntyvars, added to the bindings.  Returns the type and bindings.
+
+(define (ast->ntype/bindings type bindings)
+  (cond ((tyvar? type)
+	 (let ((b (assq (tyvar-name type) bindings)))
+	   (if b
+	       (values (tuple-2-2 b) bindings)
+	       (let ((v (**ntyvar)))
+		 (values v (cons (tuple (tyvar-name type) v) bindings))))))
+	((tyapp? type)
+	 (mlet (((fun b1) (ast->ntype/bindings (tyapp-fun type) bindings))
+		((args b2) (ast->ntype/bindings/l (tyapp-args type) b1)))
+	   (values (apply-ntype fun args) b2)))
+	(else
+	 (mlet (((args b1) (ast->ntype/bindings/l (tycon-args type) bindings)))
+	   (values (**ntycon (tycon-def type) args) b1)))))
+
+(define (ast->ntype/bindings/l types bindings)
+  (if (null? types)
+      (values '() bindings)
+      (mlet (((t1 b1) (ast->ntype/bindings (car types) bindings))
+	     ((ts b2) (ast->ntype/bindings/l (cdr types) b1)))
+	(values (cons t1 ts) b2))))
+
+;;; The instance's head types at the non-determining positions, unified
+;;; with TYPES (fundep improvement).  Returns the bindings.
+
+(define (improve-from-instance inst bindings types)
+  (let ((positions (mp-determining-positions (instance-class inst)))
+	(heads (instance-mp-types inst)))
+    (dotimes (i (length types))
+      (when (not (memv i positions))
+	(mlet (((head-type b) (ast->ntype/bindings (list-ref heads i) bindings)))
+	  (setf bindings b)
+	  (type-unify head-type (list-ref types i)
+	    (type-error "The functional dependency of ~A requires ~A, not ~A."
+			(instance-class inst) head-type (list-ref types i))))))
+    bindings))
+
+;;;=====================================================================
+;;; Improvement
+;;;=====================================================================
+
+;;; Before a binding is generalized: types determined by a functional
+;;; dependency are unified, with an instance or with another constraint
+;;; of the same class agreeing on the determining types.  Repeated while
+;;; something changes.
+
+(define (improve-mp-placeholders placeholders)
+  (let ((mps '()))
+    (dolist (p placeholders)
+      (when (and (mp-placeholder? p)
+		 (not (null? (class-fundeps (mp-placeholder-class p)))))
+	(push p mps)))
+    (improve-mp-loop mps)))
+
+(define (improve-mp-loop mps)
+  (let ((changed '#f))
+    (dolist (p mps)
+      (let* ((class (mp-placeholder-class p))
+	     (types (mp-placeholder-types p))
+	     (before (map (function mp-type-snapshot) types))
+	     (found (find-mp-instance class types)))
+	(when found
+	  (improve-from-instance (tuple-2-1 found) (tuple-2-2 found) types))
+	(dolist (q mps)
+	  (when (and (not (eq? p q))
+		     (eq? (mp-placeholder-class q) class))
+	    (improve-by-fundeps class types (mp-placeholder-types q))))
+	(when (not (equal? before (map (function mp-type-snapshot) types)))
+	  (setf changed '#t))))
+    (when changed
+      (improve-mp-loop mps))))
+
+;;; For each fundep whose `from' types agree, unify the `to' types.
+(define (improve-by-fundeps class types1 types2)
+  (dolist (fd (class-fundeps class))
+    (when (mp-equal-at? (tuple-2-1 fd) types1 types2)
+      (dolist (i (tuple-2-2 fd))
+	(type-unify (list-ref types1 i) (list-ref types2 i)
+	  (type-error "The functional dependency of ~A requires ~A and ~A to agree."
+		      class (list-ref types1 i) (list-ref types2 i)))))))
+
+;;; A crude picture of a type, to notice that improvement changed it.
+(define (mp-type-snapshot type)
+  (let ((type (prune type)))
+    (cond ((ntycon? type)
+	   (cons (ntycon-tycon type) (map (function mp-type-snapshot) (ntycon-args type))))
+	  ((ntyapp? type)
+	   (cons (mp-type-snapshot (ntyapp-fun type))
+		 (map (function mp-type-snapshot) (ntyapp-args type))))
+	  (else type))))
+
+;;;=====================================================================
+;;; Generalization
+;;;=====================================================================
+
+;;; The multi-parameter constraints a binding without a signature is
+;;; generalized over: those of PLACEHOLDERS that no instance resolves and
+;;; that mention no type variable of an enclosing binding, as distinct
+;;; (class . types).
+
+(define (mp-generalizable-constraints placeholders)
+  (let ((res '()))
+    (dolist (p placeholders)
+      (when (and (mp-placeholder? p)
+		 (eq? (mp-placeholder-exp p) '#f))
+	(let ((class (mp-placeholder-class p))
+	      (types (mp-placeholder-types p)))
+	  (when (and (not (some (function mp-type-non-generic?) types))
+		     (eq? (find-mp-instance class types) '#f)
+		     (not (some (lambda (c)
+				  (and (eq? (tuple-2-1 c) class)
+				       (mp-types-equal? (tuple-2-2 c) types)))
+				res)))
+	    (push (tuple class types) res)))))
+    (nreverse res)))
+
+;;; The tyvars of the constraints.
+(define (mp-constraint-tyvars constraints)
+  (let ((res '()))
+    (dolist (c constraints)
+      (dolist (ty (tuple-2-2 c))
+	(dolist (v (collect-tyvars ty))
+	  (when (not (memq v res))
+	    (push v res)))))
+    res))
+
+;;; A gtype for a binding's type and inferred multi-parameter
+;;; constraints: the type's tyvars as ntype->gtype/env numbers them
+;;; (REQUIRED-VARS first), then any the constraints add.  Returns the
+;;; gtype and the tyvars by gtyvar number.
+
+(define (ntype->gtype/mp ntype required-vars constraints)
+  (mlet (((gtype env) (ntype->gtype-1 ntype required-vars))
+	 ((gmcontext env1) (mp-constraints->gtypes constraints env)))
+    (values (make gtype (type gtype)
+		        (context (map (lambda (x) (ntyvar-context x)) env1))
+			(mcontext gmcontext))
+	    env1)))
+
+(define (mp-constraints->gtypes constraints env)
+  (if (null? constraints)
+      (values '() env)
+      (mlet (((types env1) (ntype->gtype/l (tuple-2-2 (car constraints)) env))
+	     ((rest env2) (mp-constraints->gtypes (cdr constraints) env1)))
+	(values (cons (tuple (tuple-2-1 (car constraints)) types) rest) env2))))
+
+;;;=====================================================================
+;;; Resolution
+;;;=====================================================================
+
+;;; Resolves a multi-parameter placeholder (see process-placeholder in
+;;; dictionary.mumble); returns the placeholders still to be resolved.
+
+(define (process-mp-placeholder p deferred decls)
+  (if (not (eq? (mp-placeholder-exp p) '#f))
+      deferred
+      (let* ((class (mp-placeholder-class p))
+	     (types (mp-placeholder-types p))
+	     (param (find-mp-param p class types decls))
+	     (found (if (eq? param '#f) (find-mp-instance class types) '#f)))
+	(cond ((not (eq? param '#f))
+	       (setf (placeholder-exp p)
+		     (mp-dict-use p (**var/def (mp-param-var param))))
+	       deferred)
+	      ((not (eq? found '#f))
+	       (resolve-mp-by-instance p (tuple-2-1 found) (tuple-2-2 found)
+				       deferred decls))
+	      ((some (function mp-type-non-generic?) types)
+	       (cons p deferred))
+	      (else
+	       (signal-unresolved-mp-constraint p)
+	       deferred)))))
+
+;;; The dictionary, or the method selected from it.
+(define (mp-dict-use p dict-code)
+  (let ((method (mp-placeholder-method p)))
+    (if (eq? method '#f)
+	dict-code
+	(let ((sel (tuple-2-2 (assq method (class-selectors (mp-placeholder-class p))))))
+	  (**app (**var/def sel) dict-code)))))
+
+;;; A dictionary parameter of an enclosing binding being generalized
+;;; that provides the constraint: equal types at the determining
+;;; positions, the others then unified (fundep improvement).
+
+(define (find-mp-param p class types decls)
+  (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls)))
+    (if (eq? decl '#f)
+	'#f
+	(find-mp-param-1 (valdef-mp-dict-params decl) class types))))
+
+(define (find-enclosing-decl edecls decls)
+  (cond ((null? edecls) '#f)
+	((memq (car edecls) decls) (car edecls))
+	(else (find-enclosing-decl (cdr edecls) decls))))
+
+(define (find-mp-param-1 params class types)
+  (cond ((null? params) '#f)
+	((and (eq? (mp-param-class (car params)) class)
+	      (mp-equal-at? (mp-determining-positions class)
+			    (mp-param-types (car params)) types))
+	 (dolist2 (t1 (mp-param-types (car params))) (t2 types)
+	   (type-unify t1 t2
+	     (type-error "The constraint ~A ~A does not match the given ~A ~A."
+			 class types class (mp-param-types (car params)))))
+	 (car params))
+	(else (find-mp-param-1 (cdr params) class types))))
+
+;;; A reference to the instance's dictionary, typed at the instance's
+;;; types so that its own context's dictionaries are supplied (as new
+;;; placeholders, resolved here).
+
+(define (resolve-mp-by-instance p inst bindings deferred decls)
+  (let* ((bindings (improve-from-instance inst bindings (mp-placeholder-types p)))
+	 (dict-var (instance-dictionary inst))
+	 (new-placeholders '())
+	 (code '#f))
+    (mlet (((expected _) (ast->ntype/bindings (generate-mp-dictionary-type inst)
+					      bindings)))
+      (dynamic-let ((*placeholders* '())
+		    (*enclosing-decls* (placeholder-enclosing-decls p)))
+	(mlet (((dict-type tyvars mps)
+		(instantiate-gtype/mp (var-signature dict-var))))
+	  (type-unify dict-type expected
+	    (type-error "Internal error: dictionary type of ~A ~A."
+			(instance-class inst) (instance-mp-types inst)))
+	  (setf code (insert-mp-placeholders
+		      (insert-dict-placeholders (**var/def dict-var) tyvars
+						(placeholder-overloaded-var p))
+		      mps (placeholder-overloaded-var p)))
+	  (setf new-placeholders (dynamic *placeholders*)))))
+    (setf (placeholder-exp p) (mp-dict-use p code))
+    (process-placeholders new-placeholders deferred decls)))
+
+(define (signal-unresolved-mp-constraint p)
+  (phase-error 'unresolved-mp-constraint
+    "No instance for ~A ~A~%(and no constraint in the type signature provides it)."
+    (mp-placeholder-class p) (mp-placeholder-types p)))

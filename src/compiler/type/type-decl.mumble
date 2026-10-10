@@ -112,6 +112,11 @@
 	      (when (and (ntyvar-context tyvar) (not (non-generic? tyvar)))
 		 (push tyvar overloaded-tyvars)))
 	   (reconcile-sig-contexts overloaded-tyvars sig-contexts)
+	   (improve-mp-placeholders (dynamic *placeholders*))
+	   (when (not (null? (mp-generalizable-constraints (dynamic *placeholders*))))
+	     (type-error
+"Multi-parameter class constraints in mutually recursive bindings~%~
+ without type signatures are not supported yet: give them signatures."))
 	 ;; We should probably also emit a warning about inherently
 	 ;; ambiguous decls.
 	   (when (and overloaded-tyvars
@@ -194,21 +199,37 @@
            (type-mismatch decl
 	       "Decl type mismatch" lhs-type rhs-type)))
       (check-user-signatures all-vars)
-      (let ((all-tyvars (collect-tyvars lhs-type))
-	    (overloaded-tyvars '()))
+      ;; multi-parameter constraints (mp-classes.mumble): improve by
+      ;; functional dependencies, then those to generalize over, when
+      ;; there is no signature to give them
+      (improve-mp-placeholders (dynamic *placeholders*))
+      (let* ((all-tyvars (collect-tyvars lhs-type))
+	     (overloaded-tyvars '())
+	     (sig-mcontext? (some (lambda (v)
+				    (and (var-signature v)
+					 (not (null? (gtype-mcontext (var-signature v))))))
+				  all-vars))
+	     (mp-constraints (if (some (function var-signature) all-vars)
+				 '()
+				 (mp-generalizable-constraints
+				  (dynamic *placeholders*)))))
 	(dolist (tyvar all-tyvars)
 	  (when (ntyvar-context tyvar)
 	     (push tyvar overloaded-tyvars)))
-	(when (and overloaded-tyvars
+	(when (and (or overloaded-tyvars mp-constraints)
 		   (apply-pattern-binding-rule? (list decl)))
 	 (setf (dynamic *non-generic-tyvars*)
 	   (do-pattern-binding-rule
-	    (list decl) overloaded-tyvars (dynamic *non-generic-tyvars*)))
-	 (setf overloaded-tyvars '()))
-	(if (null? overloaded-tyvars)
+	    (list decl)
+	    (append overloaded-tyvars (mp-constraint-tyvars mp-constraints))
+	    (dynamic *non-generic-tyvars*)))
+	 (setf overloaded-tyvars '())
+	 (setf mp-constraints '()))
+	(if (and (null? overloaded-tyvars) (null? mp-constraints)
+		 (not sig-mcontext?))
 	    (dolist (var all-vars)
 	      (generalize-type var))
-	    (generalize-overloaded-type decl '()))
+	    (generalize-overloaded-type decl '() mp-constraints))
 	(setf (dynamic *placeholders*)
 	      (process-placeholders
 	       (dynamic *placeholders*) old-placeholders (list decl)))))))))
@@ -361,13 +382,17 @@
 ;;; The overloaded-vars argument allows ambiguous contexts.  This is not
 ;;; needed for non-recursive vars since the context cannot be ambiguous.
 
-(define (generalize-overloaded-type decl overloaded-vars)
+(define (generalize-overloaded-type decl overloaded-vars . maybe-mp)
   (let* ((var (decl-var decl))
 	 (sig (var-signature var))
+	 (mp-constraints (if (null? maybe-mp) '() (car maybe-mp)))
 	 (new-tyvars '()))
     (cond ((eq? sig '#f)
 	   (mlet (((gtype tyvars)
-		   (ntype->gtype/env (var-type var) overloaded-vars)))
+		   (if (null? mp-constraints)
+		       (ntype->gtype/env (var-type var) overloaded-vars)
+		       (ntype->gtype/mp (var-type var) overloaded-vars
+					mp-constraints))))
 	      (setf (var-type var) gtype)
 	      (setf new-tyvars tyvars)))
 	  (else

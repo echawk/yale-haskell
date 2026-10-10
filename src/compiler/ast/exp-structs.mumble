@@ -375,6 +375,18 @@
    ;; the class of dictionary needed
    (class (type class))))
 
+;;; A constraint of a multi-parameter class, C t1 ... tn (type/mp-classes):
+;;; a dictionary, or with METHOD set, one of the class's methods.  TYVAR
+;;; is the first type.
+
+(define-struct mp-placeholder
+  (include placeholder)
+  (predicate mp-placeholder?)
+  (slots
+   (class (type class))
+   (types (type (list ntype)))
+   (method (type (maybe method-var)))))
+
 (define-struct recursive-placeholder
   (include exp)
   (slots

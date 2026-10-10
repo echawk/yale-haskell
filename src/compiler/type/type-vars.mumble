@@ -7,7 +7,18 @@
 (define-type-checker var-ref
  (let* ((var (var-ref-var object))
 	(type (var-type var)))
-   (cond ((method-var? var)
+   (cond ((and (method-var? var) (mp-class? (method-var-class var)))
+	  ;; a method of a multi-parameter class: its type's first
+	  ;; multi-parameter constraint is the class's
+	  (mlet (((ntype new-tyvars mps) (instantiate-gtype/mp type))
+		 (p (**mp-placeholder (method-var-class var) (tuple-2-2 (car mps))
+				      var (dynamic *enclosing-decls*) object))
+		 (new-object (insert-mp-placeholders
+			      (insert-dict-placeholders p new-tyvars object)
+			      (cdr mps) object)))
+	    (remember-placeholder p)
+	    (return-type (**save-old-exp object new-object) ntype)))
+	 ((method-var? var)
 ;;; The context of a method variable always has the carrier class
 ;;; first.
 	  (mlet (((ntype new-tyvars) (instantiate-gtype/newvars type))
@@ -24,8 +35,10 @@
 	    (push placeholder (recursive-type-placeholders type))
 	    (return-type placeholder (recursive-type-type type))))
 	 ((gtype? type)
-	  (mlet (((ntype new-vars) (instantiate-gtype/newvars type))
-		 (object1 (insert-dict-placeholders object new-vars object)))
+	  (mlet (((ntype new-vars mps) (instantiate-gtype/mp type))
+		 (object1 (insert-mp-placeholders
+			   (insert-dict-placeholders object new-vars object)
+			   mps object)))
             (return-type (if (eq? object1 object)
 			     object
 			     (**save-old-exp object object1))
@@ -58,3 +71,14 @@
 	(remember-placeholder p)
 	(insert-dict-placeholders/tyvar tyvar (cdr classes) 
 					(**app object p) var))))
+
+;;; The dictionaries for multi-parameter constraints (class . ntypes),
+;;; applied after the one-parameter ones, in order.
+
+(define (insert-mp-placeholders object mps var)
+  (if (null? mps)
+      object
+      (let ((p (**mp-placeholder (tuple-2-1 (car mps)) (tuple-2-2 (car mps))
+				 '#f (dynamic *enclosing-decls*) var)))
+	(remember-placeholder p)
+	(insert-mp-placeholders (**app object p) (cdr mps) var))))

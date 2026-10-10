@@ -24,6 +24,68 @@
 ;;; Needs work for interface files.
 
 (define (instance->def inst-decl)
+ (if (not (null? (instance-decl-types inst-decl)))
+     (mp-instance->def inst-decl)
+     (instance->def-1 inst-decl)))
+
+;;; An instance of a multi-parameter class: C t1 ... tn, each ti a tyvar
+;;; or a type constructor applied to distinct tyvars.
+
+(define (mp-instance->def inst-decl)
+ (recover-errors '#f
+  (remember-context inst-decl
+    (with-slots instance-decl (context class types decls mcontext) inst-decl
+      (dolist (ty types)
+	(resolve-type-1 ty '() '#t))
+      (resolve-class class)
+      (let* ((class-def (class-ref-class class))
+	     (tyvars (mp-instance-tyvars types)))
+	(when (not (and (mp-class? class-def)
+			(eqv? (length (class-tyvars class-def)) (length types))))
+	  (signal-mp-instance-arity class-def (length types)))
+	(resolve-signature-aux tyvars context)
+	(dolist (c mcontext)
+	  (resolve-class (mp-context-class c)))
+	(dolist (old (class-instances class-def))
+	  (when (and (instance-ok? old)
+		     (same-instance-heads? (instance-mp-types old) types))
+	    (signal-multiple-mp-instance class-def)))
+	(let ((inst (new-mp-instance class-def types tyvars)))
+	  (setf (instance-context inst) context)
+	  (setf (instance-mcontext inst) mcontext)
+	  (setf (instance-decls inst) decls)
+	  (setf (instance-ok? inst) '#t)
+	  inst))))))
+
+;;; The distinct tyvars of the head types, in order.
+(define (mp-instance-tyvars types)
+  (let ((res '()))
+    (dolist (ty types)
+      (if (tyvar? ty)
+	  (when (not (memq (tyvar-name ty) res))
+	    (push (tyvar-name ty) res))
+	  (dolist (arg (tycon-args ty))
+	    (when (not (memq (tyvar-name arg) res))
+	      (push (tyvar-name arg) res)))))
+    (nreverse res)))
+
+;;; Two instance heads that overlap: the same type constructor (or a
+;;; tyvar) in each position.
+(define (same-instance-heads? types1 types2)
+  (every (lambda (t1 t2)
+	   (or (tyvar? t1) (tyvar? t2)
+	       (eq? (tycon-def t1) (tycon-def t2))))
+	 types1 types2))
+
+(define (signal-mp-instance-arity class n)
+  (phase-error 'mp-instance-arity
+    "The class ~A does not take ~A type arguments." class n))
+
+(define (signal-multiple-mp-instance class)
+  (phase-error 'multiple-instance
+    "The instance overlaps another instance of class ~A." class))
+
+(define (instance->def-1 inst-decl)
  (recover-errors '#f
   (remember-context inst-decl
     (with-slots instance-decl (context class simple decls) inst-decl
@@ -72,6 +134,84 @@
 ;;; instances are inserted.
 
 (define (expand-instance-decls inst)
+  (when (instance-ok? inst)
+    (if (not (null? (instance-mp-types inst)))
+	(expand-mp-instance-decls inst)
+	(expand-instance-decls-1 inst))))
+
+;;; As expand-instance-decls, for a multi-parameter class: there are no
+;;; superclasses, and the class's tyvars are replaced by the head types.
+
+(define (expand-mp-instance-decls inst)
+  (with-slots instance (class dictionary decls) inst
+    ;; uniquify the instance's tyvars, as for one-parameter instances
+    (let ((new-tyvars (map (lambda (tyvar) (tuple tyvar (gentyvar "tv")))
+			   (instance-tyvars inst))))
+      (setf (instance-tyvars inst) (map (function tuple-2-2) new-tyvars))
+      (setf (instance-mp-types inst)
+	    (map (lambda (ty) (rename-ast-tyvars ty new-tyvars))
+		 (instance-mp-types inst)))
+      (setf (instance-context inst)
+	    (map (lambda (c)
+		   (**context (context-class c)
+			      (tuple-2-2 (assq (context-tyvar c) new-tyvars))))
+		 (instance-context inst)))
+      (setf (instance-mcontext inst)
+	    (map (lambda (c)
+		   (**mp-context (mp-context-class c)
+				 (map (lambda (ty) (rename-ast-tyvars ty new-tyvars))
+				      (mp-context-types c))))
+		 (instance-mcontext inst))))
+    (setf (instance-gcontext inst) '())
+    (let ((methods-used '())
+	  (new-instance-vars (map (lambda (m) (tuple m (method-def-var m inst)))
+				  (class-method-vars class))))
+      (dolist (decl decls)
+	(setf methods-used
+	      (process-instance-decl decl new-instance-vars methods-used)))
+      (dolist (m-v new-instance-vars)
+	(let* ((method-var (tuple-2-1 m-v))
+	       (definition-var (tuple-2-2 m-v))
+	       (signature (generate-method-signature inst method-var '#t)))
+	  (when (not (memq method-var methods-used))
+	    (add-new-module-def definition-var
+	      (if (eq? (method-var-default method-var) '#f)
+		  (**abort (format '#f
+			     "No method declared for method ~A in instance ~A ~A."
+			     method-var class (instance-mp-types inst)))
+		  (**var/def (method-var-default method-var)))))
+	  (add-new-module-signature definition-var signature)))
+      (setf (instance-methods inst) new-instance-vars)
+      (add-new-module-def dictionary
+	(**tuple/l (map (lambda (m-v)
+			  (dict-method-ref (tuple-2-1 m-v) (tuple-2-2 m-v) inst))
+			new-instance-vars)))
+      (add-new-module-signature dictionary (generate-dictionary-signature inst))
+      (setf (instance-decls inst) '()))))
+
+(define (rename-ast-tyvars type new-tyvars)
+  (if (null? new-tyvars)
+      type
+      (rename-ast-tyvars
+       (substitute-tyvar type (tuple-2-1 (car new-tyvars))
+			 (**tyvar (tuple-2-2 (car new-tyvars))))
+       (cdr new-tyvars))))
+
+;;; The class's tyvars replaced by an instance's types (in an AST type).
+(define (substitute-class-tyvars type inst)
+  (let ((class (instance-class inst)))
+    (if (null? (instance-mp-types inst))
+	(substitute-tyvar type (class-tyvar class) (make-instance-type inst))
+	(substitute-class-tyvars-1 type (class-tyvars class)
+				   (instance-mp-types inst)))))
+
+(define (substitute-class-tyvars-1 type tyvars types)
+  (if (null? tyvars)
+      type
+      (substitute-class-tyvars-1 (substitute-tyvar type (car tyvars) (car types))
+				 (cdr tyvars) (cdr types))))
+
+(define (expand-instance-decls-1 inst)
   (when (instance-ok? inst)
     (check-inst-type inst)
     (with-slots instance (class algdata dictionary decls context tyvars) inst
@@ -131,11 +271,9 @@
 (define (dict-method-ref method-var inst-var inst)
   (if (null? (signature-context (method-var-method-signature method-var)))
       (**var/def inst-var)
-      (let* ((sig (generate-method-signature inst method-var '#f))
-	     (ctxt (signature-context sig))
-	     (ty (signature-type sig)))
+      (let ((sig (generate-method-signature inst method-var '#f)))
 	(make overloaded-var-ref
-	      (sig (ast->gtype ctxt ty))
+	      (sig (signature->gtype sig))
 	      (var inst-var)))))
 
 (define (get-class-dict algdata class)
@@ -204,29 +342,42 @@
   (make-new-var
     (string-append "i-"
 		   (symbol->string (print-name (instance-class inst))) "-"
-		   (symbol->string (print-name (instance-algdata inst))) "-"
+		   (instance-type-name inst) "-"
 		   (symbol->string (def-name method-var)))))
 
 (define (generate-method-signature inst method-var keep-method-context?)
-  (let* ((simple-type (make-instance-type inst))
-	 (class-context (instance-context inst))
-	 (class-tyvar (class-tyvar (instance-class inst)))
+  (let* ((class-context (instance-context inst))
 	 (signature (method-var-method-signature method-var)))
     (make signature
 	  (context (if keep-method-context?
 		       (append class-context (signature-context signature))
 		       class-context))
-	  (type (substitute-tyvar (signature-type signature) class-tyvar
-				  simple-type)))))
+	  (type (substitute-class-tyvars (signature-type signature) inst))
+	  (mcontext (if keep-method-context?
+			(append (instance-mcontext inst)
+				(signature-mcontext signature))
+			(instance-mcontext inst))))))
 
 (define (make-instance-type inst)
   (**tycon/def (instance-algdata inst)
 	       (map (function **tyvar) (instance-tyvars inst))))
 
 (define (generate-dictionary-signature inst)
-  (**signature (sort-inst-context-by-tyvar
-		(instance-context inst) (instance-tyvars inst))
-	       (generate-dictionary-type inst (make-instance-type inst))))
+  (let ((sig (**signature (sort-inst-context-by-tyvar
+			   (instance-context inst) (instance-tyvars inst))
+			  (if (null? (instance-mp-types inst))
+			      (generate-dictionary-type inst (make-instance-type inst))
+			      (generate-mp-dictionary-type inst)))))
+    (setf (signature-mcontext sig) (instance-mcontext inst))
+    sig))
+
+;;; The tuple of a multi-parameter instance's method types.
+(define (generate-mp-dictionary-type inst)
+  (**tuple-type/l
+   (map (lambda (method-var)
+	  (substitute-class-tyvars
+	   (signature-type (method-var-method-signature method-var)) inst))
+	(class-method-vars (instance-class inst)))))
 
 (define (sort-inst-context-by-tyvar ctxt tyvars)
   (concat (map (lambda (tyvar)

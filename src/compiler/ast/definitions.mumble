@@ -187,6 +187,11 @@
    (n-methods (type int) (uninitialized? #t))
    (dict-size (type int) (uninitialized? #t))
    (selectors (type (list (tuple method-var var))) (uninitialized? #t))
+   ;; a multi-parameter class: its type variables (tyvar is the first)
+   ;; and functional dependencies, as (from-positions . to-positions)
+   ;; over them; '() for a one-parameter class
+   (tyvars (type (list symbol)) (default '()))
+   (fundeps (type (list (tuple (list int) (list int)))) (default '()))
    ))
 
 ;;; Since instances are not named there is no need to include def.  
@@ -195,7 +200,8 @@
   (include ast-node)
   (slots
    ;; These slots always have initializers supplied with MAKE.
-   (algdata (type algdata))
+   ;; (#f for an instance of a multi-parameter class: mp-types below)
+   (algdata (type (maybe algdata)))
    (tyvars (type (list symbol)))
    (class (type class))
    (context (type (list context)))
@@ -212,5 +218,9 @@
    ;; marks magically generated tuple instances
    (special? (type bool) (bit #t) (default #f))
    (suppress-readers? (type bool) (bit #t) (default #f))
+   ;; an instance of a multi-parameter class: the head types (algdata is
+   ;; #f) and the multi-parameter constraints of its context
+   (mp-types (type (list type)) (default '()))
+   (mcontext (type (list mp-context)) (default '()))
    ))
 

@@ -76,17 +76,34 @@
 
 (define (has-optional-context?)
   (let* ((saved-excursion (save-scanner-state))
-	 (res (token-case
-		(conid	
+	 (res (if (haskell98?)
+		  (scan-for-context-arrow 0)
+		  (has-optional-context-1.2?))))
+    (restore-excursion saved-excursion)
+    res))
+
+;;; Haskell 98: a context is everything before a `=>' outside brackets;
+;;; the tokens that end a type (or cannot be in a context) stop the
+;;; search.
+(define (scan-for-context-arrow depth)
+  (token-case
+   (=> (eqv? depth 0))
+   ((\( \[) (scan-for-context-arrow (1+ depth)))
+   ((\) \]) (and (> depth 0) (scan-for-context-arrow (1- depth))))
+   ((-> = \| \; \} |where| \:\: <- eof) '#f)
+   (else (advance-token) (scan-for-context-arrow depth))))
+
+(define (has-optional-context-1.2?)
+  (let* ((res (token-case
+		(conid
 		 (token-case
-		  (varid (eq-token? '=>))
+		  (varid (scan-more-context-tyvars))
 		  (else '#f)))
 		;; () => t: the empty context (H98 4.1.3, n = 0)
 		(\( (token-case
 		      (\) (eq-token? '=>))
 		      (else (scan-context))))
 		(else '#f))))
-    (restore-excursion saved-excursion)
     res))
 
 (define (scan-context)
@@ -94,12 +111,24 @@
     (conid
      (token-case
        (varid
-	 (token-case
-	   (\) (eq-token? '=>))
-	   (\, (scan-context))
-	   (else '#f)))
+	 (scan-context-rest))
        (else '#f)))
     (else '#f)))
+
+;;; After the first tyvar of an assertion in parentheses: more tyvars (a
+;;; multi-parameter class), then `)' or `,'.
+(define (scan-context-rest)
+  (token-case
+    (varid (and (haskell98?) (scan-context-rest)))
+    (\) (eq-token? '=>))
+    (\, (scan-context))
+    (else '#f)))
+
+;;; After C a without parentheses: more tyvars (C a b), then `=>'.
+(define (scan-more-context-tyvars)
+  (token-case
+    (varid (and (haskell98?) (scan-more-context-tyvars)))
+    (else (eq-token? '=>))))
 
 (define (parse-context)
  (let ((contexts (token-case
@@ -113,11 +142,34 @@
 
 (define (parse-single-context)
   (let ((class (class->ast)))
-    (token-case
-      (tyvar
-       (let ((tyvar (token->symbol)))
-	 (make context (class class) (tyvar tyvar))))
-      (else (signal-missing-token "<tyvar>" "class assertion")))))
+    (if (haskell98?)
+	;; C a, or C t1 ... tn for a multi-parameter class
+	(let ((types (parse-atype-list)))
+	  (cond ((and (pair? types) (null? (cdr types)) (tyvar? (car types)))
+		 (make context (class class) (tyvar (tyvar-name (car types)))))
+		((and (pair? types) (pair? (cdr types)))
+		 (**mp-context class types))
+		(else (signal-missing-token "<tyvar>" "class assertion"))))
+	(token-case
+	  (tyvar
+	   (let ((tyvar (token->symbol)))
+	     (make context (class class) (tyvar tyvar))))
+	  (else (signal-missing-token "<tyvar>" "class assertion"))))))
+
+;;; The further tyvars of a multi-parameter class assertion, C a b.
+(define (parse-more-context-tyvars)
+  (if (and (eq-token? 'varid) (haskell98?))
+      (let ((tyvar (token->symbol)))
+	(cons tyvar (parse-more-context-tyvars)))
+      '()))
+
+;;; A context's one-parameter and multi-parameter assertions.
+(define (split-contexts contexts)
+  (let ((single '())
+	(multi '()))
+    (dolist (c contexts)
+      (if (mp-context? c) (push c multi) (push c single)))
+    (values (nreverse single) (nreverse multi))))
 
 (define (parse-contexts)
   (token-case
@@ -135,9 +187,28 @@
       '()))
 
 (define (parse-signature)
-  (let* ((contexts (parse-optional-context))
+  (skip-explicit-forall)
+  (mlet (((contexts mcontexts) (split-contexts (parse-optional-context)))
 	 (type (parse-type)))
-    (make signature (context contexts) (type type))))
+    (make signature (context contexts) (type type) (mcontext mcontexts))))
+
+;;; forall a b . t (GHC's ExplicitForAll): the quantifier is implicit
+;;; anyway.  In Haskell 98 forall is an ordinary name, but it cannot
+;;; begin a type, so this changes no valid program.
+(define (skip-explicit-forall)
+  (when (and (haskell98?) (eq-token? 'varid)
+	     (string=? (car *token-args*) "forall"))
+    (advance-token)
+    (skip-forall-tyvars)))
+
+(define (skip-forall-tyvars)
+  (token-case
+   (varid (skip-forall-tyvars))
+   ((no-advance varsym)
+    (if (string=? (car *token-args*) ".")
+	(advance-token)
+	(signal-missing-token "`.'" "forall type")))
+   (else (signal-missing-token "`.'" "forall type"))))
 
 
 		 

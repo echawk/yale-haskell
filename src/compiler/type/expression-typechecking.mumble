@@ -64,8 +64,7 @@
   (type-check sig-pat pattern pattern-type
     (let ((sig  (sig-pat-signature object)))
       (type-unify pattern-type
-		  (instantiate-gtype (ast->gtype (signature-context sig)
-						 (signature-type sig)))
+		  (instantiate-gtype (signature->gtype sig))
 	(type-mismatch/fixed object
 	  "The pattern does not have its signature's type" pattern-type))
       (return-type object pattern-type))))
@@ -198,8 +197,7 @@
 	(setf (valdef-module decl)
 	      (valdef-module (car (dynamic *enclosing-decls*)))))
       (setf (var-signature temp-var)
-	    (ast->gtype (signature-context signature)
-			(signature-type signature)))
+	    (signature->gtype signature))
       let-exp)))
 
 ;;; Rather than complicate the ast structure with a new node for dictSel

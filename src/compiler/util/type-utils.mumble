@@ -47,11 +47,35 @@
 ;;; ensure that the gtyvars are in the same order that they appear in the
 ;;; context.  This is needed to make dictionary conversion work right.
 
-(define (ast->gtype context type)
-  (mlet (((gcontext env) (context->gcontext context '() '()))
-	 ((type env1) (type->gtype type env))
-	 (gcontext-classes (arrange-gtype-classes env1 gcontext)))
-    (**gtype gcontext-classes type)))
+(define (ast->gtype context type . maybe-mcontext)
+  (let ((mcontext  (if (null? maybe-mcontext) '() (car maybe-mcontext))))
+    ;; the tyvars of multi-parameter constraints come first, so that a
+    ;; multi-parameter class's own tyvars are gtyvars 0, 1, ...
+    (mlet ((env0 (mcontext-env mcontext '()))
+	   ((gcontext env) (context->gcontext context '() env0))
+	   ((type env1) (type->gtype type env))
+	   (gcontext-classes (arrange-gtype-classes env1 gcontext))
+	   (gtype (**gtype gcontext-classes type)))
+      (setf (gtype-mcontext gtype) (mcontext->gmcontext mcontext env1))
+      gtype)))
+
+(define (signature->gtype signature)
+  (ast->gtype (signature-context signature)
+	      (signature-type signature)
+	      (signature-mcontext signature)))
+
+(define (mcontext-env mcontext env)
+  (if (null? mcontext)
+      env
+      (mlet (((_ env1) (type->gtype/l (mp-context-types (car mcontext)) env)))
+	(mcontext-env (cdr mcontext) env1))))
+
+;;; Multi-parameter constraints as (class . gtypes); ENV has their tyvars.
+(define (mcontext->gmcontext mcontext env)
+  (map (lambda (c)
+	 (mlet (((gtypes _) (type->gtype/l (mp-context-types c) env)))
+	   (tuple (class-ref-class (mp-context-class c)) gtypes)))
+       mcontext))
 
 ;;; This is similar except that the ordering of the tyvars is as defined in
 ;;; the data type.  This is used only for instance declarations and allows
@@ -133,6 +157,15 @@
       (values (gtype-type g) '())
       (let ((new-tyvars (create-new-tyvars (gtype-context g))))
 	(values (copy-gtype (gtype-type g) new-tyvars) new-tyvars))))
+
+;;; Also the multi-parameter constraints, as (class . ntypes).
+(define (instantiate-gtype/mp g)
+  (mlet (((type tyvars) (instantiate-gtype/newvars g)))
+    (values type tyvars
+	    (map (lambda (c)
+		   (tuple (tuple-2-1 c)
+			  (map (lambda (gt) (copy-gtype gt tyvars)) (tuple-2-2 c))))
+		 (gtype-mcontext g)))))
 
 (define (create-new-tyvars ctxts)
   (if (null? ctxts)
