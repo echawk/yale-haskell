@@ -539,6 +539,24 @@
   (and (memq (def-name var) '(|seq| |primSeq| |strict1|))
        (memq (def-module var) '(|Prelude| |PreludeBltinArray|))))
 
+;;; The Prelude's seq, once the Prelude is loaded (the haskell-1.2
+;;; dialect has none), else '#f; seq x e: e, once x is evaluated.
+
+(define (prelude-seq-var)
+  (let ((table  (dynamic *prelude-symbol-table*)))
+    (and table
+	 (let ((v  (table-entry table '|seq|)))
+	   (and (var? v) v)))))
+
+(define (make-seq-app x e)
+  (make-flic-app (make-flic-ref (prelude-seq-var)) (list x e) '#t))
+
+(define (seq-app? exp)
+  (and (is-type? 'flic-app exp)
+       (is-type? 'flic-ref (flic-app-fn exp))
+       (seq-var? (flic-ref-var (flic-app-fn exp)))
+       (eqv? (length (flic-app-args exp)) 2)))
+
 (define (guess-function-arity var)
   (or (let ((value  (var-value var)))
 	(and value
@@ -637,6 +655,20 @@
        exp))
 
 (define (optimize-io-result fn args)
+  (let ((arg  (car args)))
+    (if (and (seq-app? arg)
+	     (return-io-app (cadr (flic-app-args arg))))
+	;; getRes (seq x (returnIO y s)) => seq x y, and so on
+	(begin
+	  (record-hack 'io-result-fold-seq)
+	  (multiple-value-bind (fn1 args1)
+	      (optimize-io-result fn (cons (cadr (flic-app-args arg)) (cdr args)))
+	    (setf (cadr (flic-app-args arg))
+		  (if (null? args1) fn1 (make-flic-app fn1 args1 '#f)))
+	    (values arg '())))
+	(optimize-io-result-1 fn args))))
+
+(define (optimize-io-result-1 fn args)
   (let* ((get-res?  (io-prim-var? (flic-ref-var fn) '|getRes|))
 	 (arg       (car args))
 	 (app       (or (return-io-app arg)
@@ -1280,6 +1312,13 @@
 	   (setf (flic-if-then-exp object) else-exp)
 	   (setf (flic-if-else-exp object) then-exp)
 	   object)
+	  ((and (is-type? 'flic-is-constructor test-exp)
+		(algdata-tuple? (con-alg (flic-is-constructor-con test-exp)))
+		(prelude-seq-var))
+	   ;; The type's only constructor: the test only evaluates the
+	   ;; value (cfn/pattern.mumble's match-pcon-1).
+	   (record-hack 'if-tuple-test-to-seq)
+	   (make-seq-app (flic-is-constructor-exp test-exp) then-exp))
 	  ((and (is-type? 'flic-return-from then-exp)
 		(is-type? 'flic-return-from else-exp)
 		(eq? (flic-return-from-block-name then-exp)
