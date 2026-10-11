@@ -1,0 +1,58 @@
+;;; existentials.mumble -- GHC's ExistentialQuantification
+;;;
+;;; data S = forall a. Show a => S a
+;;;
+;;; S has a hidden first field for each constraint of its existential
+;;; context: the dictionary (tdecl/alg-syn.mumble's add-existential-fields,
+;;; con-existential).  Its signature, Show a => a -> S, has only the
+;;; visible fields.
+;;;
+;;; Construction (S x) passes the dictionaries, as a reference to an
+;;; overloaded variable does: dictionary placeholders are applied to the
+;;; constructor (existential-con-ref).
+;;;
+;;; A pattern (S x) gives a a new rigid type variable, which must not be
+;;; unified with any type (read-only), and the hidden fields are bound to
+;;; variables that are a's dictionary parameters (ntyvar-dict-params), so
+;;; that show x selects from the stored dictionary (existential-pcon).
+;;; The type variable escaping the match is not checked.
+
+;;; Returns the constructor reference with its dictionary placeholders,
+;;; and its type.
+
+(define (existential-con-ref object con)
+  (mlet (((type tyvars) (instantiate-gtype/newvars (con-signature con))))
+    (let ((exp object))
+      (dolist (e (con-existential con))
+	(let ((p (**dict-placeholder (tuple-2-1 e) (list-ref tyvars (tuple-2-2 e))
+				     (dynamic *enclosing-decls*) object)))
+	  (remember-placeholder p)
+	  (setf exp (**app exp p))))
+      (values exp type))))
+
+;;; For a pattern K p1 ... pn: the constructor's type, its existential type
+;;; variables made rigid with dictionary parameters, and the patterns for
+;;; the hidden fields (var patterns of the dictionary variables).  Returns
+;;; the type and the hidden patterns.
+
+(define (existential-pcon con)
+  (mlet (((type tyvars) (instantiate-gtype/newvars (con-signature con))))
+    (let ((pats '())
+	  (by-tyvar '()))
+      (dolist (e (con-existential con))
+	(let* ((tv (list-ref tyvars (tuple-2-2 e)))
+	       (d (create-temp-var
+		   (string-append "d_" (symbol->string (def-name (tuple-2-1 e))))))
+	       (entry (assq tv by-tyvar)))
+	  (setf (var-force-strict? d) '#t)
+	  (setf (var-type d) (**ntyvar))
+	  (push (**var-pat/def d) pats)
+	  (if entry
+	      (setf (cdr entry) (cons (tuple (tuple-2-1 e) d) (tuple-2-2 entry)))
+	      (push (tuple tv (list (tuple (tuple-2-1 e) d))) by-tyvar))))
+      (dolist (b by-tyvar)
+	(let ((tv (tuple-2-1 b)))
+	  (setf (ntyvar-read-only? tv) '#t)
+	  (push (tuple (car (dynamic *enclosing-decls*)) (tuple-2-2 b))
+		(ntyvar-dict-params tv))))
+      (values type (reverse pats)))))

@@ -156,7 +156,21 @@
      (\| (cons constr (parse-constrs)))
      (else (list constr)))))
 
+;;; ExistentialQuantification (GHC): forall a. C a => K t ... ; the
+;;; context is allowed only after a forall (as in GHC).
+
 (define (parse-constr)
+  (let* ((exist (skip-explicit-forall))
+	 (context (if (null? exist)
+		      '()
+		      (mlet (((single _) (split-contexts (parse-optional-context))))
+			single)))
+	 (constr (parse-constr-1)))
+    (setf (constr-exist-tyvars constr) exist)
+    (setf (constr-exist-context constr) context)
+    constr))
+
+(define (parse-constr-1)
  (save-parser-context
   (let ((saved-excursion (save-scanner-state)))
     (token-case

@@ -22,7 +22,7 @@
 	     (all-strict? (process-alg-strictness-annotation annotations))
 	     (constr-defs
 	      (map (lambda (constr)
-		     (with-slots constr (constructor types) constr
+		     (with-slots constr (constructor types exist-tyvars) constr
 		       (let ((constr-def (con-ref-con constructor))
 			     (c-arity (length types))
 			     (con-vars '())
@@ -38,7 +38,7 @@
 			     (push (get-constr-strictness anns all-strict?)
 				   strictness)
 			     (dolist (v tyvars1)
-			       (if (not (memq v tyvars))
+			       (if (not (or (memq v tyvars) (memq v exist-tyvars)))
 				   (signal-bad-algdata-tyvar v)))
 			     (setf con-vars (append tyvars1 tyvars-referenced))
 			     (setf tyvars-referenced
@@ -84,8 +84,16 @@
 				    (restrict-context
 				      context
 				      (tuple-2-2 (assq con all-con-vars)))))
-		   (con-signature (ast->gtype con-context con-type)))
-	      (setf (con-signature con) con-signature)))
+		   (constr (lisp:find con constrs
+				      :key (lambda (c) (con-ref-con (constr-constructor c)))))
+		   (exist-context (let ((ec (constr-exist-context constr)))
+				    (dolist (c ec) (resolve-class (context-class c)))
+				    ec))
+		   (con-signature (ast->gtype (append exist-context con-context)
+					      con-type)))
+	      (setf (con-signature con) con-signature)
+	      (when (not (null? exist-context))
+		(add-existential-fields con exist-context con-signature))))
 	  (update-slots algdata def
 	    (n-constr (length constrs))
 	    (constrs constr-defs)
@@ -219,6 +227,26 @@
       (fatal-error 'bad-constr-annotation
 		   "Bad annotation for ~A in ~A~%" con alg))
   (setf (con-lisp-fns con) lisp-fns))
+
+;;; ExistentialQuantification: K's existential context gives it a hidden
+;;; first field for each constraint, its dictionary (type/existentials.mumble).
+;;; The signature is still that of the visible fields.
+
+(define (add-existential-fields con exist-context signature)
+  (let ((entries (map (lambda (c)
+			(resolve-class (context-class c))
+			(tuple (class-ref-class (context-class c))
+			       (locate-in-list (context-tyvar c)
+					       (gtype-tyvar-names signature) 0)))
+		      exist-context)))
+    (setf (con-existential con) entries)
+    (setf (con-arity con) (+ (length entries) (con-arity con)))
+    (setf (con-types con)
+	  (append (map (lambda (c) (**tyvar (context-tyvar c))) exist-context)
+		  (con-types con)))
+    (setf (con-slot-strict? con)
+	  (append (map (lambda (c) (declare (ignore c)) '#f) exist-context)
+		  (con-slot-strict? con)))))
 
 (define (signal-unknown-annotation a)
   (recoverable-error 'bad-annotation "Bad or misplaced annotation: ~A%"

@@ -30,6 +30,9 @@
   (unit expression-typechecking
 	(require type-macros)
 	(source-filename "expression-typechecking.mumble"))
+  (unit existentials
+	(require type-macros)
+	(source-filename "existentials.mumble"))
   (unit scoped-tyvars
 	(require type-macros)
 	(source-filename "scoped-tyvars.mumble"))

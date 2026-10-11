@@ -126,7 +126,10 @@
    (types (type (list (tuple type (list annotation-value)))))
    ;; Record syntax: the field label of each of `types' (a symbol), or
    ;; '() for a constructor declared without field labels.
-   (field-labels (type (list symbol)) (default '()))))
+   (field-labels (type (list symbol)) (default '()))
+   ;; forall a. C a => K ... (ExistentialQuantification)
+   (exist-tyvars (type (list symbol)) (default '()))
+   (exist-context (type (list context)) (default '()))))
 
 
 ;;; <class-decl> -> class [<context> => ] <class> [where { <cbody> [;] } ]

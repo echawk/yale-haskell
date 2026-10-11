@@ -75,6 +75,14 @@
 	       (begin
 		 (signal-unresolved-app-constraint type p)
 		 deferred)))
+	  ;; an existential pattern's type variable has its dictionaries,
+	  ;; though it is non-generic inside a lambda (existentials.mumble)
+	  ((and (not (null? (ntyvar-dict-params type))) (ntyvar-read-only? type)
+		(non-generic? type))
+	   (if (dict-placeholder? p)
+	       (placeholder->dict-param p (ntyvar-dict-params type) decls)
+	       (placeholder->method p (ntyvar-dict-params type) decls))
+	   deferred)
 	  ((non-generic? type)
 	   (cons p deferred))
 	  ((not (null? (ntyvar-dict-params type)))

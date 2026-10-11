@@ -116,9 +116,15 @@
 (define-type-checker pcon
  (type-check/list pcon pats arg-types
    (fresh-type res-type
-     (let ((con-type (instantiate-gtype (con-signature (pcon-con object)))))
-       (type-unify con-type (**arrow/l-2 arg-types res-type) #f)
-       (return-type object res-type)))))
+     (if (null? (con-existential (pcon-con object)))
+	 (let ((con-type (instantiate-gtype (con-signature (pcon-con object)))))
+	   (type-unify con-type (**arrow/l-2 arg-types res-type) #f)
+	   (return-type object res-type))
+	 ;; existentials.mumble: the hidden dictionary fields bind variables
+	 (mlet (((con-type hidden) (existential-pcon (pcon-con object))))
+	   (type-unify con-type (**arrow/l-2 arg-types res-type) #f)
+	   (setf (pcon-pats object) (append hidden (pcon-pats object)))
+	   (return-type object res-type))))))
 
 (define-type-checker list-pat
   (if (null? (list-pat-pats object))
@@ -307,6 +313,12 @@
 	tyvars)))
 
 (define-type-checker con-ref
+  (if (not (null? (con-existential (con-ref-con object))))
+      (mlet (((exp type) (existential-con-ref object (con-ref-con object))))
+	(return-type (if (eq? exp object) object (**save-old-exp object exp)) type))
+      (con-ref-type object)))
+
+(define (con-ref-type object)
   (let ((type-args (dynamic *type-args*)))
     (setf (dynamic *type-args*) '())
     (mlet (((type tyvars) (instantiate-gtype/newvars (con-signature (con-ref-con object)))))

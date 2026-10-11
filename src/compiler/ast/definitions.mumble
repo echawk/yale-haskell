@@ -121,6 +121,10 @@
    ;; The field (selector var) of each argument, or '() when the
    ;; constructor has no field labels.
    (field-labels (type (list var)) (default '()))
+   ;; ExistentialQuantification: for each hidden dictionary field (the
+   ;; first fields), its class and the index of the existential type
+   ;; variable in the signature (type/existentials.mumble)
+   (existential (type (list (tuple class int))) (default '()))
    ))
 
 

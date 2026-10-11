@@ -740,6 +740,13 @@
 	       '()
 	       `((setf (con-field-labels con)
 		       ,(dump-object (con-field-labels con)))))
+	 ,@(if (null? (con-existential con))
+	       '()
+	       `((setf (con-existential con)
+		       (list ,@(map (lambda (e)
+				      `(cons ,(dump-object (tuple-2-1 e))
+					     ,(tuple-2-2 e)))
+				    (con-existential con))))))
 	 con))))
 
 ;;; *** Could define similar init functions for other defs instead
