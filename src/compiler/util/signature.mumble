@@ -118,7 +118,9 @@
   (cond ((tyvar? type)
 	 (cons (tyvar-name type) vars))
 	((forall-type? type)
-	 ;; its own type variables are not free
+	 ;; its own type variables are not free; its context constrains
+	 ;; only them
+	 (resolve-signature-aux (forall-type-tyvars type) (forall-type-context type))
 	 (let ((inner (resolve-type-1 (forall-type-type type) '() '#f)))
 	   (append (lisp:remove-if (lambda (v) (memq v (forall-type-tyvars type)))
 				   inner)

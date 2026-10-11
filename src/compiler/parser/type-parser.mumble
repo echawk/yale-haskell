@@ -2,9 +2,12 @@
 
 (define (parse-type)
   (if (and (haskell98?) (eq-token? 'varid) (string=? (car *token-args*) "forall"))
-      ;; RankNTypes: forall a. t in an argument or field
-      (let ((tyvars (skip-explicit-forall)))
-	(make forall-type (tyvars tyvars) (type (parse-type))))
+      ;; RankNTypes: forall a. t, or forall a. C a => t, in an argument
+      ;; or field
+      (let* ((tyvars (skip-explicit-forall))
+	     (context (mlet (((single _) (split-contexts (parse-optional-context))))
+			single)))
+	(make forall-type (tyvars tyvars) (context context) (type (parse-type))))
       (parse-type-1)))
 
 (define (parse-type-1)

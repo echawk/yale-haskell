@@ -414,7 +414,8 @@
 
 (define (optimize-flic-app-aux object)
   (let ((new-fn   (optimize (flic-app-fn object)))
-	(new-args (optimize-list (flic-app-args object))))
+	(new-args (eta-reduce-dictionary-lambdas
+		   (optimize-list (flic-app-args object)))))
     (typecase new-fn
       (flic-ref
        ;; The function is a variable.
@@ -556,6 +557,44 @@
        (is-type? 'flic-ref (flic-app-fn exp))
        (seq-var? (flic-ref-var (flic-app-fn exp)))
        (eqv? (length (flic-app-args exp)) 2)))
+
+;;; Eta reduction of an argument that abstracts over dictionaries:
+;;; (\d x1 ... xn -> g d x1 ... xn), d a dictionary variable, becomes g.
+;;; A polymorphic argument with a context passed on (f in twice f =
+;;; showBoth f ...; type/polytypes.mumble) arrives as such a lambda.
+;;; g must be a variable that is not one of the lambda's, and not a local
+;;; function whose saturated calls are counted (var-fn-referenced).  Only
+;;; arguments: a binding's value keeps its arity.
+
+(define (eta-reduce-dictionary-lambdas args)
+  (map (lambda (arg)
+	 (let ((g (eta-reducible-dictionary-lambda arg)))
+	   (if g
+	       (begin
+		 (record-hack 'eta-reduce-dictionary-lambda)
+		 (flic-app-fn (flic-lambda-body arg)))
+	       arg)))
+       args))
+
+(define (eta-reducible-dictionary-lambda exp)
+  (and (is-type? 'flic-lambda exp)
+       (pair? (flic-lambda-vars exp))
+       (var-force-strict? (car (flic-lambda-vars exp)))
+       (let ((body (flic-lambda-body exp)))
+	 (and (is-type? 'flic-app body)
+	      (is-type? 'flic-ref (flic-app-fn body))
+	      (let ((g (flic-ref-var (flic-app-fn body)))
+		    (vars (flic-lambda-vars exp)))
+		(and (not (memq g vars))
+		     (not (var-selector-fn? g))
+		     (or (var-toplevel? g)
+			 (not (is-type? 'flic-lambda (var-value g))))
+		     (eqv? (length vars) (length (flic-app-args body)))
+		     (lisp:every (lambda (a v)
+				   (and (is-type? 'flic-ref a)
+					(eq? (flic-ref-var a) v)))
+				 (flic-app-args body) vars)
+		     g))))))
 
 (define (guess-function-arity var)
   (or (let ((value  (var-value var)))

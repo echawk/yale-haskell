@@ -126,10 +126,12 @@
      (if (null? (con-existential (pcon-con object)))
 	 (let ((con-type (instantiate-gtype (con-signature (pcon-con object)))))
 	   (type-unify con-type (**arrow/l-2 arg-types res-type) #f)
+	   (polytype-field-vars (pcon-pats object) con-type)
 	   (return-type object res-type))
 	 ;; existentials.mumble: the hidden dictionary fields bind variables
 	 (mlet (((con-type hidden) (existential-pcon (pcon-con object))))
 	   (type-unify con-type (**arrow/l-2 arg-types res-type) #f)
+	   (polytype-field-vars (pcon-pats object) con-type)
 	   (setf (pcon-pats object) (append hidden (pcon-pats object)))
 	   (return-type object res-type))))))
 
@@ -252,7 +254,15 @@
  (if (and (var-ref? (app-fn object))
 	  (eq? (var-ref-var (app-fn object)) (core-symbol "dictSel")))
   (type-check-dict-sel (app-arg object))
-  (type-check app fn fn-type
+  (type-check app fn fn-type0
+   (let ((fn-type (polytype-function-instance object fn-type0)))
+   (if (constrained-polytype-argument fn-type)
+    ;; an argument of a polytype with a context (polytypes.mumble)
+    (begin
+      (setf (app-arg object)
+	    (type-check-polytype-argument
+	     (app-arg object) (constrained-polytype-argument fn-type)))
+      (return-type object (cadr (ntycon-args (prune fn-type)))))
     (type-check app arg arg-type
       (fresh-type res-type
         (fresh-type arg-type-1
@@ -263,7 +273,7 @@
 	  (type-unify arg-type-1 arg-type
               (type-mismatch object
 		 "Argument type mismatch" arg-type-1 arg-type))
-	  (return-type object res-type)))))))
+	  (return-type object res-type)))))))))
 
 ;;; This is a special hack for typing dictionary selection as used in
 ;;; generic tuple functions.  This extracts a dictionary from a TupleDict

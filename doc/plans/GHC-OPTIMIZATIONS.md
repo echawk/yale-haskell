@@ -81,7 +81,7 @@ Status key:
 | Pattern-match compilation (`GHC.HsToCore.Match`) | Decision trees for overlapping equations | **have**: cfn builds `case-block`s.  The optimizer removes redundant constructor tests (`case-block-discard-redundant-test`) and turns blocks into `if` (`case-block-to-if`), and P3 recovers CL `case` | cfn, optimize, grin-lower |
 | Overloaded literals at known types | `fromInteger 3 :: Int` becomes the literal | **have**: `integer-to-int-constant-fold`, `int-to-integer-*`, `rational-to-*` (`magic-optimize-function`) | optimize |
 | Defaulting, dictionary construction | `Num a` resolved to `Int` at compile time | **have** (the type checker) | type |
-| `-fdicts-cheap`, `-fdicts-strict` | Treat dictionaries as cheap (eta-expand through them) and strict | **missing**.  Dictionaries are delayed like any argument.  Marking dictionary parameters strict is simple, in strictness: they are always evaluated tuples | strictness |
+| `-fdicts-cheap`, `-fdicts-strict` | Treat dictionaries as cheap (eta-expand through them) and strict | **have** (strict): every dictionary parameter is `var-force-strict?` (`dictionary-conversion/definition` in type/dictionary.mumble, existential and rank-N dictionary variables too), which strictness honours (`munge-strictness-terms`).  Dictionary *arguments* are still delayed when they are applications of dictionary functions | type, strictness |
 
 ### 2.2 The simplifier (GHC's workhorse)
 
@@ -102,7 +102,7 @@ Revealed* (doc/optimizer/optimizer.dvi), describes it.
 | Let floating (local) | Move `let` out of applications and into `case` branches | **have** (outward): `app-hoist-let`, `case-block-hoist-let`, `let-hoist-lambda`, `foldr-hoist-let` | optimize |
 | Eta expansion (`-fdo-lambda-eta-expansion`) and arity analysis | Give a function its full arity, so calls are saturated | **partial**: `app-make-saturated`, `lambda-compress`, `if-hoist-lambda`, and since 2026-10-10 `seq-hoist-lambda`: eta through a bang pattern | optimize |
 | The "state hack" | Treat `State# RealWorld` lambdas as one-shot, so eta expansion through `IO` is free | **partial**: the same effect for IO and ST loops via `if-hoist-lambda`/`seq-hoist-lambda`.  There is no one-shot information to make it general | optimize |
-| Eta reduction | `\x -> f x` becomes `f` | **missing** (minor; SBCL's code is unaffected) | optimize |
+| Eta reduction | `\x -> f x` becomes `f` | **partial** (2026-10-11): an argument abstracting over a dictionary, `\d x… -> g d x…`, becomes `g` (`eta-reduce-dictionary-lambdas`); a constrained rank-N argument passed on arrives as one.  General eta reduction is left out: it changes a binding's arity, which Yale's saturated calls depend on, and `seq` can tell the difference | optimize |
 | Known-call saturation of class-method selectors (ClassOp rules) | `op dict` at a known instance becomes the instance's method | **have**: `app-fold-selector` (constant dictionary) and, since 2026-10-10, `app-fold-selector-dictionary-fn` (an instance with a context applied to dictionaries) | optimize |
 | Constant folding (`GHC.Core.Opt.ConstantFold`, `-fnum-constant-folding`) | Arithmetic on literals, `x + 0`, comparisons | **partial**: numeric conversions and negation (`magic-optimize-function`), `if-fold`.  Int arithmetic on literals is left to SBCL, which folds it after emission.  GRIN folds `encode-double` | optimize; grin-opt `fold` |
 | RULES (user rewrite rules) | `{-# RULES "map/map" … #-}` | **partial**: foldr/build fusion only (`optimize-foldr`, `optimize-build`).  The rules are hard-wired, as are `foldr (:) z l` = `primAppend l z` and the other `foldr-*` identities | optimize, plus a `Rule` annotation (annotation-parser) to make it general |
@@ -170,7 +170,8 @@ bench/RESULTS.md entry.
    counting argument shapes as GHC's discounts do, would make most of
    the annotations unnecessary.
 3. **Demand analysis upgrades** in strictness.mumble:
-   - dictionary parameters strict (`-fdicts-strict`), trivially true;
+   - dictionary parameters strict (`-fdicts-strict`): already so
+     (`var-force-strict?`, found 2026-10-11);
    - absence: drop unused arguments in `/OPT`;
    - strictness of tuple fields (a strict `(Int, Int)` argument whose
      fields are used strictly).  This feeds item 4.

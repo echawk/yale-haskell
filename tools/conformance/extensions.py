@@ -114,6 +114,13 @@ app :: (forall a. a -> a) -> (Int, Bool)
 app f = (f 1, f True)
 main = print (app id)
 ''',
+    'RankNTypesContext': '''{-# LANGUAGE RankNTypes #-}
+both :: (forall a. Show a => a -> String) -> (String, String)
+both f = (f (1 :: Int), f True)
+twice :: (forall a. Show a => a -> String) -> String
+twice f = fst (both f) ++ snd (both f)
+main = print (both show, twice (\\x -> show x ++ "."))
+''',
     'ExistentialQuantification': '''{-# LANGUAGE ExistentialQuantification #-}
 data S = forall a. Show a => S a
 main = mapM_ (\\(S x) -> print x) [S (1 :: Int), S "two"]

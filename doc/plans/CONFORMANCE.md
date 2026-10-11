@@ -85,8 +85,11 @@ GHC extension or a modern-base idiom, and compares them with GHC's output:
     annotations.
   - ExistentialQuantification: hidden dictionary fields, rigid type
     variables.
-  - RankNTypes: polytypes without contexts as arguments and fields;
-    polymorphism is not checked at the call site.
+  - RankNTypes: polytypes as arguments and fields, with or without a
+    context (`forall s. Shape s => s -> Double`; the value takes the
+    dictionaries first).  An argument for a polytype with a context is
+    checked to be polymorphic enough; one without a context is not.
+    A pattern variable bound to a polytype field is polymorphic.
 - **Deriving:** Functor, Foldable, Traversable; GeneralizedNewtypeDeriving
   (the underlying instance must have no context and come from another
   module).

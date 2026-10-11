@@ -1,4 +1,4 @@
-;;; polytypes.mumble -- GHC's RankNTypes, without contexts
+;;; polytypes.mumble -- GHC's RankNTypes
 ;;;
 ;;; A type may contain a polytype, (forall a. t), as an argument or a
 ;;; field's type: a gtype with nested? set, whose own type variables are
@@ -7,13 +7,38 @@
 ;;;
 ;;; Unifying a polytype with a type instantiates it first (unify.mumble):
 ;;; a function's polymorphic argument, a field's, runST's action, take a
-;;; new instance each time.  So the argument given is not checked to be
-;;; polymorphic enough, and a program GHC accepts runs the same.
+;;; new instance each time.  So an argument given for a polytype without
+;;; a context is not checked to be polymorphic enough, and a program GHC
+;;; accepts runs the same.
 ;;;
 ;;; Inside a function whose signature gives an argument a polytype, the
 ;;; variable bound to that argument has the polytype itself as its type,
 ;;; and each use instantiates it (type-vars.mumble's var-ref): this is
 ;;; what lets app f = (f 1, f True) type check.
+;;;
+;;; A polytype may have a context, (forall s. Shape s => s -> Double).
+;;; Its values take the dictionaries first, in the order an overloaded
+;;; variable's do (type-vars.mumble's insert-dict-placeholders): for each
+;;; of its type variables, for each class of its context.
+;;;
+;;;  - A use of a variable with that type instantiates it with the
+;;;    context and applies it to dictionary placeholders
+;;;    (instantiate-polytype/context).
+;;;  - An argument given for it, in an application whose function's type
+;;;    is known to take it, is checked against a rigid instance whose
+;;;    type variables have new dictionary variables as their dictionary
+;;;    parameters, as an existential pattern's do, and becomes a lambda
+;;;    over them (type-check-polytype-argument).
+;;;  - An application of an expression whose type is a polytype (a
+;;;    field selector's result, runChurch n s z) instantiates it the
+;;;    same way (polytype-function-instance).
+;;;
+;;; An argument given where the function's type is not yet known gets no
+;;; dictionaries: such a function needs a signature, as in GHC.  Passing
+;;; a polymorphic argument on (twice f = both f) gives (\d -> f d), which
+;;; the optimizer eta-reduces to f (optimize.mumble's
+;;; eta-reduce-dictionary-lambdas).  A constructor pattern's variable
+;;; bound to a polytype field is polymorphic too (polytype-field-vars).
 
 (define *polytype-vars* '())   ; (tuple var polytype)
 
@@ -57,3 +82,85 @@
 	(cons (car (ntycon-args type))
 	      (arrow-argument-types (cadr (ntycon-args type))))
 	'())))
+
+;;; A polytype with a non-empty context.
+
+(define (constrained-polytype? type)
+  (and (polytype? type)
+       (lisp:some (lambda (c) (not (null? c))) (gtype-context type))))
+
+;;; A new instance of the polytype G whose type variables have its
+;;; context.  Returns the type and the type variables.
+
+(define (instantiate-polytype/context g)
+  (let ((tyvars (map (lambda (c)
+		       (let ((tv (**ntyvar)))
+			 (setf (ntyvar-context tv) c)
+			 tv))
+		     (gtype-context g))))
+    (values (copy-polytype-body (gtype-type g) tyvars) tyvars)))
+
+;;; FN-TYPE's argument type when it is a function type whose argument is a
+;;; constrained polytype, else #f.
+
+(define (constrained-polytype-argument fn-type)
+  (let ((type (prune fn-type)))
+    (and (ntycon? type)
+	 (eq? (ntycon-tycon type) (core-symbol "Arrow"))
+	 (let ((arg (prune (car (ntycon-args type)))))
+	   (and (constrained-polytype? arg) arg)))))
+
+;;; Type checks ARG, given for the constrained polytype POLY: returns
+;;; (\d1 ... dn -> arg), d1 ... dn its dictionaries.
+
+(define (type-check-polytype-argument arg poly)
+  (let ((tyvars '())
+	(dict-pats '()))
+    (dolist (classes (gtype-context poly))
+      (let ((tv (**ntyvar))
+	    (params '()))
+	(setf (ntyvar-context tv) classes)
+	(dolist (class classes)
+	  (let ((d (create-temp-var
+		    (string-append "d_" (symbol->string (def-name class))))))
+	    (setf (var-type d) (**ntyvar))
+	    (setf (var-force-strict? d) '#t)
+	    (push (**var-pat/def d) dict-pats)
+	    (push (tuple class d) params)))
+	(when (not (null? params))
+	  (setf (ntyvar-read-only? tv) '#t)
+	  (push (tuple (car (dynamic *enclosing-decls*)) (reverse params))
+		(ntyvar-dict-params tv)))
+	(push tv tyvars)))
+    (let ((type (copy-polytype-body (gtype-type poly) (reverse tyvars))))
+      (mlet (((arg1 arg-type) (dispatch-type-check arg)))
+	(type-unify arg-type type
+	  (type-mismatch arg
+	    "The argument is not as polymorphic as its type requires"
+	    arg-type type))
+	(**lambda/pat (reverse dict-pats) arg1)))))
+
+;;; In the application OBJECT, a function of type FN-TYPE: when it is a
+;;; polytype, its instance with dictionary placeholders applied to the
+;;; function.  Returns the type to apply.
+
+(define (polytype-function-instance object fn-type)
+  (let ((type (prune fn-type)))
+    (if (polytype? type)
+	(mlet (((ntype tyvars) (instantiate-polytype/context type)))
+	  (setf (app-fn object)
+		(insert-dict-placeholders (app-fn object) tyvars (app-fn object)))
+	  ntype)
+	fn-type)))
+
+;;; In a constructor pattern, a variable bound to a field whose type is a
+;;; polytype has the polytype as its type, as a polymorphic argument does.
+
+(define (polytype-field-vars pats con-type)
+  (do ((pats pats (cdr pats))
+       (types (arrow-argument-types con-type) (cdr types)))
+      ((or (null? pats) (null? types)))
+    (let ((pat (car pats))
+	  (type (prune (car types))))
+      (when (and (polytype? type) (var-pat? pat))
+	(setf (var-type (var-ref-var (var-pat-var pat))) type)))))

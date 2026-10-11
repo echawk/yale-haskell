@@ -58,7 +58,12 @@
 	    (return-type (**save-old-exp object new-object) ntype)))
 	 ;; a variable whose type is a polytype (polytypes.mumble)
 	 ((and (gtype? type) (gtype-nested? type))
-	  (return-type object (instantiate-polytype type)))
+	  (mlet (((ntype tyvars) (instantiate-polytype/context type))
+		 (object1 (insert-dict-placeholders object tyvars object)))
+	    (return-type (if (eq? object1 object)
+			     object
+			     (**save-old-exp object object1))
+			 ntype)))
 	 ((recursive-type? type)
 	  (let ((placeholder (**recursive-placeholder
 			      var (dynamic *enclosing-decls*))))

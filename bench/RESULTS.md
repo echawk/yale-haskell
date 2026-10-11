@@ -361,3 +361,33 @@ mapcount's `Ord Int` comparisons inside Data.Map's recursive
 operations are dictionary calls in recursive overloaded functions,
 which no amount of inlining reaches: doc/plans/SPECIALIZE.md.
 `existential` needs constrained polytypes (CONFORMANCE.md).
+
+## Constrained rank-N arguments (2026-10-11)
+
+RankNTypes now allows a context in a polytype (`forall s. Shape s =>
+s -> Double`), so `bench/modern/existential` compiles.  An argument
+passed on (`twice f = both f`) is eta-reduced back to `f`
+(`eta-reduce-dictionary-lambdas`).  `bench/compare-ghc -n 3`, same
+machine as above:
+
+```
+program          Yale    Yale MB  GHC -O0  GHC -O2    ratio  check
+bigint          0.145        553    0.072    0.061     2.4x  ok
+integrate       0.018         58    0.347    0.107     0.2x  ok
+interp          0.073        176    0.257    0.052     1.4x  ok
+ioloop          0.390        921    0.131    0.130     3.0x  ok
+loop            0.206          0   13.391    0.200     1.0x  ok
+nfib            0.545          0    5.122    0.267     2.0x  ok
+queens          0.345        674    1.796    0.145     2.4x  ok
+sieve           0.039        132    0.046    0.018     2.2x  ok
+tree            0.310        584    0.319    0.188     1.7x  ok
+wheel           0.006         13    0.053    0.009     0.6x  ok
+existential     0.023         90    0.059    0.021     1.1x  ok
+foldable        1.642       1836    0.552    0.215     7.6x  ok
+ioref           0.039          0    0.460    0.013     2.9x  ok
+mapcount        1.056       1542    0.369    0.295     3.6x  ok
+starray         0.218         80    2.574    0.049     4.5x  ok
+statemonad      0.135        418    0.587    0.021     6.3x  ok
+```
+
+The other programs are within run-to-run noise of the previous table.
