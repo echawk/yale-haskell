@@ -391,3 +391,38 @@ statemonad      0.135        418    0.587    0.021     6.3x  ok
 ```
 
 The other programs are within run-to-run noise of the previous table.
+
+## Specialization, case of case, Prelude compare (2026-10-11)
+
+Overloaded functions are specialized at their callers' constant
+dictionaries, within and across modules (doc/plans/SPECIALIZE.md);
+`let v = if c then K … in if is-constructor/K v …` is rewritten case of
+case; Maybe's `fmap`/`>>=`/`return` are `Inline`, and the Prelude's
+`Ord` instances for Int, Integer, Char, Float, Double define `compare`
+directly.  `bench/compare-ghc -n 3`, load average ~3:
+
+```
+program          Yale    Yale MB  GHC -O0  GHC -O2    ratio  check
+bigint          0.145        553    0.062    0.059     2.5x  ok
+integrate       0.018         58    0.313    0.101     0.2x  ok
+interp          0.071        176    0.230    0.048     1.5x  ok
+ioloop          0.212        629    0.122    0.114     1.9x  ok
+loop            0.197          0   13.230    0.202     1.0x  ok
+nfib            0.552          0    5.281    0.273     2.0x  ok
+queens          0.379        674    1.891    0.146     2.6x  ok
+sieve           0.039        132    0.046    0.018     2.2x  ok
+tree            0.304        584    0.320    0.196     1.6x  ok
+wheel           0.006         13    0.054    0.010     0.6x  ok
+existential     0.023         90    0.059    0.022     1.1x  ok
+foldable        1.157       1326    0.548    0.218     5.3x  ok
+ioref           0.040          0    0.444    0.015     2.7x  ok
+mapcount        0.879       1542    0.380    0.303     2.9x  ok
+starray         0.217         80    2.694    0.049     4.4x  ok
+statemonad      0.097        332    0.615    0.023     4.2x  ok
+```
+
+Against the previous section: foldable 1.64 -> 1.16 s (its derived
+`traverse` in Maybe now matches GHC's code; the rest is the derived
+`foldr`'s thunks), mapcount 1.06 -> 0.88 s (no `Ord` dictionary calls
+left; the time is allocating Map nodes), statemonad 0.135 -> 0.097 s,
+ioloop 0.39 -> 0.21 s (`mapM_` specialized at IO).

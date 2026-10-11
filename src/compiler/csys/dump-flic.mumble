@@ -20,6 +20,11 @@
   (dump-flic object '()))
 
 
+(define (create-strict-temp-var name)
+  (let ((v  (create-temp-var name)))
+    (setf (var-force-strict? v) '#t)
+    v))
+
 (define (make-temp-bindings-for-dump oldvars var-renamings)
   (let ((vars      '())
 	(bindings  '()))
@@ -27,7 +32,11 @@
       (let ((var  (def-name v))
 	    (temp (gensym)))
 	(push temp vars)
-	(push `(,temp (create-temp-var ',var)) bindings)
+	(push (if (var-force-strict? v)
+		  ;; a dictionary parameter (the optimizer's specialization)
+		  `(,temp (create-strict-temp-var ',var))
+		  `(,temp (create-temp-var ',var)))
+	      bindings)
 	(push (cons v temp) var-renamings)))
     (setf bindings (nreverse bindings))
     (setf vars (nreverse vars))

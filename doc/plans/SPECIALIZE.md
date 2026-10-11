@@ -1,6 +1,27 @@
 # SPECIALIZE: copies of overloaded functions for known dictionaries
 
-Status: planned (2026-10-10).
+Status: implemented (2026-10-11), as planned below with these choices:
+
+- The step is part of the app walk (`try-to-specialize` in
+  `src/compiler/backend/optimize.mumble`), active in iterations 1 to 9
+  of the 15 (`*specialize-first-iteration*`, `*specialize-last-iteration*`);
+  the new bindings join the module after each iteration.
+- Dictionary parameters are the leading `var-force-strict?` lambda
+  variables (`dictionary-params-count`); interfaces now keep that flag
+  (`create-strict-temp-var` in csys/dump-flic.mumble).
+- Across modules: option 2, no annotation.  Interfaces keep the value
+  of every overloaded top-level function of at most 400 FLIC nodes
+  (`specializable-value?`), so `Data.Map`, the Prelude's Foldable and
+  Traversable defaults and instances, `mapM` and friends specialize.
+- A constant dictionary built by a dictionary function
+  (`dict-Ord-List dict-Ord-Int`) becomes a top-level `dict@spec`
+  variable, made once (`specialized-dictionary`), which selector
+  folding sees through.
+- Budget: 60 specializations per module; copies nothing calls after
+  the last iteration are dropped (`remove-unused-specializations`).
+- `YALE_HASKELL_NO_SPECIALIZE=1` turns it off, for comparisons.
+
+The rest of this document is the plan as written.
 
 ## Why
 

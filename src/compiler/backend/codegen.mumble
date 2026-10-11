@@ -195,7 +195,25 @@
 ;;; or other optimizations correctly otherwise).  This means we have
 ;;; to sort out the variable bindings from the function bindings here.
 
+;;; A recursive let's strict bindings are computed eagerly, in order, so
+;;; they come after the others (functions and delayed values), whose
+;;; closures and thunks then exist when the strict values force them:
+;;; let r = encodeFloat m e; (m, e) = scale ... minExp; minExp = ... r
+;;; with (m, e) strict must bind minExp's thunk first.  Specialization
+;;; makes this shape, where a dictionary call used to hide the
+;;; dependency.
+
+(define (order-letrec-bindings bindings)
+  (let ((eager  '())
+	(other  '()))
+    (dolist (var bindings)
+      (if (and (var-strict? var) (not (flic-lambda? (var-value var))))
+	  (push var eager)
+	  (push var other)))
+    (nconc (nreverse other) (nreverse eager))))
+
 (define (codegen-letrec bindings body)
+  (setf bindings (order-letrec-bindings bindings))
   (let ((let-bindings     '())
 	(labels-bindings  '()))
     (dolist (var bindings)

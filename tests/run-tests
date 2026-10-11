@@ -12,6 +12,13 @@
 
 cd "$(dirname "$0")/.." || exit 1
 
+# The time limit: SIGKILL from the parent, since SBCL handles SIGALRM
+# itself (an alarm left a looping test running).  Exit status 142 on
+# timeout, as the alarm gave.
+LIMITED='$t = shift; $pid = fork; if (!$pid) { exec @ARGV; exit 127 }
+$SIG{ALRM} = sub { kill 9, $pid; waitpid $pid, 0; exit 142 }; alarm $t;
+waitpid $pid, 0; exit($? & 127 ? 128 + ($? & 127) : $? >> 8)'
+
 # run_one N HS: run test HS and write its report to $RT_TMP/N.res.  The
 # first line of the report is "pass", "xfail", "XPASS" or "FAIL"; any
 # further lines are printed as they are.
@@ -37,12 +44,12 @@ run_one() {
     *.repl)
       # an interactive session: the .repl file is typed at the prompt;
       # the banner (version, back end) is not compared
-      perl -e 'alarm shift; exec @ARGV' "$RT_LIMIT" \
+      perl -e "$LIMITED" "$RT_LIMIT" \
         env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell $flags repl \
         < "$hs" 2> "$err" | sed 1d > "$out"
       status=$? ;;
     *)
-      perl -e 'alarm shift; exec @ARGV' "$RT_LIMIT" \
+      perl -e "$LIMITED" "$RT_LIMIT" \
         env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell $flags "$hs" \
         < "$in" > "$out" 2> "$err"
       status=$? ;;

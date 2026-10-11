@@ -161,7 +161,10 @@
 		(*optimize-build-iteration*
 		  (if (do-optimization? 'foldr)
 		      (dynamic *foldr-optimize-build-iteration*)
-		      (dynamic *optimize-build-iteration*))))
+		      (dynamic *optimize-build-iteration*)))
+		(*specializations*            '())
+		(*specialized-dictionaries*   '())
+		(*new-specializations*        '()))
     (setf *hacks-done* '())
     (dotimes (i (dynamic *max-optimize-iterations*))
       (dynamic-let ((*current-optimize-iteration*  i))
@@ -170,7 +173,14 @@
 	  (format '#t "~%Optimize pass ~s:" i)
 	  (pprint object))
         (push '() *hacks-done*)
-	(setf object (optimize-flic-let-aux object '#t))))
+	(setf object (optimize-flic-let-aux object '#t))
+	;; the specialized functions made by this iteration
+	(when (not (null? (dynamic *new-specializations*)))
+	  (setf (flic-let-bindings object)
+		(append (flic-let-bindings object)
+			(nreverse (dynamic *new-specializations*))))
+	  (setf (dynamic *new-specializations*) '()))))
+    (remove-unused-specializations object)
     (setf (flic-let-bindings object)
 	  (nconc (nreverse (dynamic *structured-constants*))
 		 (flic-let-bindings object))))
@@ -385,6 +395,11 @@
 	   (setf (flic-let-body object) inner-body)
 	   body))
 	((and (not recursive?)
+	      (case-of-case-let? bindings (flic-let-body object)))
+	 ;; let v = if c then K1 ... else K2 ... in if is-constructor/K v ...
+	 (record-hack 'let-case-of-case)
+	 (do-case-of-case-let bindings (flic-let-body object)))
+	((and (not recursive?)
 	      (is-type? 'flic-let (flic-let-body object))
 	      (not (flic-let-recursive? (flic-let-body object))))
 	 ;; This is purely to produce more compact code.
@@ -429,6 +444,15 @@
 		(setf new-fn
 		      (do-app-make-saturated object new-fn new-args arity n))
 		(setf new-args '()))
+	       ((let ((spec  (try-to-specialize var new-args)))
+		  ;; A call with constant dictionaries (specialization,
+		  ;; below): f@spec, which later iterations optimize.
+		  (and spec
+		       (begin
+			 (setf new-fn (make-flic-ref (car spec)))
+			 (setf new-args (cdr spec))
+			 '#t)))
+		'#t)
 	       ((var-selector-fn? var)
 		;; This is a saturated call to a selector.  We might
 		;; be able to inline the call.
@@ -648,7 +672,9 @@
 
 (define (local-dictionary-app exp)
   (if (and (is-type? 'flic-ref exp)
-	   (not (var-toplevel? (flic-ref-var exp))))
+	   (or (not (var-toplevel? (flic-ref-var exp)))
+	       ;; a specialization's dictionary (specialized-dictionary)
+	       (assq (flic-ref-var exp) (dynamic *specialized-dictionaries*))))
       (let ((val  (var-value (flic-ref-var exp))))
 	(if (and (is-type? 'flic-app val)
 		 (is-type? 'flic-ref (flic-app-fn val))
@@ -2264,3 +2290,351 @@
 
 (define-postoptimize flic-void (object)
   object)
+
+
+;;;===================================================================
+;;; Specialization (GHC's specialiser; doc/plans/SPECIALIZE.md)
+;;;===================================================================
+
+;;; A call f D1 ... Dk a1 ... an of a top-level function whose value is
+;;; known, \d1 ... dk x1 ... xn -> body, where d1 ... dk are dictionary
+;;; parameters (var-force-strict?: type/dictionary.mumble) and D1 ... Dk
+;;; constant dictionaries, becomes f@spec a1 ... an, f@spec a new
+;;; top-level function \x1 ... xn -> let d1 = D1 ... in body.  The
+;;; bindings are added to the module after the iteration, so the next
+;;; iterations fold the selections from D1 ... Dk and inline the methods.
+;;; A recursive call inside the copy, with the same dictionaries, finds
+;;; the same f@spec in the memo table, so the copy closes over the
+;;; recursion.
+;;;
+;;; A constant dictionary is a top-level dictionary variable (dict-C-T),
+;;; a dictionary function applied to constant dictionaries, or a local
+;;; variable bound to one of those.  Its key, for the memo table, is the
+;;; variable or (fn key ...).
+
+(define *specialize?* '#t)
+(define *specialize-first-iteration* 1)
+(define *specialize-last-iteration* 9)   ; with foldr's 15 iterations
+(define *specialize-max-per-module* 60)
+(define *specialize-max-size* 400)        ; FLIC nodes of f's value
+
+(define *specializations* '())        ; (key . var), key (f dict-key ...)
+(define *specialized-dictionaries* '())  ; (var . dict-key), dict-key a pair
+(define *new-specializations* '())    ; vars to add after this iteration
+
+(define (specialize-now?)
+  (and (dynamic *specialize?*)
+       (not (env-flag? "YALE_HASKELL_NO_SPECIALIZE"))
+       (dynamic *do-inline-optimizations*)
+       (>= (dynamic *current-optimize-iteration*)
+	   (dynamic *specialize-first-iteration*))
+       (<= (dynamic *current-optimize-iteration*)
+	   (min (dynamic *specialize-last-iteration*)
+		(- (dynamic *max-optimize-iterations*) 4)))))
+
+;;; The number of leading dictionary parameters of F's value, or 0.
+
+(define (dictionary-params-count var)
+  (let ((val  (var-value var)))
+    (if (and (var-toplevel? var) (is-type? 'flic-lambda val))
+	(let ((n  0))
+	  (dolist (v (flic-lambda-vars val))
+	    (if (var-force-strict? v)
+		(incf n)
+		(return-from dictionary-params-count n)))
+	  n)
+	0)))
+
+;;; Interfaces keep the values of these (csys/dump-interface.mumble), so
+;;; that importing modules can specialize them.
+
+(define (specializable-value? var)
+  (and (dynamic *specialize?*)
+       (> (dictionary-params-count var) 0)
+       (not (var-selector-fn? var))
+       (<= (flic-size (var-value var) (dynamic *specialize-max-size*))
+	   (dynamic *specialize-max-size*))))
+
+(define (constant-dictionary-key exp)
+  (cond ((is-type? 'flic-ref exp)
+	 (let ((v  (flic-ref-var exp)))
+	   (cond ((assq v (dynamic *specialized-dictionaries*))
+		  (cdr (assq v (dynamic *specialized-dictionaries*))))
+		 ((var-toplevel? v)
+		  (and (string-starts? "dict-" (symbol->string (def-name v)))
+		       (or (is-bound-to-constructor-app? v)
+			   (not (is-type? 'flic-lambda (var-value v))))
+		       v))
+		 ((and (is-type? 'flic-app (var-value v))
+		       (not (var-arg-invariant? v)))
+		  (constant-dictionary-key (var-value v)))
+		 (else '#f))))
+	((and (is-type? 'flic-app exp)
+	      (is-type? 'flic-ref (flic-app-fn exp))
+	      (dictionary-fn-value (flic-ref-var (flic-app-fn exp)))
+	      (eqv? (length (flic-app-args exp))
+		    (length (flic-lambda-vars
+			     (dictionary-fn-value (flic-ref-var (flic-app-fn exp)))))))
+	 (let ((keys  (map (function constant-dictionary-key) (flic-app-args exp))))
+	   (and (every-1 (lambda (k) k) keys)
+		(cons (flic-ref-var (flic-app-fn exp)) keys))))
+	(else '#f)))
+
+;;; Keys hold vars, which are structures: compared by eq?, not equal?
+;;; (which would walk into them).
+
+(define (dictionary-key-eq? k1 k2)
+  (cond ((pair? k1)
+	 (and (pair? k2)
+	      (dictionary-key-eq? (car k1) (car k2))
+	      (dictionary-key-eq? (cdr k1) (cdr k2))))
+	(else (eq? k1 k2))))
+
+(define (dictionary-key->flic key)
+  (if (pair? key)
+      (make-flic-app (make-flic-ref (car key))
+		     (map (function dictionary-key->flic) (cdr key))
+		     '#t)
+      (make-flic-ref key)))
+
+(define (flic-size exp limit)
+  (let ((n  0))
+    (flic-size-1 exp (lambda () (incf n) (> n limit)))
+    n))
+
+(define (flic-size-1 exp over?)
+  (when (not (funcall over?))
+    (typecase exp
+      (flic-lambda (flic-size-1 (flic-lambda-body exp) over?))
+      (flic-let
+       (dolist (v (flic-let-bindings exp)) (flic-size-1 (var-value v) over?))
+       (flic-size-1 (flic-let-body exp) over?))
+      (flic-app
+       (flic-size-1 (flic-app-fn exp) over?)
+       (dolist (a (flic-app-args exp)) (flic-size-1 a over?)))
+      (flic-case-block
+       (dolist (e (flic-case-block-exps exp)) (flic-size-1 e over?)))
+      (flic-return-from (flic-size-1 (flic-return-from-exp exp) over?))
+      (flic-and (dolist (e (flic-and-exps exp)) (flic-size-1 e over?)))
+      (flic-if
+       (flic-size-1 (flic-if-test-exp exp) over?)
+       (flic-size-1 (flic-if-then-exp exp) over?)
+       (flic-size-1 (flic-if-else-exp exp) over?))
+      (flic-sel (flic-size-1 (flic-sel-exp exp) over?))
+      (flic-is-constructor (flic-size-1 (flic-is-constructor-exp exp) over?))
+      (flic-con-number (flic-size-1 (flic-con-number-exp exp) over?))
+      (else '#f))))
+
+;;; The call (VAR . ARGS), saturated: the specialized function and the
+;;; remaining arguments, or #f.
+
+(define (try-to-specialize var args)
+  (let ((k  (dictionary-params-count var)))
+    (and (> k 0)
+	 (>= (length args) k)
+	 (specialize-now?)
+	 (not (var-selector-fn? var))
+	 (not (string-starts? "dict-" (symbol->string (def-name var))))
+	 (let ((keys  (map (function constant-dictionary-key)
+			   (list-head args k))))
+	   (and (every-1 (lambda (x) x) keys)
+		(let* ((key   (cons var keys))
+		       (entry (lisp:assoc key (dynamic *specializations*)
+					  :test (function dictionary-key-eq?)))
+		       (spec  (if entry
+				  (cdr entry)
+				  (make-specialization var k keys key))))
+		  (and spec
+		       (begin
+			 (record-hack 'app-specialize var)
+			 (dolist (a (list-head args k))
+			   (when (and (is-type? 'flic-ref a)
+				      (not (var-toplevel? (flic-ref-var a))))
+			     (decf (var-referenced (flic-ref-var a)))))
+			 (cons spec (list-tail args k))))))))))
+
+(define (make-specialization var k keys key)
+  (let ((val  (var-value var)))
+    (and (< (length (dynamic *specializations*))
+	    (dynamic *specialize-max-per-module*))
+	 (<= (flic-size val (dynamic *specialize-max-size*))
+	     (dynamic *specialize-max-size*))
+	 (let* ((copy  (copy-flic-top val))
+		(dvars (list-head (flic-lambda-vars copy) k))
+		(rest  (list-tail (flic-lambda-vars copy) k))
+		(spec  (create-temp-var
+			(string-append (symbol->string (def-name var)) "@spec"))))
+	   (map (lambda (d key)
+		  (setf (var-value d)
+			(make-flic-ref (if (pair? key)
+					   (specialized-dictionary key)
+					   key)))
+		  (setf (var-simple? d) '#t))
+		dvars keys)
+	   (let* ((body   (make-flic-let dvars (flic-lambda-body copy) '#f))
+		  (value  (if (null? rest) body (make-flic-lambda rest body))))
+	     (init-flic-var spec value '#t)
+	     (push (cons key spec) (dynamic *specializations*))
+	     (push spec (dynamic *new-specializations*))
+	     spec)))))
+
+;;; A dictionary function's application to constant dictionaries, as a
+;;; top-level variable (made once per module), so a specialized loop
+;;; does not build the dictionary at each call.
+
+(define (specialized-dictionary key)
+  (let ((entry  (lisp:rassoc key (dynamic *specialized-dictionaries*)
+			     :test (function dictionary-key-eq?))))
+    (if entry
+	(car entry)
+	(let ((var  (create-temp-var "dict@spec")))
+	  (init-flic-var var (dictionary-key->flic
+			      (cons (car key)
+				    (map (lambda (k)
+					   (if (pair? k) (specialized-dictionary k) k))
+					 (cdr key))))
+			 '#t)
+	  (push (cons var key) (dynamic *specialized-dictionaries*))
+	  (push var (dynamic *new-specializations*))
+	  var))))
+
+;;; After the last iteration: the specialized functions and dictionaries
+;;; nothing refers to (a call that was inlined after its specialization).
+
+(define (remove-unused-specializations object)
+  (let ((specs  (append (map (function cdr) (dynamic *specializations*))
+			(map (function car) (dynamic *specialized-dictionaries*))))
+	(used   '()))
+    (when (not (null? specs))
+      (let ((live  '()))
+	;; the roots: every binding that is not a specialization, and the
+	;; structured constants (added to the bindings later)
+	(dolist (v (append (dynamic *structured-constants*)
+			   (flic-let-bindings object)))
+	  (when (not (memq v specs))
+	    (push v live)))
+	(let ((queue  live))
+	  (do () ((null? queue))
+	    (let ((v  (pop queue)))
+	      (flic-walk-refs
+	       (var-value v)
+	       (lambda (r)
+		 (when (and (memq r specs) (not (memq r used)))
+		   (push r used)
+		   (push r queue)))))))
+	(setf (flic-let-bindings object)
+	      (lisp:remove-if (lambda (v) (and (memq v specs) (not (memq v used))))
+			      (flic-let-bindings object)))))))
+
+(define (flic-walk-refs exp fn)
+  (typecase exp
+    (flic-ref (funcall fn (flic-ref-var exp)))
+    (flic-lambda (flic-walk-refs (flic-lambda-body exp) fn))
+    (flic-let
+     (dolist (v (flic-let-bindings exp)) (flic-walk-refs (var-value v) fn))
+     (flic-walk-refs (flic-let-body exp) fn))
+    (flic-app
+     (flic-walk-refs (flic-app-fn exp) fn)
+     (dolist (a (flic-app-args exp)) (flic-walk-refs a fn)))
+    (flic-case-block
+     (dolist (e (flic-case-block-exps exp)) (flic-walk-refs e fn)))
+    (flic-return-from (flic-walk-refs (flic-return-from-exp exp) fn))
+    (flic-and (dolist (e (flic-and-exps exp)) (flic-walk-refs e fn)))
+    (flic-if
+     (flic-walk-refs (flic-if-test-exp exp) fn)
+     (flic-walk-refs (flic-if-then-exp exp) fn)
+     (flic-walk-refs (flic-if-else-exp exp) fn))
+    (flic-sel (flic-walk-refs (flic-sel-exp exp) fn))
+    (flic-is-constructor (flic-walk-refs (flic-is-constructor-exp exp) fn))
+    (flic-con-number (flic-walk-refs (flic-con-number-exp exp) fn))
+    (else '#f)))
+
+
+;;;===================================================================
+;;; Case of case (GHC's; doc/plans/GHC-OPTIMIZATIONS.md)
+;;;===================================================================
+
+;;; let v = if c then E1 else E2 in if is-constructor/K v then A else B
+;;;  =>  if c then (let v = E1 in if ...) else (let v = E2 in if ...)
+;;;
+;;; when E1 or E2 builds a known constructor, so that in its branch the
+;;; test and the selections from v fold (is-constructor-fold,
+;;; sel-fold-var), and the body is small: it is copied.  The body tests v
+;;; first, so v is evaluated first either way.  Inlining fmap or >>= for
+;;; Maybe over a function returning Just or Nothing makes this shape
+;;; (the partial constructor application in Just (Rose x) <*> ... is then
+;;; saturated).
+
+;;; v may be one of several bindings (the others, which must not refer to
+;;; v, stay around the result), and its value may be lets around the if
+;;; (they move out, around the if: their variables are new).
+
+(define *case-of-case-max-size* 60)
+
+(define (case-of-case-let? bindings body)
+  (and (not (env-flag? "YALE_HASKELL_NO_CASE_OF_CASE"))
+       (is-type? 'flic-if body)
+       (is-type? 'flic-is-constructor (flic-if-test-exp body))
+       (let ((e  (flic-is-constructor-exp (flic-if-test-exp body))))
+	 (and (is-type? 'flic-ref e)
+	      (memq (flic-ref-var e) bindings)
+	      (let* ((v    (flic-ref-var e))
+		     (val  (if-under-lets (var-value v))))
+		(and (is-type? 'flic-if val)
+		     (or (known-constructor-exp? (flic-if-then-exp val))
+			 (known-constructor-exp? (flic-if-else-exp val)))
+		     (not (lisp:some (lambda (b)
+				       (and (not (eq? b v))
+					    (refers-to? (var-value b) v)))
+				     bindings))
+		     (<= (flic-size body *case-of-case-max-size*)
+			 *case-of-case-max-size*)))))))
+
+(define (if-under-lets e)
+  (if (is-type? 'flic-let e)
+      (if-under-lets (flic-let-body e))
+      e))
+
+(define (refers-to? exp var)
+  (let ((found  '#f))
+    (flic-walk-refs exp (lambda (r) (when (eq? r var) (setf found '#t))))
+    found))
+
+(define (known-constructor-exp? e)
+  (or (is-type? 'flic-pack e)
+      (and (is-type? 'flic-app e)
+	   (is-type? 'flic-pack (flic-app-fn e)))
+      (and (is-type? 'flic-ref e)
+	   (is-bound-to-constructor-app? (flic-ref-var e)))))
+
+;;; Returns the new expression for (let BINDINGS in BODY).
+
+(define (do-case-of-case-let bindings body)
+  (let* ((v       (flic-ref-var
+		   (flic-is-constructor-exp (flic-if-test-exp body))))
+	 (others  (lisp:remove v bindings))
+	 (lets    '())
+	 (val     (var-value v)))
+    ;; the lets around the if move out
+    (do () ((not (is-type? 'flic-let val)))
+      (push val lets)
+      (setf val (flic-let-body val)))
+    (let ((then-exp  (flic-if-then-exp val))
+	  (else-exp  (flic-if-else-exp val)))
+      (setf (var-value v) else-exp)
+      (let ((else-let  (copy-flic-top (make-flic-let (list v) body '#f))))
+	;; the copy's references to outer variables count
+	(flic-walk-refs else-let
+			(lambda (r)
+			  (when (not (var-toplevel? r))
+			    (incf (var-referenced r)))))
+	(setf (var-value v) then-exp)
+	(let ((result  (make-flic-if (flic-if-test-exp val)
+				     (make-flic-let (list v) body '#f)
+				     else-let)))
+	  (dolist (l lets)   ; innermost first
+	    (setf (flic-let-body l) result)
+	    (setf result l))
+	  (if (null? others)
+	      result
+	      (make-flic-let others result '#f)))))))

@@ -201,7 +201,8 @@
   (let ((bindings  (flic-let-bindings object))
 	(body      (flic-let-body object)))
     (if (flic-let-recursive? object)
-	(make-grin-letrec (grin-lower-bindings bindings) (grin-lower body) '#t)
+	(make-grin-letrec (grin-lower-bindings (order-letrec-bindings bindings))
+			  (grin-lower body) '#t)
 	(grin-lower-let* bindings body))))
 
 (define (grin-lower-let* bindings body)

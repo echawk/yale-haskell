@@ -93,11 +93,11 @@ Revealed* (doc/optimizer/optimizer.dvi), describes it.
 | GHC | What it does | Yale status | Place |
 |---|---|---|---|
 | Inlining with unfoldings; `INLINE`/`NOINLINE` | Copy small or annotated definitions to call sites, across modules via interface unfoldings | **have**: `ref-inline`, `ref-inline-single-ref`, `{-# f :: Inline #-}`, and interfaces save simple and inline values (`do-dump-var`).  **Missing:** a size-based heuristic for non-annotated functions (GHC's "unfolding discount" weighing argument shapes), so the libraries need explicit `Inline` (as this round added for IORef, State, MArray) | optimize: `can-inline?`, `optimize-flic-ref-aux` |
-| `INLINABLE` | Keep the unfolding for specialization without forcing inlining | **missing** | interface dump; see SPECIALIZE.md |
+| `INLINABLE` | Keep the unfolding for specialization without forcing inlining | **have** (2026-10-11), automatic: interfaces keep the value of every overloaded function up to 400 FLIC nodes (`specializable-value?`), like `-fexpose-all-unfoldings` limited to overloaded code | interface dump; see SPECIALIZE.md |
 | Phase control (`INLINE [1]`, rule phases) | Order inlining relative to rewrite rules | **partial**: foldr and build inline at fixed iterations (`*optimize-foldr-iteration*`, `*optimize-build-iteration*`) | optimize |
 | Beta reduction | `(\x -> e) a` becomes `let x = a in e` | **have**: `app-lambda-to-let` | optimize |
 | Case of known constructor | `case C a of C x -> e` becomes `e[a/x]` | **have**: `sel-fold-app`, `sel-fold-var`, `is-constructor-fold`, and `con-number-fold` | optimize |
-| Case of case | Push an outer case into the branches of an inner one, with join points for the outer branches | **missing** in FLIC.  SBCL folds `(if (if …))` but not across constructor dispatch.  It matters after inlining, for example when `maybe`/`either` are inlined over a function returning `Just`/`Nothing` | optimize (a FLIC rewrite on `if`/`case-block` whose test is itself an `if` over constructors), or on LGRIN `case` |
+| Case of case | Push an outer case into the branches of an inner one, with join points for the outer branches | **partial** (2026-10-11): `let v = if c then K… else … in if is-constructor/K v …` with a body of at most 60 nodes copies the body into both branches (`let-case-of-case`), so the test and the selections fold where the branch is a known constructor.  It turns a derived `traverse` in `Maybe` into GHC's code (no partial application of the constructor).  No join points, so larger bodies are left alone; `case-block` tests are not handled.  `YALE_HASKELL_NO_CASE_OF_CASE=1` turns it off | optimize: `optimize-flic-let-rewrite` |
 | Binder swap, case merging (`-fcase-merge`), case folding (`-fcase-folding`) | Clean up nested cases on the same scrutinee | **partial**: redundant and duplicate test removal in `case-block` | optimize |
 | Let floating (local) | Move `let` out of applications and into `case` branches | **have** (outward): `app-hoist-let`, `case-block-hoist-let`, `let-hoist-lambda`, `foldr-hoist-let` | optimize |
 | Eta expansion (`-fdo-lambda-eta-expansion`) and arity analysis | Give a function its full arity, so calls are saturated | **partial**: `app-make-saturated`, `lambda-compress`, `if-hoist-lambda`, and since 2026-10-10 `seq-hoist-lambda`: eta through a bang pattern | optimize |
@@ -113,7 +113,7 @@ Revealed* (doc/optimizer/optimizer.dvi), describes it.
 
 | GHC | What it does | Yale status | Place |
 |---|---|---|---|
-| **Specialise** (`-fspecialise`, `-fcross-module-specialise`, `SPECIALISE`) | Copy an overloaded function for the dictionaries it is called with, recursion included | **missing**; the largest gap the benchmarks show (foldable 7.5×, mapcount 3.5×) | inside optimize, between iterations: **doc/plans/SPECIALIZE.md** |
+| **Specialise** (`-fspecialise`, `-fcross-module-specialise`, `SPECIALISE`) | Copy an overloaded function for the dictionaries it is called with, recursion included | **have** (2026-10-11): automatic, within and across modules, with a memo table closing over recursion; no `SPECIALISE` pragma.  mapcount 3.6× → 2.2×, statemonad 6.3× → 4.1× | inside optimize: `try-to-specialize`; **doc/plans/SPECIALIZE.md** |
 | Full laziness / float out (`-ffull-laziness`) | Float `let`s out of lambdas so they are computed once (to the top level as CAFs) | **partial**: structured constants (`let-hoist-structured-constant`, `app-hoist-structured-constant`) are floated to the top level.  General float-out is missing.  It can cost space (GHC turns it off with `-fno-full-laziness` for that reason), so float only cheap or constant expressions first | optimize (a separate walk after the first iterations), before strictness |
 | Float in (`-ffloat-in`) | Move a `let` into the only branch that uses it, so it is not allocated on the other paths | **missing**.  Box analysis then sees the binding as strict in that branch more often | optimize, a walk before strictness |
 | Static argument transformation (`-fstatic-argument-transformation`) | A recursive function's unchanging argument becomes a free variable of a local loop | **have** (Yale did this in 1993): invariant-argument removal (`let-hoist-invariant-args`, `note-invariant-args`), the `dropWhile isSpace` example in Loosemore's note | optimize |
@@ -159,12 +159,19 @@ first within the same value.  Each item should get a switch
 (`*grin-optimizations*` style, or a name in `*optimizers*`) and a
 bench/RESULTS.md entry.
 
-1. **Specialise**: plan in doc/plans/SPECIALIZE.md; a step in
-   `optimize-top`'s iteration loop, before strictness.  Expected:
-   foldable 7.5× → ~2×, mapcount 3.5× → ~1.5–2×, all `Data.Map`/`Set`
-   code, and mtl code over a polymorphic monad.
+1. **Specialise** (done 2026-10-11): doc/plans/SPECIALIZE.md; a step in
+   `optimize-top`'s iteration loop, before strictness.  Expected
+   foldable 7.5× → ~2×, mapcount 3.5× → ~1.5–2×; measured mapcount
+   3.6× → 2.2×, statemonad 6.3× → 4.1×, foldable 7.6× → ~6×
+   (foldable's remaining time is the derived `foldr`'s thunks, not
+   dictionaries).  Specialization exposed a code-generation bug, fixed
+   with it: a recursive let's strict bindings were computed before
+   later bindings' thunks existed (`order-letrec-bindings`).
 2. **Library inlining audit**: mark the small wrappers `Inline`, as this
-   round did for `forM_`, `Data.IORef`, State, MArray, `liftA2`.  The
+   round did for `forM_`, `Data.IORef`, State, MArray, `liftA2`, and
+   (2026-10-11) `fmap`/`>>=`/`return` for Maybe and a direct `compare`
+   for Int, Integer, Char, Float and Double (it was the class default
+   through `==` and `<=`).  The
    cheap substitute for a size heuristic.  A size-based
    `can-inline?` for non-recursive functions under N FLIC nodes,
    counting argument shapes as GHC's discounts do, would make most of
@@ -178,8 +185,10 @@ bench/RESULTS.md entry.
 4. **Worker/wrapper with CPR and unboxed returns** (CL `values`):
    EVAL-APPLY-GRIN.md §5.4 items 3–4.  Expected: State's `(a, s)` pairs
    (statemonad allocates 418 MB), `quotRem`, and `divMod` loops.
-5. **Case of case** in FLIC: cheap, and it compounds with inlining
-   (`maybe`, `either`, `uncurry`, and `when` over a comparison).
+5. **Case of case** in FLIC (partial, 2026-10-11: `let-case-of-case`
+   for an `if` over known constructors and a small body): cheap, and it
+   compounds with inlining (`maybe`, `either`, `uncurry`, and `when`
+   over a comparison).  Join points would let it handle larger bodies.
 6. **SpecConstr** after Specialise, sharing its copy-and-memo
    machinery: queens and list-comprehension generators.
 7. **Float in**, then a conservative **full laziness** (constant

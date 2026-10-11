@@ -381,12 +381,15 @@ f =<< x			=  x >>= f
 instance  Functor Maybe  where
     fmap f Nothing	=  Nothing
     fmap f (Just x)	=  Just (f x)
+    {-# fmap :: Inline #-}
 
 instance  Monad Maybe  where
     (Just x) >>= k	=  k x
     Nothing  >>= k	=  Nothing
     return		=  Just
     fail s		=  Nothing
+    {-# (>>=) :: Inline #-}
+    {-# return :: Inline #-}
 
 -- Trivial type
 
@@ -488,6 +491,11 @@ instance  Eq Char  where
     (/=)                =  primNeqChar
 
 instance  Ord Char  where
+    -- direct, not the class default through == and <=
+    {-# compare :: Inline #-}
+    compare x y | primLsChar x y = LT
+                | primEqChar x y = EQ
+                | otherwise    = GT
     (<)                 =  primLsChar
     (<=)		=  primLeChar
     (>)                 =  primGtChar
@@ -567,6 +575,11 @@ instance  Eq Integer  where
     (/=)                =  primNeqInteger
 
 instance  Ord Int  where
+    -- direct, not the class default through == and <=
+    {-# compare :: Inline #-}
+    compare x y | primLsInt x y = LT
+                | primEqInt x y = EQ
+                | otherwise    = GT
     (<)                 =  primLsInt
     (<=)		=  primLeInt
     (>)                 =  primGtInt
@@ -575,6 +588,11 @@ instance  Ord Int  where
     min                 =  primIntMin
 
 instance  Ord Integer  where
+    -- direct, not the class default through == and <=
+    {-# compare :: Inline #-}
+    compare x y | primLsInteger x y = LT
+                | primEqInteger x y = EQ
+                | otherwise    = GT
     (<)                 =  primLsInteger
     (<=)		=  primLeInteger
     (>)                 =  primGtInteger
@@ -743,6 +761,11 @@ instance  Eq Double  where
     (/=)                =  primNeqDouble
 
 instance  Ord Float  where
+    -- direct, not the class default through == and <=
+    {-# compare :: Inline #-}
+    compare x y | primLsFloat x y = LT
+                | primEqFloat x y = EQ
+                | otherwise    = GT
     (<)                 =  primLsFloat
     (<=)		=  primLeFloat
     (>)                 =  primGtFloat
@@ -751,6 +774,11 @@ instance  Ord Float  where
     min                 =  primFloatMin
 
 instance  Ord Double  where
+    -- direct, not the class default through == and <=
+    {-# compare :: Inline #-}
+    compare x y | primLsDouble x y = LT
+                | primEqDouble x y = EQ
+                | otherwise    = GT
     (<)                 =  primLsDouble
     (<=)		=  primLeDouble
     (>)                 =  primGtDouble
