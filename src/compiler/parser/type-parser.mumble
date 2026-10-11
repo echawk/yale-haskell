@@ -11,12 +11,42 @@
       (parse-type-1)))
 
 (define (parse-type-1)
-  (let ((type (parse-btype)))
+  (let ((type (parse-type-operators (parse-btype))))
     (token-case
       (->
        (**tycon/def (core-symbol "Arrow") (list type (parse-type))))
       (else type))))
 
+
+;;; TypeOperators (GHC): t1 :+: t2, t1 + t2 is the type constructor
+;;; (:+:) or (+) applied to t1 and t2; left associative (fixities of type
+;;; operators are not used), binding tighter than ->.
+
+(define (parse-type-operators left)
+  (if (type-operator-here?)
+      (let* ((name (type-operator-name))
+	     (right (parse-btype)))
+	(parse-type-operators
+	 (make tycon (name name) (def *undefined-def*) (args (list left right)))))
+      left))
+
+;;; A type operator's name; a varsym (+) gets a prefix, as types and
+;;; values share the symbol tables and a constructor operator's do.
+
+(define (type-operator-name)
+  (if (eq? *token* 'varsym)
+      (let ((name (car *token-args*)))
+	(advance-token)
+	(string->symbol (string-append "type%" name)))
+      (token->symbol)))
+
+(define (prefix-type-operator?)
+  (and (type-operator-here?) (eq? (peek-1-type) '\))))
+
+(define (type-operator-here?)
+  (and (memq *token* '(consym varsym))
+       (not (mem-string (car *token-args*) '("." "!" "~" "*")))
+       (language-extension? "TypeOperators")))
 
 (define (parse-btype)
   (token-case
@@ -36,9 +66,12 @@
 	  (apply-ast-type type args)   ; `(->) r', `[] a', `(,) a b'
 	  type)))))
 
+(define (at-type-wildcard?)
+  (and (haskell98?) (eq-token? '\_)))
+
 (define (parse-atype-list)
   (token-case
-    (atype-start
+    ((atype-start satisfies at-type-wildcard?)
      (let ((atype (parse-atype)))
        (cons atype (parse-atype-list))))
     (else '())))
@@ -46,6 +79,11 @@
 (define (parse-atype)
   (token-case
     (tyvar (tyvar->ast))
+    ;; PartialTypeSignatures (GHC): _
+    ((no-advance satisfies at-type-wildcard?)
+     (advance-token)
+     (setf *signature-wildcard?* '#t)
+     (make tyvar (name '|_wildcard|)))
     (tycon (tycon->ast))
     (\( (token-case
 	  (\) (**tycon/def (core-symbol "UnitType") '()))
@@ -53,6 +91,11 @@
 	      (**tycon/def (core-symbol "Arrow") '()))
 	  (\, (let ((n 2))
 		(token-case-loop-commas n)))
+	  ;; TypeOperators: (:+:) as a prefix type constructor
+	  ((no-advance satisfies prefix-type-operator?)
+	   (let ((name (type-operator-name)))
+	     (advance-token)
+	     (make tycon (name name) (def *undefined-def*) (args '()))))
 	  (else
 	    (let ((type (parse-type)))
 	      (token-case

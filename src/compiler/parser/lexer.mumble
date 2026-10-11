@@ -179,6 +179,10 @@
 		 (advance-char)
 		 (advance-char)
 		 (lex-one-token))
+	    (digit
+	     (if (negative-literal-here?)
+		 (lex-negative-literal)
+		 (lex-varsym)))
 	    (else
 	     (lex-varsym))))
     (#\{ (cond ((char=? *peek-char* '#\-)
@@ -247,6 +251,8 @@
 	      (emit-token/string 'conid word))
 	     ((string=/list? word "LINE")
 	      (lex-line-pragma))
+	     ((string-ci=? (list->string word) "LANGUAGE")
+	      (lex-language-pragma))
 	     ((and (pragma-word? word)
 		   (not (string=/list? word "STRICT")))
 	      (skip-pragma *current-line*))
@@ -255,6 +261,40 @@
 	      (emit-token/string 'conid word)))))
     (else
      (emit-token 'begin-annotation))))
+
+;;; {-# LANGUAGE E1, E2 #-}: the extensions are recorded for the parser
+;;; (*language-extensions*, language-extension?) and the module (its
+;;; extensions slot); the pragma is otherwise a comment.
+
+(define *language-extensions* '())
+
+(define (language-extension? name)
+  (mem-string name (dynamic *language-extensions*)))
+
+(define (lex-language-pragma)
+  (let ((chars '()))
+    (do ()
+	((or *at-eof?*
+	     (and (char=? *char* #\#) (char=? *peek-char* #\-)
+		  (char=? (peek-char-2) #\}))))
+      (push *char* chars)
+      (advance-char))
+    (dolist (name (split-extension-names (list->string (reverse chars))))
+      (push name (dynamic *language-extensions*)))
+    (skip-pragma *current-line*)))
+
+(define (split-extension-names text)
+  (let ((names '())
+	(current '()))
+    (dolist (c (string->list text))
+      (if (or (char=? c #\,) (char-whitespace? c))
+	  (when (not (null? current))
+	    (push (list->string (reverse current)) names)
+	    (setf current '()))
+	  (push c current)))
+    (when (not (null? current))
+      (push (list->string (reverse current)) names))
+    (reverse names)))
 
 ;;; {-# LINE n "file" #-}: the next line is line n.  The C preprocessor
 ;;; (cpp.mumble) puts these around an #include's text, so that the lines
@@ -663,8 +703,60 @@
 	(begin
 	  (advance-char)
 	  (advance-char)
-	  (emit-token 'integer (lex-integer radix)))
+	  (let ((n  (lex-integer radix)))
+	    (if (and (eqv? radix 16) (hex-float-follows?))
+		(lex-hex-float n)
+		(emit-token 'integer n))))
 	(lex-decimal))))
+
+;;; NegativeLiterals / LexicalNegation (GHC): a - before a digit, after
+;;; a space or an opening bracket, is part of the literal: f -1 is
+;;; f (-1); x-1 is still a subtraction.
+
+(define (negative-literal-here?)
+  (and (or (language-extension? "NegativeLiterals")
+	   (language-extension? "LexicalNegation"))
+       (or (not *char-before-token*)
+	   (char-whitespace? *char-before-token*)
+	   (memv *char-before-token* '(#\( #\[ #\, #\;)))))
+
+(define (lex-negative-literal)
+  (advance-char)
+  (lex-numeric)
+  (let ((tok  (car *tokens*)))
+    (when (memq (car tok) '(integer float))
+      (setf (cadr tok) (- (cadr tok))))))
+
+;;; HexFloatLiterals (GHC): 0x1.8p1, 0xFp-2; the value is exact, a
+;;; float token n/d * 10^0.
+
+(define (hex-float-follows?)
+  (and (language-extension? "HexFloatLiterals")
+       (or (and (char=? *char* #\.) (char->digit *peek-char* 16))
+	   (and (memv *char* '(#\p #\P))
+		(or (char->digit *peek-char* 10)
+		    (and (memv *peek-char* '(#\+ #\-))
+			 (char->digit (peek-char-2) 10)))))))
+
+(define (lex-hex-float int-part)
+  (let ((num  int-part)
+	(den  1))
+    (when (char=? *char* #\.)
+      (advance-char)
+      (do () ((not (char->digit *char* 16)))
+	(setf num (+ (* num 16) (char->digit *char* 16)))
+	(setf den (* den 16))
+	(advance-char)))
+    (when (memv *char* '(#\p #\P))
+      (advance-char)
+      (let ((sign 1))
+	(cond ((char=? *char* #\+) (advance-char))
+	      ((char=? *char* #\-) (setf sign -1) (advance-char)))
+	(let ((e  (lex-integer 10)))
+	  (if (> sign 0)
+	      (setf num (* num (expt 2 e)))
+	      (setf den (* den (expt 2 e)))))))
+    (emit-token 'float num den 0)))
 
 (define (lex-decimal)
   (let ((int-part (lex-integer 10)))
@@ -715,8 +807,13 @@
 	(emit-token 'float numerator denominator 0))))))
 
 (define (lex-float/exp numerator denominator sign)
-  (let ((exponent (lex-integer 10)))
-    (emit-token 'float numerator denominator (* sign exponent))))
+  (let* ((exponent (lex-integer 10))
+	 (e (* sign exponent)))
+    (if (and (language-extension? "NumDecimals")
+	     (integer? (/ (* numerator (expt 10 e)) denominator)))
+	;; NumDecimals (GHC): 1e6, 2.5e3 are integer literals
+	(emit-token 'integer (/ (* numerator (expt 10 e)) denominator))
+	(emit-token 'float numerator denominator e))))
 
 (define (lex-char)
   (advance-char)

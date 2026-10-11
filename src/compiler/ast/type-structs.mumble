@@ -123,6 +123,9 @@
    (simple (type type))
    (constrs (type (list constr)))  
    (deriving (type (list class-ref)))
+   ;; DerivingStrategies: (tuple class-ref strategy), strategy anyclass,
+   ;; newtype or a via type (derived/derived-instances.mumble)
+   (special-derivings (type list) (default '()))
    (annotations (type (list annotation-value)))
    (newtype? (type bool) (default '#f))))
 

@@ -124,7 +124,9 @@
            (\) (**pcon/def (core-symbol "UnitConstructor") '()))
 	   (\, (**pcon/def (tuple-constructor (parse-tuple-con-commas 2)) '()))
 	   (else
-	    (let ((pat (parse-pat)))
+	    (let ((pat (if (view-pattern-follows?)
+			   (parse-view-pattern)
+			   (parse-pat))))
 	      (token-case
 		(\, (**pcon/tuple (cons pat (parse-pat-list '\)))))
 		(\) pat)
@@ -312,3 +314,68 @@
    (\) (if (eqv? depth 0) '#t (scan-to-close-paren (1- depth))))
    (eof '#f)
    (else (advance-token) (scan-to-close-paren depth))))
+
+;;; ViewPatterns (GHC): (e -> pat).  The pattern becomes a new variable
+;;; v, and (pat, e) is recorded on *view-patterns*; the clause, case
+;;; alternative or lambda it is in matches it as a pattern guard,
+;;; pat <- e v (decl-parser.mumble's add-view-pattern-guards).
+
+(define *view-patterns* (quote ()))   ; (var-name exp pat), newest first
+
+(define (view-pattern-follows?)
+  (and (language-extension? "ViewPatterns")
+       (let* ((saved (save-scanner-state))
+	      (res (scan-for-view-arrow 0)))
+	 (restore-excursion saved)
+	 res)))
+
+(define (scan-for-view-arrow depth)
+  (token-case
+   (-> (eqv? depth 0))
+   ((\( \[) (scan-for-view-arrow (1+ depth)))
+   ((\) \]) (and (> depth 0) (scan-for-view-arrow (1- depth))))
+   (\, (and (> depth 0) (scan-for-view-arrow depth)))
+   ((= \| \; \} |where| <- eof) '#f)
+   (else (advance-token) (scan-for-view-arrow depth))))
+
+(define *view-pattern-count* 0)
+
+(define (parse-view-pattern)
+  (let ((exp (parse-exp)))
+    (require-token -> (signal-missing-token "`->'" "view pattern"))
+    (let ((pat (parse-pat))
+	  (name (string->symbol
+		 (format '#f "view%~A" (incf *view-pattern-count*)))))
+      (push (list name exp pat) *view-patterns*)
+      (make var-pat (var (generated-var-ref name))))))
+
+;;; Takes the view patterns recorded since the last call (oldest first).
+
+(define (take-view-patterns)
+  (let ((v  (reverse *view-patterns*)))
+    (setf *view-patterns* '())
+    v))
+
+;;; The guards of RHS-LIST, given VIEWS: each guard g becomes the pattern
+;;; guard  p1 <- e1 v1, ..., pn <- en vn, g.
+
+(define (add-view-pattern-guards views rhs-list)
+  (if (null? views)
+      rhs-list
+      (map (lambda (grhs)
+	     (let ((g      (guarded-rhs-guard grhs))
+		   (quals  (map (lambda (v)
+				  (make qual-generator
+					(pat (caddr v))
+					(exp (make app (fn (cadr v))
+						   (arg (generated-var-ref (car v)))))))
+				views)))
+	       (make guarded-rhs
+		     (guard (make pattern-guard
+				  (quals (append quals
+						 (cond ((is-type? 'omitted-guard g) '())
+						       ((is-type? 'pattern-guard g)
+							(pattern-guard-quals g))
+						       (else (list (make qual-filter (exp g)))))))))
+		     (rhs (guarded-rhs-rhs grhs)))))
+	   rhs-list)))

@@ -93,7 +93,9 @@
 	       (concat
 		(map
 		 (lambda (decl) 
-		  (if (is-type? 'signdecl decl)
+		  (if (and (is-type? 'signdecl decl)
+			   ;; DefaultSignatures: not a new method
+			   (not (signdecl-default? decl)))
 		      (remember-context decl
 		       (map (lambda (method-var)
 			      (let* ((var-name (var-ref-name method-var))

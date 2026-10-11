@@ -62,11 +62,81 @@
 		    (signal-cant-derive-bounded alg)))
 	       ((constructor-class-derivable? class)
 		(setf insts (add-constructor-class-instance insts alg class)))
+	       ;; DeriveAnyClass (GHC): an empty instance, as GHC prefers
+	       ;; it to newtype deriving when both are on
+	       ((module-extension? "DeriveAnyClass")
+		(add-special-derived-instance alg class 'anyclass))
 	       ((and (haskell98?) (algdata-newtype? alg))
 		(add-newtype-derived-instance alg class))
 	       (else
-		(signal-not-derivable class)))))
+		(signal-not-derivable class))))
+      (dolist (d (algdata-special-derivings alg))
+	(add-special-derived-instance alg (tuple-2-1 d) (tuple-2-2 d))))
     insts))
+
+;;; DerivingStrategies (GHC), parser/typedecl-parser.mumble:
+;;;  - anyclass: an empty instance (DeriveAnyClass), its methods the
+;;;    class defaults;
+;;;  - via T (DerivingVia): each method is T's, coerced:
+;;;      m = primUnsafeCoerce (m :: sig[class tyvar := T])
+;;;    since a newtype and its field are the same at run time;
+;;;  - newtype: via the newtype's field type.
+;;; The instance context is the class on each of the type's parameters
+;;; that the via type mentions (GHC infers it).
+
+(define (add-special-derived-instance alg class strategy)
+  (if (lookup-instance alg class)
+      (signal-instance-exists alg class)
+      (let ((inst  (new-instance class alg (algdata-tyvars alg)))
+	    (via   (cond ((eq? strategy 'anyclass) '#f)
+			 ((eq? strategy 'newtype)
+			  (car (con-types (car (algdata-constrs alg)))))
+			 (else strategy))))
+	(setf (instance-ok? inst) '#t)
+	(setf (instance-suppress-readers? inst) '#f)
+	(setf (instance-decls inst) (if via (via-method-decls class via) '()))
+	(setf (instance-context inst)
+	      (if via
+		  (map (lambda (v) (**context (**class/def class) v))
+		       (lisp:intersection (algdata-tyvars alg) (ast-type-tyvars via)))
+		  '()))
+	(push inst (module-instance-defs *module*)))))
+
+(define (via-method-decls class via)
+  (map (lambda (m)
+	 (let* ((sig   (method-var-method-signature m))
+		(ctyv  (class-tyvar class))
+		;; the method's own type variables, renamed apart from the
+		;; via type's
+		(own   (lisp:remove ctyv (ast-type-tyvars (signature-type sig))))
+		(ren   (map (lambda (v) (tuple v (gentyvar "m"))) own))
+		(type  (substitute-tyvar
+			(rename-ast-tyvars (signature-type sig) ren) ctyv via))
+		(ctx   (map (lambda (c)
+			      (**context (context-class c)
+					 (let ((r (assq (context-tyvar c) ren)))
+					   (if r (tuple-2-2 r) (context-tyvar c)))))
+			    (signature-context sig))))
+	   (**define (def-name m) '()
+	     (**app (**var/def (prelude-prim-def '|primUnsafeCoerce|))
+		    (make exp-sign (exp (**var/def m))
+			           (signature (**signature ctx type)))))))
+       (class-method-vars class)))
+
+(define (ast-type-tyvars type)
+  (cond ((tyvar? type) (list (tyvar-name type)))
+	((tyapp? type)
+	 (lisp:remove-duplicates
+	  (append (ast-type-tyvars (tyapp-fun type))
+		  (lisp:mapcan (function ast-type-tyvars) (tyapp-args type)))))
+	((tycon? type)
+	 (lisp:remove-duplicates
+	  (lisp:mapcan (function ast-type-tyvars) (tycon-args type))))
+	(else '())))
+
+(define (prelude-prim-def name)
+  (let ((m  (table-entry *modules* '|PreludePrims|)))
+    (and m (table-entry (module-symbol-table m) name))))
 
 ;;; GeneralizedNewtypeDeriving (GHC): newtype N ... = N t deriving (C)
 ;;; for any other class C, when t's instance of C has no context and is

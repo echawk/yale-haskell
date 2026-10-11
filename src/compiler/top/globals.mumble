@@ -206,6 +206,13 @@
        (or (string-starts? "$HASKELL_LIBRARY/" file)
 	   (string-starts? "$PRELUDE/" file))))
 
+;;; Whether the current module's LANGUAGE pragmas name extension NAME
+;;; (parser/lexer.mumble records them).
+
+(define (module-extension? name)
+  (and (dynamic *module*)
+       (mem-string name (module-extensions (dynamic *module*)))))
+
 (define (env-flag? name)
   (let ((env  (getenv name)))
     (and env (not (string=? env "")) (not (string=? env "0")))))

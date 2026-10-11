@@ -336,7 +336,15 @@
 
 (define (tyvar->ast) ; for avarid
   (let ((name (token->symbol)))
+    ;; NamedWildCards (GHC): _a in a signature is a wildcard
+    (when (and (language-extension? "NamedWildCards")
+	       (char=? (string-ref (symbol->string name) 0) #\_))
+      (setf *signature-wildcard?* '#t))
     (make tyvar (name name))))
+
+;;; PartialTypeSignatures (GHC): a signature with a wildcard (_) is
+;;; dropped, and the type inferred (decl-parser.mumble).
+(define *signature-wildcard?* '#f)
 
 (define (token->integer) ; for integer
  (return+advance

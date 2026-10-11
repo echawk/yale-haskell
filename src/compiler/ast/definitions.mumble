@@ -169,6 +169,9 @@
    (newtype? (type bool) (bit #t) (default '#f))
    ;; instances to derive
    (deriving (type (list class)) (uninitialized? #t))
+   ;; DerivingStrategies: (tuple class strategy), strategy anyclass,
+   ;; newtype or a via type (derived/derived-instances.mumble)
+   (special-derivings (type list) (default '()))
    (export-to-lisp? (type bool) (default '#f) (bit #t))
    (implemented-by-lisp? (type bool) (default '#f) (bit #t))
    ))

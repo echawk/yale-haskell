@@ -71,6 +71,7 @@
   (when (not (file-exists? filename))
     (signal-file-not-found filename))
   (setf *standalone-derivings* '())
+  (setf *language-extensions* '())
   (dynamic-let ((*current-file* filename))
     (let ((mods '()))
       (call-with-input-file filename
@@ -90,6 +91,8 @@
 		 (module-asts (if interface?
 				  (parse-tokens/interface tokens)
 				  (parse-tokens tokens))))
+	    (dolist (m module-asts)
+	      (setf (module-extensions m) *language-extensions*))
 	    (setf mods module-asts))))
       (when (memq 'parse *printers*)
 	(dolist (m mods)

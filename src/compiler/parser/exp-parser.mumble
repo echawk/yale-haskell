@@ -7,8 +7,11 @@
 (define (parse-exp-0)  ;; This picks up expr type signatures
   (let ((exp (parse-exp-i)))
     (token-case
-     (\:\: (let ((signature (parse-signature)))
-	     (make exp-sign (exp exp) (signature signature))))
+     (\:\: (setf *signature-wildcard?* '#f)
+	   (let ((signature (parse-signature)))
+	     (if *signature-wildcard?*
+		 (begin (setf *signature-wildcard?* '#f) exp)
+		 (make exp-sign (exp exp) (signature signature)))))
    (else exp))))
 
 (define (parse-exp-i)  ;; This collects a list of exps for later prec parsing
@@ -38,6 +41,9 @@
     (aexp-start
      (let ((exp2 (parse-aexp)))
       (parse-possible-app (make app (fn exp) (arg exp2)))))
+    ;; BlockArguments (GHC): f do ..., f \x -> ..., when c case ...
+    ((no-advance satisfies block-argument-start?)
+     (parse-block-argument exp))
     (varop
      (let ((varop (varop->ast)))
        (if (eq-token? '\))
@@ -49,6 +55,18 @@
 	   (list exp conop)
 	   `(,exp ,conop ,@(parse-infix-exps)))))
     (else (list exp))))
+
+(define (block-argument-start?)
+  (and (memq *token* '(|do| \\ |case| |let| |if|))
+       (language-extension? "BlockArguments")))
+
+(define (parse-block-argument exp)
+  (token-case
+    (|do| (parse-possible-app (make app (fn exp) (arg (parse-do)))))
+    (|case| (parse-possible-app (make app (fn exp) (arg (parse-case)))))
+    (\\ (list (make app (fn exp) (arg (parse-lambda)))))
+    (|let| (list (make app (fn exp) (arg (parse-let)))))
+    (|if| (list (make app (fn exp) (arg (parse-if)))))))
 
 (define (at-type-application?)
   (and (haskell98?) (eq-token? '@)))
@@ -77,10 +95,22 @@
 (define (parse-lambda-1)
   (trace-parser lambda
    (save-parser-context
-    (let ((pats (parse-apat-list)))
+    (let* ((pats (parse-apat-list))
+	   (views (take-view-patterns)))
       (require-token -> (signal-missing-token "`->'" "lambda expression"))
       (let ((exp (parse-exp)))
-	(make lambda (pats pats) (body exp)))))))
+	(make lambda (pats pats)
+	      ;; view patterns: case () of _ | p <- e v -> body
+	      (body (if (null? views)
+			exp
+			(make case
+			      (exp (**con/def (core-symbol "UnitConstructor")))
+			      (alts (list (make alt (pat (make wildcard-pat))
+					    (rhs-list (add-view-pattern-guards views
+							(list (make guarded-rhs
+								    (guard (make omitted-guard))
+								    (rhs exp)))))
+					    (where-decls '())))))))))))))
 
 (define (parse-let)
   (trace-parser let
@@ -158,12 +188,14 @@
 (define (parse-alt)
  (trace-parser alt
   (let* ((pat (parse-pat))
-	 (rhs-list (token-case
+	 (views (take-view-patterns))
+	 (rhs-list (add-view-pattern-guards views
+		    (token-case
 		    (-> (let ((exp (parse-exp)))
 			  (list (make guarded-rhs (guard (make omitted-guard))
 				                  (rhs exp)))))
 		    (\| (parse-guarded-alt-rhs))
-		    (else (signal-missing-token "`->' or `|'" "rhs of alt"))))
+		    (else (signal-missing-token "`->' or `|'" "rhs of alt")))))
 	 (decls (parse-where-decls)))
     (make alt (pat pat) (rhs-list rhs-list) (where-decls decls)))))
 
@@ -436,17 +468,110 @@
 
 (define (parse-list-comp exp)
  (save-parser-context 
+  (let ((branches (parse-qual-branches)))
+    (cond ((not (null? (cdr branches)))
+	   (build-parallel-list-comp exp branches))
+	  ((language-extension? "MonadComprehensions")
+	   (build-monad-comp exp (car branches)))
+	  (else
+	   (build-list-comp exp (car branches)))))))
+
+;;; The qualifier lists, separated by `|' (ParallelListComp, GHC).
+
+(define (parse-qual-branches)
   (let ((quals (parse-qual-list)))
-    (build-list-comp exp quals))))
+    (if (eq? (car quals) 'parallel)
+	(cons (cdr quals) (parse-qual-branches))
+	(list quals))))
+
+;;; Returns the qualifiers, or (parallel . qualifiers) when a `|' ends them.
 
 (define (parse-qual-list)
   (let ((qual (token-case
 	       (|let| (parse-let-qual))
 	       (else (parse-qual)))))
     (token-case
-      (\, (cons qual (parse-qual-list)))
+      (\, (let ((rest (parse-qual-list)))
+	    (if (eq? (car rest) 'parallel)
+		(cons 'parallel (cons qual (cdr rest)))
+		(cons qual rest))))
       (\] (list qual))
+      (\| (list 'parallel qual))
       (else (signal-missing-token "`]' or `,'" "list comprehension")))))
+
+;;; ParallelListComp (GHC):
+;;;   [e | Q1 | Q2 | ... | Qn]
+;;;     = [e | (vs1, (vs2, ... vsn)) <- zip [vs1 | Q1] (zip [vs2 | Q2] ...)]
+;;; vsi the tuple of the variables Qi binds.
+
+(define (build-parallel-list-comp exp branches)
+  (let* ((pairs  (reverse
+		  (map (lambda (quals)
+			 (let ((names (quals-bound-names quals)))
+			   (tuple (build-list-comp (names->tuple-exp names) quals)
+				  (names->tuple-pat names))))
+		       branches)))
+	 (list-exp (tuple-2-1 (car pairs)))
+	 (pat (tuple-2-2 (car pairs))))
+    ;; from the last branch back: zip ei (zip ...), (pi, (...))
+    (dolist (p (cdr pairs))
+      (setf list-exp (**app/l (generated-var-ref '|zip|)
+			      (list (tuple-2-1 p) list-exp)))
+      (setf pat (**pcon/tuple (list (tuple-2-2 p) pat))))
+    (make list-comp (exp exp)
+	  (quals (list (make qual-generator (pat pat) (exp list-exp)))))))
+
+(define (names->tuple-exp names)
+  (**tuple/l (map (function generated-var-ref) names)))
+
+(define (names->tuple-pat names)
+  (**tuple-pat (map (lambda (n) (make var-pat (var (generated-var-ref n))))
+		    names)))
+
+;;; MonadComprehensions (GHC): [e | Q] in any monad:
+;;;   do { Q as statements, a filter c as
+;;;        if c then return () else fail ""; return e }
+
+(define (build-monad-comp exp quals)
+  (make do-exp
+	(stmts (append
+		(map (lambda (q)
+		       (cond ((let-qual? q) (make qual-let (decls (cdr q))))
+			     ((is-type? 'qual-filter q)
+			      (make qual-filter
+				    (exp (make if (test-exp (qual-filter-exp q))
+					       (then-exp (**app (**var/def (core-symbol "return"))
+								(**con/def (core-symbol "UnitConstructor"))))
+					       (else-exp (**app (**var/def (core-symbol "fail"))
+								(make const (value "") (overloaded? '#f))))))))
+			     (else q)))
+		     quals)
+		(list (make qual-filter
+			    (exp (**app (**var/def (core-symbol "return")) exp))))))))
+
+;;; The variables a list of qualifiers binds (generators' patterns).
+
+(define (quals-bound-names quals)
+  (let ((names '()))
+    (dolist (q quals)
+      (when (is-type? 'qual-generator q)
+	(setf names (append names (pattern-bound-names (qual-generator-pat q))))))
+    names))
+
+(define (pattern-bound-names p)
+  (cond ((is-type? 'var-pat p) (list (var-ref-name (var-pat-var p))))
+	((is-type? 'as-pat p) (cons (var-ref-name (as-pat-var p))
+			   (pattern-bound-names (as-pat-pattern p))))
+	((is-type? 'irr-pat p) (pattern-bound-names (irr-pat-pattern p)))
+	((is-type? 'bang-pat p) (pattern-bound-names (bang-pat-pattern p)))
+	((is-type? 'sig-pat p) (pattern-bound-names (sig-pat-pattern p)))
+	((is-type? 'plus-pat p) (pattern-bound-names (plus-pat-pattern p)))
+	((is-type? 'pcon p) (lisp:mapcan (function pattern-bound-names) (pcon-pats p)))
+	((is-type? 'list-pat p) (lisp:mapcan (function pattern-bound-names) (list-pat-pats p)))
+	((is-type? 'pp-pat-list p) (lisp:mapcan (function pattern-bound-names) (pp-pat-list-pats p)))
+	((is-type? 'record-pat p) (lisp:mapcan (lambda (f) (pattern-bound-names (tuple-2-2 f)))
+				      (record-pat-fields p)))
+	(else '())))
 
 ;;; A `let' qualifier (H98).  `let decls in exp' is still an ordinary
 ;;; filter; without the `in', the qualifier is returned as the list

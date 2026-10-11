@@ -51,7 +51,10 @@
 		       (signal-section-precedence-conflict first-term)
 		       (make void)))
 		 (if (void? rhs)
-		     (make section-r (op op) (exp lhs))
+		     (if (module-extension? "PostfixOperators")
+			 ;; PostfixOperators (GHC): (e !) is (!) e
+			 (make app (fn op) (arg lhs))
+			 (make section-r (op op) (exp lhs)))
 		     (begin
 		       (signal-section-precedence-conflict last-term)
 		       (make void)))))))))

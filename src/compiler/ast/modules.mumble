@@ -96,6 +96,8 @@
     ;; the scope phase generates for them
     (foreign-imports (type (list foreign-import)) (default '()))
     (foreign-code (type list) (default '()))
+    ;; the GHC extensions its file's LANGUAGE pragmas name (strings)
+    (extensions (type list) (default '()))
 
     ;; These slots are filled in by the type-declaration-analysis phase
     ;; after conversion to definition form

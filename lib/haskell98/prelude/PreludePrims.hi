@@ -18,6 +18,8 @@ import PreludeRational(Rational)
 error :: String -> a
 primCharToInt :: Char -> Int
 primIntToChar :: Int -> Char
+-- coerce (Data.Coerce) and DerivingVia: newtypes are their fields at run time
+primUnsafeCoerce :: a -> b
 primEqChar, primNeqChar, primLeChar, primGtChar, primLsChar, primGeChar
   :: Char -> Char -> Bool
 primMaxChar :: Int
@@ -118,6 +120,7 @@ build :: ((a -> [a] -> [a]) -> [b] -> [c]) -> [c]
 error :: LispName("prim.abort")
 primCharToInt ::    LispName("prim.char-to-int"), Complexity(0),NoConversion
 primIntToChar ::    LispName("prim.int-to-char"), Complexity(0),NoConversion
+primUnsafeCoerce :: LispName("lisp:identity"), Complexity(0)
 primEqChar ::       LispName("prim.eq-char"), Complexity(1), NoConversion
 primNeqChar::       LispName("prim.not-eq-char"), Complexity(1), NoConversion
 primLeChar ::       LispName("prim.le-char"), Complexity(1), NoConversion

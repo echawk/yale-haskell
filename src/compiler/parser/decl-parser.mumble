@@ -51,8 +51,13 @@
     (let ((vars (parse-signdecl-vars)))
       (require-token \:\:
 		     (signal-missing-token "`::'" "signature declaration"))
+      (setf *signature-wildcard?* '#f)
       (let ((signature (parse-signature)))
-	(make signdecl (vars vars) (signature signature)))))))
+	(if *signature-wildcard?*
+	    ;; a partial signature: dropped (PartialTypeSignatures)
+	    (begin (setf *signature-wildcard?* '#f)
+		   (make annotation-decls (annotations '())))
+	    (make signdecl (vars vars) (signature signature))))))))
  
 (define (parse-signdecl-vars)
   (token-case
@@ -169,7 +174,8 @@
       (parse-infix-def var start-line))))
 
 (define (add-rhs pat args infix? start-line)
-  (let* ((rhs (parse-rhs))
+  (let* ((views (take-view-patterns))
+	 (rhs (add-view-pattern-guards views (parse-rhs)))
 	 (decls (parse-where-decls))
 	 (single (make single-fun-def
 		       (args args)
@@ -221,6 +227,10 @@
       (parse-decl-list-2 decl in-layout?)))
    ;; Local fixity declarations (H98).  The scope phase attaches them to
    ;; the names bound in the same declaration list and removes them.
+   ;; DefaultSignatures (GHC), in a class: default m :: sig
+   (|default| (let ((decl (parse-signdecl)))
+		(setf (signdecl-default? decl) '#t)
+		(parse-decl-list-2 decl in-layout?)))
    (|infix| (parse-decl-list-2 (parse-fixity-decl 'n) in-layout?))
    (|infixl| (parse-decl-list-2 (parse-fixity-decl 'l) in-layout?))
    (|infixr| (parse-decl-list-2 (parse-fixity-decl 'r) in-layout?))

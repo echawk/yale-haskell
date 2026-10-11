@@ -10,6 +10,7 @@
     ;; #t = builtins ([] (,,) ->) not allowed
     (check-simple simple '#t "type declaration")
     (let ((annotations (parse-constr-annotations)))
+     (setf *special-derivings* '())
      (token-case
       (= (setf constrs (parse-constrs))
 	 (setf deriving (parse-optional-deriving)))
@@ -20,24 +21,54 @@
 		      (lambda (in-layout?) (parse-gadt-constrs simple in-layout?))))
        (setf deriving (parse-optional-deriving)))
       (else
-       ;; data T with no constructors is Haskell 2010 (report 4.2.1)
+       ;; data T with no constructors is Haskell 2010 (report 4.2.1);
+       ;; EmptyDataDeriving (GHC): data T deriving (Show)
        (when (not (or interface? (haskell98?)))
-	 (signal-missing-constructors))))
+	 (signal-missing-constructors))
+       (setf deriving (parse-optional-deriving))))
     (make data-decl (context contexts) (simple simple)
 		    (constrs constrs) (deriving deriving)
+		    (special-derivings (reverse *special-derivings*))
 		    (annotations annotations))))))
+
+;;; deriving clauses, any number (DerivingStrategies, GHC):
+;;;   deriving (C1, C2)  deriving C  deriving stock (...)
+;;;   deriving newtype (...)  deriving anyclass (...)  deriving (...) via T
+;;; Returns the classes derived the usual way (stock, or through the
+;;; newtype for a class that has no stock deriving); the others go on
+;;; *special-derivings* as (tuple class strategy), strategy anyclass,
+;;; newtype, or the via type.
+
+(define *special-derivings* '())
 
 (define (parse-optional-deriving)
   (token-case
    (|deriving|
-    (token-case
-     (\(
-      (token-case
-       (\) '())
-       (else (parse-class-list))))
-     (tycon (list (class->ast)))
-     (else (signal-invalid-syntax "a deriving clause"))))
+    (let* ((strategy (parse-deriving-strategy))
+	   (classes (token-case
+		     (\(
+		      (token-case
+		       (\) '())
+		       (else (parse-class-list))))
+		     (tycon (list (class->ast)))
+		     (else (signal-invalid-syntax "a deriving clause"))))
+	   (strategy (if (at-varid-named? "via")
+			 (begin (advance-token) (parse-atype))
+			 strategy))
+	   (rest (parse-optional-deriving)))
+      (if (or (eq? strategy 'stock) (eq? strategy '#f))
+	  (append classes rest)
+	  (begin
+	    (dolist (c classes)
+	      (push (tuple c strategy) *special-derivings*))
+	    rest))))
    (else '())))
+
+(define (parse-deriving-strategy)
+  (cond ((at-varid-named? "stock") (advance-token) 'stock)
+	((at-varid-named? "anyclass") (advance-token) 'anyclass)
+	((eq-token? '|newtype|) (advance-token) 'newtype)
+	(else '#f)))
 
 (define (at-gadt-where?)
   (and (haskell98?) (eq-token? '|where|)))

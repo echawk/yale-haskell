@@ -145,9 +145,20 @@
 			    (list (**mp-context (**class/def class)
 						(map (function **tyvar) class-tyvars)))
 			    '())))
+  (let ((default-sigs '()))   ; (tuple method-name signature)
+  ;; DefaultSignatures (GHC): the default method has this type
+  (dolist (decl decls)
+    (when (and (is-type? 'signdecl decl) (signdecl-default? decl))
+      (resolve-signature (signdecl-signature decl))
+      (dolist (v (signdecl-vars decl))
+	(push (tuple (var-ref-name v)
+		     (rename-class-sig-vars (signdecl-signature decl) class-tyvars))
+	      default-sigs))))
   (dolist (decl decls)
    (remember-context decl
-    (cond ((is-type? 'signdecl decl)
+    (cond ((and (is-type? 'signdecl decl) (signdecl-default? decl))
+	   '#f)
+	  ((is-type? 'signdecl decl)
 	   (let* ((signature (signdecl-signature decl))
 		  (vars (resolve-signature signature)))
 	     (when (not (some (lambda (v) (memq v vars)) class-tyvars))
@@ -185,7 +196,10 @@
 		     (when (not (eq? (method-var-default method-var) '#f))
 		       (signal-multiple-definition-of-default method-name))
 		     (setf (method-var-default method-var) default-var)
-		     (let* ((sig (method-var-method-signature method-var))
+		     (let* ((dsig (assq (def-name method-var) default-sigs))
+			    (sig (if dsig
+				     (tuple-2-2 dsig)
+				     (method-var-method-signature method-var)))
 			    (context (append class-context
 					     (signature-context sig)))
 			    (new-sig (**signature context
@@ -194,7 +208,7 @@
 			     (append class-mcontext (signature-mcontext sig)))
 		       (add-new-module-signature default-var new-sig)))
 		   (signal-default-not-in-class method-var class)))))
-	     (add-new-module-decl decl))))))))
+	     (add-new-module-decl decl)))))))))
 
 (define (signal-class-sig-ignores-type signature)
   (phase-error 'class-sig-ignores-type

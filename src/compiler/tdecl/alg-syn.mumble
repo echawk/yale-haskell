@@ -106,6 +106,13 @@
 	    (real-tuple? '#f)
 	    (newtype? (data-decl-newtype? data-decl))
 	    (deriving derived-classes)
+	    (special-derivings
+	     (map (lambda (d)
+		    (resolve-class (tuple-2-1 d))
+		    (when (not (symbol? (tuple-2-2 d)))
+		      (resolve-type (tuple-2-2 d)))
+		    (tuple (class-ref-class (tuple-2-1 d)) (tuple-2-2 d)))
+		  (data-decl-special-derivings data-decl)))
 	    ))
 	(process-alg-annotations def)
 	(when (not (eq? (module-type *module*) 'interface))

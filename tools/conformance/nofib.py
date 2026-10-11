@@ -2,9 +2,13 @@
 """Run nofib programs (ref/nofib, see ref/README.md) with Yale Haskell 98
 (--modern-prelude: nofib is written for GHC's Prelude).
 
-    tools/conformance/nofib.py [-t SECONDS] [-v] [PROGRAM_DIR ...]
+    tools/conformance/nofib.py [-t SECONDS] [-v] [--suite NAME]... [--try-all]
+                               [PROGRAM_DIR ...]
 
-Default: every program under ref/nofib/imaginary and ref/nofib/spectral.
+Default: every program under ref/nofib/imaginary and ref/nofib/spectral;
+--suite (repeatable) names others (real, shootout, gc).  --try-all runs
+the programs SKIP would leave out (unsupported extensions or modules),
+to see how they fail.
 Each program is copied to build/conformance/<suite>/<name>/, its
 hierarchical imports are mapped to Haskell 98 module names
 (Data.List -> List, ...), and it is run with its FAST_OPTS and stdin
@@ -114,9 +118,9 @@ def run_program(d, timeout, verbose):
         if os.path.isfile(p):
             if f.endswith(('.hs', '.lhs')):
                 src = read(p)
-                if NON_H98.search(src):
+                if NON_H98.search(src) and not TRY_ALL:
                     return 'SKIP', 'imports %s' % NON_H98.search(src).group(0).split()[-1]
-                ext = unsupported_extension(src)
+                ext = None if TRY_ALL else unsupported_extension(src)
                 if ext:
                     return 'SKIP', 'extension: %s' % ext
                 cpp = cpp or bool(CPP_PRAGMA.search(src))
@@ -186,9 +190,11 @@ def ghc_expected(d, suite, name, main, args, stdin_file):
         f.write(r.stdout)
     return out
 
-def default_programs():
+TRY_ALL = False   # --try-all: run programs SKIP would leave out
+
+def default_programs(suites=('imaginary', 'spectral')):
     progs = []
-    for suite in ('imaginary', 'spectral'):
+    for suite in suites:
         for p in sorted(os.listdir(os.path.join(NOFIB, suite))):
             d = os.path.join(NOFIB, suite, p)
             if not os.path.isdir(d):
@@ -202,12 +208,16 @@ def default_programs():
 
 def main():
     argv = sys.argv[1:]
-    timeout, verbose = 120, False
+    global TRY_ALL
+    timeout, verbose, suites = 120, False, []
     while argv and argv[0].startswith('-'):
         if argv[0] == '-t': timeout = int(argv[1]); argv = argv[2:]
         elif argv[0] == '-v': verbose = True; argv = argv[1:]
+        elif argv[0] == '--suite': suites.append(argv[1]); argv = argv[2:]
+        elif argv[0] == '--try-all': TRY_ALL = True; argv = argv[1:]
         else: break
-    dirs = [a for a in argv if os.path.isdir(a)] or default_programs()
+    dirs = ([a for a in argv if os.path.isdir(a)]
+            or default_programs(tuple(suites) or ('imaginary', 'spectral')))
     os.makedirs(OUT, exist_ok=True)
     counts, lines = {}, []
     for d in dirs:
