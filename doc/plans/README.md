@@ -12,6 +12,7 @@ these are what comes after M11.
 | [REAL-WORLD-TARGETS.md](REAL-WORLD-TARGETS.md) | A ladder of real Haskell code to compile, below and beyond MicroCabal | planned |
 | [LISP-INTEROP.md](LISP-INTEROP.md) | Calling Haskell from Common Lisp; Haskell as a reader macro | planned |
 | [PORTABILITY.md](PORTABILITY.md) | Running on Lisps other than SBCL (ECL, ABCL, CCL) | ECL 193/200, ABCL 162/200 |
+| [GHC-OPTIMIZATIONS.md](GHC-OPTIMIZATIONS.md) | Every GHC optimisation pass, what Yale has for it, and where the missing ones go in Yale's pipeline | reference and plan |
 | [SPECIALIZE.md](SPECIALIZE.md) | Copies of recursive overloaded functions for known dictionaries (GHC's SPECIALISE), as a step of the optimizer | planned |
 | [MUMBLE-TO-CL.md](MUMBLE-TO-CL.md) | Moving the compiler from mumble to plain Common Lisp, piece by piece | planned |
 
