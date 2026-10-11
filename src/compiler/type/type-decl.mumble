@@ -347,7 +347,9 @@
 ;;; with the overall context of the declaration group.
 
 (define (check-user-signatures vars)
-  (cond ((null? (cdr vars))
+  (cond ((null? vars)   ; a pattern binding of no variables: let _ = e
+	 '())
+	((null? (cdr vars))
 	 (let* ((var (car vars))
 		(sig (var-signature var)))
 	   (if (eq? sig '#f)

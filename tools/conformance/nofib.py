@@ -18,7 +18,7 @@ error), RUNTIME (runtime error), TIMEOUT, SKIP (uses something Haskell
 98 lacks), KNOWN (a recorded deviation, see KNOWN).  A summary and a report file build/conformance/report.txt
 are written.
 """
-import os, re, shutil, subprocess, sys, time
+import os, re, shlex, shutil, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 NOFIB = os.path.join(ROOT, 'ref', 'nofib')
@@ -60,7 +60,6 @@ CPP_PRAGMA = re.compile(r'\{-#\s*LANGUAGE\s+CPP\s*#-\}')
 # conformance: reported as KNOWN with the reason.
 KNOWN = {
     'spectral/sphere': 'its hash relies on 64-bit Int wrap-around (H98 leaves overflow undefined; Int is the 62-bit fixnum range)',
-    'spectral/mandel': 'uses hSetBinaryMode (not Haskell 98)',
     'spectral/minimax': 'correct but slow: FAST_OPTS repeats the work 180000 times (~2.4 ms each here, ~7 minutes); 10 and 100 repetitions give the expected (empty) output',
     'spectral/secretary': 'Monte Carlo over Random: H98 does not fix the generator (ours is the Report/Hugs L\'Ecuyer one, GHC\'s random uses SplitMix); results agree statistically (~0.36 vs ~0.36)',
 }
@@ -90,7 +89,9 @@ def run_program(d, timeout, verbose):
     for e in (name + '.faststdout', name + '.stdout'):
         if os.path.exists(os.path.join(d, e)):
             expected = os.path.join(d, e); break
-    args = (makefile_var(mk, 'FAST_OPTS') or makefile_var(mk, 'PROG_ARGS') or '').split()
+    args = (makefile_var(mk, 'FAST_OPTS') or makefile_var(mk, 'PROG_ARGS')
+            or makefile_var(mk, 'NORM_OPTS') or '')
+    args = shlex.split(args)   # the Makefile's quoting: ".*:..*" is one argument
     stdin_file = None
     for s_ in (name + '.faststdin', name + '.stdin'):
         if os.path.exists(os.path.join(d, s_)):

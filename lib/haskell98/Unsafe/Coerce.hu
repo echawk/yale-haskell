@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Unsafe/
+:o= all
+Coerce.hs

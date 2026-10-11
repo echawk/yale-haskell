@@ -753,8 +753,13 @@
 ;;; I/O
 ;;;=====================================================================
 
+;;; Source files are UTF-8; an invalid byte (a Latin-1 comment in an old
+;;; program, nofib's veritas) reads as U+FFFD instead of an error, as GHC
+;;; accepts them in comments.
 (define-mumble-function-inline mumble::call-with-input-file (string proc)
-  (with-open-file (stream (expand-filename string) :direction :input)
+  (with-open-file (stream (expand-filename string) :direction :input
+			  #+sbcl :external-format
+			  #+sbcl '(:utf-8 :replacement #\U+FFFD))
     (funcall (the function proc) stream)))
 
 (define-mumble-function-inline mumble::call-with-output-file (string proc)
@@ -779,7 +784,8 @@
   *standard-output*)
 
 (define-mumble-function-inline mumble::open-input-file (string)
-  (open (expand-filename string) :direction :input))
+  (open (expand-filename string) :direction :input
+	#+sbcl :external-format #+sbcl '(:utf-8 :replacement #\U+FFFD)))
 
 (define-mumble-function-inline mumble::open-output-file (string)
   (open (ensure-directories-exist (expand-filename string))

@@ -1159,14 +1159,38 @@
   (dynamic-let ((*inlining-vars* (cons var (dynamic *inlining-vars*))))
     (optimize (copy-flic-top value))))
 
+;;; A value whose evaluation does no work worth sharing: a lambda, a
+;;; constant, a constructor (applied to such values), a variable.
+
+(define (work-free-value? exp)
+  (or (is-type? 'flic-lambda exp)
+      (is-type? 'flic-const exp)
+      (is-type? 'flic-pack exp)
+      (is-type? 'flic-ref exp)
+      (and (is-type? 'flic-app exp)
+	   (is-type? 'flic-pack (flic-app-fn exp))
+	   (every-1 (function work-free-value?) (flic-app-args exp)))
+      ;; a foldr/build producer ([1 .. n], a comprehension): copied for
+      ;; fusion, as GHC treats build as cheap; its work is the
+      ;; consumer's loop, which no longer allocates the list
+      (and (is-type? 'flic-app exp)
+	   (is-type? 'flic-ref (flic-app-fn exp))
+	   (memq (flic-ref-var (flic-app-fn exp))
+		 (list (core-symbol "build") (core-symbol "inlineBuild"))))))
+
 (define (optimize-flic-ref-aux object)
   (let ((var     (flic-ref-var object)))
     (cond ((memq var (dynamic *inlining-vars*))
 	   object)
-	  ((var-single-ref var)
-	   ;; (or (eqv? (var-single-ref var) (dynamic *lambda-depth*)))
-	   ;; *** The lambda-depth test is too conservative to handle
-	   ;; *** inlining of stuff necessary for foldr/build optimizations.
+	  ((and (var-single-ref var)
+		;; Inside a lambda that the binding is outside of, only a
+		;; value that does no work is copied: anything else would be
+		;; computed again at each call (nofib fem: a list built
+		;; with foldl and ++, indexed by a function, went from once
+		;; to once per element).  The test was off for foldr/build;
+		;; a fused producer inside a lambda repeats its work too.
+		(or (eqv? (var-single-ref var) (dynamic *lambda-depth*))
+		    (work-free-value? (var-value var))))
 	   ;; Can substitute value no matter how hairy it is.
 	   ;; Note that this is potentially risky; if the single
 	   ;; reference detected on the previous pass appeared as 

@@ -37,6 +37,7 @@ primHClose            :: HandleObj -> IO ()
 primHFileSize         :: HandleObj -> IO Integer
 primHIsEOF            :: HandleObj -> IO Bool
 primHSetBuffering     :: HandleObj -> Int -> Int -> IO ()
+primHSetBinaryMode    :: HandleObj -> Bool -> IO ()
 primHGetBuffering     :: HandleObj -> IO Int
 primHGetBlockSize     :: HandleObj -> IO Int
 primHFlush            :: HandleObj -> IO ()
@@ -78,6 +79,7 @@ primHClose            :: LispName("prim.h-close")
 primHFileSize         :: LispName("prim.h-file-size")
 primHIsEOF            :: LispName("prim.h-is-eof")
 primHSetBuffering     :: LispName("prim.h-set-buffering")
+primHSetBinaryMode    :: LispName("prim.h-set-binary-mode")
 primHGetBuffering     :: LispName("prim.h-get-buffering")
 primHGetBlockSize     :: LispName("prim.h-get-block-size")
 primHFlush            :: LispName("prim.h-flush")

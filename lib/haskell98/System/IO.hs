@@ -15,13 +15,18 @@ module System.IO (
     readIO, readLn, readFile, writeFile, appendFile,
     hSetFileSize, hTell, hIsTerminalDevice, hSetEcho, hGetEcho, hShow,
     -- base, not the Report
-    openTempFile
+    openTempFile, openBinaryFile, withBinaryFile, hSetBinaryMode,
+    TextEncoding, utf8, utf8_bom, latin1, char8, utf16, utf32, mkTextEncoding,
+    localeEncoding, hSetEncoding, hGetEncoding,
+    Newline(LF, CRLF), NewlineMode(NewlineMode, inputNL, outputNL),
+    nativeNewline, noNewlineTranslation, universalNewlineMode,
+    nativeNewlineMode, hSetNewlineMode, hGetContents', readFile'
   ) where
 
 import IO
 import IOBase(Handle(..), HandlePosn(..))
 import BasePrims
-import IOPrims(primHandleName)
+import IOPrims(primHandleName, primOpenFile, primHSetBinaryMode)
 
 -- Run the action with the handle, closing it afterwards (also on error).
 withFile :: FilePath -> IOMode -> (Handle -> IO r) -> IO r
@@ -84,3 +89,64 @@ splitTemplate :: String -> (String, String)
 splitTemplate t = case break (== '.') (reverse t) of
                     (rext, '.':rbase) -> (reverse rbase, '.' : reverse rext)
                     _                 -> (t, "")
+
+-- base: binary mode, text encodings and newline modes.  Text is UTF-8;
+-- binary mode (openBinaryFile, hSetBinaryMode on stdin) reads and
+-- writes one Char per byte.  Encodings and newline modes are recorded
+-- nowhere: text is always UTF-8 with \n.
+openBinaryFile :: FilePath -> IOMode -> IO Handle
+openBinaryFile name mode = primOpenFile name (8 + n) >>= return . Handle
+  where n = case mode of { ReadMode -> 0; WriteMode -> 1; AppendMode -> 2; ReadWriteMode -> 3 }
+
+withBinaryFile :: FilePath -> IOMode -> (Handle -> IO r) -> IO r
+withBinaryFile name mode = bracket (openBinaryFile name mode) hClose
+
+hSetBinaryMode :: Handle -> Bool -> IO ()
+hSetBinaryMode (Handle h) b = primHSetBinaryMode h b
+
+newtype TextEncoding = TextEncoding String
+instance Show TextEncoding where show (TextEncoding n) = n
+
+utf8, utf8_bom, latin1, char8, utf16, utf32, localeEncoding :: TextEncoding
+utf8 = TextEncoding "UTF-8"
+utf8_bom = TextEncoding "UTF-8BOM"
+latin1 = TextEncoding "ISO-8859-1"
+char8 = TextEncoding "char8"
+utf16 = TextEncoding "UTF-16"
+utf32 = TextEncoding "UTF-32"
+localeEncoding = utf8
+
+mkTextEncoding :: String -> IO TextEncoding
+mkTextEncoding n = return (TextEncoding n)
+
+hSetEncoding :: Handle -> TextEncoding -> IO ()
+hSetEncoding _ _ = return ()
+
+hGetEncoding :: Handle -> IO (Maybe TextEncoding)
+hGetEncoding _ = return (Just utf8)
+
+data Newline = LF | CRLF deriving (Eq, Ord, Show, Read)
+data NewlineMode = NewlineMode { inputNL :: Newline, outputNL :: Newline }
+  deriving (Eq, Ord, Show, Read)
+
+nativeNewline :: Newline
+nativeNewline = LF
+
+noNewlineTranslation, universalNewlineMode, nativeNewlineMode :: NewlineMode
+noNewlineTranslation = NewlineMode LF LF
+universalNewlineMode = NewlineMode CRLF LF
+nativeNewlineMode = NewlineMode LF LF
+
+hSetNewlineMode :: Handle -> NewlineMode -> IO ()
+hSetNewlineMode _ _ = return ()
+
+-- The whole contents, read at once.
+hGetContents' :: Handle -> IO String
+hGetContents' h = do
+  s <- hGetContents h
+  length s `seq` return s
+
+readFile' :: FilePath -> IO String
+readFile' f = do
+  s <- readFile f
+  length s `seq` return s

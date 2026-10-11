@@ -88,7 +88,33 @@
 ;;; primOpenFile :: String -> Int -> IO Handle
 ;;;   mode 0 = ReadMode, 1 = WriteMode, 2 = AppendMode, 3 = ReadWriteMode
 
+;;; Mode + 8: binary (openBinaryFile): one Char per byte (Latin-1).
+
 (define (prim.open-file name mode)
+  (if (>= mode 8)
+      (lisp:let ((*file-external-format* ':latin-1))
+	(lisp:declare (lisp:special *file-external-format*))
+	(prim.open-file-1 name (- mode 8)))
+      (prim.open-file-1 name mode)))
+
+(lisp:defvar *file-external-format*
+  #+sbcl '(:utf-8 :replacement #\U+FFFD) #-sbcl ':default)
+
+;;; hSetBinaryMode: on stdin, a new stream on descriptor 0 decoding
+;;; Latin-1 (binary) or UTF-8; other handles keep their encoding.
+
+(define (prim.h-set-binary-mode h binary?)
+  (check-open h "hSetBinaryMode")
+  #+sbcl
+  (when (eq? (haskell-handle-stream h) 'stdin)
+    (setf (haskell-handle-stream h)
+	  (sb-sys:make-fd-stream 0 ':input lisp:t ':buffering ':full
+				 ':external-format
+				 (if binary? ':latin-1
+				     '(:utf-8 :replacement #\U+FFFD)))))
+  0)
+
+(define (prim.open-file-1 name mode)
   (let ((path  (native-pathname name)))
     (when (lisp:ignore-errors
 	   (let ((p  (lisp:probe-file path)))
@@ -100,12 +126,18 @@
     (with-host-io-errors "openFile" name
       (let ((stream
 	     (case mode
-	       ((0) (lisp:open path :direction :input))
+	       ;; invalid UTF-8 reads as U+FFFD, not an error (GHC's
+	       ;; readFile errors only under a strict locale)
+	       ((0) (lisp:open path :direction :input
+			       :external-format *file-external-format*))
 	       ((1) (lisp:open path :direction :output
+			       :external-format *file-external-format*
 			       :if-exists :supersede :if-does-not-exist :create))
 	       ((2) (lisp:open path :direction :output
+			       :external-format *file-external-format*
 			       :if-exists :append :if-does-not-exist :create))
 	       (else (lisp:open path :direction :io
+				:external-format *file-external-format*
 				:if-exists :overwrite
 				:if-does-not-exist :create)))))
 	(let ((h  (make-haskell-handle stream name
