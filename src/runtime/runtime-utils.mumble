@@ -178,13 +178,20 @@
 ;;; called with whatever arguments it is given: some primitives (the
 ;;; tuple dictionary builders in tuple-prims.mumble) are variadic.
 
+;;; The arguments are bound once: both branches use them, and pasting
+;;; the argument forms into each would double the code at every level
+;;; of nested calls (f (g (h ...))).
+
 (define-syntax (define-apply name slow . args)
   `(define-syntax (,name f ,@args)
-     (let ((fv (gensym)))
-       `(let ((,fv ,f))
+     (let ((fv     (gensym))
+	   (temps  (map (lambda (a) (declare (ignore a)) (gensym))
+			(list ,@args))))
+       `(let* ((,fv ,f)
+	       ,@(map (function list) temps (list ,@args)))
 	  (if (and (fun? ,fv) (lisp:eql (fun-arity ,fv) ,,(length args)))
-	      (funcall (fun-entry ,fv) ,,@args)
-	      (,',slow ,fv ,,@args))))))
+	      (funcall (fun-entry ,fv) ,@temps)
+	      (,',slow ,fv ,@temps))))))
 
 (define-apply apply-1 apply-1-slow a)
 (define-apply apply-2 apply-2-slow a b)

@@ -28,6 +28,10 @@ class Monad m => MArray a e m where
   unsafeNewArray_ :: Ix i => (i, i) -> m (a i e)
   unsafeRead      :: Ix i => a i e -> Int -> m e
   unsafeWrite     :: Ix i => a i e -> Int -> e -> m ()
+  -- the representation, for freeze and thaw (not exported)
+  arrVector       :: a i e -> m (MutArr e)
+  arrFromVector   :: (i, i) -> Int -> MutArr e -> m (a i e)
+  arrIO           :: a i e -> IO x -> m x     -- the array: only its type
 
   newArray_ b = newArray b arrEleBottom
   unsafeNewArray_ b = newArray b arrEleBottom
@@ -49,6 +53,12 @@ instance Eq (IOArray i e) where
   IOArray _ _ a == IOArray _ _ b = primMutArrEq a b
 
 instance MArray (STArray s) e (ST s) where
+  {-# getBounds :: Inline #-}
+  {-# unsafeRead :: Inline #-}
+  {-# unsafeWrite :: Inline #-}
+  arrVector (STArray _ _ v) = return v
+  arrFromVector b n v = return (STArray b n v)
+  arrIO _ = unsafeIOToST
   getBounds (STArray b _ _) = return b
   newArray b x = unsafeIOToST (let n = rangeSize b in
                                primNewMutArr n x >>= \v -> return (STArray b n v))
@@ -56,6 +66,12 @@ instance MArray (STArray s) e (ST s) where
   unsafeWrite (STArray _ _ v) i x = unsafeIOToST (primWriteMutArr v i x)
 
 instance MArray (STUArray s) e (ST s) where
+  {-# getBounds :: Inline #-}
+  {-# unsafeRead :: Inline #-}
+  {-# unsafeWrite :: Inline #-}
+  arrVector (STUArray _ _ v) = return v
+  arrFromVector b n v = return (STUArray b n v)
+  arrIO _ = unsafeIOToST
   getBounds (STUArray b _ _) = return b
   newArray b x = x `seq` unsafeIOToST (let n = rangeSize b in
                                        primNewMutArr n x >>= \v -> return (STUArray b n v))
@@ -66,6 +82,12 @@ instance MArray (STUArray s) e (ST s) where
   unsafeWrite (STUArray _ _ v) i x = x `seq` unsafeIOToST (primWriteMutArr v i x)
 
 instance MArray IOUArray e IO where
+  {-# getBounds :: Inline #-}
+  {-# unsafeRead :: Inline #-}
+  {-# unsafeWrite :: Inline #-}
+  arrVector (IOUArray _ _ v) = return v
+  arrFromVector b n v = return (IOUArray b n v)
+  arrIO _ = id
   getBounds (IOUArray b _ _) = return b
   newArray b x = x `seq` (let n = rangeSize b in
                           primNewMutArr n x >>= \v -> return (IOUArray b n v))
@@ -76,6 +98,12 @@ instance MArray IOUArray e IO where
   unsafeWrite (IOUArray _ _ v) i x = x `seq` primWriteMutArr v i x
 
 instance MArray IOArray e IO where
+  {-# getBounds :: Inline #-}
+  {-# unsafeRead :: Inline #-}
+  {-# unsafeWrite :: Inline #-}
+  arrVector (IOArray _ _ v) = return v
+  arrFromVector b n v = return (IOArray b n v)
+  arrIO _ = id
   getBounds (IOArray b _ _) = return b
   newArray b x = let n = rangeSize b in
                  primNewMutArr n x >>= \v -> return (IOArray b n v)
@@ -87,9 +115,11 @@ getNumElements a = getBounds a >>= \b -> return (rangeSize b)
 
 readArray :: (MArray a e m, Ix i) => a i e -> i -> m e
 readArray a i = getBounds a >>= \b -> unsafeRead a (index b i)
+{-# readArray :: Inline #-}
 
 writeArray :: (MArray a e m, Ix i) => a i e -> i -> e -> m ()
 writeArray a i x = getBounds a >>= \b -> unsafeWrite a (index b i) x
+{-# writeArray :: Inline #-}
 
 modifyArray :: (MArray a e m, Ix i) => a i e -> i -> (e -> e) -> m ()
 modifyArray a i f = readArray a i >>= \x -> writeArray a i (f x)
@@ -115,17 +145,26 @@ getAssocs a = getBounds a >>= \b -> getElems a >>= \xs -> return (zip (range b) 
 mapArray :: (MArray a e' m, MArray a e m, Ix i) => (e' -> e) -> a i e' -> m (a i e)
 mapArray f a = getBounds a >>= \b -> getElems a >>= \xs -> newListArray b (map f xs)
 
+-- Array's vector holds the same values as a mutable array's (BasePrims):
+-- freezing and thawing copy it, the unsafe versions share it
 freeze :: (Ix i, MArray a e m) => a i e -> m (Array i e)
-freeze a = getBounds a >>= \b -> getElems a >>= \xs -> return (listArray b xs)
+freeze a = getBounds a >>= \b -> arrVector a >>= \v -> arrIO a (primCopyMutArrToArray b v)
 
 unsafeFreeze :: (Ix i, MArray a e m) => a i e -> m (Array i e)
-unsafeFreeze = freeze
+unsafeFreeze a = getBounds a >>= \b -> arrVector a >>= \v -> return (primMutArrToArray b v)
 
 thaw :: (Ix i, MArray a e m) => Array i e -> m (a i e)
-thaw arr = newListArray (bounds arr) (elems arr)
+thaw arr = result
+  where b = bounds arr
+        result = arrIO (resultArray result) (primCopyArrayToMutArr arr) >>= \v ->
+                 arrFromVector b (rangeSize b) v
+
+-- only its type is used (arrIO)
+resultArray :: m x -> x
+resultArray _ = error "resultArray"
 
 unsafeThaw :: (Ix i, MArray a e m) => Array i e -> m (a i e)
-unsafeThaw = thaw
+unsafeThaw arr = let b = bounds arr in arrFromVector b (rangeSize b) (primArrayToMutArr arr)
 
 runSTArray :: Ix i => ST s (STArray s i e) -> Array i e
 runSTArray st = runST (st >>= unsafeFreeze)
@@ -135,7 +174,7 @@ runSTUArray st = runST (st >>= unsafeFreeze)
 
 -- The element at an offset (0 .. numElements - 1)
 unsafeAt :: Ix i => Array i e -> Int -> e
-unsafeAt arr k = arr ! (range (bounds arr) !! k)
+unsafeAt arr k = primUnsafePerformIO (primReadMutArr (primArrayToMutArr arr) k)
 
 numElements :: Ix i => Array i e -> Int
 numElements arr = rangeSize (bounds arr)

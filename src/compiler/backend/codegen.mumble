@@ -531,8 +531,9 @@
 	   (let ((fn (car (con-lisp-fns con))))
 	     (apply-maybe-lambda fn (list exp))))
 	  ((algdata-tuple? type)
-	   ;; This should never happen.
-	   ''#t)
+	   ;; the only constructor: the value (evaluated) is tested only
+	   ;; for evaluation's sake (match-pcon-1 in cfn/pattern.mumble)
+	   `(begin ,exp '#t))
 	  ((algdata-enum? type)
 	   `(eqv? (the fixnum ,exp) (the fixnum ,(con-tag con))))
 	  (else

@@ -28,6 +28,10 @@ instance Applicative (ST s) where
 instance Monad (ST s) where
   return x = ST (return x)
   ST m >>= k = ST (m >>= \x -> unST (k x))
+  ST m >> ST n = ST (m >> n)
+  {-# (>>=) :: Inline #-}
+  {-# (>>) :: Inline #-}
+  {-# return :: Inline #-}
 
 runST :: (forall s. ST s a) -> a
 runST (ST io) = unsafePerformIO io

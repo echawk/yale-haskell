@@ -181,14 +181,63 @@
 
 ;;; Returns '#f if the program does not compile.
 
+;;; YALE_HASKELL_TIME=1: the compile (and load) and run times, CPU and
+;;; real seconds, go to stderr when main returns (not when the program
+;;; ends with exitWith).  YALE_HASKELL_PROFILE=1: main runs under SBCL's
+;;; statistical profiler, whose flat report goes to stderr.
+
 (define (run-program name)
-  (if (compile/load name)
-      (let ((main-mod (table-entry *modules* '|Main|)))
-	(if main-mod
-	    (let ((main-var (table-entry (module-symbol-table main-mod) '|main|)))
-	      (if main-var
-		  (begin (apply-exec main-var) '#t)
-		  (error "Variable main missing")))
-	    (error "module Main missing")))
-      '#f))
+  (let ((t0  (timing-point)))
+    (if (compile/load name)
+	(let ((main-mod (table-entry *modules* '|Main|))
+	      (t1       (timing-point)))
+	  (if main-mod
+	      (let ((main-var (table-entry (module-symbol-table main-mod) '|main|)))
+		(if main-var
+		    (begin
+		      (if (env-flag? "YALE_HASKELL_PROFILE")
+			  (profile-main main-var)
+			  (apply-exec main-var))
+		      (when (env-flag? "YALE_HASKELL_TIME")
+			(report-timing t0 t1 (timing-point)))
+		      '#t)
+		    (error "Variable main missing")))
+	      (error "module Main missing")))
+	'#f)))
+
+;;; Generated functions are named |Module:name/OPT|, so the report reads
+;;; in Haskell terms.
+
+(define (profile-main main-var)
+  #+sbcl
+  (let ((sprof  (lisp:find-package "SB-SPROF")))
+    (lisp:funcall (lisp:intern "START-PROFILING" sprof) :mode :cpu
+		  :sample-interval 0.001 :max-samples 200000)
+    (lisp:unwind-protect
+	(apply-exec main-var)
+      (lisp:funcall (lisp:intern "STOP-PROFILING" sprof))
+      (lisp:force-output)
+      (lisp:funcall (lisp:intern "REPORT" sprof) :type :flat :max 40
+		    :stream lisp:*error-output*)))
+  #-sbcl
+  (apply-exec main-var))
+
+;;; (cpu-seconds real-seconds bytes-allocated)
+
+(define (timing-point)
+  (list (/ (lisp:float (lisp:get-internal-run-time))
+	   lisp:internal-time-units-per-second)
+	(/ (lisp:float (lisp:get-internal-real-time))
+	   lisp:internal-time-units-per-second)
+	#+sbcl (sb-ext:get-bytes-consed)
+	#-sbcl 0))
+
+(define (report-timing t0 t1 t2)
+  (lisp:force-output)
+  (lisp:format lisp:*error-output*
+     "~&yale-haskell: compile ~,3F s cpu ~,3F s real; run ~,3F s cpu ~,3F s real, ~:D bytes allocated~%"
+     (- (car t1) (car t0)) (- (cadr t1) (cadr t0))
+     (- (car t2) (car t1)) (- (cadr t2) (cadr t1))
+     (- (caddr t2) (caddr t1)))
+  (lisp:finish-output lisp:*error-output*))
 

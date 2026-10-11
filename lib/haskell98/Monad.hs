@@ -56,9 +56,11 @@ join x           =  x >>= id
 
 when             :: (Monad m) => Bool -> m () -> m ()
 when p s         =  if p then s else return ()
+{-# when :: Inline #-}
 
 unless           :: (Monad m) => Bool -> m () -> m ()
 unless p s       =  when (not p) s
+{-# unless :: Inline #-}
 
 ap               :: (Monad m) => m (a -> b) -> m a -> m b
 ap               =  liftM2 ($)

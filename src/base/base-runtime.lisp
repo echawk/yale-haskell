@@ -18,6 +18,15 @@
 (cl:defun prim.read-mut-arr (a i) (cl:svref a i))
 (cl:defun prim.write-mut-arr (a i x) (cl:setf (cl:svref a i) x) 0)
 
+;;; Between mutable arrays and the Prelude's Array, MkArray bounds vector
+;;; (a cons: a two-field constructor; src/runtime/runtime-utils.mumble's
+;;; make-tuple), whose vector holds the same values: a Box is its field.
+
+(cl:defun prim.mut-arr-to-array (b a) (cl:cons b a))
+(cl:defun prim.copy-mut-arr-to-array (b a) (cl:cons b (cl:copy-seq a)))
+(cl:defun prim.array-to-mut-arr (arr) (cl:cdr arr))
+(cl:defun prim.copy-array-to-mut-arr (arr) (cl:copy-seq (cl:cdr arr)))
+
 ;;; Running an IO action outside IO (System.IO.Unsafe, runST): it is
 ;;; applied to the state token as the IO monad's bind does.
 

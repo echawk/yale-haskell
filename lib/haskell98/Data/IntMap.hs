@@ -45,7 +45,7 @@
 -- (32 or 64).
 -----------------------------------------------------------------------------
 
-module Data.IntMap  ( foldl, foldl', foldrWithKey, foldlWithKey, foldrWithKey', foldlWithKey', 
+module Data.IntMap  ( foldr, foldl, foldr', foldl', foldrWithKey, foldlWithKey, foldrWithKey', foldlWithKey', 
             -- * Map type
               IntMap, Key          -- instance Eq,Show
 
@@ -1369,20 +1369,20 @@ fold f z t
 
 foldWithKey :: (Key -> a -> b -> b) -> b -> IntMap a -> b
 foldWithKey f z t
-  = foldr f z t
+  = keyedFoldr f z t
 
-foldr :: (Key -> a -> b -> b) -> b -> IntMap a -> b
-foldr f z t
+keyedFoldr :: (Key -> a -> b -> b) -> b -> IntMap a -> b
+keyedFoldr f z t
   = case t of
-      Bin 0 m l r | m < 0 -> foldr' f (foldr' f z l) r  -- put negative numbers before.
-      Bin _ _ _ _ -> foldr' f z t
+      Bin 0 m l r | m < 0 -> keyedFoldr' f (keyedFoldr' f z l) r  -- put negative numbers before.
+      Bin _ _ _ _ -> keyedFoldr' f z t
       Tip k x     -> f k x z
       Nil         -> z
 
-foldr' :: (Key -> a -> b -> b) -> b -> IntMap a -> b
-foldr' f z t
+keyedFoldr' :: (Key -> a -> b -> b) -> b -> IntMap a -> b
+keyedFoldr' f z t
   = case t of
-      Bin _ _ l r -> foldr' f (foldr' f z r) l
+      Bin _ _ l r -> keyedFoldr' f (keyedFoldr' f z r) l
       Tip k x     -> f k x z
       Nil         -> z
 
@@ -1449,7 +1449,7 @@ toList t
 toAscList :: IntMap a -> [(Key,a)]
 toAscList t   
   = -- NOTE: the following algorithm only works for big-endian trees
-    let (pos,neg) = span (\(k,_) -> k >=0) (foldr (\k x xs -> (k,x):xs) [] t) in neg ++ pos
+    let (pos,neg) = span (\(k,_) -> k >=0) (keyedFoldr (\k x xs -> (k,x):xs) [] t) in neg ++ pos
 
 -- | /O(n*min(n,W))/. Create a map from a list of key\/value pairs.
 --
@@ -1926,7 +1926,9 @@ prop_UpdateMinMax xs =
 
 
 -- Folds of newer containers (tools/gen/import-nhc98-libs.py)
+foldr f z m = YaleList.foldr f z (elems m)
 foldl f z m = YaleList.foldl f z (elems m)
+foldr' f z m = YaleList.foldr f z (elems m)
 foldl' f z m = YaleList.foldl' f z (elems m)
 foldrWithKey f z m = YaleList.foldr (\(k, v) acc -> f k v acc) z (toAscList m)
 foldlWithKey f z m = YaleList.foldl (\acc (k, v) -> f acc k v) z (toAscList m)

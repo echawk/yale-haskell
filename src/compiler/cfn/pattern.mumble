@@ -282,8 +282,12 @@
 ;;; Pcons are the hairy case because they may have subpatterns that need
 ;;; to be matched.
 ;;; If there are subpats and the exp is not a var-ref, make a let binding.
-;;; If the con is a tuple type, there is no need to generate a test
-;;; since the test would always succeed anyway.
+;;; If the con is a tuple type (its type's only constructor) the test
+;;; always succeeds, but it is still made: matching evaluates the value
+;;; (case undefined of (a, b) -> 1 is undefined), and a lambda's or a
+;;; function's tuple argument is strict.  The optimizer folds it when
+;;; the value is a constructor application; code generation evaluates
+;;; the value and gives true.
 ;;; Do not generate let bindings here for subexpressions; do this lazily
 ;;; if and when necessary.
 
@@ -310,9 +314,7 @@
     (setf exps (nconc (nreverse subexps) exps))
     (setf pats (append subpats pats))
     (let ((tail  (match-pattern exps pats alt block-name)))
-      (when (not tuple?)
-	(setf tail
-	      (**and-exp (**is-constructor (**var/def var) con) tail)))
+      (setf tail (**and-exp (**is-constructor (**var/def var) con) tail))
       (when (not var?)
 	(setf tail
 	      (**let (list (**valdef/def var (cfn-ast-1 exp))) tail)))

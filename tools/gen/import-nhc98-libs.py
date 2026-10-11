@@ -78,6 +78,13 @@ def patch_containers(name, src):
     if name == 'Data.Sequence':
         src = re.sub(r'^import Data\.Foldable$',
                      'import Data.Foldable hiding (length, null)', src, flags=re.M)
+    # IntMap 0.3's own foldr and foldr' are keyed (unexported): renamed,
+    # so that the newer value folds can be added
+    if name == 'Data.IntMap':
+        src = '\n'.join(
+            l if re.match(r'\s*(--|import\b)', l)
+            else re.sub(r"(?<![\w.'])foldr(?=['\s])", 'keyedFoldr', l)
+            for l in src.split('\n'))
     src = add_newer_folds(name, src)
     return CONTAINERS_NOTE % name + src
 

@@ -442,6 +442,32 @@
 		;; the arguments are invariant.
 		(incf (var-fn-referenced var))
 		(note-invariant-args new-args (flic-lambda-vars val)))
+	       ((and (eqv? n 2)
+		     (seq-var? var)
+		     (is-type? 'flic-ref (car new-args))
+		     (or (is-type? 'flic-lambda (cadr new-args))
+			 (is-type? 'flic-return-from (cadr new-args))))
+		;; seq x (\v -> e)  =>  \v -> seq x e  (x a variable), and
+		;; seq x (return-from b e)  =>  return-from b (seq x e).
+		;; The first is GHC's eta expansion through seq (it differs
+		;; only in when x's divergence shows); with case-block
+		;; identity and lambda compression, a function with a bang
+		;; pattern returning an IO or ST action takes the state
+		;; argument directly instead of returning a closure.
+		(let ((body  (cadr new-args)))
+		  (setf (flic-app-fn object) new-fn)
+		  (setf (flic-app-args object) new-args)
+		  (if (is-type? 'flic-lambda body)
+		      (begin
+			(record-hack 'seq-hoist-lambda)
+			(setf (cadr new-args) (flic-lambda-body body))
+			(setf (flic-lambda-body body) object))
+		      (begin
+			(record-hack 'seq-hoist-return-from)
+			(setf (cadr new-args) (flic-return-from-exp body))
+			(setf (flic-return-from-exp body) object)))
+		  (setf new-fn body)
+		  (setf new-args '())))
 	       (else
 		(let ((magic  (magic-optimize-function var)))
 		  (when magic
@@ -505,6 +531,13 @@
 	  (setf (flic-app-args object) new-args)
 	  object))
     ))
+
+;;; The Prelude's seq, its primitive, and strict1: strict in their first
+;;; argument, returning the second.
+
+(define (seq-var? var)
+  (and (memq (def-name var) '(|seq| |primSeq| |strict1|))
+       (memq (def-module var) '(|Prelude| |PreludeBltinArray|))))
 
 (define (guess-function-arity var)
   (or (let ((value  (var-value var)))
@@ -575,8 +608,63 @@
 	     (eq? var (core-symbol "primNegFloat"))
 	     (eq? var (core-symbol "primNegDouble")))
 	 (function optimize-neg))
+	((io-prim-var? var '|getRes|)
+	 (function optimize-io-result))
+	((io-prim-var? var '|getState|)
+	 (function optimize-io-result))
 	(else
 	 '#f)))
+
+;;; The IO monad's primitives (PreludeIOPrims.hi): an action's result
+;;; is returnIO x s, which the IO bind (thenIO) takes apart with getRes
+;;; and getState.  For an action known to return:
+;;;   getRes (returnIO x s)   =>  x
+;;;   getState (returnIO x s) =>  s
+;;;   getState g              =>  s   (g a local variable bound to
+;;;                                    returnIO x s, s a variable)
+;;; The last leaves g one reference (by getRes), so it is inlined, and
+;;; the result is not built as a thunk only to be forced at once.
+
+(define (io-prim-var? var name)
+  (and (eq? (def-name var) name)
+       (eq? (def-module var) '|PreludeBltinIO|)))
+
+(define (return-io-app exp)
+  (and (is-type? 'flic-app exp)
+       (is-type? 'flic-ref (flic-app-fn exp))
+       (io-prim-var? (flic-ref-var (flic-app-fn exp)) '|returnIO|)
+       (eqv? (length (flic-app-args exp)) 2)
+       exp))
+
+(define (optimize-io-result fn args)
+  (let* ((get-res?  (io-prim-var? (flic-ref-var fn) '|getRes|))
+	 (arg       (car args))
+	 (app       (or (return-io-app arg)
+			(and (not get-res?)
+			     (is-type? 'flic-ref arg)
+			     (not (var-toplevel? (flic-ref-var arg)))
+			     (let ((app (return-io-app
+					 (var-value (flic-ref-var arg)))))
+			       (and app
+				    (is-type? 'flic-ref
+					      (cadr (flic-app-args app)))
+				    app))))))
+    (cond ((not app)
+	   (values fn args))
+	  ((eq? app arg)
+	   (record-hack 'io-result-fold)
+	   (values (if get-res?
+		       (car (flic-app-args app))
+		       (cadr (flic-app-args app)))
+		   (cdr args)))
+	  (else
+	   (record-hack 'io-state-fold)
+	   ;; the reference to the variable is gone
+	   (decf (var-referenced (flic-ref-var arg)))
+	   (let ((s  (flic-ref-var (cadr (flic-app-args app)))))
+	     (when (not (var-toplevel? s))
+	       (incf (var-referenced s)))
+	     (values (make-flic-ref s) (cdr args)))))))
 
 
 ;;; Foldr identities for deforestation
@@ -1110,10 +1198,14 @@
   (let ((con     (flic-is-constructor-con exp))
         (arg     (flic-is-constructor-exp exp)))
     (and (is-type? 'flic-ref arg)
-	 (every-1 (lambda (c)
-		    (or (eq? c con)
-			(constructor-test-present? c arg previous-clauses)))
-		  (algdata-constrs (con-alg con))))))
+	 ;; a type's only constructor: the test evaluates the value, so
+	 ;; it is redundant only after another test of it
+	 (if (algdata-tuple? (con-alg con))
+	     (constructor-test-present? con arg previous-clauses)
+	     (every-1 (lambda (c)
+			(or (eq? c con)
+			    (constructor-test-present? c arg previous-clauses)))
+		      (algdata-constrs (con-alg con)))))))
 
 (define (constructor-test-present? con arg previous-clauses)
   (cond ((null? previous-clauses)
@@ -1311,8 +1403,10 @@
   (let ((con      (flic-is-constructor-con object))
 	(exp      (optimize (flic-is-constructor-exp object)))
 	(exp-con  '#f))
-    (cond ((algdata-tuple? (con-alg con))
-	   ;; Tuples have only one constructor, so this is always true
+    (cond ((and (algdata-tuple? (con-alg con))
+		(is-constructor-app? exp))
+	   ;; Tuples have only one constructor, so this is always true;
+	   ;; otherwise the test remains, as it evaluates the value
 	   (record-hack 'is-constructor-fold-tuple)
 	   (make-flic-pack (core-symbol "True")))
 	  ((setf exp-con (is-constructor-app? exp))

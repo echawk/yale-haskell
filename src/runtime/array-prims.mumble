@@ -53,10 +53,17 @@
      ,force-this
      ;; Don't generate a stupid (force (delay x)) sequence here if
      ;; we don't need to.
-     ,(if (and (pair? leave-this)
-	       (or (eq? (car leave-this) 'delay)
-		   (eq? (car leave-this) 'box)))
-	  (cadr leave-this)
-	  `(force ,leave-this))))
+     ,(cond ((and (pair? leave-this)
+		  (or (eq? (car leave-this) 'delay)
+		      (eq? (car leave-this) 'box)))
+	     (cadr leave-this))
+	    ;; An IO action's result (returnIO x s is x, unevaluated: the
+	    ;; IO bind's getRes forces it when it is used), as when an
+	    ;; inlined return ends an action.
+	    ((and (pair? leave-this)
+		  (eq? (car leave-this) 'prim.returnio))
+	     leave-this)
+	    (else
+	     `(force ,leave-this)))))
 
 

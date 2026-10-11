@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""Compare run times of the bench programs with GHC.
+
+    bench/compare-ghc [-n RUNS] [--no-O0] [NAME ...]
+
+Each bench/NAME.hs (Haskell 98, --haskell98) and bench/modern/NAME.hs
+(--haskell98 --modern-prelude) is run with bin/yale-haskell and
+YALE_HASKELL_TIME=1, which reports the CPU seconds of running main
+(compilation and image start-up excluded).  The same source is compiled
+with ghc -O0 and -O2 (Haskell 98 module names mapped to base's) into
+build/bench/ghc/, and its process CPU time (user + sys) is measured.
+Outputs are checked against NAME.stdout.  Prints the best of RUNS
+(default 3) per column and the ratio Yale / GHC -O2.
+"""
+import os, re, resource, subprocess, sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(ROOT, 'build', 'bench', 'ghc')
+YALE = os.path.join(ROOT, 'bin', 'yale-haskell')
+H98_MODULES = {'Array': 'Data.Array', 'List': 'Data.List', 'Char': 'Data.Char',
+               'Monad': 'Control.Monad', 'IO': 'System.IO', 'Ratio': 'Data.Ratio',
+               'Maybe': 'Data.Maybe'}
+TIME = re.compile(r'run ([0-9.]+) s cpu ([0-9.]+) s real, ([0-9,]+) bytes')
+
+
+def programs():
+    progs = []
+    for sub, flags in (('', ['--haskell98']),
+                       ('modern', ['--haskell98', '--modern-prelude'])):
+        d = os.path.join(ROOT, 'bench', sub)
+        for f in sorted(os.listdir(d)):
+            if f.endswith('.hs') and not f.startswith('_'):
+                progs.append((f[:-3], os.path.join(d, f), flags))
+    return progs
+
+
+def ghc_build(name, src, opt):
+    exe = os.path.join(OUT, '%s-%s' % (name, opt))
+    if os.path.exists(exe) and os.path.getmtime(exe) > os.path.getmtime(src):
+        return exe
+    text = open(src).read()
+    for h98, mod in H98_MODULES.items():
+        text = re.sub(r'^import %s\b' % h98, 'import ' + mod, text, flags=re.M)
+    hs = os.path.join(OUT, name + '.hs')
+    with open(hs, 'w') as f:
+        f.write(text)
+    tmp = os.path.join(OUT, 'tmp-%s-%s' % (name, opt))
+    r = subprocess.run(['ghc', '-' + opt, '-rtsopts', '-outputdir', tmp,
+                        '-o', exe, hs], capture_output=True)
+    if r.returncode != 0:
+        sys.exit('ghc fails on %s:\n%s' % (name, r.stderr.decode()))
+    return exe
+
+
+def child_cpu(cmd, env=None):
+    before = resource.getrusage(resource.RUSAGE_CHILDREN)
+    r = subprocess.run(cmd, capture_output=True, env=env, stdin=subprocess.DEVNULL)
+    after = resource.getrusage(resource.RUSAGE_CHILDREN)
+    cpu = (after.ru_utime - before.ru_utime) + (after.ru_stime - before.ru_stime)
+    return r, cpu
+
+
+def main():
+    args = sys.argv[1:]
+    runs, o0 = 3, True
+    if '-n' in args:
+        i = args.index('-n')
+        runs = int(args[i + 1])
+        del args[i:i + 2]
+    if '--no-O0' in args:
+        args.remove('--no-O0')
+        o0 = False
+    os.makedirs(OUT, exist_ok=True)
+    env = dict(os.environ, YALE_HASKELL_TIME='1')
+    print('CPU seconds, best of %d; Yale: running main only' % runs)
+    print('%-12s %8s %10s %8s %8s %8s  %s' % ('program', 'Yale', 'Yale MB',
+          'GHC -O0' if o0 else '', 'GHC -O2', 'ratio', 'check'))
+    for name, src, flags in programs():
+        if args and name not in args:
+            continue
+        want = open(src[:-3] + '.stdout', 'rb').read()
+        check, yale, mb = 'ok', [], 0
+        for _ in range(runs):
+            r, _ = child_cpu([YALE] + flags + [src], env)
+            m = TIME.search(r.stderr.decode('latin-1'))
+            if r.returncode != 0 or not m:
+                check = 'FAIL: ' + (r.stderr.decode('latin-1').strip().splitlines() or [''])[0][:60]
+                break
+            if r.stdout != want:
+                check = 'WRONG'
+            yale.append(float(m.group(1)))
+            mb = int(m.group(3).replace(',', '')) / 1e6
+        ghc = {}
+        for opt in (['O0', 'O2'] if o0 else ['O2']):
+            exe = ghc_build(name, src, opt)
+            times = []
+            for _ in range(runs):
+                r, cpu = child_cpu([exe])
+                if r.stdout != want:
+                    check += ' (GHC %s output differs)' % opt
+                times.append(cpu)
+            ghc[opt] = min(times)
+        y = min(yale) if yale else None
+        fmt = lambda v: '%8.3f' % v if v is not None else '%8s' % '-'
+        ratio = '%7.1fx' % (y / ghc['O2']) if y is not None and ghc['O2'] > 0.0005 else '%8s' % '-'
+        print('%-12s %s %10.0f %s %s %s  %s' % (name, fmt(y), mb, fmt(ghc.get('O0')) if o0 else '        ',
+                                               fmt(ghc['O2']), ratio, check))
+
+
+main()

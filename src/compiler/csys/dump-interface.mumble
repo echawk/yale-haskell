@@ -46,9 +46,10 @@
 		   (or chunk-size (dynamic *magic-chunk-size*)))
 		  (*code-quality*
 		   (or code-quality (dynamic *code-quality*))))
-      (if (or (not (dynamic *magic-chunk-size*))
-	      (<= (the fixnum (length forms))
-		  (the fixnum (dynamic *magic-chunk-size*))))
+      (if (and (or (not (dynamic *magic-chunk-size*))
+		   (<= (the fixnum (length forms))
+		       (the fixnum (dynamic *magic-chunk-size*))))
+	       (<= (forms-weight forms) *max-chunk-functions*))
 	  (write-compiled-code-file-aux filename `(begin ,@forms))
 	  (with-compilation-unit ()
 	    (write-compiled-code-file-aux
@@ -71,7 +72,7 @@
     (do ((i 0 (1+ i)))
 	((null? forms))
 	(multiple-value-bind (head tail)
-	    (split-list forms (dynamic *magic-chunk-size*))
+	    (split-forms forms (or (dynamic *magic-chunk-size*) (length forms)))
 	  (let ((fname
 		  (assemble-filename
 		    place (format '#f "~a-part~a" name i) type)))
@@ -79,6 +80,49 @@
 	    (write-compiled-code-file-aux fname `(begin ,@head))
 	    (setf forms tail))))
     (nreverse result)))
+
+;;; SBCL compiles a file's top-level forms into code components of at
+;;; most 2047 functions (its assembler's limit), so a part also stops
+;;; at *max-chunk-functions* lambdas (counted generously: every lambda
+;;; and local function).
+
+(define *max-chunk-functions* 1000)
+
+(define (forms-weight forms)
+  (let ((n  0))
+    (dolist (f forms)
+      (setf n (+ n (form-weight f))))
+    n))
+
+(define (form-weight form)
+  (cond ((not (pair? form)) 0)
+	((memq (car form) '(lambda lisp:lambda))
+	 (1+ (form-weight (cdr form))))
+	((memq (car form) '(labels flet lisp:labels lisp:flet))
+	 (+ (if (pair? (cdr form)) (length (cadr form)) 0)
+	    (form-weight (cdr form))))
+	(else
+	 (let ((n  0))
+	   (do ((l form (cdr l)))
+	       ((not (pair? l)) n)
+	     (setf n (+ n (form-weight (car l)))))))))
+
+;;; The first at most N forms of FORMS within *max-chunk-functions*
+;;; (but at least one), and the rest.
+
+(define (split-forms forms n)
+  (let ((head    '())
+	(weight  0))
+    (do ((tail forms (cdr tail))
+	 (i 0 (1+ i)))
+	((or (null? tail)
+	     (and (not (null? head))
+		  (or (>= i n)
+		      (> (+ weight (form-weight (car tail)))
+			 *max-chunk-functions*))))
+	 (values (nreverse head) tail))
+      (setf weight (+ weight (form-weight (car tail))))
+      (push (car tail) head))))
 
 (define (flatten-forms code)
   (if (and (pair? code) (eq? (car code) 'begin))

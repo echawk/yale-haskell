@@ -56,6 +56,7 @@ thenIO f1 f2 =
 
 thenIO_ :: IO a -> IO b -> IO b
 x `thenIO_` y = x `thenIO` \_ -> y
+{-# thenIO_ :: Inline #-}
 
 seqIO :: IO a -> IO b -> IO b
 x `seqIO` y = x `thenIO` \_ -> y
@@ -72,6 +73,9 @@ instance Monad IO where
   m >> k    = thenIO_ m k
   return x  = returnIO x
   fail s    = ioError (userError s)
+  {-# (>>=) :: Inline #-}
+  {-# (>>) :: Inline #-}
+  {-# return :: Inline #-}
 
 
 -- IOErrors.  The Lisp side is src/runtime/io-errors.mumble: every H98

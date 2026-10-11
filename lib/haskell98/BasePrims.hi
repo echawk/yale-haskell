@@ -4,7 +4,7 @@
 
 interface BasePrims where
 
-import PreludeCore(Int,Integer,Bool,Char)
+import PreludeCore(Int,Integer,Bool,Char,Array)
 
 -- an exception: a Lisp condition (Control.Exception)
 data Exc
@@ -27,6 +27,12 @@ primNewMutArr      :: Int -> a -> IO (MutArr a)
 primReadMutArr     :: MutArr a -> Int -> IO a
 primWriteMutArr    :: MutArr a -> Int -> a -> IO ()
 primMutArrEq       :: MutArr a -> MutArr a -> Bool
+-- an Array's vector holds the same values (a Box is its field), so
+-- these wrap or copy the vector: the bounds must be evaluated
+primMutArrToArray  :: (i, i) -> MutArr e -> Array i e
+primCopyMutArrToArray :: (i, i) -> MutArr e -> IO (Array i e)
+primArrayToMutArr  :: Array i e -> MutArr e
+primCopyArrayToMutArr :: Array i e -> IO (MutArr e)
 
 -- System.IO.Unsafe (and runST)
 primUnsafePerformIO    :: IO a -> a
@@ -79,6 +85,10 @@ primNewMutArr      :: LispName("prim.new-mut-arr"), Strictness("S,N,S")
 primReadMutArr     :: LispName("prim.read-mut-arr")
 primWriteMutArr    :: LispName("prim.write-mut-arr"), Strictness("S,S,N,S")
 primMutArrEq       :: LispName("prim.ref-eq")
+primMutArrToArray  :: LispName("prim.mut-arr-to-array"), Strictness("S,S")
+primCopyMutArrToArray :: LispName("prim.copy-mut-arr-to-array"), Strictness("S,S,S")
+primArrayToMutArr  :: LispName("prim.array-to-mut-arr"), Strictness("S")
+primCopyArrayToMutArr :: LispName("prim.copy-array-to-mut-arr"), Strictness("S,S")
 primUnsafePerformIO    :: LispName("prim.unsafe-perform-io")
 primUnsafeInterleaveIO :: LispName("prim.unsafe-interleave-io")
 primCatchAny       :: LispName("prim.catch-any"), Strictness("N,S,S")
@@ -88,7 +98,7 @@ primExcMessage     :: LispName("prim.exc-message")
 primMakeErrorCall  :: LispName("prim.make-error-call")
 primExcToObj       :: LispName("prim.identity")
 primObjToExc       :: LispName("prim.identity")
-primEvaluate       :: LispName("prim.identity"), NoConversion
+primEvaluate       :: LispName("prim.identity"), Strictness("S,S")
 primSystem         :: LispName("prim.system")
 primLastExitCode      :: LispName("prim.last-exit-code")
 primReadProcessOutput :: LispName("prim.read-process-output")

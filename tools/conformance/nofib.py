@@ -58,7 +58,6 @@ KNOWN = {
     'spectral/sphere': 'its hash relies on 64-bit Int wrap-around (H98 leaves overflow undefined; Int is the 62-bit fixnum range)',
     'spectral/mandel': 'uses hSetBinaryMode (not Haskell 98)',
     'spectral/minimax': 'correct but slow: FAST_OPTS repeats the work 180000 times (~2.4 ms each here, ~7 minutes); 10 and 100 repetitions give the expected (empty) output',
-    'spectral/simple': 'exhausts the 4 GB heap at run time with both back ends: a space leak, not yet diagnosed (it compiles in seconds)',
     'spectral/secretary': 'Monte Carlo over Random: H98 does not fix the generator (ours is the Report/Hugs L\'Ecuyer one, GHC\'s random uses SplitMix); results agree statistically (~0.36 vs ~0.36)',
 }
 
