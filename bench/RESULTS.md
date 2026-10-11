@@ -275,3 +275,89 @@ ioloop      0.51    0.14
 bigint      0.17    0.09
 loop        0.29    0.25
 ```
+
+## Modern-Haskell benchmarks and bench/compare-ghc (2026-10-10)
+
+`bench/modern/` adds programs that use the libraries and extensions of
+the conformance work (all run with `--haskell98 --modern-prelude`):
+`mapcount` (Data.Map.Strict, Data.Set, Data.IntMap), `statemonad`
+(Control.Monad.State.Strict with a record state), `starray` (a 10^7
+sieve in an STUArray), `ioref` (Data.IORef, forM_), `foldable` (derived
+Functor/Foldable/Traversable on a rose tree), `existential`
+(ExistentialQuantification and a constrained rank-2 argument).
+
+`bench/compare-ghc` runs every bench program with Yale and with
+`ghc -O0`/`-O2` (GHC 9.14.1).  Yale's time is the CPU time of running
+`main` only (`YALE_HASKELL_TIME=1`: compilation and start-up excluded);
+GHC's is the whole process.  Commit 94bd47e plus this section's
+library changes, SBCL 2.6.9, Apple M4.  `YALE_HASKELL_PROFILE=1`
+profiles `main` (sb-sprof).
+
+First run, before any of the fixes below:
+
+```
+program          Yale    Yale MB  GHC -O0  GHC -O2    ratio
+foldable        1.918       2104    0.562    0.227     8.5x
+ioref           2.617       4853    0.448    0.016   161.9x
+mapcount            -  (IntMap.foldr missing)
+starray        17.295      37570    2.709    0.051   336.2x
+statemonad          -  (control stack exhausted)
+existential         -  (constrained polytype: not supported)
+```
+
+After the fixes:
+
+```
+CPU seconds, best of 3; Yale: running main only
+program          Yale    Yale MB  GHC -O0  GHC -O2    ratio  check
+bigint          0.157        553    0.083    0.078     2.0x  ok
+integrate       0.019         58    0.338    0.105     0.2x  ok
+interp          0.073        176    0.240    0.050     1.5x  ok
+ioloop          0.405        921    0.127    0.117     3.5x  ok
+loop            0.200          0   13.989    0.217     0.9x  ok
+nfib            0.580          0    5.871    0.297     2.0x  ok
+queens          0.417        674    2.072    0.147     2.8x  ok
+sieve           0.039        132    0.048    0.019     2.1x  ok
+tree            0.315        584    0.346    0.209     1.5x  ok
+wheel           0.006         13    0.056    0.009     0.6x  ok
+existential         -          0    0.060    0.022        -  FAIL (constrained polytype)
+foldable        1.687       1836    0.560    0.226     7.5x  ok
+ioref           0.041          0    0.459    0.015     2.8x  ok
+mapcount        0.954       1542    0.335    0.272     3.5x  ok
+starray         0.194         80    2.530    0.050     3.9x  ok
+statemonad      0.141        418    0.605    0.023     6.2x  ok
+```
+
+Yale beats GHC -O0 on every program but bigint and ioloop, and
+GHC -O2 on integrate, wheel and loop (speculation keeps the lazy
+accumulators evaluated); the Haskell 98 programs are 1.5-3.5x GHC -O2.
+
+What the new programs found and what was done:
+
+- **Tuple patterns were lazy.**  Matching a single-constructor pattern
+  did not evaluate the value (`case undefined of (a, b) -> 1` was 1):
+  strict State built thunk chains until the stack overflowed, and
+  nofib's spectral/simple leaked 4 GB (it now passes: nofib 68).
+- **Mutable arrays.**  `freeze`/`unsafeFreeze` went through a list of all
+  elements; now a vector copy / no copy (an Array's vector holds the
+  same values).  The `MArray` methods, `readArray`/`writeArray`, IO's and
+  ST's binds, `thenIO_`, `when` and `unless` are inlined.
+- **Optimizer.**  `seq x (\s -> e)` becomes `\s -> seq x e` (eta through
+  a bang pattern: an ST loop takes its state argument instead of
+  returning a closure each iteration); `getRes`/`getState` of a known
+  `returnIO` fold, so an IO result is not a thunk forced at once; a
+  single-constructor test is `seq`.  starray: 17.3 s -> 0.19 s.
+- **Dictionary functions.**  A method selected from an instance's
+  dictionary function applied to dictionaries (`Monad (StateT s m)` at
+  `Identity`) folds to the instance method, which then inlines.
+  statemonad: 3.9 s -> 0.14 s; ioref (forM_, modifyIORef' inlined):
+  2.6 s -> 0.04 s.
+- **apply-1..4** pasted their argument forms into both branches,
+  doubling code at each level of nested unknown calls (spectral/simple
+  then hit SBCL's 2047-functions-per-component limit).
+
+What remains: foldable's `traverse` in `Maybe` (1.4 s of its 1.7 s) and
+mapcount's `Ord Int` comparisons inside Data.Map's recursive
+operations are dictionary calls in recursive overloaded functions,
+which no amount of inlining reaches: doc/plans/SPECIALIZE.md.
+`existential` needs constrained polytypes (CONFORMANCE.md).

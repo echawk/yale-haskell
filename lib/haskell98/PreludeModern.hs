@@ -62,6 +62,12 @@ liftA3 f a b c = fmap f a <*> b <*> c
 (<**>) :: Applicative f => f a -> f (a -> b) -> f b
 (<**>) = liftA2 (\a f -> f a)
 
+{-# liftA :: Inline #-}
+{-# liftA2 :: Inline #-}
+{-# liftA3 :: Inline #-}
+{-# (<$>) :: Inline #-}
+{-# (<$) :: Inline #-}
+
 class Applicative f => Alternative f where
   empty :: f a
   (<|>) :: f a -> f a -> f a
@@ -83,6 +89,8 @@ instance Applicative Maybe where
   pure = Just
   Just f <*> m = fmap f m
   Nothing <*> _ = Nothing
+  {-# pure :: Inline #-}
+  {-# (<*>) :: Inline #-}
 
 instance Alternative Maybe where
   empty = Nothing
