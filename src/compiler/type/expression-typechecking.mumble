@@ -75,9 +75,16 @@
       (return-type object pattern-type))))
 
 (define-type-checker var-pat
-  (fresh-type var-type
-    (setf (var-type (var-ref-var (var-pat-var object))) var-type)
-    (return-type object var-type)))
+  (let* ((var (var-ref-var (var-pat-var object)))
+	 (poly (assq var (dynamic *polytype-vars*))))
+    (if poly
+	;; a polymorphic argument (polytypes.mumble)
+	(begin
+	  (setf (var-type var) (tuple-2-2 poly))
+	  (return-type object (instantiate-polytype (tuple-2-2 poly))))
+	(fresh-type var-type
+	  (setf (var-type var) var-type)
+	  (return-type object var-type)))))
 
 (define-type-checker wildcard-pat
  (fresh-type pat-type

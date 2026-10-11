@@ -1,9 +1,9 @@
 -- Control.Monad.ST (base): the strict state-thread monad, over IO.
 --
--- runST's type is the Haskell 98 one, ST s a -> a: without rank-2 types
--- it cannot be (forall s. ST s a) -> a, so nothing stops an STRef from
--- escaping its runST.  Programs that typecheck with base's runST run the
--- same here.
+-- runST's type is base's, (forall s. ST s a) -> a, though Yale
+-- Haskell's rank-N types do not check the action's polymorphism
+-- (src/compiler/type/polytypes.mumble): nothing stops an STRef from
+-- escaping its runST.  Programs that typecheck with base run the same.
 module Control.Monad.ST (
     ST, runST, fixST, RealWorld, stToIO, ioToST, unsafeIOToST, unsafeSTToIO
   ) where
@@ -29,7 +29,7 @@ instance Monad (ST s) where
   return x = ST (return x)
   ST m >>= k = ST (m >>= \x -> unST (k x))
 
-runST :: ST s a -> a
+runST :: (forall s. ST s a) -> a
 runST (ST io) = unsafePerformIO io
 
 fixST :: (a -> ST s a) -> ST s a

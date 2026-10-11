@@ -93,7 +93,8 @@
 ;;; ng-list is restored.  
 
        ;; ScopedTypeVariables (scoped-tyvars.mumble)
-       (let ((scoped '()))
+       (let ((scoped '())
+	     (polys '()))
 	 (dolist (d decls+tyvars)
 	   (let ((vs (map (function var-ref-var)
 			  (collect-pattern-vars (valdef-lhs (tuple-2-1 d))))))
@@ -101,8 +102,14 @@
 	       (setf scoped (append (scoped-signatures
 				     vs (list (remove-recursive-type
 					       (tuple-2-2 d))))
-				    scoped)))))
-	(dynamic-let ((*scoped-tyvars* (append scoped (dynamic *scoped-tyvars*))))
+				    scoped))
+	       (when (var-pat? (valdef-lhs (tuple-2-1 d)))
+		 (setf polys (append (polytype-arguments
+				      (tuple-2-1 d) (car vs)
+				      (remove-recursive-type (tuple-2-2 d)))
+				     polys))))))
+	(dynamic-let ((*scoped-tyvars* (append scoped (dynamic *scoped-tyvars*)))
+		      (*polytype-vars* (append polys (dynamic *polytype-vars*))))
 	 (dolist (d decls+tyvars)
 	   (let ((rhs-type (type-decl-rhs (tuple-2-1 d)))
 		 (lhs-type (tuple-2-2 d)))
@@ -220,8 +227,13 @@
       ;; ScopedTypeVariables (scoped-tyvars.mumble)
       (let ((scoped (if (null? (cdr all-vars))
 			(scoped-signatures all-vars (list lhs-type))
-			'())))
-       (dynamic-let ((*scoped-tyvars* (append scoped (dynamic *scoped-tyvars*))))
+			'()))
+	    ;; RankNTypes (polytypes.mumble)
+	    (polys (if (and (null? (cdr all-vars)) (var-pat? (valdef-lhs decl)))
+		       (polytype-arguments decl (car all-vars) lhs-type)
+		       '())))
+       (dynamic-let ((*scoped-tyvars* (append scoped (dynamic *scoped-tyvars*)))
+		     (*polytype-vars* (append polys (dynamic *polytype-vars*))))
 	(let ((rhs-type (if (and (pair? signed?) (car signed?)
 				 (var-signature (car all-vars)))
 			    (type-decl-rhs/at-signature decl all-vars)

@@ -1,11 +1,19 @@
 ;;; File: type-parser        Author: John
 
 (define (parse-type)
+  (if (and (haskell98?) (eq-token? 'varid) (string=? (car *token-args*) "forall"))
+      ;; RankNTypes: forall a. t in an argument or field
+      (let ((tyvars (skip-explicit-forall)))
+	(make forall-type (tyvars tyvars) (type (parse-type))))
+      (parse-type-1)))
+
+(define (parse-type-1)
   (let ((type (parse-btype)))
     (token-case
       (->
        (**tycon/def (core-symbol "Arrow") (list type (parse-type))))
       (else type))))
+
 
 (define (parse-btype)
   (token-case

@@ -97,7 +97,7 @@
 
 (define (dump-gtyvar g)
   (let ((n (gtyvar-varnum g)))
-    (if (< n *num-saved-gtyvars*)
+    (if (and (>= n 0) (< n *num-saved-gtyvars*))
 	(1+ n)
 	(remember-dumped-object `(**gtyvar ,n)))))
 
@@ -132,6 +132,12 @@
 (define (dump-gtype-1 g)
   (cond ((gtyvar? g)
 	 (dump-gtyvar g))
+	;; a polytype in a type (RankNTypes, type/polytypes.mumble)
+	((and (gtype? g) (gtype-nested? g))
+	 (let ((context (dump-context-list (gtype-context g)))
+	       (type (dump-gtype-1 (gtype-type g))))
+	   (remember-dumped-object
+	    `(nested-gtype ,(cse-ref-code context) ,(cse-ref-code type)))))
 	((ntyvar? g)
 	 (dump-gtype-1 (prune g)))
 	((ntyapp? g)
@@ -182,6 +188,11 @@
 			 `(cons ,(dump-class/n (tuple-2-1 c))
 				,(cse-ref-code (dump-gtype-list (tuple-2-2 c)))))
 		       (gtype-mcontext g))))))))
+
+(define (nested-gtype context type)
+  (let ((g (**gtype context type)))
+    (setf (gtype-nested? g) '#t)
+    g))
 
 (define (gtype-with-mcontext g mcontext)
   (make gtype (context (gtype-context g)) (type (gtype-type g))

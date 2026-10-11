@@ -28,14 +28,17 @@ MODULE_MAP = {
 }
 # Modules Yale Haskell does not have yet: the program is skipped.
 NON_H98 = re.compile(r'^>?\s*import\s+(qualified\s+)?(Control\.(Monad\.(?!Fail\b|ST\b|Trans\b|State\b|Reader\b|Writer\b|Except\b)\w+|Concurrent|Parallel|DeepSeq)|GHC\.|Text\.(?!Read\b|Printf\b|PrettyPrint\b)|System\.Mem)', re.M)
-EXTENSIONS = re.compile(r'\bforall\b|\bunsafePerformIO\b|#!', re.M)
-# LANGUAGE pragmas naming only these are fine (tools/conformance/extensions.py)
+EXTENSIONS = re.compile(r'#!', re.M)
+# LANGUAGE pragmas naming only these are fine (tools/conformance/extensions.py;
+# Strict and StrictData are ignored: only evaluation order differs)
 SUPPORTED = set('''CPP BangPatterns LambdaCase TupleSections MultiWayIf
     BinaryLiterals NumericUnderscores InstanceSigs KindSignatures
     NamedFieldPuns RecordWildCards GADTSyntax StandaloneDeriving EmptyCase
     EmptyDataDecls FlexibleInstances FlexibleContexts TypeSynonymInstances
     MultiParamTypeClasses FunctionalDependencies DeriveFunctor DeriveFoldable
-    DeriveTraversable GeneralizedNewtypeDeriving'''.split())
+    DeriveTraversable GeneralizedNewtypeDeriving ScopedTypeVariables
+    TypeApplications RankNTypes ExistentialQuantification
+    Strict StrictData'''.split())
 LANGUAGE = re.compile(r'\{-#\s*LANGUAGE\s+([^#]*)#-\}')
 
 def unsupported_extension(src):

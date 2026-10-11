@@ -8,7 +8,16 @@
 ;;; Start by removing instantiated type variables from the type.
 
 (define (unify type1 type2)
-  (unify-1 (prune type1) (prune type2)))
+  (unify-1 (instance-if-polytype (prune type1))
+	   (instance-if-polytype (prune type2))))
+
+;;; RankNTypes: a polytype unifies as a new instance of itself (the
+;;; argument given for it is not checked to be polymorphic).
+
+(define (instance-if-polytype type)
+  (if (and (gtype? type) (gtype-nested? type))
+      (instantiate-polytype type)
+      type))
 
 ;;; The only real tweak here is the read-only bit on type variables.
 ;;; The rule is that a RO tyvar can be unified only with a generic

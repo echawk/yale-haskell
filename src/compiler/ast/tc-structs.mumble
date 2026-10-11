@@ -64,7 +64,10 @@
    ;; an explicit forall binds, which scope over the binding's body
    ;; (ScopedTypeVariables; type/scoped-tyvars.mumble)
    (tyvar-names (type (list symbol)) (default '()))
-   (scoped (type (list symbol)) (default '()))))
+   (scoped (type (list symbol)) (default '()))
+   ;; a polytype inside another type (RankNTypes, type/polytypes.mumble):
+   ;; its own type variables are gtyvars numbered -1, -2, ...
+   (nested? (type bool) (default '#f))))
 
 ;;; These tyvars just index a list of pre-allocated tyvars.
 

@@ -129,10 +129,26 @@
 	 (tuple-2-2 (car gcontext)))
 	(else (get-gtyvar-context n (cdr gcontext)))))
 
+(define *inner-tyvars* '())   ; a forall-type's tyvars: (name . -i)
+
 (define (type->gtype type env)
-  (cond ((tyvar? type)
+  (cond ((and (tyvar? type) (assq (tyvar-name type) (dynamic *inner-tyvars*)))
+	 (values (**gtyvar (tuple-2-2 (assq (tyvar-name type) (dynamic *inner-tyvars*))))
+		 env))
+	((tyvar? type)
 	 (mlet (((n env1) (ast->gtyvar (tyvar-name type) env)))
 	   (values (**gtyvar n) env1)))
+	((forall-type? type)
+	 ;; a nested polytype: its tyvars are -1, -2, ...
+	 (let ((inner (let ((i 0))
+			(map (lambda (v) (decf i) (tuple v i))
+			     (forall-type-tyvars type)))))
+	   (mlet (((body env1)
+		   (dynamic-let ((*inner-tyvars* (append inner (dynamic *inner-tyvars*))))
+		     (type->gtype (forall-type-type type) env))))
+	     (let ((g (**gtype (map (lambda (v) (declare (ignore v)) '()) inner) body)))
+	       (setf (gtype-nested? g) '#t)
+	       (values g env1)))))
 	((tyapp? type)
 	 (mlet (((fun env1) (type->gtype (tyapp-fun type) env))
 		((types env2) (type->gtype/l (tyapp-args type) env1)))
@@ -158,6 +174,27 @@
 	    (arrange-gtype-classes-1 (1+ m) n env gcontext))))
 
 ;;; These routines convert gtypes back to ordinary types.
+
+;;; A nested polytype's instance: new type variables for its own.
+
+(define (instantiate-polytype g)
+  (let ((tyvars (map (lambda (c) (declare (ignore c)) (**ntyvar)) (gtype-context g))))
+    (copy-polytype-body (gtype-type g) tyvars)))
+
+(define (copy-polytype-body g tyvars)
+  (cond ((and (gtyvar? g) (< (gtyvar-varnum g) 0))
+	 (list-ref tyvars (- -1 (gtyvar-varnum g))))
+	((and (gtype? g) (gtype-nested? g))
+	 (let ((g1 (**gtype (gtype-context g) g)))
+	   (setf (gtype-nested? g1) '#t)
+	   g1))
+	((ntyapp? g)
+	 (apply-ntype (prune (copy-polytype-body (prune (ntyapp-fun g)) tyvars))
+		      (map (lambda (a) (copy-polytype-body (prune a) tyvars)) (ntyapp-args g))))
+	((ntycon? g)
+	 (**ntycon (ntycon-tycon g)
+		   (map (lambda (a) (copy-polytype-body (prune a) tyvars)) (ntycon-args g))))
+	(else g)))
 
 (define (instantiate-gtype g)
  (mlet (((gtype _) (instantiate-gtype/newvars g)))
@@ -186,7 +223,14 @@
 	(cons tyvar (create-new-tyvars (cdr ctxts))))))
 
 (define (copy-gtype g env)
-  (cond ((ntyapp? g)
+  (cond ((and (gtype? g) (gtype-nested? g))
+	 ;; the outer type's variables are replaced, its own kept
+	 (let ((g1 (**gtype (gtype-context g) (copy-gtype (gtype-type g) env))))
+	   (setf (gtype-nested? g1) '#t)
+	   g1))
+	((and (gtyvar? g) (< (gtyvar-varnum g) 0))
+	 g)
+	((ntyapp? g)
 	 (apply-ntype (prune (copy-gtype (ntyapp-fun g) env))
 		      (map (lambda (g1) (copy-gtype g1 env))
 			   (ntyapp-args g))))
@@ -384,7 +428,11 @@
 
 (define (occurs-in-type tyvar type) ; Cardelli algorithm
   (let ((type (prune type)))
-    (cond ((ntyvar? type)
+    (cond ((gtype? type)
+	   (occurs-in-type tyvar (gtype-type type)))
+	  ((gtyvar? type)
+	   '#f)
+	  ((ntyvar? type)
 	   (eq? type tyvar))
 	  ((ntyapp? type)
 	   (or (occurs-in-type tyvar (ntyapp-fun type))
@@ -407,7 +455,11 @@
 
 (define (collect-tyvars-1 ntype vars)
  (let ((ntype (prune ntype)))
-  (cond ((ntyvar? ntype)
+  (cond ((gtype? ntype)
+	 (collect-tyvars-1 (gtype-type ntype) vars))
+	((gtyvar? ntype)
+	 vars)
+	((ntyvar? ntype)
 	 (if (or (memq ntype vars) (non-generic? ntype))
 	     vars
 	     (cons ntype vars)))

@@ -30,6 +30,9 @@
   (unit expression-typechecking
 	(require type-macros)
 	(source-filename "expression-typechecking.mumble"))
+  (unit polytypes
+	(require type-macros)
+	(source-filename "polytypes.mumble"))
   (unit existentials
 	(require type-macros)
 	(source-filename "existentials.mumble"))

@@ -827,6 +827,10 @@
   `(**context ,(dump-object (context-class o))
 	      ,(dump-object (context-tyvar o))))
 
+(define-walker-method dump forall-type (o)
+  `(make forall-type (tyvars ',(forall-type-tyvars o))
+	             (type ,(dump-object (forall-type-type o)))))
+
 (define-walker-method dump tyapp (o)
   `(**tyapp ,(dump-object (tyapp-fun o))
 	    ,(dump-object (tyapp-args o))))

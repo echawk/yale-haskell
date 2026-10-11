@@ -1,0 +1,59 @@
+;;; polytypes.mumble -- GHC's RankNTypes, without contexts
+;;;
+;;; A type may contain a polytype, (forall a. t), as an argument or a
+;;; field's type: a gtype with nested? set, whose own type variables are
+;;; gtyvars -1, -2, ... (util/type-utils.mumble's type->gtype); copying the
+;;; outer type replaces only the outer ones.
+;;;
+;;; Unifying a polytype with a type instantiates it first (unify.mumble):
+;;; a function's polymorphic argument, a field's, runST's action, take a
+;;; new instance each time.  So the argument given is not checked to be
+;;; polymorphic enough, and a program GHC accepts runs the same.
+;;;
+;;; Inside a function whose signature gives an argument a polytype, the
+;;; variable bound to that argument has the polytype itself as its type,
+;;; and each use instantiates it (type-vars.mumble's var-ref): this is
+;;; what lets app f = (f 1, f True) type check.
+
+(define *polytype-vars* '())   ; (tuple var polytype)
+
+(define (polytype? type)
+  (and (gtype? type) (gtype-nested? type)))
+
+(define (gtype-has-polytypes? g)
+  (polytype-in? (gtype-type g)))
+
+(define (polytype-in? type)
+  (cond ((polytype? type) '#t)
+	((ntycon? type) (lisp:some (function polytype-in?) (ntycon-args type)))
+	((ntyapp? type) (lisp:some (function polytype-in?) (ntyapp-args type)))
+	(else '#f)))
+
+;;; Before a function's body is typed: when its signature has polytype
+;;; arguments, its type is unified with the signature's instance, and
+;;; the variables its clauses bind to those arguments get the polytypes.
+;;; Returns the (tuple var polytype) bindings.
+
+(define (polytype-arguments decl var lhs-type)
+  (let ((sig (var-signature var)))
+    (if (or (eq? sig '#f) (not (gtype-has-polytypes? sig)))
+	'()
+	(mlet (((inst _) (instantiate-gtype/newvars sig)))
+	  (type-unify lhs-type inst '#f)
+	  (let ((arg-types (arrow-argument-types inst))
+		(result '()))
+	    (dolist (def (valdef-definitions decl))
+	      (do ((args (single-fun-def-args def) (cdr args))
+		   (types arg-types (cdr types)))
+		  ((or (null? args) (null? types)))
+		(when (and (polytype? (car types)) (var-pat? (car args)))
+		  (push (tuple (var-ref-var (var-pat-var (car args))) (car types))
+			result))))
+	    result)))))
+
+(define (arrow-argument-types type)
+  (let ((type (prune type)))
+    (if (and (ntycon? type) (eq? (ntycon-tycon type) (core-symbol "Arrow")))
+	(cons (car (ntycon-args type))
+	      (arrow-argument-types (cadr (ntycon-args type))))
+	'())))

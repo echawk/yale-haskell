@@ -56,6 +56,9 @@
 		 (new-object (insert-dict-placeholders p extra-context object)))
 	    (remember-placeholder p)
 	    (return-type (**save-old-exp object new-object) ntype)))
+	 ;; a variable whose type is a polytype (polytypes.mumble)
+	 ((and (gtype? type) (gtype-nested? type))
+	  (return-type object (instantiate-polytype type)))
 	 ((recursive-type? type)
 	  (let ((placeholder (**recursive-placeholder
 			      var (dynamic *enclosing-decls*))))

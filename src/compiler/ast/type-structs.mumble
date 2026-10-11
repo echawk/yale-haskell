@@ -75,6 +75,15 @@
 
 
 ;;; Type + context
+;;; (forall a b. t) inside a type (GHC's RankNTypes): a polymorphic type
+;;; in an argument or a field.  No context (type/polytypes.mumble).
+(define-struct forall-type
+  (include type)
+  (predicate forall-type?)
+  (slots
+   (tyvars (type (list symbol)))
+   (type (type type))))
+
 (define-struct signature
   (include type)
   (slots
