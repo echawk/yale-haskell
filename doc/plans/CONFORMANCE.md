@@ -48,7 +48,7 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
 - Derived `Show` of types with more than 6 constructors no longer
   needs `Read`.
 
-**nofib:** 65 pass, 5 known deviations, 5 skipped, no failures
+**nofib:** 67 pass, 5 known deviations, 3 skipped, no failures
 (2026-10-10; 45 and 25 skipped before CPP and the base libraries).
 - **Known deviations:**
   - mandel: `hSetBinaryMode`.
@@ -56,9 +56,8 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
   - secretary: a different random generator.
   - sphere: 64-bit `Int` wrap-around.
   - simple: exhausts the heap; see below.
-- **Skips:** kahan and dom-lt need mutable arrays (Data.Array.ST,
-  Data.Array.Base), and dom-lt also needs Data.IntMap.Strict. The other
-  three have no `Main`, or no expected output that GHC can make.
+- **Skips:** three programs have no `Main`, or no expected output that
+  GHC can make.
 - **CPP** (`--cpp`, `{-# LANGUAGE CPP #-}`; src/compiler/parser/cpp.mumble):
   - The 14 hartel programs pass through it. Their `Fast2haskell.hs` uses
     GHC's unboxed primitives, so tools/conformance/Fast2haskell.hs, a
@@ -69,49 +68,51 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
 
 `tools/conformance/extensions.py` runs 27 small programs, each using a
 GHC extension or a modern-base idiom, and compares them with GHC's output:
-**23 pass**.
+**all 27 pass**.
 
 **Accepted:**
 - **Syntax:** BangPatterns, LambdaCase, MultiWayIf, TupleSections,
   BinaryLiterals, NumericUnderscores, InstanceSigs (signatures dropped),
   KindSignatures (kinds inferred), NamedFieldPuns, RecordWildCards,
   GADTSyntax (ordinary data types only), StandaloneDeriving (same module),
-  EmptyCase.
+  EmptyCase, TypeApplications.
 - **Types:**
   - FlexibleContexts: reduced through instances.
   - FlexibleInstances and TypeSynonymInstances: one instance per class
-    and type constructor, and a use must match the head.
-  - Multi-parameter classes with fundeps and superclasses: a superclass
-    is added to every context that has the class.
+    and type constructor; a use must match the head.
+  - Multi-parameter classes with fundeps and superclasses.
+  - ScopedTypeVariables: a forall's variables, in inner signatures and
+    annotations.
+  - ExistentialQuantification: hidden dictionary fields, rigid type
+    variables.
+  - RankNTypes: polytypes without contexts as arguments and fields;
+    polymorphism is not checked at the call site.
 - **Deriving:** Functor, Foldable, Traversable; GeneralizedNewtypeDeriving
   (the underlying instance must have no context and come from another
   module).
 - **The Functor-Applicative-Monad hierarchy:** while PreludeModern is
-  loaded, `Monad m` implies Functor and Applicative (through
-  WrappedMonad's instances), and a Monad instance's return defaults to
-  pure.
+  loaded, `Monad m` implies Functor and Applicative, and a Monad
+  instance's return defaults to pure.
 
 **Libraries** (beyond the Report's):
 - base: Data.Foldable, Data.Traversable, Data.Monoid, Data.Ord,
   Data.Either, Data.Tuple, Data.Functor, Data.Functor.Identity,
   Data.Bifunctor, Data.IORef, Data.STRef, Control.Monad.ST,
   System.IO.Unsafe, Control.Monad.IO.Class, Text.Printf.
-- containers: Map, Set, IntMap, IntSet, Sequence, Tree.
+- array: Data.Array.ST, .IO, .MArray, .Base, .Unboxed, .IArray.
+- containers: Map, Set, IntMap, IntSet, Sequence, Tree, and the
+  `.Strict`/`.Lazy` modules.
 - pretty: Text.PrettyPrint.
 - transformers: State, Reader, Writer, Maybe, Except.
 - mtl: State, Reader, Writer, Except.
 
-**Missing** (probes that fail):
-- **TypeApplications.**
-- **ScopedTypeVariables:** a `forall`'s type variables do not scope over
-  the body.
-- **RankNTypes:** runST has the Haskell 98 type `ST s a -> a`.
-- **ExistentialQuantification.**
-
-Also missing:
-- Data.Array.ST and the other mutable arrays, which kahan and dom-lt
-  need.
-- The `.Strict` containers modules.
+**Known gaps:**
+- Contexts in polytypes (`forall a. Show a => ...` as an argument).
+- Escape checks for existential and rank-N type variables.
+- GADTs proper.
+- The Strict extension (ignored).
+- Type families.
+- DeriveGeneric and DeriveAnyClass.
 
 ## Next
 
