@@ -737,7 +737,10 @@
 	      (and value
 		   (is-type? 'flic-app value)
 		   (structured-constant-app?
-		     (flic-app-fn value) (flic-app-args value))))
+		     (flic-app-fn value) (flic-app-args value)))
+	      ;; an instance's dictionary function (the optimizer's
+	      ;; try-to-fold-selector)
+	      (dictionary-fn-value var))
       (push `(setf (var-value var) ,(dump-flic-top value)) code))
     (when inline-value
       (push `(setf (var-inline-value var) ,(dump-flic-top inline-value)) code))

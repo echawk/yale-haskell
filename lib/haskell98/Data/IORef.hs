@@ -44,3 +44,12 @@ atomicModifyIORef' ref f = do
 
 atomicWriteIORef :: IORef a -> a -> IO ()
 atomicWriteIORef = writeIORef
+
+{-# newIORef :: Inline #-}
+{-# readIORef :: Inline #-}
+{-# writeIORef :: Inline #-}
+{-# modifyIORef :: Inline #-}
+{-# modifyIORef' :: Inline #-}
+{-# atomicModifyIORef :: Inline #-}
+{-# atomicModifyIORef' :: Inline #-}
+{-# atomicWriteIORef :: Inline #-}

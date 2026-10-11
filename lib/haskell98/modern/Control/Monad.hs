@@ -21,9 +21,11 @@ import PreludeModern (Applicative(pure), Alternative(empty),
 -- over any Traversable or Foldable, as base's
 forM :: (Traversable t, Monad m) => t a -> (a -> m b) -> m (t b)
 forM t f = mapM f t
+{-# forM :: Inline #-}
 
 forM_ :: (Foldable t, Monad m) => t a -> (a -> m b) -> m ()
 forM_ t f = mapM_ f t
+{-# forM_ :: Inline #-}
 
 msum :: (Foldable t, MonadPlus m) => t (m a) -> m a
 msum t = foldr mplus mzero t

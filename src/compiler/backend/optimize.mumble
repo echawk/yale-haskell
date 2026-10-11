@@ -584,6 +584,101 @@
 ;;; inline it.
 
 (define (try-to-fold-selector var new-fn new-args)
+  (let* ((exp    (local-dictionary-app (car new-args)))
+	 (field  (dictionary-fn-field var exp)))
+    (if field
+	;; sel (dict-C-T d1 ... dn), dict-C-T = \v1 ... vn -> pack f1 ... fm:
+	;; field k, with v1 ... vn bound to d1 ... dn.  An instance with
+	;; a context (Monad m => Monad (StateT s m)) gets its methods
+	;; called directly, and inlined where they say so.
+	(begin
+	  (record-hack 'app-fold-selector-dictionary-fn)
+	  (when (not (eq? exp (car new-args)))
+	    ;; the reference to the local variable is gone
+	    (decf (var-referenced (flic-ref-var (car new-args)))))
+	  (values (do-lambda-to-let-aux
+		   field
+		   (if (eq? exp (car new-args))
+		       (flic-app-args exp)
+		       (map (function copy-dictionary-arg) (flic-app-args exp))))
+		  (cdr new-args)))
+	(try-to-fold-selector-1 var new-fn new-args))))
+
+;;; EXP, or the dictionary function call a local variable EXP is bound
+;;; to (let d = dict-C-T d1 ... dn in ... sel d ...).
+
+(define (local-dictionary-app exp)
+  (if (and (is-type? 'flic-ref exp)
+	   (not (var-toplevel? (flic-ref-var exp))))
+      (let ((val  (var-value (flic-ref-var exp))))
+	(if (and (is-type? 'flic-app val)
+		 (is-type? 'flic-ref (flic-app-fn val))
+		 (dictionary-fn-value (flic-ref-var (flic-app-fn val)))
+		 (every-1 (function simple-dictionary-arg?) (flic-app-args val)))
+	    val
+	    exp))
+      exp))
+
+;;; Arguments copied from such a binding: variable references (and
+;;; dictionary function calls of them), whose local variables are then
+;;; referenced once more.
+
+(define (simple-dictionary-arg? exp)
+  (or (is-type? 'flic-ref exp)
+      (and (is-type? 'flic-app exp)
+	   (is-type? 'flic-ref (flic-app-fn exp))
+	   (every-1 (function simple-dictionary-arg?) (flic-app-args exp)))))
+
+(define (copy-dictionary-arg exp)
+  (if (is-type? 'flic-ref exp)
+      (let ((v  (flic-ref-var exp)))
+	(when (not (var-toplevel? v))
+	  (incf (var-referenced v)))
+	(make-flic-ref v))
+      (make-flic-app (copy-dictionary-arg (flic-app-fn exp))
+		     (map (function copy-dictionary-arg) (flic-app-args exp))
+		     (flic-app-saturated? exp))))
+
+;;; For a selector VAR (\d -> sel k d) applied to EXP, a saturated call of
+;;; a dictionary function (dictionary-fn-value): \v1 ... vn -> field k
+;;; (copied), else '#f.
+
+(define (dictionary-fn-field var exp)
+  (let ((sel  (var-value var)))
+    (and (is-type? 'flic-lambda sel)
+	 (is-type? 'flic-sel (flic-lambda-body sel))
+	 (is-type? 'flic-ref (flic-sel-exp (flic-lambda-body sel)))
+	 (eq? (flic-ref-var (flic-sel-exp (flic-lambda-body sel)))
+	      (car (flic-lambda-vars sel)))
+	 (is-type? 'flic-app exp)
+	 (is-type? 'flic-ref (flic-app-fn exp))
+	 (let ((dval  (dictionary-fn-value (flic-ref-var (flic-app-fn exp))))
+	       (k     (flic-sel-i (flic-lambda-body sel))))
+	   (and dval
+		(eqv? (length (flic-app-args exp))
+		      (length (flic-lambda-vars dval)))
+		(eq? (is-constructor-app-prim? (flic-lambda-body dval))
+		     (flic-sel-con (flic-lambda-body sel)))
+		(let ((copy  (copy-flic-top dval)))
+		  (make-flic-lambda
+		   (flic-lambda-vars copy)
+		   (list-ref (flic-app-args (flic-lambda-body copy)) k))))))))
+
+;;; The value of an instance's dictionary function (an instance with a
+;;; context): \v1 ... vn -> pack f1 ... fm.  Interfaces keep it
+;;; (dump-interface.mumble).
+
+(define (dictionary-fn-value var)
+  (let ((val  (var-value var)))
+    (and (var-toplevel? var)
+	 (is-type? 'flic-lambda val)
+	 (not (null? (flic-lambda-vars val)))
+	 (is-type? 'flic-app (flic-lambda-body val))
+	 (is-constructor-app-prim? (flic-lambda-body val))
+	 (string-starts? "dict-" (symbol->string (def-name var)))
+	 val)))
+
+(define (try-to-fold-selector-1 var new-fn new-args)
   (let ((exp  (car new-args)))
     (if (or (and (is-type? 'flic-ref exp)
 		 ;; *** should check that var is top-level?

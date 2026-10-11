@@ -10,14 +10,21 @@ instance Show a => Show (Identity a) where
 
 instance Functor Identity where
   fmap f (Identity x) = Identity (f x)
+  {-# fmap :: Inline #-}
 
 instance Applicative Identity where
   pure = Identity
   Identity f <*> Identity x = Identity (f x)
+  {-# pure :: Inline #-}
+  {-# (<*>) :: Inline #-}
 
 instance Monad Identity where
   return = Identity
   Identity x >>= k = k x
+  _ >> k = k
+  {-# return :: Inline #-}
+  {-# (>>=) :: Inline #-}
+  {-# (>>) :: Inline #-}
 
 instance Foldable Identity where
   foldr f z (Identity x) = f x z

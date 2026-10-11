@@ -44,15 +44,22 @@ withStateT f m = StateT (\s -> runStateT m (f s))
 
 instance Monad m => Functor (StateT s m) where
   fmap f m = StateT (\s -> runStateT m s >>= \ ~(a, s') -> return (f a, s'))
+  {-# fmap :: Inline #-}
 
 instance Monad m => Applicative (StateT s m) where
   pure a = StateT (\s -> return (a, s))
   mf <*> mx = StateT (\s -> runStateT mf s >>= \ ~(f, s') ->
                              runStateT mx s' >>= \ ~(x, s'') -> return (f x, s''))
+  {-# pure :: Inline #-}
+  {-# (<*>) :: Inline #-}
 
 instance Monad m => Monad (StateT s m) where
   return a = StateT (\s -> return (a, s))
   m >>= k = StateT (\s -> runStateT m s >>= \ ~(a, s') -> runStateT (k a) s')
+  m >> k = m >>= \_ -> k
+  {-# return :: Inline #-}
+  {-# (>>=) :: Inline #-}
+  {-# (>>) :: Inline #-}
 
 instance MonadPlus m => Alternative (StateT s m) where
   empty = StateT (\_ -> mzero)
@@ -88,3 +95,13 @@ modify' f = StateT (\s -> let s' = f s in s' `seq` return ((), s'))
 
 gets :: Monad m => (s -> a) -> StateT s m a
 gets f = state (\s -> (f s, s))
+
+{-# runState :: Inline #-}
+{-# evalState :: Inline #-}
+{-# execState :: Inline #-}
+{-# state :: Inline #-}
+{-# get :: Inline #-}
+{-# put :: Inline #-}
+{-# modify :: Inline #-}
+{-# modify' :: Inline #-}
+{-# gets :: Inline #-}

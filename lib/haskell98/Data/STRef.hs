@@ -25,3 +25,9 @@ modifySTRef (STRef r) f = unsafeIOToST (modifyIORef r f)
 
 modifySTRef' :: STRef s a -> (a -> a) -> ST s ()
 modifySTRef' (STRef r) f = unsafeIOToST (modifyIORef' r f)
+
+{-# newSTRef :: Inline #-}
+{-# readSTRef :: Inline #-}
+{-# writeSTRef :: Inline #-}
+{-# modifySTRef :: Inline #-}
+{-# modifySTRef' :: Inline #-}
