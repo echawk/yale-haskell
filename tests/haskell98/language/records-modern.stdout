@@ -1,0 +1,5 @@
+Ann (31)
+Rex owned by Ann
+(31,["Ann","Bo"])
+(5.0,Pet {name = "Rex", owner = Person {name = "Ann", age = 31}})
+(True,32)

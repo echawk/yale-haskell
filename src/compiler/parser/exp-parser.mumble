@@ -252,7 +252,7 @@
 		 (make record-update (exp exp) (fields fields)))))))
       (if (eq? *token* 'record-dot)
 	  ;; OverloadedRecordDot (GHC): e.f is f e (lexer.mumble)
-	  (let ((field (string->symbol (car *token-args*))))
+	  (let ((field (record-dot-field (car *token-args*))))
 	    (advance-token)
 	    (parse-record-suffixes
 	     (make app (fn (generated-var-ref field)) (arg exp))))
@@ -316,10 +316,10 @@
        (\) (**con/def (core-symbol "UnitConstructor")))
        ;; OverloadedRecordDot: (.f) is f, (.f.g) is g . f
        ((no-advance record-dot-section)
-	(let ((fields (list (string->symbol (car *token-args*)))))
+	(let ((fields (list (record-dot-field (car *token-args*)))))
 	  (advance-token)
 	  (do () ((not (eq? *token* 'record-dot)))
-	    (push (string->symbol (car *token-args*)) fields)
+	    (push (record-dot-field (car *token-args*)) fields)
 	    (advance-token))
 	  (require-token \) (signal-missing-token "`)'" "field selector"))
 	  (let ((v (generated-var-ref '|record-dot-v|))
@@ -762,3 +762,9 @@
 	       (when (is-type? 'valdef d)
 		 (setf names (append names (pattern-bound-names (valdef-lhs d)))))))))
     names))
+
+;;; OverloadedRecordDot: e.f names the field f, never a local variable f;
+;;; the name is marked, and the scope phase (scope.mumble) resolves it at
+;;; the top level.
+(define (record-dot-field name)
+  (string->symbol (string-append "%dot." name)))

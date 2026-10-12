@@ -51,15 +51,17 @@
 	      (cl:handler-case
 		  (cl:let ((*track-blackholes* cl:t)
 			   (*catch-runtime-errors* cl:t))
-		    ;; the action is forced here: it may itself be an error
-		    (cl:cons cl:t (force (apply-1 (force action) (box 'state)))))
+		    ;; the action is forced here: it may itself be an error;
+		    ;; its result value stays lazy (try (return undefined)
+		    ;; is Right undefined, as in GHC)
+		    (cl:cons cl:t (apply-1 (force action) (box 'state))))
 		((cl:or haskell-io-error haskell-error-call cl:arithmetic-error) (c)
 		  ;; thunks left blackholed by the abandoned evaluation
 		  (restore-blackholes mark)
 		  (cl:cons cl:nil c))))))
     (cl:if (cl:car result)
 	   (cl:cdr result)
-	   (force (apply-2 handler (box (cl:cdr result)) (box 'state))))))
+	   (apply-2 handler (box (cl:cdr result)) (box 'state)))))
 
 (cl:defun prim.throw-exc (c) (cl:error c))
 

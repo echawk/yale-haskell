@@ -105,6 +105,9 @@
     ;; PatternSynonyms: (name params pattern), name with the constructor
     ;; prefix (parser/pattern-parser.mumble)
     (pattern-synonyms (type list) (default '()))
+    ;; DuplicateRecordFields: the field names given to several types here
+    ;; (parser/module-parser.mumble's add-duplicate-record-fields)
+    (duplicate-fields (type list) (default '()))
 
     ;; These slots are filled in by the type-declaration-analysis phase
     ;; after conversion to definition form

@@ -836,7 +836,7 @@
 
 (define (dump-synonym/n syn)
   (with-new-def (dexp syn *number-types-dumped*)
-    (dump-def-slots syn synonym dexp (arity args body family?))))
+    (dump-def-slots syn synonym dexp (arity args body family? constraints))))
 
 (define-walker-method dump class (class)
   (dump-class/n class))

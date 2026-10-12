@@ -149,6 +149,9 @@
    ;; equations, (tuple (arg-pattern-asts) rhs-ast), tried in order
    (family? (type t) (default '#f))   ; #f, #t, or data (injective)
    (equations (type list) (default '()))
+   ;; ConstraintKinds: a synonym for constraints, (class-name . arg-asts)
+   ;; for each (util/signature.mumble's expand-constraint-synonyms)
+   (constraints (type list) (default '()))
    ))
 
 (define-struct algdata

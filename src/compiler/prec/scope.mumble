@@ -420,9 +420,25 @@
 
 
 (define-walker-method scope var-ref (object env)
+  (when (and (eq? (var-ref-var object) *undefined-def*)
+	     (string-starts? "%dot." (symbol->string (var-ref-name object))))
+    ;; OverloadedRecordDot's field (parser/exp-parser.mumble)
+    (let ((field (string->symbol
+		  (substring (symbol->string (var-ref-name object)) 5
+			     (string-length (symbol->string (var-ref-name object)))))))
+      (setf (var-ref-name object)
+	    (if (memq field (module-duplicate-fields *module*))
+		(has-field-getter field)
+		field))
+      (setf env '())))
   (when (eq? (var-ref-var object) *undefined-def*)
-	(setf (var-ref-var object)
-	      (lookup-name (var-ref-name object) env)))
+    ;; DuplicateRecordFields: a field of several types, used as a
+    ;; function, is HasField's getter (parser/module-parser.mumble)
+    (when (and (memq (var-ref-name object) (module-duplicate-fields *module*))
+	       (not (lisp:some (lambda (frame) (assq (var-ref-name object) frame)) env)))
+      (setf (var-ref-name object) (has-field-getter (var-ref-name object))))
+    (setf (var-ref-var object)
+	  (lookup-name (var-ref-name object) env)))
   object)
 
 (define-walker-method scope con-ref (object env)
@@ -562,7 +578,7 @@
 (define (desugar-record-con object env)
   (let* ((con-ref (record-con-con object))
 	 (con (lookup-toplevel-name (con-ref-name con-ref)))
-	 (binds (resolve-field-bindings (record-con-fields object))))
+	 (binds (resolve-field-bindings (record-con-fields object) con)))
     (if (not (con? con))
 	(**abort "Bad record construction")
 	(begin
@@ -664,16 +680,22 @@
   (let ((result '()))
     (dolist (label (con-field-labels con))
       (when (and label (not (assq label binds)))
-	(let ((item (funcall make-item (def-name label))))
+	(let ((item (funcall make-item (field-original-name label))))
 	  (when item
 	    (push (tuple label item) result)))))
     (reverse result)))
 
-(define (resolve-field-bindings bindings)
+(define (resolve-field-bindings bindings . con)
   (let ((result '()))
     (dolist (b (lisp:remove '|..| bindings :key (function tuple-2-1)))
       (let* ((name (var-ref-name (tuple-2-1 b)))
-	     (def (lookup-toplevel-name name)))
+	     (def (or (and (pair? con) (con? (car con))
+			   (memq name (module-duplicate-fields *module*))
+			   ;; DuplicateRecordFields: the constructor's field
+			   (lisp:find-if (lambda (v)
+					   (eq? (field-original-name v) name))
+					 (con-field-labels (car con))))
+		      (lookup-toplevel-name name))))
 	(cond ((eq? def *undefined-def*))
 	      ((not (and (var? def) (var-field-alg def)))
 	       (phase-error 'not-a-field "~A is not a record field." name))
@@ -700,7 +722,7 @@
 	 (con (if (eq? (pcon-con pcon) *undefined-def*)
 		  (lookup-toplevel-name (pcon-name pcon))
 		  (pcon-con pcon)))
-	 (binds (resolve-field-bindings (record-pat-fields pat))))
+	 (binds (resolve-field-bindings (record-pat-fields pat) con)))
     (setf (pcon-con pcon) con)
     (when (con? con)
       (check-fields-of-con binds con)
@@ -713,3 +735,10 @@
 		  (push (if bind (tuple-2-2 bind) (**wildcard-pat)) pats)))
 	      (reverse pats))))
     pcon))
+
+;;; A field selector's name less the type a duplicated one is renamed for
+;;; (f%T is f).
+(define (field-original-name var)
+  (let* ((s (symbol->string (def-name var)))
+	 (i (lisp:position #\% s)))
+    (if i (string->symbol (substring s 0 i)) (def-name var))))

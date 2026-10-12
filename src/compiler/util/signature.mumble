@@ -8,6 +8,7 @@
 ;;; The list of variables used in the signature is returned.
 
 (define (resolve-signature signature)
+  (expand-constraint-synonyms signature)
   (reduce-flexible-contexts signature)
   (add-mp-superclass-contexts signature)
   (with-slots signature (context type mcontext) signature
@@ -235,3 +236,59 @@
     "There are duplicate type variables in ~s."
     simple))
 
+
+;;; ConstraintKinds (GHC): a constraint naming a constraint synonym
+;;; (tdecl/alg-syn.mumble's constraint-synonym-body) is replaced by the
+;;; synonym's constraints, its parameters substituted, repeatedly.
+
+(define (expand-constraint-synonyms signature)
+  (let ((changed '#t)
+	(n 0))
+    (do () ((or (not changed) (> n 20)))
+      (setf changed '#f)
+      (incf n)
+      (let ((single '()) (multi (signature-mcontext signature)))
+	(dolist (c (signature-context signature))
+	  (let ((syn (constraint-synonym (class-ref-name (context-class c)))))
+	    (if syn
+		(begin
+		  (setf changed '#t)
+		  (mlet (((s m) (instantiate-constraint-synonym
+				 syn (list (**tyvar (context-tyvar c))))))
+		    (setf single (append single s))
+		    (setf multi (append multi m))))
+		(setf single (append single (list c))))))
+	(let ((multi2 '()))
+	  (dolist (c multi)
+	    (let ((syn (constraint-synonym (class-ref-name (mp-context-class c)))))
+	      (if syn
+		  (begin
+		    (setf changed '#t)
+		    (mlet (((s m) (instantiate-constraint-synonym syn (mp-context-types c))))
+		      (setf single (append single s))
+		      (setf multi2 (append multi2 m))))
+		  (setf multi2 (append multi2 (list c))))))
+	  (setf (signature-context signature) single)
+	  (setf (signature-mcontext signature) multi2))))))
+
+(define (constraint-synonym name)
+  (let ((def (resolve-toplevel-name name)))
+    (and (synonym? def) (not (null? (synonym-constraints def))) def)))
+
+;;; The synonym's constraints with its parameters replaced by TYPES:
+;;; returns the one-parameter contexts (on type variables) and the others.
+(define (instantiate-constraint-synonym syn types)
+  (let ((env (map (lambda (v ty) (tuple v ty)) (synonym-args syn) types))
+	(single '())
+	(multi '()))
+    (dolist (c (synonym-constraints syn))
+      (let ((args (map (lambda (a) (copy-synonym-body a env)) (cdr c))))
+	(if (and (pair? args) (null? (cdr args)) (tyvar? (car args)))
+	    (push (make context (class (make class-ref (name (car c))
+					      (class *undefined-def*)))
+			(tyvar (tyvar-name (car args))))
+		  single)
+	    (push (**mp-context (make class-ref (name (car c)) (class *undefined-def*))
+				args)
+		  multi))))
+    (values (reverse single) (reverse multi))))

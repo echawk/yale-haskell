@@ -328,6 +328,8 @@
   (setf *family-equations* '())
   (when (language-extension? "DataKinds")
     (add-promoted-constructors mod-ast))
+  (when (language-extension? "DuplicateRecordFields")
+    (add-duplicate-record-fields mod-ast))
   ;; RecursiveDo: rec and mdo call Control.Monad.Fix.mfix
   (when (language-extension? "RecursiveDo")
     (push (make import-decl (module-name '|Control.Monad.Fix|) (mode 'all)
@@ -618,3 +620,82 @@
 		       (signature (signdecl-signature sd)))))
 	(setf (ast-node-line-number fi) line)
 	fi))))
+
+;;; DuplicateRecordFields (GHC): a field name used by several types of
+;;; the module is renamed f%T in each type T (its selector).  A record
+;;; construction, pattern or update finds the field through the
+;;; constructor (prec/scope.mumble's resolve-field-bindings), and a use
+;;; of f as a function (OverloadedRecordDot's e.f) is getField%f of the
+;;; generated class HasField%f r a | r -> a, which has an instance for
+;;; each T.
+
+(define (add-duplicate-record-fields mod-ast)
+  (let ((owners '()))   ; (field . data-decls)
+    (dolist (d (module-algdatas mod-ast))
+      (dolist (label (lisp:remove-duplicates
+		      (lisp:mapcan (lambda (c) (append (constr-field-labels c) '()))
+				   (data-decl-constrs d))))
+	(let ((e (assq label owners)))
+	  (if e (setf (cdr e) (cons d (cdr e))) (push (list label d) owners)))))
+    (dolist (e owners)
+      (when (pair? (cddr e))
+	(let ((field (car e)))
+	  (push field (module-duplicate-fields mod-ast))
+	  (push (has-field-class field) (module-classes mod-ast))
+	  (dolist (d (cdr e))
+	    (let ((tname (tycon-name (data-decl-simple d))))
+	      (push (has-field-instance field d) (module-instances mod-ast))
+	      (dolist (c (data-decl-constrs d))
+		(setf (constr-field-labels c)
+		      (map (lambda (l) (if (eq? l field) (renamed-field field tname) l))
+			   (constr-field-labels c)))))))))))
+
+(define (renamed-field field tname)
+  (string->symbol (format '#f "~A%~A" field tname)))
+
+(define (has-field-class-name field)
+  (string->symbol (format '#f "HasField%~A" field)))
+
+(define (has-field-getter field)
+  (string->symbol (format '#f "getField%~A" field)))
+
+(define (has-field-class field)
+  (make class-decl
+	(class (make class-ref (name (has-field-class-name field)) (class *undefined-def*)))
+	(super-classes '())
+	(class-var '|r|)
+	(decls (list (make signdecl
+			   (vars (list (generated-var-ref (has-field-getter field))))
+			   (signature (make signature (context '())
+					    (type (**tycon/def (core-symbol "Arrow")
+							       (list (make tyvar (name '|r|))
+								     (make tyvar (name '|a|))))))))))
+	(class-vars '(|r| |a|))
+	(fundeps (list (tuple '(|r|) '(|a|))))))
+
+(define (has-field-instance field d)
+  (let* ((simple (data-decl-simple d))
+	 (head (make tycon (name (tycon-name simple)) (def *undefined-def*)
+		     (args (map (lambda (v) (make tyvar (name (tyvar-name v))))
+				(tycon-args simple)))))
+	 (ftype (field-type-of field d)))
+    (make instance-decl (context '())
+	  (class (make class-ref (name (has-field-class-name field)) (class *undefined-def*)))
+	  (simple head)
+	  (decls (list (**define (has-field-getter field) '()
+				 (generated-var-ref
+				  (renamed-field field (tycon-name simple))))))
+	  (types (list head ftype))
+	  (mcontext '()))))
+
+;;; The field's type, from the first constructor that has it.
+(define (field-type-of field d)
+  (let ((result '#f))
+    (dolist (c (data-decl-constrs d))
+      (when (not result)
+	(do ((ls (constr-field-labels c) (cdr ls))
+	     (ts (constr-types c) (cdr ts)))
+	    ((or (null? ls) result))
+	  (when (eq? (car ls) field)
+	    (setf result (tuple-2-1 (car ts)))))))
+    result))

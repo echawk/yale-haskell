@@ -98,7 +98,8 @@
 	,@(show-record-fields (cdr labels) (cdr vars) ", "))))
 
 (define (field-string field)
-  (let ((s (symbol->string (def-name field))))
+  ;; a DuplicateRecordFields field f%T shows as f
+  (let ((s (symbol->string (field-original-name field))))
     (if (or (char-alphabetic? (string-ref s 0)) (char=? (string-ref s 0) #\_))
 	s
 	(string-append "(" s ")"))))

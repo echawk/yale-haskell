@@ -332,7 +332,36 @@
 		 (push (tuple def (tuple (tycon-args lhs) rhs)) added))))))
     (setf (module-type-equations *module*) (reverse added))))
 
+;;; ConstraintKinds: type C a = (Show a, Num a), or = Show a: a synonym
+;;; for constraints (its body's heads are classes).
+(define (constraint-synonym-body body)
+  (let ((parts (if (and (tycon? body)
+			(not (eq? (tycon-def body) *undefined-def*))
+			(algdata? (tycon-def body))
+			(is-tuple-tycon? (tycon-def body)))
+		   (tycon-args body)
+		   (list body))))
+    (and (every (lambda (p)
+		  (and (tycon? p)
+		       (let ((def (resolve-toplevel-name (tycon-name p))))
+			 (or (class? def)
+			     (and (synonym? def)
+				  (not (null? (synonym-constraints def))))))))
+		parts)
+	 (map (lambda (p) (cons (tycon-name p) (tycon-args p))) parts))))
+
 (define (synonym->def-1 synonym-decl)
+ (let ((constraints (constraint-synonym-body (synonym-decl-body synonym-decl))))
+  (if constraints
+      (let ((def (tycon-def (synonym-decl-simple synonym-decl))))
+	(update-slots synonym def
+	  (args (simple-tyvar-list (synonym-decl-simple synonym-decl)))
+	  (body '#f)
+	  (constraints constraints))
+	def)
+      (synonym->def-2 synonym-decl))))
+
+(define (synonym->def-2 synonym-decl)
  (remember-context synonym-decl
   (with-slots synonym-decl (simple body) synonym-decl
     (let* ((def (tycon-def simple))

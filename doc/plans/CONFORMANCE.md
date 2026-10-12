@@ -64,7 +64,14 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
     `Data.Bits` stand-in, is included instead.
   - calendar and knights pass through it too.
 
-## GHC extensions and modern base (2026-10-10)
+## GHC extensions and modern base (2026-10-10; 2026-10-11)
+
+**2026-10-11:** the extension work is now recorded in
+**doc/plans/GHC-EXTENSIONS.md**: 74 probes (GHC2021, the common
+extensions beyond it, and modern libraries), 69 passing; GADTs,
+TypeFamilies, DataKinds, PatternSynonyms, Overloaded* and the rest; what
+is supported exactly, permissively or by approximation, and what is
+left.  The list below is the state of 2026-10-10.
 
 `tools/conformance/extensions.py` runs 27 small programs, each using a
 GHC extension or a modern-base idiom, and compares them with GHC's output:
@@ -109,13 +116,12 @@ GHC extension or a modern-base idiom, and compares them with GHC's output:
 - transformers: State, Reader, Writer, Maybe, Except.
 - mtl: State, Reader, Writer, Except.
 
-**Known gaps:**
-- Contexts in polytypes (`forall a. Show a => ...` as an argument).
-- Escape checks for existential and rank-N type variables.
-- GADTs proper.
+**Known gaps** (2026-10-11; see GHC-EXTENSIONS.md):
+- Escape checks for existential and rank-N type variables, and local
+  type refinement for GADTs (both permissive).
 - The Strict extension (ignored).
-- Type families.
-- DeriveGeneric and DeriveAnyClass.
+- QuantifiedConstraints, Arrows, Template Haskell,
+  Typeable's typeOf, Generic representations.
 
 ## Next
 

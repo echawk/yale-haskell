@@ -151,13 +151,16 @@
 	   ;; protected action are restored before the handler runs.
 	   (lisp:handler-case
 	       (dynamic-let ((*track-blackholes* '#t))
-		 (cons '#t (force (apply-1 action (box 'state)))))
+		 ;; the action's effects happen here; its result value
+		 ;; stays lazy, as GHC's catch leaves it (catch (return
+		 ;; undefined) h is return undefined)
+		 (cons '#t (apply-1 action (box 'state))))
 	     (haskell-io-error (c)
 	       (restore-blackholes mark)
 	       (cons '#f c))))))
     (if (car result)
 	(cdr result)
-	(force (apply-2 handler (box (cdr result)) (box 'state))))))
+	(apply-2 handler (box (cdr result)) (box 'state)))))
 
 ;;; primIOError :: IOErr -> IO a
 (define (prim.throw-io err)

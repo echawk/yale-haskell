@@ -449,6 +449,34 @@ class Pretty a where pretty :: a -> String
 instance Show a => Pretty a where pretty x = "<" ++ show x ++ ">"
 main = putStrLn (pretty (3 :: Int) ++ pretty "s")
 ''',
+'UndecidableInstancesMtl': '''{-# LANGUAGE FlexibleInstances, UndecidableInstances, MultiParamTypeClasses, FunctionalDependencies #-}
+class Monad m => MonadLogger m where
+  logMsg :: String -> m ()
+newtype WriterIO a = WriterIO { runW :: IO a }
+instance Functor WriterIO where fmap f (WriterIO m) = WriterIO (fmap f m)
+instance Applicative WriterIO where
+  pure = WriterIO . pure
+  WriterIO f <*> WriterIO x = WriterIO (f <*> x)
+instance Monad WriterIO where
+  WriterIO m >>= k = WriterIO (m >>= runW . k)
+instance MonadLogger WriterIO where
+  logMsg s = WriterIO (putStrLn ("log: " ++ s))
+newtype ReaderT r m a = ReaderT { runReaderT :: r -> m a }
+instance Functor m => Functor (ReaderT r m) where
+  fmap f (ReaderT g) = ReaderT (fmap f . g)
+instance Applicative m => Applicative (ReaderT r m) where
+  pure x = ReaderT (const (pure x))
+  ReaderT f <*> ReaderT x = ReaderT (\\r -> f r <*> x r)
+instance Monad m => Monad (ReaderT r m) where
+  ReaderT m >>= k = ReaderT (\\r -> m r >>= \\a -> runReaderT (k a) r)
+instance MonadLogger m => MonadLogger (ReaderT r m) where
+  logMsg s = ReaderT (const (logMsg s))
+ask :: Monad m => ReaderT r m r
+ask = ReaderT return
+app :: ReaderT String WriterIO Int
+app = do { n <- ask; logMsg ("hello " ++ n); return (length n) }
+main = runW (runReaderT app "world") >>= print
+''',
 'MagicHash': '''{-# LANGUAGE MagicHash #-}
 import GHC.Exts
 f :: Int -> Int

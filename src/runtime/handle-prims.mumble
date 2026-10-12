@@ -100,18 +100,30 @@
 (lisp:defvar *file-external-format*
   #+sbcl '(:utf-8 :replacement #\U+FFFD) #-sbcl ':default)
 
-;;; hSetBinaryMode: on stdin, a new stream on descriptor 0 decoding
-;;; Latin-1 (binary) or UTF-8; other handles keep their encoding.
+;;; hSetBinaryMode on a standard handle: the Lisp stream it uses is
+;;; replaced by a new one on the same descriptor, decoding and encoding
+;;; Latin-1 (binary, one Char per byte) or UTF-8.  File handles keep
+;;; their encoding (openBinaryFile opens a binary one).
 
 (define (prim.h-set-binary-mode h binary?)
   (check-open h "hSetBinaryMode")
   #+sbcl
-  (when (eq? (haskell-handle-stream h) 'stdin)
-    (setf (haskell-handle-stream h)
-	  (sb-sys:make-fd-stream 0 ':input lisp:t ':buffering ':full
-				 ':external-format
-				 (if binary? ':latin-1
-				     '(:utf-8 :replacement #\U+FFFD)))))
+  (let ((ef (if binary? ':latin-1 '(:utf-8 :replacement #\U+FFFD))))
+    (case (haskell-handle-stream h)
+      ((stdin)
+       (setf lisp:*standard-input*
+	     (sb-sys:make-fd-stream 0 ':input lisp:t ':buffering ':full
+				    ':external-format ef)))
+      ((stdout)
+       (lisp:finish-output lisp:*standard-output*)
+       (setf lisp:*standard-output*
+	     (sb-sys:make-fd-stream 1 ':output lisp:t ':buffering ':full
+				    ':external-format ef)))
+      ((stderr)
+       (lisp:finish-output lisp:*error-output*)
+       (setf lisp:*error-output*
+	     (sb-sys:make-fd-stream 2 ':output lisp:t ':buffering ':none
+				    ':external-format ef)))))
   0)
 
 (define (prim.open-file-1 name mode)

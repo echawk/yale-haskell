@@ -91,8 +91,13 @@ def run_program(d, timeout, verbose):
     for e in (name + '.faststdout', name + '.stdout'):
         if os.path.exists(os.path.join(d, e)):
             expected = os.path.join(d, e); break
-    args = (makefile_var(mk, 'FAST_OPTS') or makefile_var(mk, 'PROG_ARGS')
-            or makefile_var(mk, 'NORM_OPTS') or '')
+    # the arguments the expected output is for: FAST_OPTS with a
+    # .faststdout, NORM_OPTS with only a .stdout (gc/fulsom)
+    if expected and expected.endswith('.stdout') and makefile_var(mk, 'NORM_OPTS'):
+        args = makefile_var(mk, 'NORM_OPTS')
+    else:
+        args = (makefile_var(mk, 'FAST_OPTS') or makefile_var(mk, 'PROG_ARGS')
+                or makefile_var(mk, 'NORM_OPTS') or '')
     args = shlex.split(args)   # the Makefile's quoting: ".*:..*" is one argument
     stdin_file = None
     for s_ in (name + '.faststdin', name + '.stdin'):
