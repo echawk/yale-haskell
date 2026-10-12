@@ -142,7 +142,9 @@
    (field-labels (type (list symbol)) (default '()))
    ;; forall a. C a => K ... (ExistentialQuantification)
    (exist-tyvars (type (list symbol)) (default '()))
-   (exist-context (type (list context)) (default '()))))
+   (exist-context (type (list context)) (default '()))
+   ;; GADTs: the declared result type, T r1 ... rn (type/gadts.mumble)
+   (gadt-result (type t) (default '#f))))
 
 
 ;;; <class-decl> -> class [<context> => ] <class> [where { <cbody> [;] } ]

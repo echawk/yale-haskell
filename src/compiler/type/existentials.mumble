@@ -56,3 +56,37 @@
 	  (push (tuple (car (dynamic *enclosing-decls*)) (tuple-2-2 b))
 		(ntyvar-dict-params tv))))
       (values type (reverse pats)))))
+;;; GADTs (GHC), the way RankNTypes are here: what GHC accepts runs,
+;;; but less is checked.  A GADT constructor (parser/typedecl-parser
+;;; .mumble's make-gadt-constr, con-gadt?) has its declared type, so a
+;;; construction (IntE 3 :: Expr Int) is typed exactly.  A pattern
+;;; matching it relates the scrutinee to T b1 ... bn, the b fresh: the
+;;; constructor's result indices do not constrain it.  The clause or case
+;;; alternative with such a pattern has its right-hand sides coerced
+;;; (primUnsafeCoerce), so that eval (IntE n) = n and eval (BoolE b) = b
+;;; have different types and both meet eval :: Expr a -> a.  A local
+;;; type equality is not used, so a right-hand side whose type is
+;;; ambiguous without it is defaulted.
+
+(define *gadt-match* '#f)
+
+;;; The constructor type for a pattern (result T b1 ... bn) and the
+;;; patterns of its hidden dictionary fields.
+
+(define (gadt-pcon con)
+  (mlet (((type hidden) (if (null? (con-existential con))
+			    (values (instantiate-gtype (con-signature con)) '())
+			    (existential-pcon con))))
+    (setf (dynamic *gadt-match*) '#t)
+    (let ((alg  (con-alg con)))
+      (values (**arrow/l-2
+	       (arrow-argument-types type)
+	       (**ntycon alg (map (lambda (v) (declare (ignore v)) (**ntyvar))
+				  (algdata-tyvars alg))))
+	      hidden))))
+
+(define (gadt-coerce-rhs-list rhs-list)
+  (dolist (g rhs-list)
+    (setf (guarded-rhs-rhs g)
+	  (**app (**var/def (prelude-prim-def '|primUnsafeCoerce|))
+		 (guarded-rhs-rhs g)))))

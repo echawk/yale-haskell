@@ -74,10 +74,12 @@
   (and (haskell98?) (eq-token? '|where|)))
 
 ;;; The constructors of data T a1 ... an where, in GADT syntax:
-;;;   C1, C2 :: [forall ...] t1 -> ... -> T b1 ... bn
-;;; Only ordinary data types: the result is T applied to distinct type
-;;; variables, renamed to a1 ... an (a GADT proper refines the result type,
-;;; which Yale Haskell does not support).  A field may be strict (!t).
+;;;   C1, C2 :: [forall ...] [ctx =>] t1 -> ... -> T b1 ... bn
+;;; When the result is T applied to distinct type variables and there is
+;;; no context, an ordinary constructor: its variables are renamed to
+;;; a1 ... an.  Otherwise a GADT constructor (type/gadts.mumble): every
+;;; type variable is existential, the context is an existential one, and
+;;; the declared result is kept.  A field may be strict (!t).
 
 (define (parse-gadt-constrs simple in-layout?)
   (token-case
@@ -86,9 +88,12 @@
     (let* ((cons (parse-gadt-con-names))
 	   (_ (require-token \:\: (signal-missing-token "`::'" "GADT constructor")))
 	   (_ (skip-explicit-forall))
+	   (context (mlet (((single _) (split-contexts (parse-optional-context))))
+		      single))
 	   (args+res (parse-gadt-con-type))
-	   (types (gadt-rename-fields simple (car args+res) (cdr args+res)))
-	   (constrs (map (lambda (con) (make constr (constructor con) (types types)))
+	   (constrs (map (lambda (con)
+			   (make-gadt-constr con simple context
+					     (car args+res) (cdr args+res)))
 			 cons)))
       (token-case
        (\; (append constrs (parse-gadt-constrs simple in-layout?)))
@@ -119,16 +124,40 @@
 	(signal-invalid-syntax "a GADT constructor's result type"))
       (cons '() (tuple-2-1 t+a))))))
 
-(define (gadt-rename-fields simple fields result)
+(define (make-gadt-constr con simple context fields result)
   (when (not (and (tycon? result)
 		  (eq? (tycon-name result) (tycon-name simple))
-		  (eqv? (length (tycon-args result)) (length (tycon-args simple)))
-		  (every (function tyvar?) (tycon-args result))
-		  (null? (find-duplicates (map (function tyvar-name)
-					       (tycon-args result))))))
-    (parser-error 'gadt-not-supported
-      "A GADT constructor's result must be ~A applied to distinct type variables~%(GADTs proper are not supported)."
-      (tycon-name simple)))
+		  (eqv? (length (tycon-args result)) (length (tycon-args simple)))))
+    (parser-error 'gadt-result
+      "A GADT constructor's result must be ~A applied to ~A types."
+      (tycon-name simple) (length (tycon-args simple))))
+  (if (and (null? context)
+	   (every (function tyvar?) (tycon-args result))
+	   (null? (find-duplicates (map (function tyvar-name)
+					(tycon-args result))))
+	   ;; no existential variables in the fields
+	   (every (lambda (v) (memq v (map (function tyvar-name)
+					    (tycon-args result))))
+		  (lisp:mapcan (lambda (f) (ast-tyvar-names (tuple-2-1 f)))
+			       fields)))
+      (make constr (constructor con)
+	    (types (gadt-rename-fields simple fields result)))
+      (make constr (constructor con) (types fields)
+	    (exist-tyvars (lisp:remove-duplicates
+			   (lisp:mapcan (lambda (ty) (ast-tyvar-names ty))
+					(cons result (map (function tuple-2-1) fields)))))
+	    (exist-context context)
+	    (gadt-result result))))
+
+(define (ast-tyvar-names type)
+  (cond ((tyvar? type) (list (tyvar-name type)))
+	((tycon? type) (lisp:mapcan (function ast-tyvar-names) (tycon-args type)))
+	((tyapp? type)
+	 (append (ast-tyvar-names (tyapp-fun type))
+		 (lisp:mapcan (function ast-tyvar-names) (tyapp-args type))))
+	(else '())))
+
+(define (gadt-rename-fields simple fields result)
   (let ((renaming (map (lambda (r s) (tuple (tyvar-name r) (tyvar-name s)))
 		       (tycon-args result) (tycon-args simple))))
     (map (lambda (f) (tuple (rename-type-tyvars (tuple-2-1 f) renaming)

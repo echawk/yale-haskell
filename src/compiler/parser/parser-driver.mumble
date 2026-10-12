@@ -72,6 +72,7 @@
     (signal-file-not-found filename))
   (setf *standalone-derivings* '())
   (setf *language-extensions* '())
+  (setf *promoted-names* '())
   (dynamic-let ((*current-file* filename))
     (let ((mods '()))
       (call-with-input-file filename

@@ -123,17 +123,26 @@
 (define-type-checker pcon
  (type-check/list pcon pats arg-types
    (fresh-type res-type
-     (if (null? (con-existential (pcon-con object)))
+     (cond
+      ((con-gadt? (pcon-con object))
+       ;; existentials.mumble
+       (mlet (((con-type hidden) (gadt-pcon (pcon-con object))))
+	 (type-unify con-type (**arrow/l-2 arg-types res-type) #f)
+	 (polytype-field-vars (pcon-pats object) con-type)
+	 (setf (pcon-pats object) (append hidden (pcon-pats object)))
+	 (return-type object res-type)))
+      ((null? (con-existential (pcon-con object)))
 	 (let ((con-type (instantiate-gtype (con-signature (pcon-con object)))))
 	   (type-unify con-type (**arrow/l-2 arg-types res-type) #f)
 	   (polytype-field-vars (pcon-pats object) con-type)
-	   (return-type object res-type))
+	   (return-type object res-type)))
+      (else
 	 ;; existentials.mumble: the hidden dictionary fields bind variables
 	 (mlet (((con-type hidden) (existential-pcon (pcon-con object))))
 	   (type-unify con-type (**arrow/l-2 arg-types res-type) #f)
 	   (polytype-field-vars (pcon-pats object) con-type)
 	   (setf (pcon-pats object) (append hidden (pcon-pats object)))
-	   (return-type object res-type))))))
+	   (return-type object res-type)))))))
 
 (define-type-checker list-pat
   (if (null? (list-pat-pats object))
@@ -182,11 +191,15 @@
       (fresh-type res-type
 	(dolist (object (case-alts object))
 	  (recover-type-error ;;; %%% Needs work
+	   (dynamic-let ((*gadt-match* '#f))
 	   (type-check alt pat pat-type
 	     (type-unify pat-type arg-type
                  (type-mismatch case-exp
 		  "Case patterns type conflict."
 		  pat-type arg-type))
+	     ;; a GADT constructor matched (existentials.mumble)
+	     (when (dynamic *gadt-match*)
+	       (gadt-coerce-rhs-list (alt-rhs-list object)))
 	     (type-check/decls alt where-decls
 	       (type-check/unify-list alt rhs-list rhs-type
                  (type-mismatch/list case-exp
@@ -194,7 +207,7 @@
 		 (type-unify rhs-type res-type
 			      (type-mismatch case-exp
 		   "Case expression alternatives must have the same type"
-		                 rhs-type res-type)))))))
+		                 rhs-type res-type))))))))
 	(return-type case-exp res-type)))))))
 
 ;;; Expressions with signatures are transformed into let expressions

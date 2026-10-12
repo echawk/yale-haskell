@@ -74,8 +74,16 @@
 	(let ((gtype (ast->gtype context simple)))
 	  ;; This sets the signatures for the constructors
 	  (dolist (con constr-defs)
-	    (let* ((con-type (**arrow-type/l (append (con-types con)
-						     (list simple))))
+	    (let* ((gconstr (lisp:find con constrs
+				       :key (lambda (c) (con-ref-con (constr-constructor c)))))
+		   ;; a GADT constructor has its declared result type
+		   (result (if (constr-gadt-result gconstr)
+			       (begin (resolve-type (constr-gadt-result gconstr))
+				      (setf (con-gadt? con) '#t)
+				      (constr-gadt-result gconstr))
+			       simple))
+		   (con-type (**arrow-type/l (append (con-types con)
+						     (list result))))
 		   ;; Haskell 98 4.2.1: the whole datatype context applies
 		   ;; to every constructor; Haskell 1.2 only to the
 		   ;; constraints on variables the constructor mentions.

@@ -206,7 +206,14 @@
 	 (emit-token '\`))
     ((symbol presymbol) (lex-varsym))
     (digit (lex-numeric))
-    (#\' (lex-char))
+    (#\' (if (promotion-tick?)
+	     ;; DataKinds (GHC): 'Z in a type is the promoted Z
+	     (begin (advance-char)
+		    (lex-one-token)
+		    (let ((tok  (car *tokens*)))
+		      (when (eq? (car tok) 'conid)
+			(push (cadr tok) *promoted-names*))))
+	     (lex-char)))
     (#\" (lex-string))
     (#\) (advance-char)
 	 (emit-token '\)))
@@ -708,6 +715,18 @@
 		(lex-hex-float n)
 		(emit-token 'integer n))))
 	(lex-decimal))))
+
+;;; DataKinds: a ' before a constructor, [ or ( that is not a character
+;;; literal ('Z', '[') promotes it; the tick is dropped (module-parser
+;;; .mumble declares the promoted constructors as types).
+
+(define *promoted-names* '())   ; names written 'C (strings)
+
+(define (promotion-tick?)
+  (and (language-extension? "DataKinds")
+       (or (char-upper-case? *peek-char*)
+	   (memv *peek-char* '(#\[ #\( #\:)))
+       (not (char=? (peek-char-2) #\'))))
 
 ;;; NegativeLiterals / LexicalNegation (GHC): a - before a digit, after
 ;;; a space or an opening bracket, is part of the literal: f -1 is

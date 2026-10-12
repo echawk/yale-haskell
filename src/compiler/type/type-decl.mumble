@@ -327,14 +327,18 @@
 ;;; This is similar to typing lambda.
 
 (define-type-checker single-fun-def
+ (dynamic-let ((*gadt-match* '#f))
   (fresh-monomorphic-types (length (single-fun-def-args object)) tyvars
     (type-check/list single-fun-def args arg-types
       (unify-list tyvars arg-types)
+      ;; a GADT constructor matched (existentials.mumble)
+      (when (dynamic *gadt-match*)
+	(gadt-coerce-rhs-list (single-fun-def-rhs-list object)))
       (type-check/decls single-fun-def where-decls
         (type-check/unify-list single-fun-def rhs-list rhs-type
            (type-mismatch/list object
 			"Bodies have incompatible types")
-	  (return-type object (**arrow/l-2 arg-types rhs-type)))))))
+	  (return-type object (**arrow/l-2 arg-types rhs-type))))))))
 
 
 ;;; These functions are part of the generalization process.

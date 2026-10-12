@@ -182,6 +182,50 @@
    (else
     (maybe-end-module mod-ast in-layout? state))))
 
+;;; DataKinds (GHC): each constructor C of arity n is also a type
+;;; constructor C with n parameters and no values, unless the module has
+;;; a type named C.  Kinds are not checked, so Vec Z a and Vec (S n) a
+;;; are ordinary types; GADT indices (existentials.mumble) need no more.
+
+(define *prelude-type-and-class-names*
+  '(|Eq| |Ord| |Show| |Read| |Enum| |Bounded| |Num| |Real| |Integral|
+    |Fractional| |Floating| |RealFrac| |RealFloat| |Functor| |Monad|
+    |Applicative| |Foldable| |Traversable| |Semigroup| |Monoid| |Maybe|
+    |Either| |Ordering| |Bool| |Char| |Int| |Integer| |Float| |Double|
+    |IO| |String| |Ix| |Word| |Rational| |ShowS| |ReadS| |FilePath| |IOError|))
+
+(define (add-promoted-constructors mod-ast)
+  (let ((types (append (map (lambda (d) (tycon-name (data-decl-simple d)))
+			    (module-algdatas mod-ast))
+		       (map (lambda (s) (tycon-name (synonym-decl-simple s)))
+			    (module-synonyms mod-ast))))
+	(new '()))
+    (dolist (d (module-algdatas mod-ast))
+      (dolist (c (data-decl-constrs d))
+	(let* ((cname (symbol->string (con-ref-name (constr-constructor c))))
+	       (name (string->symbol (if (has-con-prefix? cname)
+					 (remove-con-prefix cname)
+					 cname))))
+	  ;; unticked, a Prelude type or class name stays that
+	  (when (and (not (memq name types))
+		     (char-upper-case? (string-ref (symbol->string name) 0))
+		     (or (mem-string (symbol->string name) *promoted-names*)
+			 (not (memq name *prelude-type-and-class-names*))))
+	    (push name types)
+	    (let ((i 0))
+	      (push (make data-decl (context '())
+			  (simple (make tycon (name name) (def *undefined-def*)
+					(args (map (lambda (ty)
+						     (declare (ignore ty))
+						     (incf i)
+						     (make tyvar
+						       (name (string->symbol
+							      (format '#f "p~A" i)))))
+						   (constr-types c)))))
+			  (constrs '()) (deriving '()) (annotations '()))
+		    new))))))
+    (setf (module-algdatas mod-ast) (append (module-algdatas mod-ast) new))))
+
 (define (at-standalone-kind-signature?)
   (and (haskell98?) (eq-token? '|type|)
        (memq (peek-1-type) '(conid \())
@@ -238,6 +282,8 @@
 
 (define (wrapup-module mod-ast)
   (attach-standalone-derivings mod-ast)
+  (when (language-extension? "DataKinds")
+    (add-promoted-constructors mod-ast))
   ;; OverloadedStrings: string literals call Data.String.fromString
   (when (language-extension? "OverloadedStrings")
     (push (make import-decl (module-name '|Data.String|) (mode 'all)
