@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Data/ByteString/
+:o= all
+Char8.hs

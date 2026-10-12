@@ -238,6 +238,11 @@
 
 (define (wrapup-module mod-ast)
   (attach-standalone-derivings mod-ast)
+  ;; OverloadedStrings: string literals call Data.String.fromString
+  (when (language-extension? "OverloadedStrings")
+    (push (make import-decl (module-name '|Data.String|) (mode 'all)
+		(specs '()) (renamings '()) (qualified? '#t) (as-name '#f))
+	  (module-imports mod-ast)))
   (setf (module-decls mod-ast)
 	(nreverse (module-decls mod-ast)))
   ;; Haskell 98 allows an empty body (module M (x) where re-exporting

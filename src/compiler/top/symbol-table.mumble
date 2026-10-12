@@ -263,10 +263,13 @@
 	     (setf (table-entry *inverted-symbol-table* def) name)))
 	  ((supersedes-prelude-def? name old-definition def)
 	   'OK)
+	  ;; Ix's index, range, ... (core, not exported by the Prelude): a
+	  ;; module's own, or one imported from another module
+	  ;; (Data.ByteString's index re-exported by Data.ByteString.Lazy)
 	  ((and (def-prelude? old-definition)
 		(haskell98?)
 		(memq name *ix-core-names*)
-		(eq? (def-module def) *module-name*))
+		(not (def-prelude? def)))
 	   (setf (table-entry *symbol-table* name) def)
 	   (setf (table-entry *inverted-symbol-table* def) name))
 	  ((def-prelude? old-definition)

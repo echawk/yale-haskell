@@ -300,7 +300,7 @@
   (token-case
     (var (save-parser-context (var->ast)))
     (con (save-parser-context (con->ast)))
-    (literal (literal->ast))
+    (literal (overloaded-string (literal->ast)))
     (\(
      (token-case
        (\) (**con/def (core-symbol "UnitConstructor")))
@@ -543,7 +543,7 @@
 					       (then-exp (**app (**var/def (core-symbol "return"))
 								(**con/def (core-symbol "UnitConstructor"))))
 					       (else-exp (**app (**var/def (core-symbol "fail"))
-								(make const (value "") (overloaded? '#f))))))))
+								(make string-const (value ""))))))))
 			     (else q)))
 		     quals)
 		(list (make qual-filter
@@ -654,3 +654,13 @@
 (define (make-tuple-cons args)
   (let ((tuple-con (**con/def (tuple-constructor (length args)))))
     (**app/l tuple-con args)))
+
+;;; OverloadedStrings (GHC): a string literal in an expression is
+;;; Data.String.fromString "..." (the module gets an implicit qualified
+;;; import of Data.String, module-parser.mumble).
+
+(define (overloaded-string exp)
+  (if (and (is-type? 'string-const exp)
+	   (language-extension? "OverloadedStrings"))
+      (make app (fn (generated-var-ref '|Data.String.fromString|)) (arg exp))
+      exp))

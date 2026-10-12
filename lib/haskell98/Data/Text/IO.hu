@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Data/Text/
+:o= all
+IO.hs

@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Data/List/
+:o= all
+NonEmpty.hs

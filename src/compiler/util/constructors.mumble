@@ -281,7 +281,8 @@
 
 (define (**tuple-type/l args)
   (cond ((null? args)
-	 (**tycon/def (core-symbol "UnitConstructor") '()))
+	 ;; the unit type (a class with no methods has this dictionary)
+	 (**tycon/def (core-symbol "UnitType") '()))
 	((null? (cdr args))
 	 (car args))
 	(else

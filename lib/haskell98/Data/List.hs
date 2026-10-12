@@ -20,10 +20,54 @@ module Data.List (
     nubBy, deleteBy, deleteFirstsBy, unionBy, intersectBy, groupBy,
     sortBy, insertBy, maximumBy, minimumBy,
     genericLength, genericTake, genericDrop, genericSplitAt, genericIndex,
-    genericReplicate
+    genericReplicate,
+    -- base, not the Report
+    dropWhileEnd, sortOn, isSubsequenceOf, uncons, unsnoc, singleton,
+    scanl', iterate', (!?)
   ) where
 
 import List
+
+infixl 9 !?
+
+dropWhileEnd :: (a -> Bool) -> [a] -> [a]
+dropWhileEnd p = foldr (\x xs -> if p x && null xs then [] else x : xs) []
+
+-- the key is computed once per element
+sortOn :: Ord b => (a -> b) -> [a] -> [a]
+sortOn f = map snd . sortBy (\a b -> compare (fst a) (fst b)) . map (\x -> let y = f x in y `seq` (y, x))
+
+isSubsequenceOf :: Eq a => [a] -> [a] -> Bool
+isSubsequenceOf [] _ = True
+isSubsequenceOf _ [] = False
+isSubsequenceOf a@(x:a') (y:b) | x == y = isSubsequenceOf a' b
+                               | otherwise = isSubsequenceOf a b
+
+uncons :: [a] -> Maybe (a, [a])
+uncons [] = Nothing
+uncons (x:xs) = Just (x, xs)
+
+unsnoc :: [a] -> Maybe ([a], a)
+unsnoc [] = Nothing
+unsnoc xs = Just (init xs, last xs)
+
+singleton :: a -> [a]
+singleton x = [x]
+
+scanl' :: (b -> a -> b) -> b -> [a] -> [b]
+scanl' f q ls = q `seq` (q : case ls of
+                               [] -> []
+                               x:xs -> scanl' f (f q x) xs)
+
+iterate' :: (a -> a) -> a -> [a]
+iterate' f x = x `seq` (x : iterate' f (f x))
+
+(!?) :: [a] -> Int -> Maybe a
+xs !? n
+  | n < 0 = Nothing
+  | otherwise = case drop n xs of
+                  (y:_) -> Just y
+                  [] -> Nothing
 
 intercalate :: [a] -> [[a]] -> [a]
 intercalate xs xss = concat (intersperse xs xss)

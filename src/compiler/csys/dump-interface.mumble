@@ -297,7 +297,10 @@
 ;;; dmod-code establishes local bindings for all the modules defined in
 ;;; this compilation unit.
 
+(define *unit-being-dumped* '#f)
+
 (define (create-dump-code-aux unit modules load-prelude?)
+  (setf *unit-being-dumped* unit)
   (let* ((imod-counter  0)
 	 (imod-alist    '())
 	 (explicit-imports (collect-all-imported-modules unit))
@@ -438,7 +441,11 @@
 	((mem-string (car units) units-seen)
 	 (collect-all-modules-1 (cdr units) mods-so-far units-seen))
 	(else
-	 (let ((u (lookup-compilation-unit (car units))))
+	 ;; the unit as loaded in this run, current or not: a .hu file
+	 ;; written in the same second it was read looks out of date to
+	 ;; lookup-compilation-unit, and its modules would be missed
+	 (let ((u (let ((r (ass-string (car units) *unit-cache*)))
+		    (and r (cdr r)))))
 	   (if (eq? u '#f)
 	       ;; not loaded (its .hu file changed since): nothing to add
 	       (collect-all-modules-1 (cdr units) mods-so-far
@@ -491,8 +498,11 @@
 	   ;; updated when this happens.
 	   (when (eq? m '#f)
 	     (fatal-error 'symbol-not-in-unit
- "Reference to symbol ~A in module ~A: not in compilation unit.~%"
-                (def-name d) (def-module d)))
+ "Reference to symbol ~A in module ~A: not in compilation unit ~A~%~
+  (its imported modules: ~A; imported units: ~A).~%"
+                (def-name d) (def-module d) (ucache-ufile *unit-being-dumped*)
+		(map (function car) imod-alist)
+		(ucache-imported-units *unit-being-dumped*)))
 	 `(table-entry
 	    (module-symbol-table
 	      (lookup-imported-mod ,(tuple-2-2 m)))

@@ -63,8 +63,11 @@
 	       ((constructor-class-derivable? class)
 		(setf insts (add-constructor-class-instance insts alg class)))
 	       ;; DeriveAnyClass (GHC): an empty instance, as GHC prefers
-	       ;; it to newtype deriving when both are on
-	       ((module-extension? "DeriveAnyClass")
+	       ;; it to newtype deriving when both are on.  Generic, NFData,
+	       ;; Typeable and Lift too (GHC.Generics has only the class).
+	       ((or (module-extension? "DeriveAnyClass")
+		    (memq (def-name class) '(|Generic| |Generic1| |NFData|
+					     |Typeable| |Lift|)))
 		(add-special-derived-instance alg class 'anyclass))
 	       ((and (haskell98?) (algdata-newtype? alg))
 		(add-newtype-derived-instance alg class))
