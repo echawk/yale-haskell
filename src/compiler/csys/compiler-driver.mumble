@@ -600,6 +600,14 @@
 
 (define *module-scan-cache* '())   ; alist: filename -> (date . result)
 
+;;; The modules that the LANGUAGE pragmas of the file just lexed import.
+(define *implicit-extension-imports* '())
+
+(define (implicit-extension-imports)
+  (append (if (language-extension? "OverloadedStrings") '(|Data.String|) '())
+	  (if (language-extension? "OverloadedLists") '(|GHC.IsList|) '())
+	  (if (language-extension? "RecursiveDo") '(|Control.Monad.Fix|) '())))
+
 (define (scan-module-header file)
   (let ((ext    (filename-type file))
 	(date   (file-write-date file))
@@ -609,7 +617,18 @@
 	  ((and entry (eqv? (car (cdr entry)) date))
 	   (cdr (cdr entry)))
 	  (else
-	   (let ((result (scan-module-tokens (lex-file-quietly file ext))))
+	   (let ((result (scan-module-tokens
+			  (let ((saved *language-extensions*))
+			    (setf *language-extensions* '())
+			    (let ((tokens (lex-file-quietly file ext)))
+			      ;; the imports some extensions add (parser/
+			      ;; module-parser.mumble's wrapup-module)
+			      (setf *implicit-extension-imports*
+				    (implicit-extension-imports))
+			      (setf *language-extensions* saved)
+			      tokens)))))
+	     (setf (cdr result)
+		   (append (cdr result) *implicit-extension-imports*))
 	     (if entry
 		 (setf (cdr entry) (cons date result))
 		 (push (cons file (cons date result)) *module-scan-cache*))

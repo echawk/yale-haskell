@@ -227,6 +227,26 @@
       (parse-decl-list-2 decl in-layout?)))
    ;; Local fixity declarations (H98).  The scope phase attaches them to
    ;; the names bound in the same declaration list and removes them.
+   ;; TypeFamilies (GHC): associated types in a class (a family) or an
+   ;; instance (an equation, or a data instance); typedecl-parser.mumble
+   (|type| (if *in-instance-body?*
+	       (parse-type-equation)
+	       (parse-associated-type))
+	   (token-case
+	    (\; (parse-decl-list-1 in-layout?))
+	    (else (close-layout in-layout?) '())))
+   (|data|
+    (if *in-instance-body?*
+	(parse-data-instance '#f)
+	(parse-type-family-decl '#t))
+    (token-case
+     (\; (parse-decl-list-1 in-layout?))
+     (else (close-layout in-layout?) '())))
+   (|newtype|
+    (parse-data-instance '#t)
+    (token-case
+     (\; (parse-decl-list-1 in-layout?))
+     (else (close-layout in-layout?) '())))
    ;; DefaultSignatures (GHC), in a class: default m :: sig
    (|default| (let ((decl (parse-signdecl)))
 		(setf (signdecl-default? decl) '#t)
@@ -290,3 +310,24 @@
 		pat))
 		   
 	 
+
+;;; Inside an instance's where (typedecl-parser.mumble): type and data
+;;; declarations are a family's equations there.
+(define *in-instance-body?* '#f)
+
+;;; In a class: type F a [:: kind] declares an associated family; with
+;;; = it is a default instance, which is not used.
+(define (parse-associated-type)
+  (if (associated-default-follows?)
+      (begin (parse-btype)
+	     (require-token = (signal-missing-token "`='" "type default"))
+	     (parse-type))
+      (parse-type-family-decl)))
+
+(define (associated-default-follows?)
+  (let* ((saved (save-scanner-state))
+	 (res (begin (when (at-varid-named? "instance") (advance-token))
+		     (parse-btype)
+		     (eq-token? '=))))
+    (restore-excursion saved)
+    res))

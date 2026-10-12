@@ -457,7 +457,8 @@
 	(when (null? types)
 	  (signal-missing-token "<type>" "instance declaration"))
 	(when (not interface?)
-	   (setf decls (parse-where-decls))
+	   (setf decls (dynamic-let ((*in-instance-body?* '#t))
+			 (parse-where-decls)))
 	   ;; InstanceSigs (GHC): a method's signature in the instance is
 	   ;; dropped (GHC checks it against the instance's type)
 	   (when (haskell98?)
@@ -479,3 +480,101 @@
 			    (types (if simple '() types))
 			    (mcontext mcontexts))))
      (else (signal-missing-token "<tycon>" "instance declaration"))))))
+;;; TypeFamilies (GHC), type/families.mumble.  The declarations go on
+;;; these lists, which wrapup-module (module-parser.mumble) moves into the
+;;; module: a family is a synonym-decl with family? set; an equation is
+;;; (tuple lhs rhs), lhs the family applied to argument types; a data
+;;; instance is a new data type, named F:n, and the equation F args =
+;;; F:n vars.
+
+(define *family-decls* '())
+(define *family-equations* '())
+(define *family-data-decls* '())
+(define *family-instance-count* 0)
+
+;;; type family F a b [:: kind] [where equations], data family ...,
+;;; and in a class body type F a [:: kind], data F a [:: kind].  The kind's
+;;; arrows count as more parameters.
+
+(define (parse-type-family-decl . data?)
+  (when (at-varid-named? "family") (advance-token))
+  (let* ((head (parse-btype))
+	 (extra (if (eq-token? '\:\:)
+		    (begin (advance-token) (parse-kind-arrows))
+		    0)))
+    (when (not (tycon? head))
+      (signal-invalid-syntax "a type family declaration"))
+    (let ((i 0))
+      (setf (tycon-args head)
+	    (append (map (lambda (a)
+			   (if (tyvar? a) a (make tyvar (name (gensym "k")))))
+			 (tycon-args head))
+		    (map (lambda (k) (declare (ignore k))
+			   (incf i)
+			   (make tyvar (name (string->symbol (format '#f "k%~A" i)))))
+			 (list-head '(1 2 3 4 5 6 7 8) extra)))))
+    ;; a data family is injective: family? is data
+    (push (make synonym-decl (simple head) (body '#f)
+		(family? (if (and (pair? data?) (car data?)) 'data '#t)))
+	  *family-decls*)
+    ;; a closed family's equations
+    (when (eq-token? '|where|)
+      (advance-token)
+      (start-layout (function parse-family-equations)))))
+
+;;; The arrows of a kind: * -> * -> *, Type -> Type, (k -> Type) -> k.
+(define (parse-kind-arrows)
+  (let ((n 0) (depth 0))
+    (do () ((or (memq *token* '(\; \} $\} eof |where| =))
+		(and (eqv? depth 0) (eq-token? '\))))
+	    n)
+      (cond ((eq-token? '\() (incf depth))
+	    ((eq-token? '\)) (decf depth))
+	    ((and (eqv? depth 0) (eq-token? '->)) (incf n)))
+      (advance-token))))
+
+(define (parse-family-equations in-layout?)
+  (token-case
+   (\; (parse-family-equations in-layout?))
+   ((no-advance \} $\} eof)
+    (close-layout in-layout?) '())
+   (else
+    (parse-type-equation)
+    (token-case
+     (\; (parse-family-equations in-layout?))
+     (else (close-layout in-layout?) '())))))
+
+;;; type instance F t1 ... tn = t, or in an instance body type F ... = t
+(define (parse-type-equation)
+  (let ((lhs (parse-btype)))
+    (require-token = (signal-missing-token "`='" "type family equation"))
+    (let ((rhs (parse-type)))
+      (when (not (tycon? lhs))
+	(signal-invalid-syntax "a type family equation"))
+      (push (tuple lhs rhs) *family-equations*))))
+
+;;; data instance F t1 ... tn = constrs [deriving], newtype instance ...
+(define (parse-data-instance newtype?)
+  (when (eq-token? '|instance|) (advance-token))
+  (let* ((lhs (parse-btype))
+	 (name (string->symbol
+		(format '#f "~A:~A" (tycon-name lhs) (incf *family-instance-count*))))
+	 (vars (lisp:remove-duplicates
+		(lisp:mapcan (function ast-tyvar-names) (tycon-args lhs))
+		:from-end '#t))
+	 (simple (make tycon (name name) (def *undefined-def*)
+		       (args (map (lambda (v) (make tyvar (name v))) vars)))))
+    (setf *special-derivings* '())
+    (require-token = (signal-missing-token "`='" "data instance"))
+    (let* ((constrs (parse-constrs))
+	   (deriving (parse-optional-deriving))
+	   (decl (make data-decl (context '()) (simple simple) (constrs constrs)
+		       (deriving deriving)
+		       (special-derivings (reverse *special-derivings*))
+		       (annotations '()))))
+      (when newtype?
+	(setf (data-decl-newtype? decl) '#t))
+      (push decl *family-data-decls*)
+      (push (tuple lhs (make tycon (name name) (def *undefined-def*)
+			     (args (map (lambda (v) (make tyvar (name v))) vars))))
+	    *family-equations*))))

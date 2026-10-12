@@ -107,7 +107,10 @@
   (include ast-node)
   (slots
    (simple (type type))
-   (body (type type))))
+   (body (type t))   ; a type, or #f for a family
+   ;; TypeFamilies: a type or data family (body #f); its equations are
+   ;; the module's type-equations (type/families.mumble)
+   (family? (type t) (default '#f))))   ; #f, #t, or data
 
 
 ;;; <aldata-decl> -> data [<context> => ] <simple> = <constrs> 

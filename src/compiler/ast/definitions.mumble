@@ -144,7 +144,11 @@
   (slots
    ;; These slots are explicitly initialized in the type declaration phase.
    (args (type (list symbol)) (uninitialized? #t))
-   (body (type type) (uninitialized? #t))  ; stored in ast form
+   (body (type t) (uninitialized? #t))  ; ast form; #f for a family
+   ;; TypeFamilies (type/families.mumble): a family has no body but
+   ;; equations, (tuple (arg-pattern-asts) rhs-ast), tried in order
+   (family? (type t) (default '#f))   ; #f, #t, or data (injective)
+   (equations (type list) (default '()))
    ))
 
 (define-struct algdata

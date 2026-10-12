@@ -200,12 +200,27 @@
     (small (lex-varid))
     (large (lex-conid))
     (#\( (advance-char)
+	 ;; UnboxedTuples (GHC): (# ... #) is an ordinary tuple
+	 (when (and (char=? *char* #\#)
+		    (not (char=? *peek-char* #\)))
+		    (language-extension? "UnboxedTuples"))
+	   (advance-char))
 	 (emit-token '\())
     (#\: (lex-consym))
     (#\` (advance-char)
 	 (emit-token '\`))
-    ((symbol presymbol) (lex-varsym))
-    (digit (lex-numeric))
+    ((symbol presymbol)
+     (cond ((and (char=? *char* #\#) (char=? *peek-char* #\))
+		 (language-extension? "UnboxedTuples"))
+	    (advance-char) (advance-char) (emit-token '\)))
+	   ((record-dot-here?)
+	    (lex-record-dot))
+	   (else
+	    (lex-varsym))))
+    (digit (lex-numeric)
+	   ;; MagicHash: 1#, 2.0## are the literals 1, 2.0
+	   (when (language-extension? "MagicHash")
+	     (do () ((not (char=? *char* #\#))) (advance-char))))
     (#\' (if (promotion-tick?)
 	     ;; DataKinds (GHC): 'Z in a type is the promoted Z
 	     (begin (advance-char)
@@ -463,7 +478,12 @@
   (scan-list-of (symbol #\:)))
 
 (define (scan-var-con)
-  (scan-list-of (large small digit #\' #\_)))
+  (let ((name (scan-list-of (large small digit #\' #\_))))
+    ;; MagicHash (GHC): I#, Int#, x# are names
+    (if (and (char=? *char* #\#) (not *at-eof?*)
+	     (language-extension? "MagicHash"))
+	(append name (scan-list-of (#\#)))
+	name)))
 
 (define (lex-ncomment)
   (lex-ncomment-1 *current-line*))
@@ -715,6 +735,26 @@
 		(lex-hex-float n)
 		(emit-token 'integer n))))
 	(lex-decimal))))
+
+;;; OverloadedRecordDot (GHC): a `.' right after an identifier or a
+;;; closing bracket and right before a lower-case name selects a field:
+;;; the token record-dot with the field's name (e.f, e.f.g); after `(' it
+;;; is a selector section, record-dot-section ((.f)).  With spaces around
+;;; it, `.' is composition as before.
+
+(define (record-dot-here?)
+  (and (char=? *char* #\.)
+       (or (char-lower-case? *peek-char*) (char=? *peek-char* #\_))
+       *prev-char*
+       (or (char-alphabetic? *prev-char*) (char-numeric? *prev-char*)
+	   (memv *prev-char* '(#\) #\] #\_ #\' #\()))
+       (language-extension? "OverloadedRecordDot")))
+
+(define (lex-record-dot)
+  (let ((section? (char=? *prev-char* #\()))
+    (advance-char)
+    (emit-token/string (if section? 'record-dot-section 'record-dot)
+		       (scan-var-con))))
 
 ;;; DataKinds: a ' before a constructor, [ or ( that is not a character
 ;;; literal ('Z', '[') promotes it; the tick is dropped (module-parser

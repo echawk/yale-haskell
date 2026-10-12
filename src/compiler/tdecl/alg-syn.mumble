@@ -296,6 +296,43 @@
 ;;; Errors detected:
 
 (define (synonym->def synonym-decl)
+ (if (synonym-decl-family? synonym-decl)
+     (family->def synonym-decl)
+     (synonym->def-1 synonym-decl)))
+
+;;; TypeFamilies: a family is a synonym with equations, no body
+;;; (type/families.mumble).
+(define (family->def decl)
+  (remember-context decl
+    (let ((def (tycon-def (synonym-decl-simple decl))))
+      (update-slots synonym def
+	(args (simple-tyvar-list (synonym-decl-simple decl)))
+	(body '#f)
+	(family? (synonym-decl-family? decl)))
+      def)))
+
+;;; A module's family equations, after its types are defined: each is
+;;; added to its family (which may be another module's), and kept on the
+;;; module for its interface.
+(define (process-family-equations)
+  (let ((added '()))
+    (dolist (e (module-type-equations *module*))
+      (let ((lhs (tuple-2-1 e))
+	    (rhs (tuple-2-2 e)))
+	(resolve-tycon lhs)
+	(let ((def (tycon-def lhs)))
+	  (cond ((eq? def *undefined-def*) '#f)
+		((not (and (synonym? def) (synonym-family? def)))
+		 (phase-error 'not-a-family
+		   "~A is not a type family; it has no instances." (tycon-name lhs)))
+		(else
+		 (dolist (a (tycon-args lhs)) (resolve-type a))
+		 (resolve-type rhs)
+		 (add-family-equation def (tycon-args lhs) rhs)
+		 (push (tuple def (tuple (tycon-args lhs) rhs)) added))))))
+    (setf (module-type-equations *module*) (reverse added))))
+
+(define (synonym->def-1 synonym-decl)
  (remember-context synonym-decl
   (with-slots synonym-decl (simple body) synonym-decl
     (let* ((def (tycon-def simple))

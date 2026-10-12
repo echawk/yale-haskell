@@ -27,14 +27,21 @@ import IO
 import IOBase(Handle(..), HandlePosn(..))
 import BasePrims
 import IOPrims(primHandleName, primOpenFile, primHSetBinaryMode)
+import Data.IORef (newIORef, readIORef, writeIORef)
+import System.IO.Unsafe (unsafeInterleaveIO)
 
 -- Run the action with the handle, closing it afterwards (also on error).
 withFile :: FilePath -> IOMode -> (Handle -> IO r) -> IO r
 withFile name mode = bracket (openFile name mode) hClose
 
--- No IORef in Haskell 98: fixIO ties the knot through a lazy result.
+-- The result is read lazily from a reference filled in afterwards.
 fixIO :: (a -> IO a) -> IO a
-fixIO k = let r = k (error "fixIO: value used before it is defined") in r
+fixIO k = do
+  ref <- newIORef (error "fixIO: value used before it is defined")
+  ans <- unsafeInterleaveIO (readIORef ref)
+  result <- k ans
+  writeIORef ref result
+  return result
 
 -- The file's size, truncating or extending it (the handle is flushed).
 hSetFileSize :: Handle -> Integer -> IO ()

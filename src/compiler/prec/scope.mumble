@@ -426,11 +426,16 @@
   object)
 
 (define-walker-method scope con-ref (object env)
-  (declare (ignore env))
-  (when (eq? (con-ref-con object) *undefined-def*)
-	(setf (con-ref-con object)
-	      (lookup-toplevel-name (con-ref-name object))))
-  object)
+  (if (and (eq? (con-ref-con object) *undefined-def*)
+	   (assq (con-ref-name object) (module-pattern-synonyms *module*)))
+      ;; PatternSynonyms: the builder function (parser/pattern-parser.mumble)
+      (scope-ast-1 (generated-var-ref (pattern-builder-name (con-ref-name object)))
+		   env)
+      (begin
+	(when (eq? (con-ref-con object) *undefined-def*)
+	  (setf (con-ref-con object)
+		(lookup-toplevel-name (con-ref-name object))))
+	object)))
 
 (define-walker-method scope list-comp (object env)
   (dolist (q (list-comp-quals object))

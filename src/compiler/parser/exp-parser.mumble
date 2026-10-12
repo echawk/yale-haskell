@@ -28,6 +28,10 @@
      (|if| (list (parse-if)))
      (|case| (parse-possible-app (parse-case)))
      (|do| (parse-possible-app (parse-do)))
+     ;; RecursiveDo (GHC): mdo
+     ((no-advance satisfies at-mdo?)
+      (advance-token)
+      (parse-possible-app (parse-mdo)))
      (else (let ((aexp (parse-aexp)))
 	     (parse-possible-app aexp)))))
 
@@ -246,7 +250,13 @@
 		   (parser-error 'empty-record-update
 		     "A record update must name at least one field."))
 		 (make record-update (exp exp) (fields fields)))))))
-      exp))
+      (if (eq? *token* 'record-dot)
+	  ;; OverloadedRecordDot (GHC): e.f is f e (lexer.mumble)
+	  (let ((field (string->symbol (car *token-args*))))
+	    (advance-token)
+	    (parse-record-suffixes
+	     (make app (fn (generated-var-ref field)) (arg exp))))
+	  exp)))
 
 ;;; field = item, ..., after the {.  Returns a list of (tuple var-ref item).
 ;;; Used for expressions and (with parse-pat) patterns.
@@ -299,11 +309,24 @@
  (trace-parser aexp
   (token-case
     (var (save-parser-context (var->ast)))
-    (con (save-parser-context (con->ast)))
+    (con (save-parser-context (magic-hash-con (con->ast))))
     (literal (overloaded-string (literal->ast)))
     (\(
      (token-case
        (\) (**con/def (core-symbol "UnitConstructor")))
+       ;; OverloadedRecordDot: (.f) is f, (.f.g) is g . f
+       ((no-advance record-dot-section)
+	(let ((fields (list (string->symbol (car *token-args*)))))
+	  (advance-token)
+	  (do () ((not (eq? *token* 'record-dot)))
+	    (push (string->symbol (car *token-args*)) fields)
+	    (advance-token))
+	  (require-token \) (signal-missing-token "`)'" "field selector"))
+	  (let ((v (generated-var-ref '|record-dot-v|))
+		(body (generated-var-ref '|record-dot-v|)))
+	    (dolist (f (reverse fields))
+	      (setf body (make app (fn (generated-var-ref f)) (arg body))))
+	    (make lambda (pats (list (make var-pat (var v)))) (body body)))))
        (\, (parse-tuple-slots (list '#f)))
        ((no-advance -) (parse-exp-or-tuple))
        (varop
@@ -316,13 +339,13 @@
 	(parse-exp-or-tuple))))
     (\[
      (token-case
-      (\] (make list-exp (exps '())))
+      (\] (overloaded-list (make list-exp (exps '()))))
       (else
        (let ((exp (parse-exp)))
         (token-case
          (\, (let ((exp2 (parse-exp)))
 	       (token-case
-		 (\] (make list-exp (exps (list exp exp2))))
+		 (\] (overloaded-list (make list-exp (exps (list exp exp2)))))
 		 (\.\. (token-case
 			 (\] (make sequence-then (from exp) (then exp2)))
 			 (else
@@ -334,8 +357,9 @@
 			     (make sequence-then-to (from exp) (then exp2)
 				                    (to exp3))))))
 		 (else
-		  (make list-exp
-			(exps `(,exp ,exp2 ,@(parse-exp-list))))))))
+		  (overloaded-list
+		   (make list-exp
+			 (exps `(,exp ,exp2 ,@(parse-exp-list)))))))))
 	 (\.\. (token-case
 		 (\] (make sequence (from exp)))
 		 (else
@@ -344,7 +368,7 @@
 		      \]
 		      (signal-missing-token "`]'" "sequence expression"))
 		    (make sequence-to (from exp) (to exp2))))))
-	 (\] (make list-exp (exps (list exp))))
+	 (\] (overloaded-list (make list-exp (exps (list exp)))))
 	 (\| (parse-list-comp exp))
 	 (else
 	  (signal-invalid-syntax
@@ -447,6 +471,10 @@
     (else
      (let ((stmt (token-case
 		  (|let| (parse-let-stmt))
+		  ;; RecursiveDo (GHC): rec stmts
+		  ((no-advance satisfies at-rec-stmt?)
+		   (advance-token)
+		   (build-rec-stmt (start-layout (function parse-stmts))))
 		  (else (parse-qual)))))
        (token-case
 	(\; (cons stmt (parse-stmts in-layout?)))
@@ -664,3 +692,73 @@
 	   (language-extension? "OverloadedStrings"))
       (make app (fn (generated-var-ref '|Data.String.fromString|)) (arg exp))
       exp))
+
+;;; MagicHash (GHC): the boxing constructors I#, D#, F#, C#, W# are the
+;;; identity (an Int# is an Int here; GHC.Exts), in expressions and,
+;;; through prec/prec-parse.mumble's massage-pattern, in patterns.
+
+(define *magic-hash-boxes* '(|;I#| |;D#| |;F#| |;C#| |;W#|))
+
+(define (magic-hash-con exp)
+  (if (and (is-type? 'con-ref exp)
+	   (memq (con-ref-name exp) *magic-hash-boxes*)
+	   (language-extension? "MagicHash"))
+      (make lambda (pats (list (make var-pat (var (generated-var-ref '|box%|)))))
+	    (body (generated-var-ref '|box%|)))
+      exp))
+
+;;; OverloadedLists (GHC): a list literal is GHC.IsList.fromList [...]
+;;; (the module gets an implicit qualified import of GHC.IsList,
+;;; module-parser.mumble).  Ranges and comprehensions stay lists.
+
+(define (overloaded-list exp)
+  (if (language-extension? "OverloadedLists")
+      (make app (fn (generated-var-ref '|GHC.IsList.fromList|)) (arg exp))
+      exp))
+
+;;; RecursiveDo (GHC).  rec ss, the variables vs bound in ss, is
+;;;   vs <- Control.Monad.Fix.mfix (\~vs -> do { ss; return vs })
+;;; (vs a tuple, lazily matched), and mdo { ss; e } is do { rec ss; e }.
+;;; The module gets an implicit qualified import of Control.Monad.Fix
+;;; (module-parser.mumble).  GHC splits an mdo into minimal rec groups;
+;;; one group gives the same values, with some more laziness.
+
+(define (at-rec-stmt?)
+  (and (at-varid-named? "rec") (language-extension? "RecursiveDo")))
+
+(define (at-mdo?)
+  (and (at-varid-named? "mdo") (language-extension? "RecursiveDo")))
+
+(define (parse-mdo)
+  (trace-parser do
+   (save-parser-context
+    (let ((stmts (start-layout (function parse-stmts))))
+      (if (null? (cdr stmts))
+	  (make do-exp (stmts stmts))
+	  (make do-exp
+		(stmts (list (build-rec-stmt (lisp:butlast stmts))
+			     (car (last stmts))))))))))
+
+(define (build-rec-stmt stmts)
+  (let ((names (rec-bound-names stmts)))
+    (make qual-generator
+	  (pat (make irr-pat (pattern (names->tuple-pat names))))
+	  (exp (**app (generated-var-ref '|Control.Monad.Fix.mfix|)
+		      (make lambda
+			    (pats (list (make irr-pat (pattern (names->tuple-pat names)))))
+			    (body (make do-exp
+					(stmts (append stmts
+						       (list (make qual-filter
+								   (exp (**app (**var/def (core-symbol "return"))
+									       (names->tuple-exp names)))))))))))))))
+
+(define (rec-bound-names stmts)
+  (let ((names '()))
+    (dolist (s stmts)
+      (cond ((is-type? 'qual-generator s)
+	     (setf names (append names (pattern-bound-names (qual-generator-pat s)))))
+	    ((is-type? 'qual-let s)
+	     (dolist (d (qual-let-decls s))
+	       (when (is-type? 'valdef d)
+		 (setf names (append names (pattern-bound-names (valdef-lhs d)))))))))
+    names))

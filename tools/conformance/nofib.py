@@ -60,6 +60,8 @@ CPP_PRAGMA = re.compile(r'\{-#\s*LANGUAGE\s+CPP\s*#-\}')
 # conformance: reported as KNOWN with the reason.
 KNOWN = {
     'spectral/sphere': 'its hash relies on 64-bit Int wrap-around (H98 leaves overflow undefined; Int is the 62-bit fixnum range)',
+    'shootout/fasta': 'writes through pointers into ByteString memory (Data.ByteString.Unsafe); ByteStrings are Strings here',
+    'shootout/k-nucleotide': 'uses ByteString internals (toForeignPtr); ByteStrings are Strings here',
     'spectral/minimax': 'correct but slow: FAST_OPTS repeats the work 180000 times (~2.4 ms each here, ~7 minutes); 10 and 100 repetitions give the expected (empty) output',
     'spectral/secretary': 'Monte Carlo over Random: H98 does not fix the generator (ours is the Report/Hugs L\'Ecuyer one, GHC\'s random uses SplitMix); results agree statistically (~0.36 vs ~0.36)',
 }
@@ -106,6 +108,14 @@ def run_program(d, timeout, verbose):
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(work)
     cpp = '-cpp' in mk
+    # GHC options turning on extensions become LANGUAGE pragmas
+    exts = re.findall(r'-X(\w+)', mk)
+    if '-fglasgow-exts' in mk:
+        exts += ['MagicHash', 'UnboxedTuples', 'BangPatterns', 'RankNTypes',
+                 'ExistentialQuantification', 'FlexibleInstances',
+                 'MultiParamTypeClasses', 'ScopedTypeVariables']
+    # (on the first line, so that line numbers do not move)
+    pragma = '{-# LANGUAGE %s #-} ' % ', '.join(exts) if exts else ''
     for f in os.listdir(d):
         p = os.path.join(d, f)
         if f == 'NofibUtils.hs':
@@ -126,7 +136,7 @@ def run_program(d, timeout, verbose):
                     return 'SKIP', 'extension: %s' % ext
                 cpp = cpp or bool(CPP_PRAGMA.search(src))
                 with open(os.path.join(work, f), 'w', encoding='latin-1') as g:
-                    g.write(map_imports(src))
+                    g.write((pragma if f.endswith('.hs') else '') + map_imports(src))
             else:
                 shutil.copy(p, work)
     # an argument naming one of the program's files (sorting reads its own

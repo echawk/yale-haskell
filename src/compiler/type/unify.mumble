@@ -32,6 +32,13 @@
 (define (unify-1 type1 type2)
     (cond ((eq? type1 type2)  ;; this catches variable to variable unify
 	   'OK)
+	  ((and (ntyvar? type1) (family-app? type2)
+		(or (ntyvar-read-only? type1)
+		    (occurs-in-type type1 type2)
+		    (not (eq? (reduce-family-app type2) 'stuck))))
+	   ;; a variable and a type family application that reduces, or
+	   ;; mentions it, or meets a signature's variable (TypeFamilies)
+	   (unify-family type1 type2))
 	  ((ntyvar? type1)
 	   (cond ((occurs-in-type type1 type2)
 		  (type-error "Circular type: cannot unify ~A with ~A"
@@ -71,7 +78,9 @@
 ;;; application of a type variable.
 
 (define (unify-nonvar type1 type2)
-  (cond ((and (ntycon? type1) (ntycon? type2))
+  (cond ((or (family-app? type1) (family-app? type2))
+	 (unify-family type1 type2))
+	((and (ntycon? type1) (ntycon? type2))
 	 (if (eq? (ntycon-tycon type1) (ntycon-tycon type2))
 	     (unify-args type1 type2)
 	     (unify-expanded type1 type2)))
@@ -196,7 +205,16 @@
 	      (setf (ntyvar-context type) classes)
 	      (setf (ntyvar-context type)
 		    (merge-contexts classes (ntyvar-context type)))))
-      (propagate-contexts-1 (expand-ntype-synonym type) classes)))))
+      (let ((etype  (expand-ntype-synonym type)))
+	(cond ((family-app? etype)
+	       ;; undecided yet (TypeFamilies): the dictionaries are
+	       ;; looked for when the placeholders are resolved
+	       'OK)
+	      ((ntycon? etype)
+	       (propagate-contexts-1 etype classes))
+	      (else
+	       ;; a family application that reduced to a variable
+	       (propagate-contexts/inner etype classes))))))))
 
 ;;; A constraint on `f a' where f is a type variable cannot be resolved
 ;;; yet.  It is remembered with f and re-examined when f is instantiated.
@@ -278,3 +296,83 @@
 ;;; The routines which handle contexts (merge-contexts and context-implies?)
 ;;; are in type-utils.  The occurs check is also there.
 
+
+;;; TypeFamilies (util/type-utils.mumble): a family application is
+;;; reduced first; when it cannot be yet, the equation is deferred, and
+;;; tried again later (retry-family-equalities, before dictionaries are
+;;; resolved).  An equation still undecided then is dropped: less is
+;;; rejected than by GHC.
+
+(define *deferred-family-equalities* '())
+
+(define (unify-family type1 type2)
+  (let ((r1 (if (family-app? type1) (reduce-family-app type1) type1))
+	(r2 (if (family-app? type2) (reduce-family-app type2) type2)))
+    (cond ((and (eq? r1 'stuck) (eq? r2 'stuck)
+		(data-family-app? type1) (data-family-app? type2)
+		(same-tycon? (ntycon-tycon type1) (ntycon-tycon type2)))
+	   ;; a data family is injective
+	   (unify-args type1 type2))
+	  ((and (eq? r1 'stuck) (data-family-app? type1) (ntycon? r2)
+		(unify-data-family-instance type1 r2))
+	   'OK)
+	  ((and (eq? r2 'stuck) (data-family-app? type2) (ntycon? r1)
+		(unify-data-family-instance type2 r1))
+	   'OK)
+	  ((and (not (eq? r1 'stuck)) (not (eq? r2 'stuck)))
+	   (unify r1 r2))
+	  ((not (eq? r1 'stuck))
+	   (if (eq? r1 type1)
+	       (push (cons type1 type2) *deferred-family-equalities*)
+	       (unify r1 type2)))
+	  ((not (eq? r2 'stuck))
+	   (if (eq? r2 type2)
+	       (push (cons type1 type2) *deferred-family-equalities*)
+	       (unify type1 r2)))
+	  (else
+	   (push (cons type1 type2) *deferred-family-equalities*)
+	   'OK))))
+
+(define (retry-family-equalities)
+  (let ((pairs *deferred-family-equalities*))
+    (setf *deferred-family-equalities* '())
+    (dolist (p pairs)
+      (let ((t1 (prune (car p)))
+	    (t2 (prune (cdr p))))
+	(if (or (and (family-app? t1) (not (eq? (reduce-family-app t1) 'stuck)))
+		(and (family-app? t2) (not (eq? (reduce-family-app t2) 'stuck))))
+	    (unify t1 t2)
+	    ;; still undecided: kept for a later try (a bounded number)
+	    (when (< (length *deferred-family-equalities*) 500)
+	      (push p *deferred-family-equalities*)))))
+    '#t))
+
+(define (data-family-app? type)
+  (and (family-app? type) (eq? (synonym-family? (ntycon-tycon type)) 'data)))
+
+;;; F args (a data family, stuck) against T ts, T the type of one of F's
+;;; instances: the instance's equation is the only one giving T, so args
+;;; are its patterns (fresh variables for theirs).  #f if T is no
+;;; instance's type.
+(define (unify-data-family-instance app type)
+  (let ((eq (lisp:find-if (lambda (e)
+			    (let ((rhs (tuple-2-2 e)))
+			      (and (tycon? rhs)
+				   (same-tycon? (tycon-def rhs) (ntycon-tycon type)))))
+			  (synonym-equations (ntycon-tycon app)))))
+    (and eq
+	 (let ((env (map (lambda (v) (tuple v (**ntyvar)))
+			 (lisp:remove-duplicates
+			  (lisp:mapcan (function ast-type-tyvar-names) (tuple-2-1 eq))))))
+	   (unify-list (ntycon-args app)
+		       (map (lambda (p) (expand-ntype-synonym-1 p env)) (tuple-2-1 eq)))
+	   (unify (expand-ntype-synonym-1 (tuple-2-2 eq) env) type)
+	   '#t))))
+
+(define (ast-type-tyvar-names type)
+  (cond ((tyvar? type) (list (tyvar-name type)))
+	((tycon? type) (lisp:mapcan (function ast-type-tyvar-names) (tycon-args type)))
+	((tyapp? type)
+	 (append (ast-type-tyvar-names (tyapp-fun type))
+		 (lisp:mapcan (function ast-type-tyvar-names) (tyapp-args type))))
+	(else '())))

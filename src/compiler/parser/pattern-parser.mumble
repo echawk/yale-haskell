@@ -379,3 +379,117 @@
 						       (else (list (make qual-filter (exp g)))))))))
 		     (rhs (guarded-rhs-rhs grhs)))))
 	   rhs-list)))
+
+;;; PatternSynonyms (GHC), within a module:
+;;;   pattern P x y = pat        (bidirectional)
+;;;   pattern P x y <- pat [where P x y = e]
+;;;   pattern P :: type          (ignored)
+;;; A use P p1 ... pn in a pattern is pat with x, y, ... replaced by the
+;;; patterns (prec/prec-parse.mumble's massage-pattern); in an expression
+;;; P is the function pattern%P (prec/scope.mumble), defined from pat (as
+;;; an expression) or from the where clause.  Not exported.
+
+(define *pattern-synonyms* '())     ; (name params pat)
+(define *pattern-builders* '())     ; decls of the pattern%P functions
+
+(define (at-pattern-synonym?)
+  (and (at-varid-named? "pattern")
+       (memq (peek-1-type) '(conid \())
+       (language-extension? "PatternSynonyms")))
+
+(define (parse-pattern-synonym)
+  (advance-token)
+  (if (eq? (peek-1-type) '\:\:)
+      (skip-to-decl-end)   ; a signature
+      (let* ((name (con->symbol))
+	     (params (parse-pattern-synonym-params)))
+	(token-case
+	 (= (let ((pat (parse-pat)))
+	      (push (list name params pat) *pattern-synonyms*)
+	      (push (pattern-builder name params (pattern->exp pat))
+		    *pattern-builders*)))
+	 (<- (let ((pat (parse-pat)))
+	       (push (list name params pat) *pattern-synonyms*)
+	       (when (eq-token? '|where|)
+		 (advance-token)
+		 (let ((decls (parse-decl-list)))
+		   (when (pair? decls)
+		     (let ((builder (explicit-pattern-builder (car decls))))
+		       (when builder
+			 (push (pattern-builder name (car builder) (cdr builder))
+			       *pattern-builders*))))))))
+	 (else (signal-missing-token "`=' or `<-'" "pattern synonym"))))))
+
+(define (parse-pattern-synonym-params)
+  (if (eq-token? 'varid)
+      (let ((v (token->symbol)))
+	(cons v (parse-pattern-synonym-params)))
+      '()))
+
+(define (pattern-builder-name name)
+  (let ((s (symbol->string name)))
+    (string->symbol (string-append "pattern%"
+				   (if (has-con-prefix? s) (remove-con-prefix s) s)))))
+
+;;; pattern%P x y = e
+(define (pattern-builder name params exp)
+  (**define (pattern-builder-name name) params exp))
+
+;;; where P x y = e: (params . e), or #f
+(define (explicit-pattern-builder decl)
+  (and (is-type? 'valdef decl)
+       (let ((lhs  (valdef-lhs decl))
+	     (defs (valdef-definitions decl)))
+	 (and (pair? defs)
+	      (let* ((def (car defs))
+		     (args (cond ((is-type? 'pcon lhs) (pcon-pats lhs))
+				 ((is-type? 'pp-pat-list lhs) (cdr (pp-pat-list-pats lhs)))
+				 (else (single-fun-def-args def))))
+		     (rhs (car (single-fun-def-rhs-list def))))
+		(and (every (lambda (p) (is-type? 'var-pat p)) args)
+		     (cons (map (lambda (p) (var-ref-name (var-pat-var p))) args)
+			   (guarded-rhs-rhs rhs))))))))
+
+;;; A pattern as the expression that builds the value it matches.
+(define (pattern->exp p)
+  (cond ((is-type? 'var-pat p) (generated-var-ref (var-ref-name (var-pat-var p))))
+	((is-type? 'const-pat p) (const-pat-value p))
+	((is-type? 'pcon p)
+	 (**app/l (make con-ref (name (pcon-name p)) (con (pcon-con p))
+			(infix? (pcon-infix? p)))
+		  (map (function pattern->exp) (pcon-pats p))))
+	((is-type? 'list-pat p)
+	 (make list-exp (exps (map (function pattern->exp) (list-pat-pats p)))))
+	((is-type? 'pp-pat-list p)
+	 (make pp-exp-list (exps (map (function pattern->exp) (pp-pat-list-pats p)))))
+	((is-type? 'bang-pat p) (pattern->exp (bang-pat-pattern p)))
+	((is-type? 'sig-pat p) (pattern->exp (sig-pat-pattern p)))
+	(else (parser-error 'pattern-synonym-not-invertible
+		"A pattern synonym with = needs a pattern that is also an expression; use <- and where."))))
+
+;;; The pattern of a use: a copy of the synonym's, its parameters replaced.
+(define (instantiate-pattern-synonym syn args)
+  (copy-pattern (caddr syn)
+		(map (lambda (v a) (tuple v a)) (cadr syn) args)))
+
+(define (copy-pattern p env)
+  (cond ((is-type? 'var-pat p)
+	 (let ((b (assq (var-ref-name (var-pat-var p)) env)))
+	   (if b
+	       (tuple-2-2 b)
+	       (make var-pat (var (generated-var-ref (var-ref-name (var-pat-var p))))))))
+	((is-type? 'wildcard-pat p) (make wildcard-pat))
+	((is-type? 'const-pat p) (make const-pat (value (const-pat-value p))))
+	((is-type? 'pcon p)
+	 (make pcon (name (pcon-name p)) (con (pcon-con p)) (infix? (pcon-infix? p))
+	       (pats (map (lambda (q) (copy-pattern q env)) (pcon-pats p)))))
+	((is-type? 'list-pat p)
+	 (make list-pat (pats (map (lambda (q) (copy-pattern q env)) (list-pat-pats p)))))
+	((is-type? 'pp-pat-list p)
+	 (make pp-pat-list (pats (map (lambda (q) (copy-pattern q env)) (pp-pat-list-pats p)))))
+	((is-type? 'as-pat p)
+	 (make as-pat (var (generated-var-ref (var-ref-name (as-pat-var p))))
+	       (pattern (copy-pattern (as-pat-pattern p) env))))
+	((is-type? 'irr-pat p) (make irr-pat (pattern (copy-pattern (irr-pat-pattern p) env))))
+	((is-type? 'bang-pat p) (make bang-pat (pattern (copy-pattern (bang-pat-pattern p) env))))
+	(else p)))

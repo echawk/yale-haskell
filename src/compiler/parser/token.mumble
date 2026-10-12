@@ -12,7 +12,12 @@
 	 (push (list 'col *start-col*) *tokens*)))
   (push (cons type args) *tokens*)
   (setf *on-new-line?* '#f)
-  (setf *save-col?* (memq type '(|where| |of| |let| |do|))))
+  (setf *save-col?* (or (memq type '(|where| |of| |let| |do|))
+			 ;; RecursiveDo: rec and mdo open blocks too
+			 (and (eq? type 'varid)
+			      (pair? args)
+			      (member (car args) '("rec" "mdo"))
+			      (language-extension? "RecursiveDo")))))
 
 (define (emit-token/string type string-as-list)
   (emit-token type (list->string string-as-list)))
@@ -171,6 +176,12 @@
 ;;; in the places where this is used since these would be invalid anyway.
 ;;; To be safe, token types are rechecked while advancing to verify the
 ;;; lookahead.
+
+;;; The next token's text (its first argument), or #f.
+(define (peek-1-text)
+  (do ((toks *token-stream* (cdr toks)))
+      ((or (null? toks) (not (memq (caar toks) '(col line))))
+       (and (pair? toks) (pair? (cdr (car toks))) (cadr (car toks))))))
 
 (define (peek-toks n toks)
   (declare (type fixnum n))

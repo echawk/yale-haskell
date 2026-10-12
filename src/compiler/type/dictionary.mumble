@@ -44,6 +44,8 @@
 ;;; to be processed at the next level are returned.
 
 (define (process-placeholders placeholders deferred decls)
+  (when (not (null? *deferred-family-equalities*))
+    (retry-family-equalities))
   (if (null? placeholders)
       deferred
       (let ((d1 (process-placeholder (car placeholders) deferred decls)))
@@ -66,7 +68,10 @@
 (define (process-placeholder-1 p deferred decls)
   (let* ((tyvar (placeholder-tyvar p))
 	 (type (prune tyvar)))
-    (cond ((ntycon? type)
+    (cond ((and (ntycon? type) (family-app? (expand-ntype-synonym type)))
+	   ;; a type family application not decided yet (TypeFamilies)
+	   (cons p deferred))
+	  ((ntycon? type)
 	   (process-instantiated-tyvar
 	    (expand-ntype-synonym type) p deferred decls))
 	  ((ntyapp? type)

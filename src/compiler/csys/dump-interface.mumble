@@ -545,6 +545,12 @@
 	(module-symbol-table module))
       (add-dump-init `(setf (module-symbol-table ,mod-exp)
 			    (let ((table  (make-table))) ,@code table))))
+    ;; TypeFamilies: this module's equations, added to their families
+    ;; again when the interface is loaded
+    (dolist (e (module-type-equations module))
+      (add-dump-init `(add-family-equation ,(dump-object (tuple-2-1 e))
+			 ,(dump-object (tuple-2-1 (tuple-2-2 e)))
+			 ,(dump-object (tuple-2-2 (tuple-2-2 e))))))
     ;; dump the fixity table - needed by the incremental compiler
     (when save-all-symbols
       (let ((code  '()))
@@ -830,7 +836,7 @@
 
 (define (dump-synonym/n syn)
   (with-new-def (dexp syn *number-types-dumped*)
-    (dump-def-slots syn synonym dexp (arity args body))))
+    (dump-def-slots syn synonym dexp (arity args body family?))))
 
 (define-walker-method dump class (class)
   (dump-class/n class))

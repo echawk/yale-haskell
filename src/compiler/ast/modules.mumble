@@ -98,6 +98,13 @@
     (foreign-code (type list) (default '()))
     ;; the GHC extensions its file's LANGUAGE pragmas name (strings)
     (extensions (type list) (default '()))
+    ;; TypeFamilies: (tuple lhs-tycon-ast rhs-ast) for each equation of a
+    ;; type family given here; after the type declaration phase, the
+    ;; (tuple family (tuple args rhs)) added, for the interface
+    (type-equations (type list) (default '()))
+    ;; PatternSynonyms: (name params pattern), name with the constructor
+    ;; prefix (parser/pattern-parser.mumble)
+    (pattern-synonyms (type list) (default '()))
 
     ;; These slots are filled in by the type-declaration-analysis phase
     ;; after conversion to definition form
