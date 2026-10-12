@@ -105,8 +105,8 @@
   (setf *save-col?* '#f)
   (setf *port* port)
   (setf *tokens* '())
-  (setf *char* (read-char *port*))
-  (setf *peek-char* (read-char *port*))
+  (setf *char* (lex-read-char *port*))
+  (setf *peek-char* (lex-read-char *port*))
   (when (eof-object? *char*)
 	(setf *char* '#\space))
   (when (eof-object? *peek-char*)
@@ -125,6 +125,14 @@
 	(else
 	 (lex-one-token)
 	 (parse-till-eof))))
+
+;;; CRLF line ends (a file from Windows) read as newlines.
+
+(define (lex-read-char port)
+  (let ((c (read-char port)))
+    (if (and (eqv? c #\return) (eqv? (lisp:peek-char '#f port '#f) #\newline))
+	(read-char port)
+	c)))
 
 ;;; There is an assumption that the scanner never peeks beyond a newline.
 ;;; In literate mode, this may reveal the wrong thing.
@@ -146,7 +154,7 @@
 	 (incf (the fixnum *current-col*))))
   (setf *char* *peek-char*)
   (setf *at-eof?* *at-eof/p?*)
-  (setf *peek-char* (read-char *port*))
+  (setf *peek-char* (lex-read-char *port*))
   (when (eof-object? *peek-char*)
      (setf *at-eof/p?* '#t)
      (setf *peek-char* '#\space))
@@ -182,7 +190,12 @@
 	    (digit
 	     (if (negative-literal-here?)
 		 (lex-negative-literal)
-		 (lex-varsym)))
+		 (begin
+		   (setf *minus-was-prefix?*
+			 (or (not *char-before-token*)
+			     (char-whitespace? *char-before-token*)
+			     (memv *char-before-token* '(#\( #\[ #\, #\;))))
+		   (lex-varsym))))
 	    (else
 	     (lex-varsym))))
     (#\{ (cond ((char=? *peek-char* '#\-)
@@ -217,10 +230,22 @@
 	    (lex-record-dot))
 	   (else
 	    (lex-varsym))))
-    (digit (lex-numeric)
-	   ;; MagicHash: 1#, 2.0## are the literals 1, 2.0
-	   (when (language-extension? "MagicHash")
-	     (do () ((not (char=? *char* #\#))) (advance-char))))
+    (digit (let ((before *char-before-token*))
+	     (lex-numeric)
+	     ;; MagicHash: 1#, 2.0## are the literals 1, 2.0, and -1# is
+	     ;; one negative literal when the - is a prefix (after a space
+	     ;; or an opening bracket) right before the digits
+	     (when (and (char=? *char* #\#) (language-extension? "MagicHash"))
+	       (do () ((not (char=? *char* #\#))) (advance-char))
+	       (let ((num  (car *tokens*))
+		     (prev (and (pair? (cdr *tokens*)) (cadr *tokens*))))
+		 (when (and (eqv? before #\-)
+			    *minus-was-prefix?*
+			    (pair? prev) (eq? (car prev) 'varsym)
+			    (equal? (cadr prev) "-")
+			    (memq (car num) '(integer float)))
+		   (setf (cadr num) (- (cadr num)))
+		   (setf *tokens* (cons num (cddr *tokens*))))))))
     (#\' (if (promotion-tick?)
 	     ;; DataKinds (GHC): 'Z in a type is the promoted Z
 	     (begin (advance-char)
@@ -229,7 +254,16 @@
 		      (when (eq? (car tok) 'conid)
 			(push (cadr tok) *promoted-names*))))
 	     (lex-char)))
-    (#\" (lex-string))
+    (#\" (lex-string)
+	 ;; MagicHash: "..."# is an Addr# literal, (GHC.Exts.addrLit# "...")
+	 (when (and (char=? *char* #\#) (language-extension? "MagicHash"))
+	   (advance-char)
+	   (let ((str (car *tokens*)))
+	     (setf *tokens* (cdr *tokens*))
+	     (emit-token '\()
+	     (emit-token 'varid "GHC.Exts.addrLit#")
+	     (push str *tokens*)
+	     (emit-token '\)))))
     (#\) (advance-char)
 	 (emit-token '\)))
     (#\, (advance-char)
@@ -559,7 +593,8 @@
 ;;; M.+, M.:+, and A.B.x.  The token has the type of its last part and the
 ;;; whole qualified name as its text, so the parser needs no new token
 ;;; types and dotted module names (import A.B) come out as one conid.
-;;; M.. is not taken as a qualified `.', so [False..] still works.
+;;; M.. is not taken as a qualified `.', so [False..] still works; M..&.
+;;; (more symbol characters) is M's operator .&.
 ;;; PREFIX is the characters read so far; *char* is the `.'.
 
 (define (lex-qualified prefix)
@@ -574,7 +609,13 @@
      (advance-char)
      (emit-token/string 'varid (append prefix (cons #\. (scan-var-con)))))
     (#\.
-     (emit-token/string 'conid prefix))
+     ;; M..&. is M's operator .&.; M.. alone stays M followed by ..
+     (if (memv (peek-char-2) '(#\& #\| #\+ #\* #\< #\> #\= #\! #\$ #\% #\^ #\? #\/ #\\ #\~ #\@ #\#))
+	 (begin
+	   (advance-char)
+	   (let ((sym (scan-list-of (symbol presymbol #\:))))
+	     (emit-token/string 'varsym (append prefix (cons #\. sym)))))
+	 (emit-token/string 'conid prefix)))
     ((symbol presymbol #\:)
      (advance-char)
      (let ((sym (scan-list-of (symbol presymbol #\:))))
@@ -771,6 +812,8 @@
 ;;; NegativeLiterals / LexicalNegation (GHC): a - before a digit, after
 ;;; a space or an opening bracket, is part of the literal: f -1 is
 ;;; f (-1); x-1 is still a subtraction.
+
+(define *minus-was-prefix?* '#f)   ; the last - lexed came after a space
 
 (define (negative-literal-here?)
   (and (or (language-extension? "NegativeLiterals")

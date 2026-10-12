@@ -1,0 +1,120 @@
+cubical, version: 1.0  (:h for help)
+
+Loading "brunerie.ctt"
+Parsed "brunerie.ctt" successfully!
+Checking: bool
+Checking: nat
+Checking: idfun
+Checking: Z
+Checking: twoZ
+Checking: oneZ
+Checking: zeroZ
+Checking: moneZ
+Checking: mtwoZ
+Checking: Path
+Checking: Sigma
+Checking: refl
+Checking: Square
+Checking: constSquare
+Checking: compPath
+Checking: compPathInv
+Checking: compInvPath
+Checking: compPath1
+Checking: comp1Path
+Checking: S1
+Checking: loopS1
+Checking: loopP
+Checking: invLoop
+Checking: compS1
+Checking: triv
+Checking: oneTurn
+Checking: backTurn
+Checking: itLoop
+Checking: itLoopNeg
+Checking: loopIt
+Checking: susp
+Checking: meridP
+Checking: S2
+Checking: S3
+Checking: ptType
+Checking: pt
+Checking: boolpt
+Checking: susppt
+Checking: S1pt
+Checking: S2pt
+Checking: S3pt
+Checking: ptMap
+Checking: Omega
+Checking: Omega2
+Checking: Omega3
+Checking: kanOp
+Checking: kanOpRefl
+Checking: mapOmega
+  Checking: g
+  Checking: pg
+Checking: mapOmega2
+Checking: mapOmega3
+Checking: mapOmegaRefl
+Checking: mapOmegaRefl2
+Checking: mapOmegaRefl3
+Checking: phi
+  Checking: g
+    Checking: p1
+    Checking: p2
+  Checking: pg
+    Checking: p
+Checking: join
+Checking: pushP
+Checking: joinpt
+Checking: r2lInr
+Checking: r2lPushInl
+Checking: r2lSquare
+Checking: opr2l
+Checking: r2lPushPush
+Checking: r2lPush
+Checking: joinassoc1
+Checking: l2rInl
+Checking: l2rPushInr
+Checking: l2rSquare
+Checking: opl2r
+Checking: l2rPushPush
+Checking: l2rPush
+Checking: joinassoc2
+Checking: mapJoin
+Checking: psi
+Checking: psiinv
+  Checking: case
+  Checking: case
+Checking: suspBoolToS1
+  Checking: case
+Checking: s1ToSuspBool
+Checking: c
+Checking: cinv
+Checking: e
+  Checking: x1
+  Checking: x2
+  Checking: x3
+  Checking: res
+Checking: einv
+  Checking: x1
+  Checking: x2
+  Checking: x3
+  Checking: res
+Checking: prealpha
+Checking: alpha
+Checking: f0
+Checking: f1
+Checking: f2
+Checking: f3
+Checking: f31
+Checking: f32
+Checking: f33
+Checking: f4
+Checking: test0To1
+Checking: test0To2
+Checking: test0To31
+Checking: test0To32
+Checking: test0To33
+Checking: test0To3
+Checking: test0To4
+File loaded.

@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/System/FilePath/
+:o= all
+Posix.hs

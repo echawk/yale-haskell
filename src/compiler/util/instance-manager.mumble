@@ -19,6 +19,44 @@
 	(else
 	 (lookup-instance-1 alg-def (cdr instances)))))
 
+;;; Overlapping instances (GHC's OVERLAPPABLE/OVERLAPPING): a class may
+;;; have several instances for one type constructor when their heads are
+;;; flexible (instance Print [a] and instance Print [Imp]).  At a type,
+;;; the most specific instance whose head matches it is used; while the
+;;; arguments are undecided only the general one matches.  Specificity is
+;;; the number of type constructors in the head.  Without the type (or
+;;; with one instance) this is lookup-instance.
+
+(define (lookup-instance/type alg-def class-def type)
+  (let ((all (lisp:remove-if-not
+	      (lambda (i) (and (eq? (instance-algdata i) alg-def) (instance-ok? i)))
+	      (class-instances class-def))))
+    (if (or (null? all) (null? (cdr all)))
+	(lookup-instance alg-def class-def)
+	(let ((matching (lisp:remove-if-not
+			 (lambda (i) (instance-head-matches? i type)) all)))
+	  (if (null? matching)
+	      (car all)
+	      (let ((best (car matching)))
+		(dolist (i (cdr matching))
+		  (when (> (instance-specificity i) (instance-specificity best))
+		    (setf best i)))
+		best))))))
+
+(define (instance-specificity inst)
+  (lisp:reduce (function +) (map (function ast-type-tycon-count)
+				 (instance-head-args inst))))
+
+(define (ast-type-tycon-count type)
+  (cond ((tycon? type)
+	 (+ 1 (lisp:reduce (function +) (map (function ast-type-tycon-count)
+					      (tycon-args type)))))
+	((tyapp? type)
+	 (+ (ast-type-tycon-count (tyapp-fun type))
+	    (lisp:reduce (function +) (map (function ast-type-tycon-count)
+					   (tyapp-args type)))))
+	(else 0)))
+
 (define (lookup-possible-tuple-instances alg-def class-def)
   (cond ((eq? class-def (core-symbol "Eq"))
 	 (get-tuple-eq-instance alg-def))

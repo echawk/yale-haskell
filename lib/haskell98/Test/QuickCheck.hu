@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Test/
+:o= all
+QuickCheck.hs

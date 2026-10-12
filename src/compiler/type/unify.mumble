@@ -243,8 +243,10 @@
 ;;; decl is found, contexts are propagated to the component types.
 
 (define (propagate-single-class type class)
-  (let* ((instance (lookup-instance (ntycon-tycon type) class))
-	 (args (and instance (instance-head-matches? instance type)
+  (let* ((instance (lookup-instance/type (ntycon-tycon type) class type))
+	 (args (and instance
+		    (or (instance-head-matches? instance type)
+			(unify-with-only-instance-head instance type))
 		    (instance-arg-types instance type))))
     (cond ((and instance (not (instance-head-matches? instance type)))
 	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
@@ -269,6 +271,36 @@
 		    (arg args)
 	     (propagate-contexts/inner arg classes)))))
   'OK)
+
+;;; A flexible head not matched yet because the type's arguments are still
+;;; undecided (Map t a against instance C (Map Face a)): when this is the
+;;; only instance of the class for the type constructor, any solution
+;;; uses it, so the type is unified with the head.  #t if it was.
+
+(define (unify-with-only-instance-head instance type)
+  (and (not (null? (instance-head-args instance)))
+       (null? (cdr (lisp:remove-if-not
+		    (lambda (i) (eq? (instance-algdata i) (instance-algdata instance)))
+		    (class-instances (instance-class instance)))))
+       (mlet (((pattern vars) (ast->ntype/bindings (make-instance-type instance) '())))
+	 (and (head-could-match? pattern type (map (function tuple-2-2) vars))
+	      (begin
+		(unify pattern type)
+		(instance-head-matches? instance type))))))
+
+(define (head-could-match? pattern type pvars)
+  (let ((type (prune type)))
+    (cond ((memq pattern pvars) '#t)
+	  ((ntyvar? type) (not (ntyvar-read-only? type)))
+	  ((ntycon? pattern)
+	   (let ((pattern (expand-ntype-synonym pattern))
+		 (type (if (ntycon? type) (expand-ntype-synonym type) type)))
+	     (and (ntycon? pattern) (ntycon? type)
+		  (eq? (ntycon-tycon pattern) (ntycon-tycon type))
+		  (eqv? (length (ntycon-args pattern)) (length (ntycon-args type)))
+		  (lisp:every (lambda (p a) (head-could-match? p a pvars))
+			 (ntycon-args pattern) (ntycon-args type)))))
+	  (else '#f))))
 
 ;;; The types an instance's tyvars stand for at TYPE (an ntycon of the
 ;;; instance's type constructor): its arguments, or for a flexible head

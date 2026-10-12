@@ -74,7 +74,8 @@
 					  :key (function entity-name))))
 	      (import-group (rename-group kept renamings) module)))))
    (module-export-table module))
-  (when (not (null? hiding))
+  (when (and (not (null? hiding))
+	     (not (quiet-unused-hiding? (module-name module))))
     (remember-context import-decl
       (dolist (h hiding)
 	(signal-unused-hiding (entity-name h) (module-name module)))))

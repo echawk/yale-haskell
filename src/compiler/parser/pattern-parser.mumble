@@ -181,7 +181,7 @@
 (define (scan-pat)  ; same as parse-pat/list
   (and
    (token-case
-    (con (scan-con)
+    (con (and (scan-con) (scan-record-braces))
 	 (scan-apat-list))
     (-n (advance-token)
 	(token-case
@@ -219,7 +219,7 @@
 	(token-case
 	 (@ (scan-apat))
 	 (else '#t)))
-   (con (scan-con))
+   (con (and (scan-con) (scan-record-braces)))
    (literal (advance-token)
 	    '#t)
    (_ '#t)
@@ -308,6 +308,19 @@
 
 ;;; Skips a pattern signature's type: the tokens up to and including the
 ;;; `)' that closes the pattern.
+;;; A record pattern's fields, C {...}, if present.
+(define (scan-record-braces)
+  (if (and (eq-token? '\{) (feature? 'records))
+      (begin (advance-token) (scan-to-close-brace 0))
+      '#t))
+
+(define (scan-to-close-brace depth)
+  (token-case
+   (\{ (scan-to-close-brace (1+ depth)))
+   (\} (if (eqv? depth 0) '#t (scan-to-close-brace (1- depth))))
+   (eof '#f)
+   (else (advance-token) (scan-to-close-brace depth))))
+
 (define (scan-to-close-paren depth)
   (token-case
    (\( (scan-to-close-paren (1+ depth)))
@@ -387,7 +400,10 @@
 ;;; A use P p1 ... pn in a pattern is pat with x, y, ... replaced by the
 ;;; patterns (prec/prec-parse.mumble's massage-pattern); in an expression
 ;;; P is the function pattern%P (prec/scope.mumble), defined from pat (as
-;;; an expression) or from the where clause.  Not exported.
+;;; an expression) or from the where clause (a one-way synonym without one
+;;; gets a builder that loops, so every synonym has a builder to export).
+;;; Across modules, a synonym travels as a template attached to its
+;;; builder's def (register-pattern-synonym below).
 
 (define *pattern-synonyms* '())     ; (name params pat)
 (define *pattern-builders* '())     ; decls of the pattern%P functions
@@ -410,14 +426,17 @@
 		    *pattern-builders*)))
 	 (<- (let ((pat (parse-pat)))
 	       (push (list name params pat) *pattern-synonyms*)
-	       (when (eq-token? '|where|)
-		 (advance-token)
-		 (let ((decls (parse-decl-list)))
-		   (when (pair? decls)
-		     (let ((builder (explicit-pattern-builder (car decls))))
-		       (when builder
-			 (push (pattern-builder name (car builder) (cdr builder))
-			       *pattern-builders*))))))))
+	       (let ((builder '#f))
+		 (when (eq-token? '|where|)
+		   (advance-token)
+		   (let ((decls (parse-decl-list)))
+		     (when (pair? decls)
+		       (setf builder (explicit-pattern-builder (car decls))))))
+		 (push (if builder
+			   (pattern-builder name (car builder) (cdr builder))
+			   (let ((b (pattern-builder-name name)))
+			     (**define b '() (generated-var-ref b))))
+		       *pattern-builders*))))
 	 (else (signal-missing-token "`=' or `<-'" "pattern synonym"))))))
 
 (define (parse-pattern-synonym-params)
@@ -493,3 +512,99 @@
 	((is-type? 'irr-pat p) (make irr-pat (pattern (copy-pattern (irr-pat-pattern p) env))))
 	((is-type? 'bang-pat p) (make bang-pat (pattern (copy-pattern (bang-pat-pattern p) env))))
 	(else p)))
+;;; Pattern synonyms across modules.  The defining module's scope phase
+;;; resolves each synonym's pattern (prec/scope.mumble) and records it as
+;;; a template, plain data an interface file can hold:
+;;;   (v name) (w) (i n) (ch c) (s str) (c con name infix? pat ...)
+;;;   (l pat ...) (a name pat) (r pat) (b pat)
+;;; keyed by the builder's def.  A use in another module finds the
+;;; builder by name (pattern%P, or M.pattern%P for M.P) and instantiates
+;;; the template, its constructors already resolved.
+
+(define *pattern-synonym-templates* (lisp:make-hash-table :test (function lisp:eq)))
+
+(define (register-pattern-synonym builder template)
+  (setf (lisp:gethash builder *pattern-synonym-templates*) template))
+
+(define (pattern-synonym-template builder)
+  (lisp:values (lisp:gethash builder *pattern-synonym-templates*)))
+
+;;; (params . template), or #f if the pattern has a form templates lack
+(define (make-pattern-synonym-template params pat)
+  (lisp:catch 'no-template
+    (cons params (pattern->template pat))))
+
+(define (pattern->template p)
+  (cond ((is-type? 'var-pat p) `(v ,(var-ref-name (var-pat-var p))))
+	((is-type? 'wildcard-pat p) '(w))
+	((is-type? 'const-pat p)
+	 (let ((c (const-pat-value p)))
+	   (cond ((is-type? 'integer-const c) `(i ,(integer-const-value c)))
+		 ((is-type? 'char-const c) `(ch ,(char-const-value c)))
+		 ((is-type? 'string-const c) `(s ,(string-const-value c)))
+		 (else (lisp:throw 'no-template '#f)))))
+	((and (is-type? 'pcon p) (not (eq? (pcon-con p) *undefined-def*)))
+	 `(c ,(pcon-con p) ,(pcon-name p) ,(pcon-infix? p)
+	     ,@(map (function pattern->template) (pcon-pats p))))
+	((is-type? 'list-pat p)
+	 `(l ,@(map (function pattern->template) (list-pat-pats p))))
+	((is-type? 'as-pat p)
+	 `(a ,(var-ref-name (as-pat-var p)) ,(pattern->template (as-pat-pattern p))))
+	((is-type? 'irr-pat p) `(r ,(pattern->template (irr-pat-pattern p))))
+	((is-type? 'bang-pat p) `(b ,(pattern->template (bang-pat-pattern p))))
+	(else (lisp:throw 'no-template '#f))))
+
+;;; The pattern of a use of an imported synonym: ARGS for its parameters.
+(define (instantiate-pattern-template template args)
+  (template->pattern (cdr template)
+		     (map (lambda (v a) (tuple v a)) (car template) args)))
+
+(define (template->pattern tp env)
+  (let ((sub (lambda (q) (template->pattern q env))))
+    (case (car tp)
+      (v (let ((b (assq (cadr tp) env)))
+	   (if b
+	       (tuple-2-2 b)
+	       (make var-pat (var (generated-var-ref (cadr tp)))))))
+      (w (make wildcard-pat))
+      (i (make const-pat (value (make integer-const (value (cadr tp))))))
+      (ch (make const-pat (value (make char-const (value (cadr tp))))))
+      (s (make const-pat (value (make string-const (value (cadr tp))))))
+      (c (make pcon (con (cadr tp)) (name (caddr tp)) (infix? (cadddr tp))
+	       (pats (map sub (cddddr tp)))))
+      (l (make list-pat (pats (map sub (cdr tp)))))
+      (a (make as-pat (var (generated-var-ref (cadr tp)))
+	       (pattern (funcall sub (caddr tp)))))
+      (r (make irr-pat (pattern (funcall sub (cadr tp)))))
+      (else (make bang-pat (pattern (funcall sub (cadr tp))))))))
+
+;;; The builder's name for a use of P or M.P: pattern%P or M.pattern%P.
+(define (qualified-pattern-builder-name name)
+  (let* ((s (symbol->string name))
+	 (s (if (has-con-prefix? s) (remove-con-prefix s) s))
+	 (q (pattern-qualifier-length s 0)))
+    (if (eqv? q 0)
+	(pattern-builder-name (string->symbol s))
+	(string->symbol
+	 (string-append (substring s 0 q) "pattern%"
+			(substring s q (string-length s)))))))
+
+;;; The length of the M.N. prefix of S, from position I.
+(define (pattern-qualifier-length s i)
+  (let ((n (string-length s)))
+    (if (and (< i n) (char-upper-case? (string-ref s i)))
+	(let ((j (lisp:position #\. s :start i)))
+	  (if (and j (< (+ j 1) n)
+		   (lisp:every (lambda (c) (or (char-alphabetic? c) (char-numeric? c)
+					       (memv c '(#\_ #\'))))
+			       (substring s i j)))
+	      (pattern-qualifier-length s (+ j 1))
+	      i))
+	i)))
+
+;;; An imported synonym's template for a constructor name, or #f.
+(define (imported-pattern-synonym name)
+  (and (eq? (resolve-toplevel-name name) '#f)
+       (let ((def (resolve-toplevel-name (qualified-pattern-builder-name name))))
+	 (and (not (eq? def '#f))
+	      (pattern-synonym-template def)))))

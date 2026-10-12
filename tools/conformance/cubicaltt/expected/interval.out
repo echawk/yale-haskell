@@ -1,0 +1,192 @@
+cubical, version: 1.0  (:h for help)
+
+Loading "interval.ctt"
+Parsed "./prelude.ctt" successfully!
+Parsed "./equiv.ctt" successfully!
+Parsed "interval.ctt" successfully!
+Checking: Path
+Checking: refl
+Checking: testEta
+Checking: mapOnPath
+Checking: funExt
+Checking: trans
+Checking: transNeg
+Checking: transK
+  Checking: rem1
+  Checking: rem2
+Checking: transNegK
+  Checking: rem1
+  Checking: rem2
+Checking: substTrans
+Checking: subst
+Checking: substEq
+Checking: substInv
+Checking: singl
+Checking: contrSingl
+Checking: J
+  Checking: T
+Checking: J'
+Checking: JEq
+  Checking: T
+Checking: inv
+Checking: compPath
+Checking: compPath'
+Checking: compPath''
+  Checking: rem
+Checking: compUp
+Checking: compDown
+Checking: lemCompInv
+Checking: lemInv
+Checking: test0
+Checking: test1
+Checking: kan
+Checking: lemSimpl
+Checking: PathPathTest1
+Checking: idfun
+Checking: Square
+Checking: constSquare
+Checking: prop
+Checking: set
+Checking: groupoid
+Checking: SET
+Checking: propSet
+Checking: propIsProp
+Checking: setIsProp
+Checking: PathS
+Checking: lemProp
+Checking: propPi
+Checking: lemPropF
+Checking: Sigma
+Checking: lemSig
+Checking: propSig
+Checking: isContr
+Checking: propIsContr
+  Checking: rem
+    Checking: T
+    Checking: pA
+    Checking: pB
+Checking: isContrProp
+Checking: N0
+Checking: efq
+Checking: neg
+Checking: Unit
+Checking: propUnit
+Checking: setUnit
+Checking: or
+Checking: propOr
+Checking: invOr
+Checking: pinvOr
+Checking: lemOr
+  Checking: qa
+  Checking: qb
+Checking: orset'
+Checking: orset
+Checking: stable
+Checking: const
+Checking: exConst
+Checking: propN0
+Checking: propNeg
+Checking: dNeg
+Checking: dec
+Checking: propDec
+Checking: decEqCong
+Checking: decStable
+Checking: decConst
+Checking: stableConst
+Checking: discrete
+Checking: injective
+Checking: and
+Checking: propAnd
+Checking: fiber
+Checking: isEquiv
+Checking: equiv
+Checking: propIsEquiv
+Checking: propIsEquivDirect
+  Checking: p0
+  Checking: p1
+  Checking: p2
+  Checking: q0
+  Checking: q1
+  Checking: q2
+  Checking: sq
+Checking: propIsEquivDirect'
+  Checking: p0
+  Checking: p1
+  Checking: p2
+  Checking: q0
+  Checking: q1
+  Checking: q2
+  Checking: alpha
+  Checking: x
+  Checking: wx
+  Checking: alpha1
+  Checking: alpha2
+  Checking: p2w1
+  Checking: q2w1
+  Checking: p2w2
+  Checking: q2w2
+  Checking: sq1
+  Checking: sq2
+Checking: equivLemma
+Checking: idIsEquiv
+Checking: equivPath
+Checking: invEq
+Checking: retEq
+Checking: secEq
+Checking: transEquivDirect
+  Checking: f
+  Checking: g
+  Checking: lem1
+  Checking: lem2
+  Checking: lem3
+  Checking: lem4
+  Checking: lem5
+  Checking: lem6
+  Checking: lem7
+  Checking: lem8
+  Checking: lem9
+  Checking: p
+Checking: lemSinglContr
+Checking: idEquiv
+Checking: transEquiv
+Checking: compf
+Checking: transEquivEq
+Checking: transDelta
+Checking: transEquivToPath
+  Checking: eB
+Checking: eqToEq
+  Checking: e
+  Checking: f
+  Checking: Ai
+  Checking: g
+Checking: transPathFun
+  Checking: b
+  Checking: u
+  Checking: q
+Checking: idToPath
+Checking: lemIso
+  Checking: rem0
+  Checking: rem0fill
+  Checking: rem1
+  Checking: rem1fill
+  Checking: p
+  Checking: pfill
+  Checking: sq
+  Checking: sq1
+Checking: isoToEquiv
+Checking: isoPath
+Checking: idIsEquivIsoToEquiv
+Checking: I
+Checking: fext
+  Checking: htpy
+Checking: toUnit
+Checking: fromUnit
+Checking: toUnitK
+Checking: fromUnitK
+Checking: unitEqI
+Checking: propI
+Checking: setI
+Checking: T
+Checking: p0
+Checking: test
+File loaded.

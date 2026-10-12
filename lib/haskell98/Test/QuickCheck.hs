@@ -1,0 +1,312 @@
+-- Test.QuickCheck (QuickCheck 2), a subset: Gen, Arbitrary (with
+-- shrink), the common generators and combinators, Testable and
+-- quickCheck.  Random numbers come from Haskell 98's Random, so the cases
+-- tried differ from QuickCheck's; shrinking is a simple greedy search.
+module Test.QuickCheck (
+    Gen, generate, sample, sample', choose, elements, oneof, frequency,
+    sized, getSize, resize, scale, listOf, listOf1, vectorOf, suchThat,
+    suchThatMaybe, infiniteListOf, sublistOf, shuffle, variant,
+    Arbitrary(arbitrary, shrink), CoArbitrary(coarbitrary),
+    arbitrarySizedIntegral, arbitraryBoundedEnum, shrinkIntegral, shrinkList,
+    Property, Testable(property), (==>), forAll, forAllShrink,
+    counterexample, label, collect, classify, cover, (.&&.), (.||.),
+    conjoin, disjoin, (===), quickCheck, quickCheckWith, verboseCheck,
+    Args(Args, maxSuccess, maxSize), stdArgs, Result(..), quickCheckResult,
+    NonNegative(NonNegative, getNonNegative), Positive(Positive, getPositive)
+  ) where
+
+import PreludeModern (Applicative(pure, (<*>)))
+import Random
+import Data.List (sortBy)
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+
+infixr 0 ==>
+infixr 1 .&&., .||.
+infix 4 ===
+
+newtype Gen a = MkGen (StdGen -> Int -> a)
+
+unGen :: Gen a -> StdGen -> Int -> a
+unGen (MkGen f) = f
+
+instance Functor Gen where
+  fmap f (MkGen g) = MkGen (\r n -> f (g r n))
+
+instance Applicative Gen where
+  pure x = MkGen (\_ _ -> x)
+  MkGen f <*> MkGen x = MkGen (\r n -> let (r1, r2) = split r in f r1 n (x r2 n))
+
+instance Monad Gen where
+  return x = MkGen (\_ _ -> x)
+  MkGen m >>= k = MkGen (\r n -> let (r1, r2) = split r in unGen (k (m r1 n)) r2 n)
+
+generate :: Gen a -> IO a
+generate g = do
+  r <- newStdGen
+  return (unGen g r 30)
+
+sample' :: Gen a -> IO [a]
+sample' g = mapM (\n -> fmap (\r -> unGen g r n) newStdGen) [0, 2 .. 20]
+
+sample :: Show a => Gen a -> IO ()
+sample g = sample' g >>= mapM_ print
+
+variant :: Integral n => n -> Gen a -> Gen a
+variant k (MkGen g) = MkGen (\r n -> g (iterate (snd . split) r !! (1 + fromIntegral (abs k) `mod` 64)) n)
+
+sized :: (Int -> Gen a) -> Gen a
+sized f = MkGen (\r n -> unGen (f n) r n)
+
+getSize :: Gen Int
+getSize = sized return
+
+resize :: Int -> Gen a -> Gen a
+resize n (MkGen g) = MkGen (\r _ -> g r n)
+
+scale :: (Int -> Int) -> Gen a -> Gen a
+scale f g = sized (\n -> resize (f n) g)
+
+choose :: Random a => (a, a) -> Gen a
+choose rng = MkGen (\r _ -> fst (randomR rng r))
+
+elements :: [a] -> Gen a
+elements [] = error "QuickCheck.elements used with empty list"
+elements xs = fmap (xs !!) (choose (0, length xs - 1))
+
+oneof :: [Gen a] -> Gen a
+oneof [] = error "QuickCheck.oneof used with empty list"
+oneof gs = choose (0, length gs - 1) >>= (gs !!)
+
+frequency :: [(Int, Gen a)] -> Gen a
+frequency [] = error "QuickCheck.frequency used with empty list"
+frequency xs = choose (1, sum (map fst xs)) >>= pick xs
+  where pick ((k, g) : ys) n | n <= k = g
+                             | otherwise = pick ys (n - k)
+        pick [] _ = error "QuickCheck.pick"
+
+listOf :: Gen a -> Gen [a]
+listOf g = sized (\n -> choose (0, n) >>= \k -> vectorOf k g)
+
+listOf1 :: Gen a -> Gen [a]
+listOf1 g = sized (\n -> choose (1, max 1 n) >>= \k -> vectorOf k g)
+
+vectorOf :: Int -> Gen a -> Gen [a]
+vectorOf k g = sequence (replicate k g)
+
+infiniteListOf :: Gen a -> Gen [a]
+infiniteListOf g = MkGen (\r n -> map (\r' -> unGen g r' n) (splits r))
+  where splits r = let (a, b) = split r in a : splits b
+
+suchThat :: Gen a -> (a -> Bool) -> Gen a
+suchThat g p = suchThatMaybe g p >>= maybe (sized (\n -> resize (n + 1) (suchThat g p))) return
+
+suchThatMaybe :: Gen a -> (a -> Bool) -> Gen (Maybe a)
+suchThatMaybe g p = sized (\n -> try n (2 * n + 10))
+  where try _ 0 = return Nothing
+        try k m = do x <- resize k g
+                     if p x then return (Just x) else try (k + 1) (m - 1)
+
+sublistOf :: [a] -> Gen [a]
+sublistOf xs = fmap (map snd . filter fst . flip zip xs) (vectorOf (length xs) arbitrary)
+
+shuffle :: [a] -> Gen [a]
+shuffle xs = do
+  ks <- vectorOf (length xs) (choose (0, 1000000 :: Int))
+  return (map snd (sortBy (\a b -> compare (fst a) (fst b)) (zip ks xs)))
+
+-- Arbitrary
+
+class Arbitrary a where
+  arbitrary :: Gen a
+  shrink :: a -> [a]
+  shrink _ = []
+
+class CoArbitrary a where
+  coarbitrary :: a -> Gen b -> Gen b
+
+arbitrarySizedIntegral :: Integral a => Gen a
+arbitrarySizedIntegral = sized (\n -> fmap fromInteger (choose (negate (toInteger n), toInteger n)))
+
+arbitraryBoundedEnum :: (Bounded a, Enum a) => Gen a
+arbitraryBoundedEnum = elements [minBound .. maxBound]
+
+shrinkIntegral :: Integral a => a -> [a]
+shrinkIntegral x = [x' | x' <- takeWhile (/= x) (0 : map (x -) (halves x)), abs x' < abs x]
+  where halves 0 = []
+        halves n = let h = n `quot` 2 in if h == 0 then [n] else h : halves h
+
+shrinkList :: (a -> [a]) -> [a] -> [[a]]
+shrinkList shr xs = removes ++ shrinkOne xs
+  where removes = [take i xs ++ drop (i + 1) xs | i <- [0 .. length xs - 1]]
+        shrinkOne [] = []
+        shrinkOne (y : ys) = [y' : ys | y' <- shr y] ++ [y : ys' | ys' <- shrinkOne ys]
+
+instance Arbitrary () where arbitrary = return ()
+instance Arbitrary Bool where
+  arbitrary = elements [False, True]
+  shrink True = [False]
+  shrink False = []
+instance Arbitrary Ordering where arbitrary = elements [LT, EQ, GT]
+instance Arbitrary Int where
+  arbitrary = arbitrarySizedIntegral
+  shrink = shrinkIntegral
+instance Arbitrary Integer where
+  arbitrary = arbitrarySizedIntegral
+  shrink = shrinkIntegral
+instance Arbitrary Char where
+  arbitrary = frequency [(3, choose ('a', 'z')), (1, choose (' ', '~'))]
+instance Arbitrary Double where
+  arbitrary = sized (\n -> let m = fromIntegral n in choose (negate m, m))
+instance Arbitrary Float where
+  arbitrary = sized (\n -> let m = fromIntegral n in choose (negate m, m))
+instance Arbitrary a => Arbitrary [a] where
+  arbitrary = listOf arbitrary
+  shrink = shrinkList shrink
+instance Arbitrary a => Arbitrary (Maybe a) where
+  arbitrary = frequency [(1, return Nothing), (3, fmap Just arbitrary)]
+  shrink Nothing = []
+  shrink (Just x) = Nothing : map Just (shrink x)
+instance (Arbitrary a, Arbitrary b) => Arbitrary (Either a b) where
+  arbitrary = oneof [fmap Left arbitrary, fmap Right arbitrary]
+instance (Arbitrary a, Arbitrary b) => Arbitrary (a, b) where
+  arbitrary = do { a <- arbitrary; b <- arbitrary; return (a, b) }
+  shrink (a, b) = [(a', b) | a' <- shrink a] ++ [(a, b') | b' <- shrink b]
+instance (Arbitrary a, Arbitrary b, Arbitrary c) => Arbitrary (a, b, c) where
+  arbitrary = do { a <- arbitrary; b <- arbitrary; c <- arbitrary; return (a, b, c) }
+instance (Ord k, Arbitrary k, Arbitrary v) => Arbitrary (Map.Map k v) where
+  arbitrary = fmap Map.fromList arbitrary
+  shrink m = map Map.fromList (shrink (Map.toList m))
+instance (Ord a, Arbitrary a) => Arbitrary (Set.Set a) where
+  arbitrary = fmap Set.fromList arbitrary
+instance (CoArbitrary a, Arbitrary b) => Arbitrary (a -> b) where
+  arbitrary = MkGen (\r n x -> unGen (coarbitrary x arbitrary) r n)
+
+instance CoArbitrary Bool where
+  coarbitrary b = variant (if b then 1 else 0 :: Int)
+instance CoArbitrary Int where
+  coarbitrary n = variant n
+instance CoArbitrary Integer where
+  coarbitrary n = variant n
+instance CoArbitrary Char where
+  coarbitrary c = variant (fromEnum c)
+instance CoArbitrary a => CoArbitrary [a] where
+  coarbitrary [] = variant (0 :: Int)
+  coarbitrary (x : xs) = variant (1 :: Int) . coarbitrary x . coarbitrary xs
+
+newtype NonNegative a = NonNegative { getNonNegative :: a } deriving (Eq, Ord, Show)
+newtype Positive a = Positive { getPositive :: a } deriving (Eq, Ord, Show)
+instance (Num a, Ord a, Arbitrary a) => Arbitrary (NonNegative a) where
+  arbitrary = fmap (NonNegative . abs) arbitrary
+instance (Num a, Ord a, Arbitrary a) => Arbitrary (Positive a) where
+  arbitrary = fmap (Positive . (+ 1) . abs) arbitrary
+
+-- Properties: a test gives Nothing (discarded) or Just (passed, messages)
+
+newtype Property = Property (Gen (Maybe (Bool, [String])))
+
+unProperty :: Property -> Gen (Maybe (Bool, [String]))
+unProperty (Property g) = g
+
+class Testable a where
+  property :: a -> Property
+
+instance Testable Bool where
+  property b = Property (return (Just (b, [])))
+
+instance Testable () where
+  property () = property True
+
+instance Testable Property where
+  property p = p
+
+instance Testable a => Testable (Gen a) where
+  property g = Property (g >>= unProperty . property)
+
+instance (Arbitrary a, Show a, Testable b) => Testable (a -> b) where
+  property f = forAllShrink arbitrary shrink f
+
+forAll :: (Show a, Testable b) => Gen a -> (a -> b) -> Property
+forAll g f = forAllShrink g (const []) f
+
+forAllShrink :: (Show a, Testable b) => Gen a -> (a -> [a]) -> (a -> b) -> Property
+forAllShrink g _ f = Property (do
+  x <- g
+  r <- unProperty (property (f x))
+  return (fmap (\(ok, msgs) -> (ok, show x : msgs)) r))
+
+(==>) :: Testable b => Bool -> b -> Property
+False ==> _ = Property (return Nothing)
+True ==> p = property p
+
+counterexample :: Testable p => String -> p -> Property
+counterexample s p = Property (fmap (fmap (\(ok, ms) -> (ok, ms ++ [s]))) (unProperty (property p)))
+
+label, collect :: (Show l, Testable p) => l -> p -> Property
+label _ = property
+collect _ = property
+
+classify :: Testable p => Bool -> String -> p -> Property
+classify _ _ = property
+
+cover :: Testable p => Double -> Bool -> String -> p -> Property
+cover _ _ _ = property
+
+(.&&.), (.||.) :: (Testable p, Testable q) => p -> q -> Property
+p .&&. q = conjoin [property p, property q]
+p .||. q = disjoin [property p, property q]
+
+conjoin, disjoin :: Testable p => [p] -> Property
+conjoin ps = Property (fmap combine (mapM (unProperty . property) ps))
+  where combine rs = if any (== Nothing) (map (fmap fst) rs) then Nothing
+                     else Just (all (maybe True fst) rs, concatMap (maybe [] snd) rs)
+disjoin ps = Property (fmap combine (mapM (unProperty . property) ps))
+  where combine rs = Just (any (maybe False fst) rs, concatMap (maybe [] snd) rs)
+
+(===) :: (Eq a, Show a) => a -> a -> Property
+x === y = counterexample (show x ++ (if x == y then " == " else " /= ") ++ show y) (x == y)
+
+data Args = Args { maxSuccess :: Int, maxSize :: Int }
+
+stdArgs :: Args
+stdArgs = Args 100 100
+
+data Result = Success { numTests :: Int, numDiscarded :: Int }
+            | Failure { numTests :: Int, failingCase :: [String] }
+            | GaveUp { numTests :: Int }
+  deriving Show
+
+quickCheck :: Testable p => p -> IO ()
+quickCheck p = quickCheckWith stdArgs p
+
+verboseCheck :: Testable p => p -> IO ()
+verboseCheck = quickCheck
+
+quickCheckWith :: Testable p => Args -> p -> IO ()
+quickCheckWith args p = quickCheckWithResult args p >>= report
+  where report (Success n d) = putStrLn ("+++ OK, passed " ++ show n ++ " tests"
+                                         ++ (if d > 0 then "; " ++ show d ++ " discarded." else "."))
+        report (GaveUp n) = putStrLn ("*** Gave up! Passed only " ++ show n ++ " tests.")
+        report (Failure n cs) = do
+          putStrLn ("*** Failed! Falsified (after " ++ show (n + 1) ++ " test" ++ (if n == 0 then "" else "s") ++ "):")
+          mapM_ putStrLn cs
+
+quickCheckResult :: Testable p => p -> IO Result
+quickCheckResult = quickCheckWithResult stdArgs
+
+quickCheckWithResult :: Testable p => Args -> p -> IO Result
+quickCheckWithResult args p = newStdGen >>= \r -> return (go r 0 0)
+  where
+    prop = property p
+    go r passed discarded
+      | passed >= maxSuccess args = Success passed discarded
+      | discarded > 10 * maxSuccess args = GaveUp passed
+      | otherwise =
+          let (r1, r2) = split r
+              -- discarded cases make the size grow too
+              size = min (maxSize args)
+                         (((passed + discarded `div` 2) * maxSize args) `div` maxSuccess args)
+          in case unGen (unProperty prop) r1 size of
+               Nothing -> go r2 passed (discarded + 1)
+               Just (True, _) -> go r2 (passed + 1) discarded
+               Just (False, cs) -> Failure passed cs

@@ -68,8 +68,11 @@
 	(if (eq? modern '#f)
 	    (signal-undefined-module-import '|PreludeModern|)
 	    ;; only what GHC's Prelude exports: Alternative and the other
-	    ;; Control.Applicative names are imported from there
-	    (add-imported-module modern *not-in-ghc-prelude*))))
+	    ;; Control.Applicative names are imported from there.  What an
+	    ;; import Prelude hiding (...) hides is hidden here too.
+	    (add-imported-module modern
+	      (append (prelude-hiding-specs (module-imports *module*))
+		      *not-in-ghc-prelude*)))))
     (let ((prelude-core (locate-module '|PreludeCore|)))
        (if (eq? prelude-core '#f)
 	   (signal-missing-prelude-core)
@@ -79,6 +82,21 @@
 	  (filter-complete-module-exports (module-exports *module*))))
     )
 
+
+(define (prelude-hiding-specs imports)
+  (lisp:mapcan (lambda (i)
+		 (if (and (eq? (import-decl-module-name i) '|Prelude|)
+			  (eq? (import-decl-mode i) 'all)
+			  (not (import-decl-qualified? i)))
+		     (append (import-decl-specs i) '())
+		     '()))
+	       imports))
+
+;;; Under --modern-prelude a module's Prelude is Prelude and PreludeModern
+;;; together, so a name hidden from it need be exported by only one.
+(define (quiet-unused-hiding? module-name)
+  (and (modern-prelude?)
+       (memq module-name '(|Prelude| |PreludeModern|))))
 
 (define (add-imported-module module . maybe-hiding)
   (setf (module-imports *module*)

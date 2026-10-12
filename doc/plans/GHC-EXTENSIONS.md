@@ -1,6 +1,7 @@
 # GHC extensions: what Yale Haskell supports, and what is realistic
 
-Status: assessment and record (2026-10-11).  Measured by
+Status: assessment and record (2026-10-11; 2026-10-12: cubicaltt, a
+3,000-line GHC program, runs unchanged — CUBICALTT.md).  Measured by
 `tools/conformance/extensions.py` (one small program per extension or
 library idiom, compared with GHC 9.14's output and exit code) and by the
 nofib suites (`tools/conformance/nofib.py`, with `--suite real
@@ -10,7 +11,7 @@ nofib suites (`tools/conformance/nofib.py`, with `--suite real
 
 | measure | before this round | now |
 |---|---|---|
-| extension and library probes | 28 of 28 (only what was implemented) | 69 of 74 (46 probes added for GHC2021, the common non-2021 extensions, and modern libraries) |
+| extension and library probes | 28 of 28 (only what was implemented) | 73 of 78 (50 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt needed) |
 | nofib imaginary + spectral | 68 pass | 69 pass (mandel) |
 | nofib real + gc + shootout | 28 pass, 11 compile errors, 2 wrong, 1 timeout | 40 pass, 2 known (ByteString pointers), no failures |
 
@@ -46,7 +47,8 @@ NegativeLiterals/LexicalNegation, ImportQualifiedPost, PackageImports
 (package ignored), BlockArguments, EmptyCase, EmptyDataDecls,
 EmptyDataDeriving, PostfixOperators, ParallelListComp,
 MonadComprehensions, ViewPatterns, RecursiveDo (one rec group for an
-`mdo`), PatternSynonyms (within a module), OverloadedStrings,
+`mdo`), PatternSynonyms (across modules since 2026-10-12: the resolved
+pattern travels in the interface), OverloadedStrings,
 OverloadedLists, OverloadedRecordDot, DuplicateRecordFields (fields
 found through the constructor; `e.f` through a generated
 `HasField%f r a | r -> a` class),
@@ -60,7 +62,8 @@ FlexibleInstances, FlexibleContexts, TypeSynonymInstances,
 MultiParamTypeClasses, FunctionalDependencies, UndecidableInstances (in
 the mtl style), ConstrainedClassMethods, ConstraintKinds (constraint
 synonyms), ScopedTypeVariables, PolyKinds (kinds are not checked at
-all), CPP.
+all), CPP, overlapping instances (OVERLAPPABLE/OVERLAPPING: the most
+specific matching flexible head is used; the pragmas are not needed).
 
 ### 2. Supported permissively: what GHC accepts runs; less is rejected
 
@@ -116,7 +119,6 @@ be accepted.
 | A catch-all instance (`instance Show a => Pretty a`) | instance lookup falling back to a type-variable head | medium |
 | QuantifiedConstraints | contexts with `forall` in instance heads; dictionary functions as dictionary fields | medium-large |
 | Arrows (`proc` notation) | the desugaring to `arr`/`>>>`/`first` | medium, rarely used |
-| PatternSynonyms across modules | the synonyms in interface files | small |
 | Real concurrency | a thread-safe runtime: thunk update and the allocation paths under SBCL threads | large |
 | GHC.Generics' `Rep` | type families exist now; the derived `from`/`to` and the representation types | large |
 
@@ -164,7 +166,8 @@ programs hit first are, in order:
 | TypeFamilies | parser/typedecl-parser.mumble, tdecl/alg-syn.mumble (`process-family-equations`), util/type-utils.mumble (reduction), type/unify.mumble (deferral, injectivity) |
 | ConstraintKinds | tdecl/alg-syn.mumble (`constraint-synonym-body`), util/signature.mumble (`expand-constraint-synonyms`) |
 | DataKinds | parser/lexer.mumble (`promotion-tick?`), module-parser.mumble (`add-promoted-constructors`) |
-| PatternSynonyms | parser/pattern-parser.mumble, prec/prec-parse.mumble, prec/scope.mumble |
+| PatternSynonyms | parser/pattern-parser.mumble (templates for other modules), prec/prec-parse.mumble, prec/scope.mumble, csys/dump-interface.mumble |
+| overlapping instances | util/instance-manager.mumble (`lookup-instance/type`), tdecl/instance.mumble, type/unify.mumble (`unify-with-only-instance-head`) |
 | DuplicateRecordFields, OverloadedRecordDot | parser/module-parser.mumble (`add-duplicate-record-fields`), lexer.mumble (`record-dot-here?`), exp-parser.mumble, prec/scope.mumble |
 | binary handles, catch laziness | runtime/handle-prims.mumble (`prim.h-set-binary-mode`), runtime/io-errors.mumble and base/base-runtime.lisp (catch no longer forces the action's result) |
 | libraries | lib/haskell98/{Data,Control,GHC,System,Unsafe}/ |

@@ -88,7 +88,7 @@
 	((is-type? 'record-pat pat)
 	 (massage-pattern (desugar-record-pat pat)))
 	((and (is-type? 'pcon pat)
-	      (memq (pcon-name pat) *magic-hash-boxes*)
+	      (magic-hash-box-name? (pcon-name pat))
 	      (module-extension? "MagicHash")
 	      (pair? (pcon-pats pat)))
 	 ;; MagicHash: I# p is p (exp-parser.mumble)
@@ -99,6 +99,13 @@
 	 (massage-pattern
 	  (instantiate-pattern-synonym
 	   (assq (pcon-name pat) (module-pattern-synonyms *module*))
+	   (massage-pattern-list (pcon-pats pat)))))
+	((and (is-type? 'pcon pat)
+	      (eq? (pcon-con pat) *undefined-def*)
+	      (imported-pattern-synonym (pcon-name pat)))
+	 (massage-pattern
+	  (instantiate-pattern-template
+	   (imported-pattern-synonym (pcon-name pat))
 	   (massage-pattern-list (pcon-pats pat)))))
 	((is-type? 'pcon pat)
 	 (when (eq? (pcon-con pat) *undefined-def*)

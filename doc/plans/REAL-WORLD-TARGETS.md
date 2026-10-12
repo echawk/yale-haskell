@@ -8,6 +8,13 @@ Traversable, MonadFail) and a few extensions.
 
 ## The ladder
 
+Status (2026-10-12): rungs 1, 2 (as a QuickCheck 2 subset), 4 (Alex and
+Happy 2.0 output, the GHC-specific kind included), 6 and 7 are climbed,
+and past the ladder cubicaltt (CUBICALTT.md), a 3,000-line proof checker
+using mtl, containers and a dozen GHC extensions, runs unchanged with
+output identical to GHC's.  CUBICALTT.md lists the libraries to port
+next.
+
 Each rung is a real codebase, chosen to need one new thing at a time.
 
 1. **`pretty`** (Text.PrettyPrint.HughesPJ): Haskell 98, no

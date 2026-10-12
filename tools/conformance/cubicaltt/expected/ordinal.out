@@ -1,0 +1,127 @@
+cubical, version: 1.0  (:h for help)
+
+Loading "ordinal.ctt"
+Parsed "./prelude.ctt" successfully!
+Parsed "ordinal.ctt" successfully!
+Warning: the following definitions were shadowed [zero, succ, lim, zero, succ, and]
+Checking: Path
+Checking: refl
+Checking: testEta
+Checking: mapOnPath
+Checking: funExt
+Checking: trans
+Checking: transNeg
+Checking: transK
+  Checking: rem1
+  Checking: rem2
+Checking: transNegK
+  Checking: rem1
+  Checking: rem2
+Checking: substTrans
+Checking: subst
+Checking: substEq
+Checking: substInv
+Checking: singl
+Checking: contrSingl
+Checking: J
+  Checking: T
+Checking: J'
+Checking: JEq
+  Checking: T
+Checking: inv
+Checking: compPath
+Checking: compPath'
+Checking: compPath''
+  Checking: rem
+Checking: compUp
+Checking: compDown
+Checking: lemCompInv
+Checking: lemInv
+Checking: test0
+Checking: test1
+Checking: kan
+Checking: lemSimpl
+Checking: PathPathTest1
+Checking: idfun
+Checking: Square
+Checking: constSquare
+Checking: prop
+Checking: set
+Checking: groupoid
+Checking: SET
+Checking: propSet
+Checking: propIsProp
+Checking: setIsProp
+Checking: PathS
+Checking: lemProp
+Checking: propPi
+Checking: lemPropF
+Checking: Sigma
+Checking: lemSig
+Checking: propSig
+Checking: isContr
+Checking: propIsContr
+  Checking: rem
+    Checking: T
+    Checking: pA
+    Checking: pB
+Checking: isContrProp
+Checking: N0
+Checking: efq
+Checking: neg
+Checking: Unit
+Checking: propUnit
+Checking: setUnit
+Checking: or
+Checking: propOr
+Checking: invOr
+Checking: pinvOr
+Checking: lemOr
+  Checking: qa
+  Checking: qb
+Checking: orset'
+Checking: orset
+Checking: stable
+Checking: const
+Checking: exConst
+Checking: propN0
+Checking: propNeg
+Checking: dNeg
+Checking: dec
+Checking: propDec
+Checking: decEqCong
+Checking: decStable
+Checking: decConst
+Checking: stableConst
+Checking: discrete
+Checking: injective
+Checking: and
+Checking: propAnd
+Checking: nat
+Checking: ord
+Checking: ord2
+Checking: inj0
+Checking: G1
+Checking: G2
+Checking: and
+Checking: O2
+Checking: inj12
+Checking: H1
+Checking: H2
+Checking: collapsing
+  Checking: rem
+  Checking: rem1
+Checking: omega
+Checking: omega1
+Checking: lemOmega1
+  Checking: rem
+  Checking: rem1
+Checking: corr1
+Checking: lem
+Checking: lem1
+Checking: lem2
+Checking: test
+Checking: lem3
+Checking: lem4
+Checking: corr2
+File loaded.

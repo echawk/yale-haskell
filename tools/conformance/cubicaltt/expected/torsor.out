@@ -1,0 +1,862 @@
+cubical, version: 1.0  (:h for help)
+
+Loading "torsor.ctt"
+Parsed "./prelude.ctt" successfully!
+Parsed "./equiv.ctt" successfully!
+Parsed "./hedberg.ctt" successfully!
+Parsed "./retract.ctt" successfully!
+Parsed "./univalence.ctt" successfully!
+Parsed "./bool.ctt" successfully!
+Parsed "./nat.ctt" successfully!
+Parsed "./discor.ctt" successfully!
+Parsed "./int.ctt" successfully!
+Parsed "./circle.ctt" successfully!
+Parsed "./pi.ctt" successfully!
+Parsed "./helix.ctt" successfully!
+Parsed "torsor.ctt" successfully!
+Warning: the following definitions were shadowed [lem2, compInv, setPi, lem, test4, test2, lem2, lem1, retIsContr, isContrProp, test0, substInv]
+Checking: Path
+Checking: refl
+Checking: testEta
+Checking: mapOnPath
+Checking: funExt
+Checking: trans
+Checking: transNeg
+Checking: transK
+  Checking: rem1
+  Checking: rem2
+Checking: transNegK
+  Checking: rem1
+  Checking: rem2
+Checking: substTrans
+Checking: subst
+Checking: substEq
+Checking: substInv
+Checking: singl
+Checking: contrSingl
+Checking: J
+  Checking: T
+Checking: J'
+Checking: JEq
+  Checking: T
+Checking: inv
+Checking: compPath
+Checking: compPath'
+Checking: compPath''
+  Checking: rem
+Checking: compUp
+Checking: compDown
+Checking: lemCompInv
+Checking: lemInv
+Checking: test0
+Checking: test1
+Checking: kan
+Checking: lemSimpl
+Checking: PathPathTest1
+Checking: idfun
+Checking: Square
+Checking: constSquare
+Checking: prop
+Checking: set
+Checking: groupoid
+Checking: SET
+Checking: propSet
+Checking: propIsProp
+Checking: setIsProp
+Checking: PathS
+Checking: lemProp
+Checking: propPi
+Checking: lemPropF
+Checking: Sigma
+Checking: lemSig
+Checking: propSig
+Checking: isContr
+Checking: propIsContr
+  Checking: rem
+    Checking: T
+    Checking: pA
+    Checking: pB
+Checking: isContrProp
+Checking: N0
+Checking: efq
+Checking: neg
+Checking: Unit
+Checking: propUnit
+Checking: setUnit
+Checking: or
+Checking: propOr
+Checking: invOr
+Checking: pinvOr
+Checking: lemOr
+  Checking: qa
+  Checking: qb
+Checking: orset'
+Checking: orset
+Checking: stable
+Checking: const
+Checking: exConst
+Checking: propN0
+Checking: propNeg
+Checking: dNeg
+Checking: dec
+Checking: propDec
+Checking: decEqCong
+Checking: decStable
+Checking: decConst
+Checking: stableConst
+Checking: discrete
+Checking: injective
+Checking: and
+Checking: propAnd
+Checking: fiber
+Checking: isEquiv
+Checking: equiv
+Checking: propIsEquiv
+Checking: propIsEquivDirect
+  Checking: p0
+  Checking: p1
+  Checking: p2
+  Checking: q0
+  Checking: q1
+  Checking: q2
+  Checking: sq
+Checking: propIsEquivDirect'
+  Checking: p0
+  Checking: p1
+  Checking: p2
+  Checking: q0
+  Checking: q1
+  Checking: q2
+  Checking: alpha
+  Checking: x
+  Checking: wx
+  Checking: alpha1
+  Checking: alpha2
+  Checking: p2w1
+  Checking: q2w1
+  Checking: p2w2
+  Checking: q2w2
+  Checking: sq1
+  Checking: sq2
+Checking: equivLemma
+Checking: idIsEquiv
+Checking: equivPath
+Checking: invEq
+Checking: retEq
+Checking: secEq
+Checking: transEquivDirect
+  Checking: f
+  Checking: g
+  Checking: lem1
+  Checking: lem2
+  Checking: lem3
+  Checking: lem4
+  Checking: lem5
+  Checking: lem6
+  Checking: lem7
+  Checking: lem8
+  Checking: lem9
+  Checking: p
+Checking: lemSinglContr
+Checking: idEquiv
+Checking: transEquiv
+Checking: compf
+Checking: transEquivEq
+Checking: transDelta
+Checking: transEquivToPath
+  Checking: eB
+Checking: eqToEq
+  Checking: e
+  Checking: f
+  Checking: Ai
+  Checking: g
+Checking: transPathFun
+  Checking: b
+  Checking: u
+  Checking: q
+Checking: idToPath
+Checking: lemIso
+  Checking: rem0
+  Checking: rem0fill
+  Checking: rem1
+  Checking: rem1fill
+  Checking: p
+  Checking: pfill
+  Checking: sq
+  Checking: sq1
+Checking: isoToEquiv
+Checking: isoPath
+Checking: idIsEquivIsoToEquiv
+Checking: hedbergLemma
+Checking: hedbergStable
+  Checking: ra
+  Checking: rem1
+  Checking: f
+  Checking: fIsConst
+  Checking: rem4
+  Checking: r
+  Checking: rem2
+  Checking: rem3
+Checking: hedbergS
+Checking: hedberg
+Checking: section
+Checking: retract
+Checking: lemRetract
+Checking: retractProp
+Checking: retractInv
+Checking: retIsContr
+  Checking: b
+  Checking: q
+  Checking: p
+Checking: sigIsContr
+  Checking: a
+  Checking: p
+  Checking: g
+  Checking: h
+  Checking: C
+  Checking: r
+Checking: isPathContr
+  Checking: a
+  Checking: f
+  Checking: p0
+  Checking: q
+Checking: isEquivContr
+Checking: totalFun
+Checking: funFib1
+Checking: funFib2
+  Checking: x
+  Checking: b
+  Checking: p
+  Checking: q
+  Checking: b0
+  Checking: r
+  Checking: s
+Checking: compFunFib
+Checking: retFunFib
+Checking: equivFunFib
+Checking: univalenceAlt
+  Checking: GlueB
+  Checking: unglueB
+  Checking: unglueEquiv
+    Checking: ctr
+    Checking: contr
+Checking: contrSingl'
+Checking: lemSinglContr'
+Checking: thmUniv
+Checking: transEquiv'
+Checking: univalence
+Checking: corrUniv
+Checking: corrUniv'
+Checking: canPathToEquiv
+Checking: univalenceJ
+Checking: transEquivIsEquiv
+Checking: univalenceTrans
+Checking: univalenceTrans'
+Checking: slowtest
+Checking: ua
+Checking: uabeta
+Checking: uabetaTransEquiv
+Checking: uaret
+Checking: f1
+Checking: f2
+Checking: uaretsig
+Checking: isContrPath
+  Checking: ctr
+  Checking: ctrpath
+Checking: retIsContr
+  Checking: b
+  Checking: q
+  Checking: p
+Checking: univalenceAlt2
+Checking: contrSinglEquiv
+  Checking: rem1
+  Checking: rem
+Checking: elimEquiv
+  Checking: T
+  Checking: rem1
+  Checking: rem
+Checking: elimIso
+  Checking: P
+  Checking: rem
+  Checking: rem1
+Checking: elimIsIso
+Checking: bool
+Checking: caseBool
+Checking: indBool
+Checking: falseNeqTrue
+Checking: trueNeqFalse
+Checking: boolDec
+  Checking: rem
+  Checking: rem
+Checking: setbool'
+Checking: lem1
+Checking: lem2
+Checking: lem3
+Checking: lem4
+Checking: lem5
+Checking: lem6
+Checking: lem7
+Checking: lem8
+Checking: setbool
+Checking: negBool
+Checking: negBoolK
+Checking: negBoolEquiv
+Checking: negBoolEq
+Checking: testFalse
+Checking: F2
+Checking: f2ToBool
+Checking: boolToF2
+Checking: f2ToBoolK
+Checking: boolToF2K
+Checking: boolEqF2
+Checking: negF2
+Checking: F2EqBool
+Checking: negBool'
+Checking: F2EqBoolComp
+Checking: test2
+Checking: negNegEq
+Checking: test3
+Checking: test4
+Checking: kanBool
+Checking: squareBoolF2
+Checking: test5
+Checking: test6
+Checking: test7
+Checking: test8
+Checking: test9
+Checking: p
+Checking: q
+Checking: isEquivNegBool
+Checking: eqBool
+Checking: testf
+Checking: testt
+Checking: testUniv1
+Checking: ntestUniv1
+Checking: testUniv2
+Checking: ntestUniv2
+Checking: nat
+Checking: one
+Checking: two
+Checking: three
+Checking: four
+Checking: five
+Checking: n0
+Checking: n1
+Checking: n2
+Checking: n3
+Checking: n4
+Checking: n5
+Checking: n6
+Checking: n7
+Checking: n8
+Checking: n9
+Checking: n10
+Checking: n11
+Checking: n12
+Checking: n13
+Checking: n14
+Checking: n15
+Checking: n16
+Checking: n17
+Checking: n18
+Checking: n19
+Checking: n20
+Checking: pred
+Checking: add
+Checking: add_zero
+Checking: add_suc
+Checking: add_comm
+Checking: assocAdd
+Checking: add'
+Checking: sucInj
+Checking: add_comm3
+  Checking: rem
+  Checking: rem1
+  Checking: rem2
+Checking: natcancelr
+Checking: idnat
+Checking: test
+  Checking: rem
+Checking: caseNat
+Checking: caseDNat
+Checking: znots
+Checking: snotz
+Checking: natDec
+Checking: natSet
+Checking: equalNat
+Checking: invP
+Checking: pinv
+Checking: lem
+Checking: natset'
+Checking: setnat
+Checking: inlNotinr
+  Checking: T
+Checking: inrNotinl
+  Checking: T
+Checking: injInl
+  Checking: T
+Checking: injInr
+  Checking: T
+Checking: orDisc
+  Checking: rem1
+    Checking: rem
+  Checking: rem1
+    Checking: rem
+Checking: Z
+Checking: zeroZ
+Checking: sucZ
+  Checking: auxsucZ
+Checking: predZ
+  Checking: auxpredZ
+Checking: sucpredZ
+  Checking: lem
+Checking: predsucZ
+  Checking: lem
+Checking: sucPathZ
+Checking: testOneZ
+Checking: testNOneZ
+Checking: ZSet
+Checking: S1
+Checking: loopS1
+Checking: loop1
+Checking: invLoop
+Checking: moebius
+Checking: helix
+Checking: winding
+  Checking: rem
+Checking: compS1
+Checking: loop2
+Checking: loop2'
+Checking: loop2''
+Checking: loopZ1
+Checking: loopZ2
+Checking: loopZ3
+Checking: loopZN1
+Checking: loopZ0
+Checking: loopZ5
+Checking: mLoop
+Checking: mult
+Checking: square
+Checking: doubleLoop
+Checking: tripleLoop
+Checking: loopZ4
+Checking: loopZ8
+Checking: triv
+Checking: hmtpy
+Checking: circleelim
+Checking: apcircleelim
+Checking: aLoop
+Checking: phi
+Checking: psi
+Checking: rem
+Checking: lem
+Checking: thm
+  Checking: T0
+  Checking: T1
+  Checking: f
+  Checking: g
+  Checking: s
+  Checking: t
+Checking: pi
+Checking: idPi
+  Checking: T0
+  Checking: T1
+  Checking: F
+  Checking: G
+  Checking: S
+  Checking: T
+Checking: setPi
+  Checking: T
+  Checking: rem1
+  Checking: rem
+Checking: groupoidPi
+  Checking: T
+  Checking: rem1
+Checking: propPi2
+  Checking: p0
+  Checking: B1
+Checking: propPi3
+  Checking: p0
+  Checking: B1
+Checking: oneTurn
+Checking: backTurn
+Checking: compInv
+  Checking: rem
+Checking: compInvS1
+Checking: compInv
+  Checking: rem
+Checking: transC
+Checking: lemTransC
+Checking: lemFib1
+  Checking: rem
+Checking: corFib1
+Checking: compPathL
+Checking: lemFib2
+  Checking: rem1
+  Checking: rem2
+  Checking: rem
+Checking: testIsoPath
+Checking: testH
+Checking: testHelix
+Checking: encode
+Checking: itLoop
+Checking: itLoopNeg
+Checking: loopIt
+Checking: lemItNeg
+Checking: l0
+Checking: l1
+Checking: test1ItPos
+Checking: lem1ItPos
+Checking: test1ItNeg
+Checking: lem1ItNeg
+Checking: lem1It
+Checking: decode
+  Checking: T
+  Checking: G
+  Checking: p
+  Checking: rem2
+  Checking: rem1
+  Checking: rem
+Checking: encodeDecode
+Checking: lemTransOneTurn
+Checking: lemTransBackTurn
+Checking: corFib2
+Checking: corFib3
+Checking: decodeEncodeBasePos
+  Checking: l
+  Checking: rem1
+  Checking: rem2
+  Checking: rem3
+Checking: decodeEncodeBaseNeg
+  Checking: l
+  Checking: rem1
+  Checking: rem2
+  Checking: rem3
+Checking: decodeEncodeBase
+Checking: loopS1equalsZ
+Checking: setLoop
+Checking: lemPropFib
+Checking: helixSet
+  Checking: rem
+Checking: isGroupoidS1
+  Checking: lem2
+  Checking: lem
+    Checking: pP
+Checking: substInv
+Checking: funDepTr
+Checking: lemSetTorus
+  Checking: F
+  Checking: G
+  Checking: lem1
+    Checking: P
+    Checking: sbE
+    Checking: pP
+      Checking: rem1
+      Checking: rem2
+      Checking: rem3
+    Checking: lem2
+    Checking: bP
+  Checking: lem2
+Checking: idL
+Checking: multCom
+  Checking: E
+  Checking: sE
+  Checking: g
+  Checking: efg
+Checking: multAssoc
+  Checking: E
+  Checking: sE
+  Checking: f
+    Checking: rem1
+    Checking: rem
+  Checking: g
+  Checking: efg
+Checking: lemPropRel
+Checking: invLaw
+  Checking: P
+  Checking: pP
+  Checking: bP
+Checking: multIsEquiv
+  Checking: P
+  Checking: pP
+  Checking: rem
+  Checking: bP
+Checking: invMult
+Checking: invS1
+Checking: lemInvS1
+Checking: loopInvS1
+Checking: rePar
+Checking: test2
+Checking: test21
+Checking: test12
+Checking: test4
+Checking: test0
+Checking: isEquivComp
+Checking: isEquivComp'
+Checking: lemHcomp
+Checking: lemHcomp3
+Checking: lemEquiv1
+Checking: transRefl
+Checking: lemReflComp
+Checking: lemReflComp'
+Checking: lem2ItPos
+Checking: lem2It
+Checking: transportCompPath
+  Checking: hole
+Checking: lemRevCompPath
+  Checking: hole1
+Checking: setPi
+Checking: lemPathPProp
+Checking: lemPathPSet
+Checking: lemPathPSet2
+Checking: isEquivPath
+Checking: lem10
+Checking: lem10'
+Checking: lem11
+  Checking: hole0
+  Checking: hole1
+  Checking: hole
+Checking: substPathP
+  Checking: hole
+Checking: lemPathSig
+  Checking: T0
+  Checking: T1
+  Checking: f
+  Checking: g
+  Checking: s
+  Checking: t
+Checking: transConstN
+Checking: transConstNRefl
+Checking: lem0
+Checking: lem1
+Checking: hProp
+Checking: ishinh_UU
+Checking: propishinh
+  Checking: rem1
+Checking: ishinh
+Checking: hinhpr
+Checking: inhPropContr
+Checking: P1
+Checking: P2
+Checking: P3
+Checking: propP1
+Checking: propP2
+Checking: propP3
+Checking: isoPathProp
+Checking: equivProp
+Checking: isContrProp
+Checking: lem2
+Checking: lem31192
+  Checking: F
+  Checking: G
+  Checking: FG
+    Checking: prf
+    Checking: hole1
+    Checking: hole
+  Checking: GF
+    Checking: hole2
+    Checking: hole1
+    Checking: hole
+Checking: total
+Checking: ex210
+  Checking: F
+  Checking: G
+  Checking: FG
+  Checking: GF
+Checking: cSigma
+Checking: th476
+  Checking: A1
+  Checking: A2
+  Checking: A3
+  Checking: A4
+  Checking: A5
+  Checking: A6
+  Checking: E12
+  Checking: E23
+  Checking: E34
+  Checking: E45
+  Checking: E56
+  Checking: hole
+Checking: thm477
+  Checking: AProp
+  Checking: BProp
+  Checking: F
+  Checking: G
+  Checking: hole
+Checking: F12
+  Checking: hole3
+  Checking: hole2
+  Checking: hole4
+  Checking: hole
+Checking: contrEquiv
+Checking: F21
+  Checking: hole0
+  Checking: hole2
+  Checking: hole4
+  Checking: hole3
+Checking: F32
+Checking: F23
+  Checking: hole2
+  Checking: hole3
+  Checking: hole
+Checking: E12
+Checking: E23
+Checking: E13
+Checking: action
+  Checking: actionAux
+  Checking: actionAux
+Checking: actionEquiv
+  Checking: hole
+    Checking: hole0
+  Checking: hole
+Checking: BZ
+Checking: BZSet
+Checking: BZNE
+Checking: BZShift
+Checking: BZAction
+Checking: BZS
+Checking: BZP
+Checking: BZEquiv
+Checking: BZASet
+Checking: lemBZ
+  Checking: A
+  Checking: a
+  Checking: AShift
+  Checking: AEquiv
+  Checking: B
+  Checking: b
+  Checking: BShift
+  Checking: BEquiv
+  Checking: F
+    Checking: p
+    Checking: pS
+    Checking: pNE
+    Checking: pShift
+    Checking: pEquiv
+    Checking: hole
+  Checking: G
+  Checking: GF
+  Checking: FG
+    Checking: p
+    Checking: p2
+    Checking: q2
+    Checking: pNE
+    Checking: pShift
+    Checking: pEquiv
+    Checking: hole
+  Checking: hole
+Checking: lem2
+  Checking: lem2Aux
+  Checking: lem2Aux
+Checking: lem2'
+  Checking: lem2Aux
+  Checking: lem2Aux
+Checking: ZBZ
+  Checking: ZShift
+  Checking: plus
+  Checking: plusCommZero
+    Checking: hole
+    Checking: hole
+  Checking: plusCommSuc
+    Checking: hole
+      Checking: hole0
+    Checking: hole
+  Checking: plusCommPred
+  Checking: plusComm
+    Checking: hole
+    Checking: hole
+  Checking: ZEquiv
+Checking: loopBZ
+Checking: compBZ
+Checking: transportIsoPath
+Checking: transportIsoPath'
+Checking: loopA
+  Checking: AS
+  Checking: shiftPath
+  Checking: hole1
+  Checking: hole2
+  Checking: hole3
+  Checking: hole
+Checking: loopZ
+Checking: invLoopZ
+Checking: encodeZ
+Checking: decodeZP
+Checking: decodeZ1
+Checking: decodeZ2
+Checking: decodeZ3
+Checking: decodeZQ
+Checking: decodeZ
+Checking: AA
+Checking: BZ'
+Checking: BZequivBZ'
+  Checking: F
+  Checking: G
+    Checking: SHIFT
+    Checking: ZEquiv
+    Checking: hole
+    Checking: ZEquivEq
+    Checking: EQUIV
+  Checking: FG
+  Checking: GF
+Checking: prf
+  Checking: hole0
+    Checking: hole1
+    Checking: hole1
+  Checking: hole
+Checking: decodeEncodeZRefl0
+Checking: decodeEncodeZRefl1
+Checking: decodeEncodeZRefl2
+Checking: decodeEncodeZRefl
+Checking: decodeEncodeZ
+Checking: encodeDecodeZ
+Checking: encodeLoop
+Checking: encodeInvLoop
+Checking: decodeLoop
+Checking: decodeInvLoop
+Checking: multZ
+  Checking: T
+  Checking: TNE
+  Checking: F
+  Checking: G
+  Checking: FG
+  Checking: GF
+  Checking: TShift
+  Checking: hole
+    Checking: hole0
+      Checking: hole1
+      Checking: hole1
+    Checking: hole0
+  Checking: TEquiv'''
+  Checking: TEquiv''
+  Checking: TEquiv'
+  Checking: TEquiv
+Checking: loopBZequalsZ
+Checking: loopS1equalsLoopBZ
+Checking: loopS1equalsLoopBZ'
+Checking: F
+Checking: G
+  Checking: hole4
+  Checking: hole3
+  Checking: hole6
+  Checking: hole1
+  Checking: hole
+Checking: GF
+Checking: F_fullyFaithful0
+Checking: F_fullyFaithful
+  Checking: hole
+Checking: F_essentiallySurjective
+  Checking: hInh
+    Checking: hole2
+    Checking: hole1
+    Checking: hole
+  Checking: hProp
+  Checking: hContr
+  Checking: hole
+Checking: S1equalsBZ
+  Checking: G
+  Checking: FG
+  Checking: GF
+  Checking: hole
+Checking: invBZ
+Checking: doubleLoopBZ
+File loaded.

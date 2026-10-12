@@ -16,7 +16,10 @@
         ;; *** I'm confused.  Aren't these errors already detected
 	;; *** by import-all-entities and import-named-entities?
 	;; jcp: no - a final check is needed after all symbols have moved.
-        (cond ((eq? mode 'all)
+        (cond ((and (eq? mode 'all)
+		    (quiet-unused-hiding? (import-decl-module-name import-decl)))
+	       'OK)
+	      ((eq? mode 'all)
 	       (dolist (entity specs)
 		 (signal-unused-hiding
 		   (entity-name entity)

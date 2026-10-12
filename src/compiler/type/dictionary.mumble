@@ -188,7 +188,7 @@
 	 (class (if (dict-placeholder? p)
 		    (dict-placeholder-class p)
 		    (method-var-class (method-placeholder-method p))))
-	 (instance (lookup-instance alg class)))
+	 (instance (lookup-instance/type alg class tycon)))
     (if (dict-placeholder? p)
 	(mlet (((code def1)
 		(generate-dict-ref instance tycon deferred decls edecls var)))
@@ -222,7 +222,7 @@
 	 ((ntycon? ntype)
 	  (mlet ((ntype (expand-ntype-synonym ntype))
 		 (alg (ntycon-tycon ntype))
-		 (instance (lookup-instance alg class))
+		 (instance (lookup-instance/type alg class ntype))
 		 ((code dv1)
 		  (generate-dict-ref
 		    instance ntype deferred decls edecls var)))

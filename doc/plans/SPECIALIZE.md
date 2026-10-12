@@ -19,7 +19,17 @@ Status: implemented (2026-10-11), as planned below with these choices:
   folding sees through.
 - Budget: 60 specializations per module; copies nothing calls after
   the last iteration are dropped (`remove-unused-specializations`).
-- `YALE_HASKELL_NO_SPECIALIZE=1` turns it off, for comparisons.
+- `YALE_HASKELL_NO_SPECIALIZE=1` turns it off, for comparisons; a
+  comma-separated list of module names turns it off in those only.
+  `YALE_HASKELL_SPECIALIZE_LIMIT=n` makes only the first n
+  specializations of a run and `YALE_HASKELL_SPECIALIZE_TRACE=1` lists
+  them, to bisect a miscompilation to one specialization.
+- Fixed 2026-10-12 (found by cubicaltt, CUBICALTT.md): a call rewritten
+  to `f@spec` keeps its application node and its `saturated?` flag.
+  When `f@spec` later gains a parameter (IO's state, by eta expansion),
+  the call is no longer saturated, but the flag stayed set and the code
+  called the `/OPT` entry with too few arguments.  The postoptimizer now
+  clears the flag on an unsaturated call.
 
 The rest of this document is the plan as written.
 

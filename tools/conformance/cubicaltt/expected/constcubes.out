@@ -1,0 +1,42 @@
+cubical, version: 1.0  (:h for help)
+
+Loading "constcubes.ctt"
+Parsed "constcubes.ctt" successfully!
+Checking: Path
+Checking: Square
+Checking: sb
+Checking: s0
+Checking: s1
+Checking: cs
+Checking: Cube
+Checking: Fd
+Checking: B
+Checking: Bla
+  Checking: Ab
+Checking: Cubea
+Checking: cb
+Checking: c0
+Checking: c1
+Checking: cc
+Checking: Tesseract
+Checking: Tesseracta
+Checking: tb
+Checking: t0
+Checking: t1
+Checking: ct
+Checking: sgb
+Checking: sg0
+Checking: sg1
+Checking: csg
+Checking: cs2
+Checking: cgb
+Checking: cg0
+Checking: cg1
+Checking: ccg
+Checking: cc2
+Checking: tgb
+Checking: tg0
+Checking: tg1
+Checking: ctg
+Checking: ct2
+File loaded.

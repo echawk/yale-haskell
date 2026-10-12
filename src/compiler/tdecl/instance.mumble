@@ -111,8 +111,12 @@
 		     (not (eq? *module-name* (def-module class-def))))
 	    (signal-c-t-rule-violation class-def alg-def))
 	  (let ((old-inst (lookup-instance alg-def class-def)))
+	    ;; a flexible head may overlap another instance's
+	    ;; (lookup-instance/type, util/instance-manager.mumble)
 	    (when (and (not (eq? old-inst '#f))
-		       (not (instance-special? old-inst)))
+		       (not (instance-special? old-inst))
+		       (not flexible?)
+		       (null? (instance-head-args old-inst)))
 	    (signal-multiple-instance class-def alg-def))
 	    (let ((inst (new-instance class-def alg-def tyvars)))
 	      (when flexible?

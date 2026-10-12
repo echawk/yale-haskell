@@ -142,9 +142,10 @@
     (and m (table-entry (module-symbol-table m) name))))
 
 ;;; GeneralizedNewtypeDeriving (GHC): newtype N ... = N t deriving (C)
-;;; for any other class C, when t's instance of C has no context and is
-;;; from another module.  The instance shares that one's dictionary
-;;; (tdecl/instance.mumble's expand-newtype-derived-instance).
+;;; for any other class C.  When t's instance of C has no context and is
+;;; from another module, the instance shares that one's dictionary
+;;; (tdecl/instance.mumble's expand-newtype-derived-instance); otherwise
+;;; it is derived as deriving newtype is, its methods t's coerced.
 
 (define (add-newtype-derived-instance alg class)
   (let* ((field  (car (con-types (car (algdata-constrs alg)))))
@@ -154,11 +155,10 @@
 	   (signal-instance-exists alg class))
 	  ((or (not under)
 	       (not (null? (instance-context under)))
+	       (not (null? (instance-head-args under)))
 	       (eq? (def-module (tycon-def type)) *module-name*))
-	   (phase-error 'cannot-derive-instance
-	     "Instance ~A(~A) cannot be derived through the newtype: it needs an~%~
-              instance of ~A for ~A, without a context, from another module."
-	     class alg class field))
+	   ;; otherwise each method is the field type's, coerced
+	   (add-special-derived-instance alg class 'newtype))
 	  (else
 	   (let ((inst (new-instance class alg (algdata-tyvars alg))))
 	     (setf (instance-ok? inst) '#t)

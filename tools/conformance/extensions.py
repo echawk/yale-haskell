@@ -578,6 +578,48 @@ main = do
   readIORef r >>= print
   exitWith (ExitFailure 3)
 ''',
+'OverlappingInstances': '''{-# LANGUAGE FlexibleInstances #-}
+class Pretty a where
+  pp :: a -> String
+instance {-# OVERLAPPABLE #-} Pretty a => Pretty [a] where
+  pp xs = "[" ++ concatMap pp xs ++ "]"
+instance Pretty Char where
+  pp c = [c]
+instance Pretty String where
+  pp s = show s
+instance Pretty Int where
+  pp = show
+instance {-# OVERLAPPING #-} Pretty [Int] where
+  pp xs = "ints:" ++ show (sum xs)
+main = do
+  putStrLn (pp "abc")
+  putStrLn (pp [1, 2, 3 :: Int])
+  putStrLn (pp [[1, 2], [3 :: Int]])
+  putStrLn (pp ["x", "y"])
+''',
+'GNDThroughContext': '''{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+class Describe a where
+  describe :: a -> String
+  names :: [a] -> Int
+instance Describe Char where
+  describe c = [c]
+  names = length
+instance Describe a => Describe [a] where
+  describe = concatMap describe
+  names = length
+newtype Name = Name String deriving (Eq, Show, Describe)
+main = do
+  putStrLn (describe (Name "abc"))
+  print (names [Name "a", Name "b"], Name "x" == Name "x")
+''',
+'RecordPatternGuard': '''data S = Tentative { col :: Int } | Definitive { col :: Int }
+f :: S -> String
+f s | Tentative{} <- s, col s > 2 = "tentative"
+    | Definitive{col = c} <- s = "definitive " ++ show c
+    | otherwise = "other"
+main = mapM_ (putStrLn . f) [Tentative 3, Tentative 1, Definitive 7]
+''',
+'CRLFSource': 'module Main where\r\n\r\nmain :: IO ()\r\nmain = do\r\n  let x = 1 :: Int\r\n  print (x + 1)\r\n  putStrLn "crlf"\r\n',
 }
 
 

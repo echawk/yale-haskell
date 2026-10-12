@@ -164,7 +164,11 @@
 		      (dynamic *optimize-build-iteration*)))
 		(*specializations*            '())
 		(*specialized-dictionaries*   '())
-		(*new-specializations*        '()))
+		(*new-specializations*        '())
+		(*optimize-module*
+		  (if (null? (flic-let-bindings object))
+		      '||
+		      (def-module (car (flic-let-bindings object))))))
     (setf *hacks-done* '())
     (dotimes (i (dynamic *max-optimize-iterations*))
       (dynamic-let ((*current-optimize-iteration*  i))
@@ -2260,7 +2264,11 @@
   (let ((nargs   (length args)))
     (declare (type fixnum nargs))
     (cond ((< nargs arity)
-	   ;; not enough arguments
+	   ;; not enough arguments.  A flag left from before is cleared: a
+	   ;; call rewritten to f@spec keeps its app, and f@spec's arity
+	   ;; can grow (its state argument), so the call may no longer be
+	   ;; saturated.
+	   (setf (flic-app-saturated? object) '#f)
 	   (when var (setf (var-standard-refs? var) '#t)))
 	  ((eqv? nargs arity)
 	   ;; exactly the right number of arguments
@@ -2346,9 +2354,25 @@
 (define *specialized-dictionaries* '())  ; (var . dict-key), dict-key a pair
 (define *new-specializations* '())    ; vars to add after this iteration
 
+;;; YALE_HASKELL_NO_SPECIALIZE=1 turns specialization off; a
+;;; comma-separated list of module names, only for those (to bisect).
+(define *optimize-module* '||)   ; the module of the code optimized
+
+(define (no-specialize-module?)
+  (let ((env (getenv "YALE_HASKELL_NO_SPECIALIZE")))
+    (and env (not (string=? env "")) (not (string=? env "0"))
+	 (or (string=? env "1")
+	     (lisp:member (symbol->string (dynamic *optimize-module*))
+			  (lisp:mapcar (lambda (x) (lisp:string-trim " " x))
+				       (lisp:loop for start = 0 then (1+ pos)
+						  for pos = (lisp:position #\, env :start start)
+						  collect (lisp:subseq env start pos)
+						  while pos))
+			  :test (function string=?))))))
+
 (define (specialize-now?)
   (and (dynamic *specialize?*)
-       (not (env-flag? "YALE_HASKELL_NO_SPECIALIZE"))
+       (not (no-specialize-module?))
        (dynamic *do-inline-optimizations*)
        (>= (dynamic *current-optimize-iteration*)
 	   (dynamic *specialize-first-iteration*))
@@ -2477,12 +2501,33 @@
 			     (decf (var-referenced (flic-ref-var a)))))
 			 (cons spec (list-tail args k))))))))))
 
+;;; Debugging: YALE_HASKELL_SPECIALIZE_LIMIT=n makes only the first n
+;;; specializations of the run (to bisect a miscompilation), and
+;;; YALE_HASKELL_SPECIALIZE_TRACE=1 lists each one made.
+(define *specializations-made* 0)
+
+(define (specialization-allowed? var keys)
+  (let ((limit (getenv "YALE_HASKELL_SPECIALIZE_LIMIT")))
+    (and (or (not limit) (string=? limit "")
+	     (< *specializations-made* (lisp:parse-integer limit)))
+	 (begin
+	   (incf *specializations-made*)
+	   (when (env-flag? "YALE_HASKELL_SPECIALIZE_TRACE")
+	     (lisp:format lisp:*error-output* "~&spec ~a: ~a ~a~%"
+			  *specializations-made* (def-name var)
+			  (map (lambda (k) (if (pair? k)
+					       (map (lambda (x) (if (pair? x) '|...| (def-name x))) k)
+					       (def-name k)))
+			       keys)))
+	   '#t))))
+
 (define (make-specialization var k keys key)
   (let ((val  (var-value var)))
     (and (< (length (dynamic *specializations*))
 	    (dynamic *specialize-max-per-module*))
 	 (<= (flic-size val (dynamic *specialize-max-size*))
 	     (dynamic *specialize-max-size*))
+	 (specialization-allowed? var keys)
 	 (let* ((copy  (copy-flic-top val))
 		(dvars (list-head (flic-lambda-vars copy) k))
 		(rest  (list-tail (flic-lambda-vars copy) k))

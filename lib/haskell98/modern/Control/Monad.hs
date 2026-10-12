@@ -2,9 +2,12 @@
 -- lib/haskell98/modern/ are found before the library's own,
 -- csys/compiler-driver.mumble): as the 2010 Report's, but guard is
 -- Alternative's (base's), mapM, forM, sequence, msum and their _ forms are
--- over Traversable or Foldable (base's), and base's additions.
+-- over Traversable or Foldable (base's), and base's additions.  MonadFail
+-- is exported without its fail, which a module gets from the Prelude:
+-- library modules (mtl's) re-export Control.Monad under the core Prelude.
 module Control.Monad (
-    Functor(fmap), Monad((>>=), (>>), return, fail), MonadPlus(mzero, mplus),
+    Functor(fmap), Monad((>>=), (>>), return, fail), MonadFail,
+    MonadPlus(mzero, mplus),
     mapM, mapM_, forM, forM_, sequence, sequence_, (=<<), (>=>), (<=<),
     forever, void, join, msum, filterM, mapAndUnzipM, zipWithM, zipWithM_,
     foldM, foldM_, replicateM, replicateM_, guard, when, unless, mfilter, (<$!>),
@@ -14,7 +17,7 @@ module Control.Monad (
 import Prelude hiding (mapM, mapM_, sequence, sequence_, foldr)
 import ControlMonadBase hiding (guard, mapM, mapM_, forM, forM_, sequence,
                                sequence_, msum)
-import PreludeModern (Applicative(pure), Alternative(empty),
+import PreludeModern (Applicative(pure), Alternative(empty), MonadFail,
                       Traversable(mapM, sequence), Foldable(foldr),
                       mapM_, sequence_)
 

@@ -14,7 +14,8 @@ these are what comes after M11.
 | [PORTABILITY.md](PORTABILITY.md) | Running on Lisps other than SBCL (ECL, ABCL, CCL) | ECL 193/200, ABCL 162/200 |
 | [GHC-OPTIMIZATIONS.md](GHC-OPTIMIZATIONS.md) | Every GHC optimisation pass, what Yale has for it, and where the missing ones go in Yale's pipeline | reference and plan |
 | [SPECIALIZE.md](SPECIALIZE.md) | Copies of recursive overloaded functions for known dictionaries (GHC's SPECIALISE), as a step of the optimizer | done (2026-10-11) |
-| [GHC-EXTENSIONS.md](GHC-EXTENSIONS.md) | GHC extensions and modern libraries: what is supported exactly, permissively or by approximation, what is realistic, what is not | 69/74 probes |
+| [GHC-EXTENSIONS.md](GHC-EXTENSIONS.md) | GHC extensions and modern libraries: what is supported exactly, permissively or by approximation, what is realistic, what is not | 73/78 probes |
+| [CUBICALTT.md](CUBICALTT.md) | cubicaltt, a cubical type theory proof checker, as the program that tests the GHC features together; what it needed, its speed against GHC, and the library and optimization targets that follow | 42/42 examples match GHC |
 | [MUMBLE-TO-CL.md](MUMBLE-TO-CL.md) | Moving the compiler from mumble to plain Common Lisp, piece by piece | planned |
 
 Suggested order: MicroCabal (it doubles as the gap list for real

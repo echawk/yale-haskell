@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/System/Console/Haskeline/
+:o= all
+History.hs

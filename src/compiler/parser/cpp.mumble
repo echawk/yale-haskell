@@ -95,8 +95,12 @@
   (dynamic-let ((*cpp-macros*    (lisp:make-hash-table :test 'lisp:equal))
 		(*cpp-includes*  '()))
     (cpp-define-string "__YALE_HASKELL__=1")
-    (dolist (d (dynamic *cpp-defines*))
-      (cpp-define-string d))
+    ;; -D is for the program's files, not the libraries (as GHC's -D is
+    ;; for the package being compiled): -D__GLASGOW_HASKELL__ must not
+    ;; switch Data.Set to its GHC code
+    (when (not (library-source-file? filename))
+      (dolist (d (dynamic *cpp-defines*))
+	(cpp-define-string d)))
     (lisp:with-output-to-string (out)
       (cpp-process filename text out 0))))
 
@@ -114,8 +118,9 @@
 			(*error-output-port* (lisp:make-broadcast-stream))
 			(*abort-compilation* (lambda () (funcall stop '#f))))
 	    (cpp-define-string "__YALE_HASKELL__=1")
-	    (dolist (d (dynamic *cpp-defines*))
-	      (cpp-define-string d))
+	    (when (not (library-source-file? filename))
+	      (dolist (d (dynamic *cpp-defines*))
+		(cpp-define-string d)))
 	    (cpp-process filename (read-file-text filename)
 			 (lisp:make-broadcast-stream) 0)))
 	(dynamic *cpp-includes*))
@@ -202,9 +207,21 @@
 		  (incf (dynamic *cpp-line*))
 		  (write-char #\newline out)))
 	      (begin
-		(when (cpp-active? conds)
-		  (write-string (cpp-expand line '()) out))
-		(write-char #\newline out)))))
+		;; a function-like macro's arguments may go on over lines
+		;; (Happy's DEBUG_TRACE(...)): the lines are joined, and
+		;; blank lines keep the numbering
+		(let ((extra  0))
+		  (when (cpp-active? conds)
+		    (do ()
+			((or (null? lines) (not (cpp-unfinished-macro-call? line))))
+		      (setf line (string-append line " " (car lines)))
+		      (setf lines (cdr lines))
+		      (incf extra))
+		    (write-string (cpp-expand line '()) out))
+		  (write-char #\newline out)
+		  (dotimes (i extra)
+		    (incf (dynamic *cpp-line*))
+		    (write-char #\newline out)))))))
       (when (not (null? conds))
 	(cpp-error "#if without #endif")))))
 
@@ -377,7 +394,12 @@
       (let ((line  (dynamic *cpp-line*))
 	    (file  (dynamic *cpp-file*)))
 	(lisp:format out "{-# LINE 1 ~S #-}~%" found)
-	(cpp-process found (read-file-text found) out (1+ depth))
+	(cpp-process found
+		     (if (string=? (filename-type found) ".h")
+			 ;; a C header (MachDeps.h, ...): its C comments go
+			 (strip-c-comments (read-file-text found))
+			 (read-file-text found))
+		     out (1+ depth))
 	(lisp:format out "{-# LINE ~A ~S #-}~%" (1+ line) file)))))
 
 (define (cpp-directory-name dir)
@@ -744,3 +766,76 @@
 	       (cpp-error "missing ) in #if"))
 	     v))
 	  (else (cpp-error "unexpected ~A in #if" tok)))))
+
+;;; A C header's /* */ comments, removed (newlines kept, so line numbers
+;;; stay), as the C preprocessor removes them.
+
+(define (strip-c-comments text)
+  (lisp:with-output-to-string (out)
+    (let ((n  (string-length text))
+	  (i  0))
+      (do () ((>= i n))
+	(let ((c  (string-ref text i)))
+	  (if (and (char=? c #\/) (< (1+ i) n) (char=? (string-ref text (1+ i)) #\*))
+	      (let ((j (+ i 2)))
+		(do () ((or (>= (1+ j) n)
+			    (and (char=? (string-ref text j) #\*)
+				 (char=? (string-ref text (1+ j)) #\/))))
+		  (when (char=? (string-ref text j) #\newline)
+		    (write-char #\newline out))
+		  (incf j))
+		(setf i (+ j 2)))
+	      (begin (write-char c out) (incf i))))))))
+
+;;; Whether LINE ends inside the arguments of a function-like macro: the
+;;; macro's name, then `(', and the parentheses still open at the end
+;;; (strings and character literals skipped).
+
+(define (cpp-unfinished-macro-call? line)
+  (let ((n     (string-length line))
+	(i     0)
+	(open  '#f))
+    (lisp:block scan
+      (do () ((>= i n))
+	(let ((c  (string-ref line i)))
+	  (cond ((or (char-alphabetic? c) (char=? c #\_))
+		 (let ((j i))
+		   (do () ((or (>= j n)
+			       (not (let ((d (string-ref line j)))
+				      (or (char-alphabetic? d) (char-numeric? d)
+					  (char=? d #\_) (char=? d #\'))))))
+		     (incf j))
+		   (let* ((name  (substring line i j))
+			  (m     (lisp:gethash name (dynamic *cpp-macros*))))
+		     (setf i j)
+		     (when (and m (car m))
+		       ;; a function-like macro: its ( after spaces
+		       (let ((k j))
+			 (do () ((or (>= k n) (not (char=? (string-ref line k) #\space))))
+			   (incf k))
+			 (when (and (< k n) (char=? (string-ref line k) #\())
+			   (let ((depth 0))
+			     (do ((p k (1+ p)))
+				 ((>= p n))
+			       (let ((d (string-ref line p)))
+				 (cond ((char=? d #\() (incf depth))
+				       ((char=? d #\)) (decf depth)
+					(when (eqv? depth 0)
+					  (setf i (1+ p))
+					  (lisp:return)))
+				       ((char=? d #\")
+					(do ((q (1+ p) (1+ q)))
+					    ((or (>= q n) (char=? (string-ref line q) #\"))
+					     (setf p q))
+					  (when (char=? (string-ref line q) #\\) (incf q)))))))
+			     (when (> depth 0)
+			       (setf open '#t)
+			       (lisp:return-from scan)))))))))
+		((char=? c #\")
+		 (setf i (1+ i))
+		 (do () ((or (>= i n) (char=? (string-ref line i) #\")))
+		   (when (char=? (string-ref line i) #\\) (incf i))
+		   (incf i))
+		 (incf i))
+		(else (incf i))))))
+    open))

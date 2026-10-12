@@ -1,0 +1,454 @@
+cubical, version: 1.0  (:h for help)
+
+Loading "algstruct.ctt"
+Parsed "./prelude.ctt" successfully!
+Parsed "./equiv.ctt" successfully!
+Parsed "./pi.ctt" successfully!
+Parsed "./sigma.ctt" successfully!
+Parsed "algstruct.ctt" successfully!
+Checking: Path
+Checking: refl
+Checking: testEta
+Checking: mapOnPath
+Checking: funExt
+Checking: trans
+Checking: transNeg
+Checking: transK
+  Checking: rem1
+  Checking: rem2
+Checking: transNegK
+  Checking: rem1
+  Checking: rem2
+Checking: substTrans
+Checking: subst
+Checking: substEq
+Checking: substInv
+Checking: singl
+Checking: contrSingl
+Checking: J
+  Checking: T
+Checking: J'
+Checking: JEq
+  Checking: T
+Checking: inv
+Checking: compPath
+Checking: compPath'
+Checking: compPath''
+  Checking: rem
+Checking: compUp
+Checking: compDown
+Checking: lemCompInv
+Checking: lemInv
+Checking: test0
+Checking: test1
+Checking: kan
+Checking: lemSimpl
+Checking: PathPathTest1
+Checking: idfun
+Checking: Square
+Checking: constSquare
+Checking: prop
+Checking: set
+Checking: groupoid
+Checking: SET
+Checking: propSet
+Checking: propIsProp
+Checking: setIsProp
+Checking: PathS
+Checking: lemProp
+Checking: propPi
+Checking: lemPropF
+Checking: Sigma
+Checking: lemSig
+Checking: propSig
+Checking: isContr
+Checking: propIsContr
+  Checking: rem
+    Checking: T
+    Checking: pA
+    Checking: pB
+Checking: isContrProp
+Checking: N0
+Checking: efq
+Checking: neg
+Checking: Unit
+Checking: propUnit
+Checking: setUnit
+Checking: or
+Checking: propOr
+Checking: invOr
+Checking: pinvOr
+Checking: lemOr
+  Checking: qa
+  Checking: qb
+Checking: orset'
+Checking: orset
+Checking: stable
+Checking: const
+Checking: exConst
+Checking: propN0
+Checking: propNeg
+Checking: dNeg
+Checking: dec
+Checking: propDec
+Checking: decEqCong
+Checking: decStable
+Checking: decConst
+Checking: stableConst
+Checking: discrete
+Checking: injective
+Checking: and
+Checking: propAnd
+Checking: fiber
+Checking: isEquiv
+Checking: equiv
+Checking: propIsEquiv
+Checking: propIsEquivDirect
+  Checking: p0
+  Checking: p1
+  Checking: p2
+  Checking: q0
+  Checking: q1
+  Checking: q2
+  Checking: sq
+Checking: propIsEquivDirect'
+  Checking: p0
+  Checking: p1
+  Checking: p2
+  Checking: q0
+  Checking: q1
+  Checking: q2
+  Checking: alpha
+  Checking: x
+  Checking: wx
+  Checking: alpha1
+  Checking: alpha2
+  Checking: p2w1
+  Checking: q2w1
+  Checking: p2w2
+  Checking: q2w2
+  Checking: sq1
+  Checking: sq2
+Checking: equivLemma
+Checking: idIsEquiv
+Checking: equivPath
+Checking: invEq
+Checking: retEq
+Checking: secEq
+Checking: transEquivDirect
+  Checking: f
+  Checking: g
+  Checking: lem1
+  Checking: lem2
+  Checking: lem3
+  Checking: lem4
+  Checking: lem5
+  Checking: lem6
+  Checking: lem7
+  Checking: lem8
+  Checking: lem9
+  Checking: p
+Checking: lemSinglContr
+Checking: idEquiv
+Checking: transEquiv
+Checking: compf
+Checking: transEquivEq
+Checking: transDelta
+Checking: transEquivToPath
+  Checking: eB
+Checking: eqToEq
+  Checking: e
+  Checking: f
+  Checking: Ai
+  Checking: g
+Checking: transPathFun
+  Checking: b
+  Checking: u
+  Checking: q
+Checking: idToPath
+Checking: lemIso
+  Checking: rem0
+  Checking: rem0fill
+  Checking: rem1
+  Checking: rem1fill
+  Checking: p
+  Checking: pfill
+  Checking: sq
+  Checking: sq1
+Checking: isoToEquiv
+Checking: isoPath
+Checking: idIsEquivIsoToEquiv
+Checking: pi
+Checking: idPi
+  Checking: T0
+  Checking: T1
+  Checking: F
+  Checking: G
+  Checking: S
+  Checking: T
+Checking: setPi
+  Checking: T
+  Checking: rem1
+  Checking: rem
+Checking: groupoidPi
+  Checking: T
+  Checking: rem1
+Checking: propPi2
+  Checking: p0
+  Checking: B1
+Checking: propPi3
+  Checking: p0
+  Checking: B1
+Checking: lemPathSig
+  Checking: T0
+  Checking: T1
+  Checking: f
+  Checking: g
+  Checking: s
+  Checking: t
+Checking: lemPathAnd
+Checking: lemTransp
+Checking: funDepTr
+Checking: lem2
+Checking: corSigProp
+  Checking: P
+  Checking: T0
+  Checking: T1
+  Checking: rem
+  Checking: v2
+  Checking: rem1
+Checking: corSigSet
+  Checking: P
+  Checking: T0
+  Checking: T1
+  Checking: rem
+  Checking: v2
+  Checking: rem1
+Checking: setSig
+  Checking: T
+  Checking: C
+  Checking: rem
+  Checking: rem1
+  Checking: rem2
+  Checking: rem3
+Checking: corSigGroupoid
+  Checking: P
+  Checking: T0
+  Checking: T1
+  Checking: rem
+  Checking: v2
+  Checking: rem1
+Checking: groupoidSig
+  Checking: T
+  Checking: C
+  Checking: rem
+  Checking: rem1
+  Checking: rem2
+  Checking: rem3
+Checking: lemContr
+  Checking: rem
+Checking: lem3
+  Checking: P
+  Checking: T0
+  Checking: T1
+  Checking: rem
+  Checking: v2
+  Checking: rem1
+  Checking: rem2
+Checking: lem6
+  Checking: T
+  Checking: f
+  Checking: g
+  Checking: s
+  Checking: t
+Checking: lemSigProp
+  Checking: T
+  Checking: C
+  Checking: rem
+  Checking: rem1
+  Checking: rem2
+Checking: setGroupoid
+Checking: propGroupoid
+Checking: isAssociative
+Checking: propisAssociative
+  Checking: B
+  Checking: h
+Checking: hasLeftIdentity
+Checking: prophasLeftIdentity
+  Checking: B
+  Checking: h
+Checking: hasRightIdentity
+Checking: prophasRightIdentity
+  Checking: B
+  Checking: h
+Checking: hasIdentity
+Checking: prophasIdentity
+Checking: isCommutative
+Checking: propisCommutative
+  Checking: B
+  Checking: h
+Checking: isLeftCancellative
+Checking: propisLeftCancellative
+  Checking: B
+  Checking: h
+    Checking: B0
+    Checking: h0
+Checking: isRightCancellative
+Checking: propisRightCancellative
+  Checking: B
+  Checking: h
+    Checking: B0
+    Checking: h0
+Checking: isCancellative
+Checking: propisCancellative
+Checking: hasLeftInverse
+Checking: prophasLeftInverse
+  Checking: B
+  Checking: h
+Checking: hasRightInverse
+Checking: prophasRightInverse
+  Checking: B
+  Checking: h
+Checking: hasInverse
+Checking: prophasInverse
+Checking: isLeftDistributive
+Checking: propisLeftDistributive
+  Checking: B
+  Checking: h
+Checking: isRightDistributive
+Checking: propisRightDistributive
+  Checking: B
+  Checking: h
+Checking: isDistributive
+Checking: propisDistributive
+Checking: preservesOp
+Checking: proppreservesOp
+Checking: preservesId
+Checking: proppreservesId
+Checking: ismonoid
+Checking: monoid
+Checking: isgroup
+Checking: group
+Checking: iscmonoid
+Checking: cmonoid
+Checking: iscgroup
+Checking: cgroup
+Checking: isring
+Checking: ring
+Checking: iscring
+Checking: cring
+Checking: opMonoid
+Checking: isAssocMonoid
+Checking: idMonoid
+Checking: hasIdMonoid
+Checking: opCMonoid
+Checking: isAssocCMonoid
+Checking: idCMonoid
+Checking: hasIdCMonoid
+Checking: isCommCMonoid
+Checking: opGroup
+Checking: isAssocGroup
+Checking: idGroup
+Checking: hasIdGroup
+Checking: invGroup
+Checking: hasInvGroup
+Checking: opCGroup
+Checking: isAssocCGroup
+Checking: idCGroup
+Checking: hasIdCGroup
+Checking: isCommCGroup
+Checking: invCGroup
+Checking: hasInvCGroup
+Checking: lem_group_lcancellative
+Checking: lem_group_rcancellative
+Checking: lem_group_cancellative
+Checking: lem_cgroup_inv_dist
+  Checking: a'
+  Checking: b'
+  Checking: x
+  Checking: x'
+  Checking: p0
+  Checking: p1
+Checking: lemma_cgroup_inv_id
+Checking: ismonoidhom
+Checking: propismonoidhom
+Checking: monoidhom
+Checking: setmonoidhom
+  Checking: setf
+  Checking: setm
+Checking: cmonoidhom
+Checking: grouphom
+Checking: cgrouphom
+Checking: cmoncgrouphom
+Checking: grouphom'
+  Checking: p
+Checking: cgrouphom'
+Checking: monoidhomcomp
+  Checking: h
+  Checking: pO
+  Checking: pI
+Checking: lemma_monoidcomp0
+  Checking: f0
+  Checking: f1
+Checking: idmonoidhom
+Checking: lemma_idmonoidhom0
+  Checking: h
+Checking: lemma_idmonoidhom1
+  Checking: h
+Checking: lem_grouphom_inv
+  Checking: x'
+  Checking: y
+  Checking: y'
+  Checking: p0
+  Checking: p1
+  Checking: p2
+Checking: AscCom
+Checking: swp0
+  Checking: op
+  Checking: asc
+  Checking: cm
+Checking: swp1
+  Checking: op
+  Checking: asc
+  Checking: cm
+Checking: swp2
+  Checking: op
+  Checking: asc
+  Checking: cm
+Checking: swp3
+  Checking: op
+  Checking: asc
+  Checking: cm
+Checking: swp4
+  Checking: op
+  Checking: asc
+  Checking: cm
+Checking: swp5
+  Checking: op
+  Checking: asc
+  Checking: cm
+Checking: swp6
+  Checking: op
+  Checking: asc
+  Checking: cm
+Checking: swp7
+  Checking: op
+  Checking: asc
+  Checking: cm
+Checking: swp8
+  Checking: op
+  Checking: asc
+  Checking: cm
+Checking: swp9
+  Checking: op
+  Checking: asc
+  Checking: cm
+Checking: swptrans
+  Checking: op
+  Checking: op3
+  Checking: asc
+  Checking: cm
+  Checking: p2
+  Checking: p3
+  Checking: p4
+File loaded.

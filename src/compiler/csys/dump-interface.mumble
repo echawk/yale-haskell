@@ -551,6 +551,15 @@
       (add-dump-init `(add-family-equation ,(dump-object (tuple-2-1 e))
 			 ,(dump-object (tuple-2-1 (tuple-2-2 e)))
 			 ,(dump-object (tuple-2-2 (tuple-2-2 e))))))
+    ;; PatternSynonyms: the templates, on their builders
+    ;; (parser/pattern-parser.mumble)
+    (dolist (syn (module-pattern-synonyms module))
+      (let* ((def (table-entry (module-symbol-table module)
+			       (pattern-builder-name (car syn))))
+	     (template (and def (pattern-synonym-template def))))
+	(when template
+	  (add-dump-init `(register-pattern-synonym ,(dump-object def)
+						    ,(dump-object template))))))
     ;; dump the fixity table - needed by the incremental compiler
     (when save-all-symbols
       (let ((code  '()))

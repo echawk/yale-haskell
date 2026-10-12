@@ -1,0 +1,39 @@
+cubical, version: 1.0  (:h for help)
+
+Loading "demo.ctt"
+Parsed "demo.ctt" successfully!
+Checking: idfun
+Checking: bool
+Checking: not
+Checking: Path
+Checking: refl
+Checking: face0
+Checking: face1
+Checking: cong
+Checking: funExt
+Checking: sym
+Checking: symK
+Checking: singl
+Checking: contrSingl
+Checking: testConj
+Checking: testDisj
+Checking: trans
+Checking: kan
+Checking: prop
+Checking: set
+Checking: propSet
+Checking: propIsProp
+Checking: Square
+Checking: constSquare
+Checking: nat
+Checking: one
+Checking: two
+Checking: add
+Checking: addZero
+Checking: addSuc
+Checking: addCom
+Checking: addAssoc
+Checking: subst
+Checking: J
+  Checking: T
+File loaded.

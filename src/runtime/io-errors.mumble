@@ -94,7 +94,7 @@
 
 (define-syntax (with-host-io-errors location filename . body)
   (let ((c  (gensym "C")))
-    `(lisp:handler-case (begin ,@body)
+    `(lisp:handler-case (with-debug-backtrace ,@body)
        (haskell-io-error (,c) (lisp:error ,c))
        #+sbcl
        (sb-posix:syscall-error (,c)
@@ -108,6 +108,20 @@
        (lisp:error (,c)
 	 (raise-io-error 'other ,location (lisp:princ-to-string ,c)
 			 ,filename)))))
+
+;;; YALE_HASKELL_DEBUG=1: a Lisp backtrace for an internal error that an
+;;; IO primitive turns into an IOError (an error while it forces a lazy
+;;; string, say), as command-interface/batch.mumble prints for others.
+(define-syntax (with-debug-backtrace . body)
+  `(lisp:handler-bind ((lisp:error
+			(lambda (c)
+			  (when (and (not (lisp:typep c 'haskell-io-error))
+				     (env-flag? "YALE_HASKELL_DEBUG"))
+			    #+sbcl
+			    (lisp:funcall
+			     (lisp:find-symbol "PRINT-BACKTRACE" "SB-DEBUG")
+			     ':count 60 ':stream lisp:*error-output*)))))
+     ,@body))
 
 (define (guess-file-error-kind filename)
   (if (and filename (lisp:ignore-errors (lisp:probe-file filename)))

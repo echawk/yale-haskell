@@ -13,6 +13,7 @@
 (define (scope-modules modules)
   (walk-modules modules
     (lambda ()
+      (register-local-pattern-synonyms)
       (setf (module-decls *module*) (scope-ast-decls (module-decls *module*)))
       (setf (module-foreign-code *module*)
 	    (map (function scope-foreign-import) (module-foreign-imports *module*)))
@@ -30,6 +31,25 @@
 		(setf (var-annotations v)
 		      (append (var-annotations v)
 			      (annotation-decl-annotations a))))))))))
+
+;;; PatternSynonyms: each of the module's synonyms, resolved, as a
+;;; template on its builder's def, for other modules
+;;; (parser/pattern-parser.mumble).
+
+(define (register-local-pattern-synonyms)
+  (dolist (syn (module-pattern-synonyms *module*))
+    (let ((def (resolve-toplevel-name (pattern-builder-name (car syn)))))
+      (when (not (eq? def '#f))
+	(let ((template
+	       (make-pattern-synonym-template
+		(cadr syn)
+		(massage-pattern
+		 (instantiate-pattern-synonym
+		  syn
+		  (map (lambda (v) (make var-pat (var (generated-var-ref v))))
+		       (cadr syn)))))))
+	  (when template
+	    (register-pattern-synonym def template)))))))
 
 ;;; A foreign import's var gets its declared type here, and its Lisp
 ;;; entry (backend/interface-codegen.mumble), so that the type checker
@@ -443,9 +463,11 @@
 
 (define-walker-method scope con-ref (object env)
   (if (and (eq? (con-ref-con object) *undefined-def*)
-	   (assq (con-ref-name object) (module-pattern-synonyms *module*)))
+	   (or (assq (con-ref-name object) (module-pattern-synonyms *module*))
+	       (imported-pattern-synonym (con-ref-name object))))
       ;; PatternSynonyms: the builder function (parser/pattern-parser.mumble)
-      (scope-ast-1 (generated-var-ref (pattern-builder-name (con-ref-name object)))
+      (scope-ast-1 (generated-var-ref
+		    (qualified-pattern-builder-name (con-ref-name object)))
 		   env)
       (begin
 	(when (eq? (con-ref-con object) *undefined-def*)

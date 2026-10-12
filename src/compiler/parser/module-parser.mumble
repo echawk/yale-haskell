@@ -330,6 +330,12 @@
     (add-promoted-constructors mod-ast))
   (when (language-extension? "DuplicateRecordFields")
     (add-duplicate-record-fields mod-ast))
+  ;; MagicHash: Addr# literals call GHC.Exts.addrLit# (lexer.mumble)
+  (when (and (language-extension? "MagicHash")
+	     (not (eq? (module-name mod-ast) '|GHC.Exts|)))
+    (push (make import-decl (module-name '|GHC.Exts|) (mode 'all)
+		(specs '()) (renamings '()) (qualified? '#t) (as-name '#f))
+	  (module-imports mod-ast)))
   ;; RecursiveDo: rec and mdo call Control.Monad.Fix.mfix
   (when (language-extension? "RecursiveDo")
     (push (make import-decl (module-name '|Control.Monad.Fix|) (mode 'all)

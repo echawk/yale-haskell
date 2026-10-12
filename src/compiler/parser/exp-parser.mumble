@@ -699,9 +699,20 @@
 
 (define *magic-hash-boxes* '(|;I#| |;D#| |;F#| |;C#| |;W#|))
 
+;;; I# or a qualified M.I#
+(define (magic-hash-box-name? name)
+  (or (memq name *magic-hash-boxes*)
+      (let* ((s (symbol->string name))
+	     (s (if (has-con-prefix? s) (remove-con-prefix s) s))
+	     (q (pattern-qualifier-length s 0)))
+	(and (> q 0)
+	     (memq (add-con-prefix/symbol
+		    (string->symbol (substring s q (string-length s))))
+		   *magic-hash-boxes*)))))
+
 (define (magic-hash-con exp)
   (if (and (is-type? 'con-ref exp)
-	   (memq (con-ref-name exp) *magic-hash-boxes*)
+	   (magic-hash-box-name? (con-ref-name exp))
 	   (language-extension? "MagicHash"))
       (make lambda (pats (list (make var-pat (var (generated-var-ref '|box%|)))))
 	    (body (generated-var-ref '|box%|)))
