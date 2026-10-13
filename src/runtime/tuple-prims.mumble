@@ -52,8 +52,8 @@
       ((eq? (car l) super) i)))
 
 (define prim.tupleEqdict
-  (lambda dicts
-    (tupleEqDict/l dicts)))
+  (make-vfun (lambda dicts
+    (tupleEqDict/l dicts))))
 
 (define (tupleEqDict/l dicts)
   (create-dict dicts
@@ -61,8 +61,8 @@
      ()))
 
 (define prim.tupleOrdDict
- (lambda dicts
-   (tupleOrdDict/l dicts)))
+ (make-vfun (lambda dicts
+   (tupleOrdDict/l dicts))))
 
 ;;; Whether the Ord class declares a `compare' method.  Read from the
 ;;; class definition rather than branching on the dialect (invariant 2):
@@ -89,7 +89,7 @@
 			 (dict-super-slot ord (core-symbol "Eq"))))))))
 
 (define prim.tupleIxDict
- (lambda dicts
+ (make-vfun (lambda dicts
    (let* ((ix (core-symbol "Ix"))
 	  (dict-vector (box (list->vector dicts)))
 	  (methods (list (delay (apply-1 (force (dynamic |PreludeTuple:tupleRange|))
@@ -114,7 +114,7 @@
 					      (dict-component (force d) size slot))
 					    dicts)))))
 		(class-super* ix))))
-     (list->vector (append methods supers)))))
+     (list->vector (append methods supers))))))
 
 ;;; The dictionary builder for a superclass of Ix.
 
@@ -132,14 +132,14 @@
 
 ;;; Haskell 98 only.
 (define prim.tupleBoundedDict
- (lambda dicts
+ (make-vfun (lambda dicts
    (create-dict dicts
     (|PreludeTuple:tupleMinBound| |PreludeTuple:tupleMaxBound|)
-    ())))
+    ()))))
 
 (define prim.tupleTextDict
- (lambda dicts
-   (tupleTextDict/l dicts)))
+ (make-vfun (lambda dicts
+   (tupleTextDict/l dicts))))
 
 (define (tupleTextDict/l d)
   (create-dict d
@@ -148,17 +148,17 @@
      ()))
 
 (define prim.tupleBinaryDict
- (lambda dicts
+ (make-vfun (lambda dicts
    (create-dict dicts
     (|PreludeTuple:tupleReadBin| |PreludeTuple:tupleShowBin|)
-    ())))
+    ()))))
 
 
 ;;; Show and Read (Haskell 1.3 and later).  H98's Show also has `show'.
 
 (define prim.tupleShowDict
- (lambda dicts
-   (tupleShowDict/l dicts)))
+ (make-vfun (lambda dicts
+   (tupleShowDict/l dicts))))
 
 (define (tupleShowDict/l d)
   (if (feature? 'show-method)
@@ -171,7 +171,7 @@
        ())))
 
 (define prim.tupleReadDict
- (lambda dicts
+ (make-vfun (lambda dicts
    (create-dict dicts
     (|PreludeTuple:tupleReadsPrec| |PreludeTuple:tupleReadList|)
-    ())))
+    ()))))

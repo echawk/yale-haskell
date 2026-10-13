@@ -53,11 +53,38 @@
     (when (and mb (not (string=? mb "")))
       (setf (sb-ext:bytes-consed-between-gcs)
 	    (* (lisp:parse-integer mb) 1048576))))
+  ;; YALE_HASKELL_GC_GEN1="MB AGE": generation 1's allocation between its
+  ;; collections and minimum average age, for experiments
+  #+sbcl
+  (let ((g (getenv "YALE_HASKELL_GC_GEN1")))
+    (when (and g (not (string=? g "")))
+      (let ((s (lisp:make-string-input-stream g)))
+	(setf (sb-ext:generation-bytes-consed-between-gcs 1)
+	      (* (lisp:read s) 1048576))
+	(setf (sb-ext:generation-minimum-age-before-gc 1)
+	      (lisp:coerce (lisp:read s) 'lisp:double-float)))))
+  ;; YALE_HASKELL_GC_CENSUS=n: the dynamic space's objects by type
+  ;; after the n-th collection
+  #+sbcl
+  (let ((n (getenv "YALE_HASKELL_GC_CENSUS"))
+	(count 0))
+    (when (and n (not (string=? n "")))
+      (let ((at (lisp:parse-integer n)))
+	(push (lambda ()
+		(incf count)
+		(when (eqv? count at)
+		  (let ((lisp:*standard-output* lisp:*error-output*))
+		    (sb-vm:memory-usage :print-spaces '#t :count-spaces '(:dynamic)
+					:print-summary '#f :cutoff 0.01))))
+	      sb-ext:*after-gc-hooks*))))
   #+sbcl
   (when (env-flag? "YALE_HASKELL_GC_LOG")
     (push (lambda ()
-	    (lisp:format lisp:*error-output* "~&gc: ~,1F MB in use~%"
-			 (/ (sb-kernel:dynamic-usage) 1048576.0)))
+	    (lisp:format lisp:*error-output* "~&gc: ~,1F MB in use;~{ ~,1F~} MB by generation~%"
+			 (/ (sb-kernel:dynamic-usage) 1048576.0)
+			 (lisp:loop for g from 0 to 6
+				    collect (/ (sb-ext:generation-bytes-allocated g)
+					       1048576.0))))
 	  sb-ext:*after-gc-hooks*)))
 
 (define (init-standard-handle-buffering)
