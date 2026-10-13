@@ -456,7 +456,8 @@
 ;;; The layout rule's parse-error(t) (Report 9.3), in the case that matters
 ;;; for do blocks: a token that cannot begin a statement ends an implicit
 ;;; block.  So `main = do ...' followed by `where' in the statements'
-;;; column (where layout inserts a `;') ends the do block.  Case
+;;; column (where layout inserts a `;') ends the do block, and so does an
+;;; infix operator there (`catch`, `>>`), which then applies to the block.  Case
 ;;; alternatives and declaration lists already end on such a token.
 
 (define (parse-stmts in-layout?)
@@ -466,6 +467,11 @@
      (close-layout in-layout?)
      '())
     ((no-advance |where| |in| |of| |then| |else| \) \] \, eof)
+     (close-layout in-layout?)
+     '())
+    ;; an infix operator in the statements' column: `catch` after a do
+    ;; block (do ... `catch` h) applies to the whole block
+    ((no-advance satisfies operator-ends-block?)
      (close-layout in-layout?)
      '())
     (else
@@ -480,6 +486,12 @@
 	(\; (cons stmt (parse-stmts in-layout?)))
 	(else (close-layout in-layout?)
 	      (list stmt)))))))
+
+(define (operator-ends-block?)
+  (or (eq-token? '\`)
+      (eq-token? 'consym)
+      (and (eq-token? 'varsym)
+	   (not (string=? (car *token-args*) "-")))))
 
 ;;; `let decls' is a statement; `let decls in exp' is an expression
 ;;; statement.

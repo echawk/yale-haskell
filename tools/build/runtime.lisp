@@ -90,6 +90,8 @@
   (load-plain-cl-file "src/cli/abcl-with-user-abort.lisp")
   (asdf:register-immutable-system "with-user-abort"))
 (load-asdf-system :clingon)
+;;; Text.Regex (src/base/base-runtime.lisp)
+(load-asdf-system :cl-ppcre)
 
 ;;; CFFI needs JNA on ABCL; without it there is no foreign function
 ;;; interface, and the base runtime uses portable fallbacks (feature
@@ -108,6 +110,7 @@
     (when (lisp:probe-file errnos)
       (load-plain-cl-file errnos))))
 (load-plain-cl-file "src/base/base-runtime.lisp")
+(load-plain-cl-file "src/base/posix-runtime.lisp")
 (load-plain-cl-file "src/cli/cli.lisp")
 
 (define (haskell-toplevel)

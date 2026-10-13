@@ -20,7 +20,8 @@ module System.IO (
     localeEncoding, hSetEncoding, hGetEncoding,
     Newline(LF, CRLF), NewlineMode(NewlineMode, inputNL, outputNL),
     nativeNewline, noNewlineTranslation, universalNewlineMode,
-    nativeNewlineMode, hSetNewlineMode, hGetContents', readFile'
+    nativeNewlineMode, hSetNewlineMode, hGetContents', readFile',
+    hPutBuf, hGetBuf
   ) where
 
 import IO
@@ -28,6 +29,7 @@ import IOBase(Handle(..), HandlePosn(..))
 import BasePrims
 import IOPrims(primHandleName, primOpenFile, primHSetBinaryMode)
 import Data.IORef (newIORef, readIORef, writeIORef)
+import ForeignPrims (Ptr, primHPutBuf, primHGetBuf)
 import System.IO.Unsafe (unsafeInterleaveIO)
 
 -- Run the action with the handle, closing it afterwards (also on error).
@@ -157,3 +159,11 @@ readFile' :: FilePath -> IO String
 readFile' f = do
   s <- readFile f
   length s `seq` return s
+
+-- Bytes between memory and a handle (one Char per byte: use a binary
+-- handle, as openBinaryFile gives).
+hPutBuf :: Handle -> Ptr a -> Int -> IO ()
+hPutBuf (Handle h) p n = primHPutBuf h p n
+
+hGetBuf :: Handle -> Ptr a -> Int -> IO Int
+hGetBuf (Handle h) p n = primHGetBuf h p n

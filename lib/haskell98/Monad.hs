@@ -9,7 +9,7 @@
 --   version is clearly presented as such, and that it does not claim to
 --   be a definition of the language Haskell 98.
 -- Modified for Yale Haskell: the export list does not repeat the
--- Prelude's names.
+-- Prelude's names, and IO is a MonadPlus as in base.
 
 module Monad (
     MonadPlus(mzero, mplus),
@@ -43,6 +43,12 @@ instance  MonadPlus Maybe  where
 instance  MonadPlus []  where
     mzero =  []
     mplus = (++)
+
+-- Not in the Report: base's (an IOError in the first action runs the
+-- second), as Alternative IO in PreludeModern.
+instance  MonadPlus IO  where
+    mzero = ioError (userError "mzero")
+    a `mplus` b = a `catch` \_ -> b
 
 
 -- Functions    

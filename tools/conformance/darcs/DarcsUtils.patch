@@ -1,0 +1,40 @@
+--- DarcsUtils.lhs
++++ DarcsUtils.lhs
+@@ -13,9 +13,8 @@
+                     formatPath ) where
+ 
+ import OldException ( Exception(IOException) )
+-import GHC.IOBase ( IOException(ioe_location),
+-                    IOErrorType(UnsupportedOperation, HardwareFault) )
+-import System.IO.Error ( isUserError, ioeGetErrorType, ioeGetErrorString )
++import System.IO.Error ( isUserError, ioeGetErrorType, ioeGetErrorString,
++                         IOErrorType, annotateIOError )
+ 
+ import Numeric ( showHex )
+ import System ( ExitCode(..) )
+@@ -41,22 +40,20 @@
+ 
+ add_to_error_loc :: Exception -> String -> Exception
+ add_to_error_loc (IOException ioe) s
+-    = IOException $ ioe { ioe_location = s ++ ": " ++ ioe_location ioe }
++    = IOException $ annotateIOError ioe s Nothing Nothing
+ add_to_error_loc e _ = e
+ 
+ isUnsupportedOperationError :: IOError -> Bool
+ isUnsupportedOperationError = isUnsupportedOperationErrorType . ioeGetErrorType
+ 
+ isUnsupportedOperationErrorType :: IOErrorType -> Bool
+-isUnsupportedOperationErrorType UnsupportedOperation = True
+-isUnsupportedOperationErrorType _ = False
++isUnsupportedOperationErrorType t = show t == "unsupported operation"
+ 
+ isHardwareFaultError :: IOError -> Bool
+ isHardwareFaultError = isHardwareFaultErrorType . ioeGetErrorType
+ 
+ isHardwareFaultErrorType :: IOErrorType -> Bool
+-isHardwareFaultErrorType HardwareFault = True
+-isHardwareFaultErrorType _ = False
++isHardwareFaultErrorType t = show t == "hardware fault"
+ 
+ catchall :: IO a -> IO a -> IO a
+ a `catchall` b = a `catch` (\_ -> b)

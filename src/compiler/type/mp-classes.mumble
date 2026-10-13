@@ -405,6 +405,20 @@
 	       (setf (placeholder-exp p)
 		     (mp-dict-use p (**var/def (mp-param-var param))))
 	       deferred)
+	      ((and (null? (cdr types))
+		    (null? (cdr (class-tyvars class)))
+		    (ntycon? (expand-ntype-synonym (prune (car types)))))
+	       ;; a one-parameter class given at an application of a type
+	       ;; variable (Monad (m s)), now wanted at a known type:
+	       ;; the type's instance, as for any other dictionary
+	       (let ((type (expand-ntype-synonym (prune (car types)))))
+		 (mlet (((code def1)
+			 (generate-dict-ref
+			  (lookup-instance/type (ntycon-tycon type) class type)
+			  type deferred decls (placeholder-enclosing-decls p)
+			  (placeholder-overloaded-var p))))
+		   (setf (placeholder-exp p) (mp-dict-use p code))
+		   def1)))
 	      ((not (eq? found '#f))
 	       (resolve-mp-by-instance p (tuple-2-1 found) (tuple-2-2 found)
 				       deferred decls))

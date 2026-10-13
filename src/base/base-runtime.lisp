@@ -229,3 +229,31 @@
       (cl:with-open-file (s path :direction :output :if-exists cl:nil
 				 :if-does-not-exist :create)
 	(cl:when s (cl:return path))))))
+
+;;; Text.Regex (regex-compat): a POSIX extended regular expression as a
+;;; cl-ppcre scanner, whose syntax (Perl's) agrees with ERE for the
+;;; patterns programs write, [[:class:]] included.  A match is returned as
+;;; one string, "M" and each group's text after a NUL (an unmatched group
+;;; is empty), or "" for no match; Text.Regex splits it.
+(cl:defun prim.regex-compile (pattern case-sensitive? multiline?)
+  (cl:handler-case
+      (cl-ppcre:create-scanner pattern
+			       :case-insensitive-mode (cl:not case-sensitive?)
+			       :multi-line-mode multiline?)
+    (cl-ppcre:ppcre-syntax-error (c)
+      (cl:error 'haskell-error-call
+		:message (cl:format cl:nil "Text.Regex.mkRegex: ~a" c)))))
+
+(cl:defun prim.regex-match (scanner string)
+  (cl:multiple-value-bind (start end gstarts gends)
+      (cl-ppcre:scan scanner string)
+    (cl:if (cl:null start)
+	   ""
+	   (cl:with-output-to-string (out)
+	     (cl:write-string "M" out)
+	     (cl:write-char (cl:code-char 0) out)
+	     (cl:write-string (cl:subseq string start end) out)
+	     (cl:loop for s across gstarts
+		      for e across gends
+		      do (cl:write-char (cl:code-char 0) out)
+			 (cl:when s (cl:write-string (cl:subseq string s e) out)))))))

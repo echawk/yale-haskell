@@ -1,0 +1,130 @@
+$ darcs init --repodir=a
+$ cd a; printf 'hello\nworld\n' > hello.txt; mkdir src; printf 'main = print 1\n' > src/Main.hs
+$ cd a; darcs add hello.txt src src/Main.hs
+$ cd a; darcs whatsnew --summary
+A ./hello.txt
+A ./src/
+A ./src/Main.hs
+$ cd a; darcs record --all --author=tester@example.com -m 'First version'
+Finished recording patch 'First version'
+$ cd a; printf 'hello\nthere\nworld\n' > hello.txt; darcs whatsnew
+{
+hunk ./hello.txt 2
++there
+}
+$ cd a; darcs record --all --author=tester@example.com -m 'Say there'
+Finished recording patch 'Say there'
+$ cd a; darcs changes --summary
+<date>  tester@example.com
+  * Say there
+
+    M ./hello.txt +1
+
+<date>  tester@example.com
+  * First version
+
+    A ./hello.txt
+    A ./src/
+    A ./src/Main.hs
+$ darcs get a b
+Finished getting.
+$ cd b; printf 'hello\nthere\nworld\nagain\n' > hello.txt; darcs record --all --author=other@example.com -m 'Again'
+Finished recording patch 'Again'
+$ cd a; darcs pull --all ../b
+Finished pulling and applying.
+$ cd a; cat hello.txt; darcs changes --last=1
+hello
+there
+world
+again
+<date>  other@example.com
+  * Again
+$ cd a; darcs mv src/Main.hs src/Hello.hs; darcs record --all --author=tester@example.com -m 'Rename'
+Finished recording patch 'Rename'
+$ cd a; darcs changes --last=1 --summary
+<date>  tester@example.com
+  * Rename
+
+     ./src/Main.hs -> ./src/Hello.hs
+$ cd a; printf 'HELLO\nthere\nworld\nagain\n' > hello.txt; darcs record --all --author=tester@example.com -m 'Shout'
+Finished recording patch 'Shout'
+$ cd b; printf 'Hello\nthere\nworld\nagain\n' > hello.txt; darcs record --all --author=other@example.com -m 'Capitalize'
+Finished recording patch 'Capitalize'
+$ cd a; darcs pull --all ../b
+Pulling from "../b"...
+We have conflicts in the following files:
+./hello.txt
+Finished pulling and applying.
+$ cd a; cat hello.txt
+v v v v v v v
+HELLO
+*************
+Hello
+^ ^ ^ ^ ^ ^ ^
+there
+world
+again
+$ cd a; darcs whatsnew
+{
+hunk ./hello.txt 1
+-hello
++v v v v v v v
++HELLO
++*************
++Hello
++^ ^ ^ ^ ^ ^ ^
+}
+$ cd a; darcs revert --all; cat hello.txt
+Finished reverting.
+hello
+there
+world
+again
+$ cd b; darcs diff -u --last=1
+<date>  other@example.com
+  * Capitalize
+diff -rN -u old-b/hello.txt new-b/hello.txt
+--- old-b/hello.txt	<date>
++++ new-b/hello.txt	<date>
+@@ -1,4 +1,4 @@
+-hello
++Hello
+ there
+ world
+ again
+
+$ cd b; darcs annotate hello.txt
+# File hello.txt created by [First version
+# tester@example.com**<time>]  as ./hello.txt
++Hello
+# Following line added by [First version
+# tester@example.com**<time>] 
+-hello
+# Following line added by [Say there
+# tester@example.com**<time>] 
+ there
+# Following line added by [First version
+# tester@example.com**<time>] 
+ world
+# Following line added by [Again
+# other@example.com**<time>] 
+ again
+ 
+$ cd b; darcs unrecord --last=1 --all; darcs changes
+Finished unrecording.
+<date>  other@example.com
+  * Again
+
+<date>  tester@example.com
+  * Say there
+
+<date>  tester@example.com
+  * First version
+$ cd b; darcs whatsnew
+{
+hunk ./hello.txt 1
+-hello
++Hello
+}
+$ cd b; darcs check  
+The repository is consistent!

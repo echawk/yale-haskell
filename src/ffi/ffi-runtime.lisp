@@ -149,7 +149,8 @@
 
 ;;; Foreign.ForeignPtr.  A ForeignPtr is the pointer and an FPState: a
 ;;; cell #(finalizers finalized? pointer), registered with the host's GC
-;;; so that the finalizers (FunPtrs, or (FunPtr . env) pairs, newest
+;;; so that the finalizers (FunPtrs, (FunPtr . env) pairs, or #(action)
+;;; for a Haskell IO action, newest
 ;;; first) run once the ForeignPtr is unreachable, or when
 ;;; finalizeForeignPtr runs them.  The GC finalizer closes over the cell,
 ;;; not the state it watches.
@@ -161,10 +162,14 @@
     (cl:setf (cl:svref cell 1) cl:t)
     (cl:let ((p (cl:svref cell 2)))
       (cl:dolist (f (cl:svref cell 0))
-	(cl:if (cl:consp f)
-	       (cffi:foreign-funcall-pointer (cl:car f) () :pointer (cl:cdr f)
-					     :pointer p :void)
-	       (cffi:foreign-funcall-pointer f () :pointer p :void))))))
+	(cl:cond ((cl:simple-vector-p f)
+		  ;; a Haskell IO action (Foreign.Concurrent.newForeignPtr)
+		  (run-io-action (cl:svref f 0)))
+		 ((cl:consp f)
+		  (cffi:foreign-funcall-pointer (cl:car f) () :pointer (cl:cdr f)
+						:pointer p :void))
+		 (cl:t
+		  (cffi:foreign-funcall-pointer f () :pointer p :void)))))))
 
 (cl:defun prim.new-fp-state (p)
   (cl:let* ((cell (cl:vector '() cl:nil p))
@@ -179,11 +184,32 @@
   (cl:push fn (cl:svref (fp-state-cell state) 0)) 0)
 (cl:defun prim.add-fp-finalizer-env (state fn env)
   (cl:push (cl:cons fn env) (cl:svref (fp-state-cell state) 0)) 0)
+(cl:defun prim.add-fp-finalizer-io (state action)
+  (cl:push (cl:vector action) (cl:svref (fp-state-cell state) 0)) 0)
 (cl:defun prim.finalize-fp (state)
   (run-fp-finalizers (fp-state-cell state)) 0)
 ;;; touchForeignPtr: keeps STATE reachable until here
 (cl:defun prim.touch-fp (state)
   (cl:if (fp-state-p state) 0 1))
+
+;;; System.IO's hPutBuf and hGetBuf: N bytes between memory at P and the
+;;; handle H, one Char per byte, as a binary handle (openBinaryFile,
+;;; hSetBinaryMode) reads and writes them; on a text handle a byte over
+;;; 127 is written as that code point.  hGetBuf returns the count read,
+;;; less than N only at the end of the input.
+(cl:defun prim.h-put-buf (h p n)
+  (cl:let ((s (handle-stream h)))
+    (cl:dotimes (i n)
+      (cl:write-char (cl:code-char (cffi:mem-aref p :uint8 i)) s))
+    (after-output h cl:nil))
+  0)
+
+(cl:defun prim.h-get-buf (h p n)
+  (cl:let ((s (handle-stream h)))
+    (cl:dotimes (i n n)
+      (cl:let ((c (cl:read-char s cl:nil cl:nil)))
+	(cl:unless c (cl:return i))
+	(cl:setf (cffi:mem-aref p :uint8 i) (cl:logand (cl:char-code c) 255))))))
 
 ;;; Foreign.StablePtr: values kept in a table, known by their number
 ;;; (never 0, which would be the null pointer).

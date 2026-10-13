@@ -466,7 +466,7 @@
 					j)))
 			    (name   (substring s i end))
 			    (macro  (and (not (mem-string name hidden))
-					 (lisp:gethash name (dynamic *cpp-macros*)))))
+					 (cpp-lookup-macro name))))
 		       (cond ((not macro)
 			      (write-string name out)
 			      (setf i end))
@@ -493,6 +493,32 @@
 		     (write-char c out)
 		     (setf i (1+ i))))))))))
 
+;;; A macro by name: (params . body), params '#f for an object-like
+;;; one, or '#f.  __FILE__, __LINE__, __DATE__ and __TIME__ are C's.
+
+(define (cpp-lookup-macro name)
+  (cond ((not (and (> (string-length name) 4) (char=? (string-ref name 0) #\_)))
+	 (lisp:values (lisp:gethash name (dynamic *cpp-macros*))))
+	((string=? name "__LINE__")
+	 (cons '#f (number->string (dynamic *cpp-line*))))
+	((string=? name "__FILE__")
+	 (cons '#f (lisp:format '#f "~s" (dynamic *cpp-file*))))
+	((string=? name "__DATE__")
+	 (lisp:multiple-value-bind (sec min hour day month year)
+	     (lisp:decode-universal-time (lisp:get-universal-time))
+	   (declare (ignore sec min hour))
+	   (cons '#f (lisp:format '#f "\"~a ~2d ~d\""
+				  (list-ref '("Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul"
+					      "Aug" "Sep" "Oct" "Nov" "Dec")
+					    (1- month))
+				  day year))))
+	((string=? name "__TIME__")
+	 (lisp:multiple-value-bind (sec min hour)
+	     (lisp:decode-universal-time (lisp:get-universal-time))
+	   (cons '#f (lisp:format '#f "\"~2,'0d:~2,'0d:~2,'0d\"" hour min sec))))
+	(else
+	 (lisp:values (lisp:gethash name (dynamic *cpp-macros*))))))
+
 ;;; Whether S has a name that is a macro (most lines have none).
 
 (define (cpp-may-expand? s)
@@ -504,8 +530,7 @@
 	  (let ((end  (do ((j i (1+ j)))
 			  ((or (= j n) (not (cpp-ident-char? (string-ref s j))))
 			   j))))
-	    (when (lisp:nth-value 1 (lisp:gethash (substring s i end)
-						  (dynamic *cpp-macros*)))
+	    (when (cpp-lookup-macro (substring s i end))
 	      (setf found? '#t))
 	    (setf i end))
 	  (setf i (1+ i))))))

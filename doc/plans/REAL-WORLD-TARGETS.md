@@ -57,3 +57,38 @@ BangPatterns; GeneralizedNewtypeDeriving; RankNTypes (needed by `ST`
 and lens-like code, hardest); GADTs and TypeFamilies (out of scope for
 now).  The `LANGUAGE` pragma is ignored today; it should become a
 switch per extension once the first one exists.
+
+## Beyond the ladder: xmonad and darcs
+
+Status (2026-10-13).
+
+- **xmonad 0.18.1** (`tools/conformance/xmonad.py`): the pure core
+  (XMonad.StackSet) and its 107 QuickCheck properties, under
+  `--modern-prelude` with a types-only stand-in for the X11 binding.
+  All 107 match GHC 9.14's output.
+- **darcs 1.0.9** (`tools/conformance/darcs.py`): the whole program,
+  about 25,000 lines of 2007 Haskell 98 written for GHC 6.6, built with
+  `--haskell98 --cpp -D__GLASGOW_HASKELL__=606` and its C helpers
+  loaded with `-l`.  A scripted 25-step session (init, add, record,
+  whatsnew, changes, get, pull, mv, a conflict with its markers, revert,
+  diff, annotate, unrecord, check) matches `darcs/session.out`.  With
+  `--unit`, darcs's own unit tests (unit.lhs, QuickCheck 1) run: 33 pass;
+  14 end "Arguments exhausted" and one (the double commute) can fail.
+  Both are darcs 1.0.9's own: its generators never produce the patches
+  some subcommutes handle, and the double commute fails, per darcs's own
+  `commute_nameconflict` rule, when a merged patch has a `-conflict` name.
+
+  What darcs needed, in the library: a System.Posix subset
+  (posix-runtime.lisp over sb-posix: file status, modes, links, open/dup,
+  fdToHandle, signals), Text.Regex (over cl-ppcre), Text.Html,
+  Debug.QuickCheck (QuickCheck 1), hPutBuf/hGetBuf,
+  addForeignPtrFinalizerIO, Data.Array.IArray, record CalendarTime and
+  TimeDiff, and the GHC 6 module names (Ptr, CString, MarshalAlloc,
+  ...).  In the build copy only: base 3's Control.Exception (the
+  Exception data type) is `darcs/OldException.hs`, configure's output is
+  `darcs/Workaround.hs`, and `darcs/DarcsUtils.patch` replaces a use of
+  GHC.IOBase.  In the compiler: an operator at the start of a line ends a
+  `do` block (the layout rule's parse-error(t)), `Monad (m s)` contexts,
+  and the unit cache now records a program's own units by absolute name,
+  so a program run from another directory reuses its compiled units
+  (darcs went from 11 s to under 1.5 s a command).

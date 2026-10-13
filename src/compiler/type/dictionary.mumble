@@ -75,11 +75,21 @@
 	   (process-instantiated-tyvar
 	    (expand-ntype-synonym type) p deferred decls))
 	  ((ntyapp? type)
-	   (if (non-generic-app? type)
-	       (cons p deferred)
-	       (begin
-		 (signal-unresolved-app-constraint type p)
-		 deferred)))
+	   (let ((given (given-app-dict-params p type decls)))
+	     (cond ((not (null? given))
+		    ;; the enclosing binding's signature gives the class
+		    ;; (or a subclass) at this type: Monad (m s)
+		    (setf (placeholder-exp p)
+			  (if (dict-placeholder? p)
+			      (dict-reference-code (dict-placeholder-class p) given)
+			      (let ((m (method-placeholder-method p)))
+				(method-reference-code m (method-var-class m) given))))
+		    deferred)
+		   ((non-generic-app? type)
+		    (cons p deferred))
+		   (else
+		    (signal-unresolved-app-constraint type p)
+		    deferred))))
 	  ;; an existential pattern's type variable has its dictionaries,
 	  ;; though it is non-generic inside a lambda (existentials.mumble)
 	  ((and (not (null? (ntyvar-dict-params type))) (ntyvar-read-only? type)
@@ -320,3 +330,19 @@
 	(dict-placeholder-class p)
 	(method-var-class (method-placeholder-method p)))
     type))
+
+;;; The dictionary parameters, as (class . var), that the binding
+;;; enclosing placeholder P takes for constraints given at TYPE, an
+;;; application of a type variable (Monad (m s) in its signature, kept by
+;;; util/signature.mumble's reduce-flexible-contexts as a multi-parameter
+;;; constraint of one type).
+(define (given-app-dict-params p type decls)
+  (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls)))
+    (if (eq? decl '#f)
+	'()
+	(lisp:mapcan (lambda (param)
+		       (if (and (null? (cdr (mp-param-types param)))
+				(mp-type-equal? (car (mp-param-types param)) type))
+			   (list (tuple (mp-param-class param) (mp-param-var param)))
+			   '()))
+		     (valdef-mp-dict-params decl)))))

@@ -1,0 +1,62 @@
+-- PosixPrims.hi -- primitives under the System.Posix subset
+-- (src/base/posix-runtime.lisp).
+
+interface PosixPrims where
+
+import PreludeCore(Int,Integer,Bool,String)
+import IOPrims(HandleObj)
+
+-- a file's status: the host's stat structure
+data FileStatusObj
+
+primPosixStat        :: String -> Bool -> IO FileStatusObj
+primPosixFstat       :: Int -> IO FileStatusObj
+primStatMode         :: FileStatusObj -> Int
+primStatSize         :: FileStatusObj -> Integer
+primStatMtime        :: FileStatusObj -> Integer
+primStatAtime        :: FileStatusObj -> Integer
+primModeFileType     :: Int -> Int
+primPosixChmod       :: String -> Int -> IO ()
+primPosixUtimes      :: String -> Integer -> Integer -> IO ()
+primPosixLink        :: String -> String -> IO ()
+primPosixSymlink     :: String -> String -> IO ()
+primPosixSleep       :: Int -> IO Int
+primPosixOpen        :: String -> Int -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> IO Int
+primPosixClose       :: Int -> IO ()
+primPosixDup2        :: Int -> Int -> IO Int
+primPosixDup         :: Int -> IO Int
+primPosixSetFdOption :: Int -> Int -> Bool -> IO ()
+primHandleToFd       :: HandleObj -> IO Int
+primFdToHandle       :: Int -> Int -> String -> IO HandleObj
+primSignalNumber     :: String -> Int
+primInstallSignalHandler :: Int -> Int -> IO () -> IO ()
+primRaiseSignal      :: Int -> IO ()
+primGetProcessID     :: IO Int
+primSetCooked        :: Bool -> IO ()
+
+{-#
+primPosixStat        :: LispName("prim.posix-stat")
+primPosixFstat       :: LispName("prim.posix-fstat")
+primStatMode         :: LispName("prim.stat-mode")
+primStatSize         :: LispName("prim.stat-size")
+primStatMtime        :: LispName("prim.stat-mtime")
+primStatAtime        :: LispName("prim.stat-atime")
+primModeFileType     :: LispName("prim.mode-file-type")
+primPosixChmod       :: LispName("prim.posix-chmod")
+primPosixUtimes      :: LispName("prim.posix-utimes")
+primPosixLink        :: LispName("prim.posix-link")
+primPosixSymlink     :: LispName("prim.posix-symlink")
+primPosixSleep       :: LispName("prim.posix-sleep")
+primPosixOpen        :: LispName("prim.posix-open")
+primPosixClose       :: LispName("prim.posix-close")
+primPosixDup2        :: LispName("prim.posix-dup2")
+primPosixDup         :: LispName("prim.posix-dup")
+primPosixSetFdOption :: LispName("prim.posix-set-fd-option")
+primHandleToFd       :: LispName("prim.handle-to-fd")
+primFdToHandle       :: LispName("prim.fd-to-handle")
+primSignalNumber     :: LispName("prim.signal-number")
+primInstallSignalHandler :: LispName("prim.install-signal-handler"), Strictness("S,S,N,S")
+primRaiseSignal      :: LispName("prim.raise-signal")
+primGetProcessID     :: LispName("prim.get-process-id")
+primSetCooked        :: LispName("prim.set-cooked")
+#-}

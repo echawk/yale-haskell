@@ -221,7 +221,8 @@
 
 (define (propagate-contexts/app type classes)
   (let ((head (prune (ntyapp-fun type))))
-    (cond ((and (ntyvar? head) (ntyvar-read-only? head))
+    (cond ((and (ntyvar? head) (ntyvar-read-only? head)
+		(not (every (lambda (c) (given-app-constraint? c type)) classes)))
 	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
 	   (type-error
 	    "Signature context is too general: no instance for ~A" type))
@@ -248,7 +249,14 @@
 		    (or (instance-head-matches? instance type)
 			(unify-with-only-instance-head instance type))
 		    (instance-arg-types instance type))))
-    (cond ((and instance (not (instance-head-matches? instance type)))
+    (cond ((and instance (not args) (some-instance-head-could-match? instance type))
+	   ;; several flexible instances (Stringalike String and
+	   ;; Stringalike [PackedString]) that the type's undecided
+	   ;; arguments may still choose between: left for dictionary
+	   ;; resolution, when the type is known (permissive: the
+	   ;; instance's context is not propagated)
+	   'OK)
+	  ((and instance (not (instance-head-matches? instance type)))
 	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
 	   (type-error "Type ~A is not in class ~A: the instance is for ~A"
 		       type class (make-instance-type instance)))
@@ -271,6 +279,16 @@
 		    (arg args)
 	     (propagate-contexts/inner arg classes)))))
   'OK)
+
+;;; Whether the signature being checked gives CLASS at TYPE, an
+;;; application of a type variable (Monad (m s): util/signature.mumble's
+;;; reduce-flexible-contexts keeps such constraints).
+(define (given-app-constraint? class type)
+  (lisp:some (lambda (g)
+	       (and (eq? (tuple-2-1 g) class)
+		    (null? (cdr (tuple-2-2 g)))
+		    (mp-type-equal? (car (tuple-2-2 g)) type)))
+	     (dynamic *given-mp-constraints*)))
 
 ;;; A flexible head not matched yet because the type's arguments are still
 ;;; undecided (Map t a against instance C (Map Face a)): when this is the
@@ -301,6 +319,17 @@
 		  (lisp:every (lambda (p a) (head-could-match? p a pvars))
 			 (ntycon-args pattern) (ntycon-args type)))))
 	  (else '#f))))
+
+;;; Whether some instance of INSTANCE's class for the type constructor
+;;; could match TYPE once its type variables are decided.
+(define (some-instance-head-could-match? instance type)
+  (lisp:some
+   (lambda (i)
+     (and (eq? (instance-algdata i) (instance-algdata instance))
+	  (instance-ok? i)
+	  (mlet (((pattern vars) (ast->ntype/bindings (make-instance-type i) '())))
+	    (head-could-match? pattern type (map (function tuple-2-2) vars)))))
+   (class-instances (instance-class instance))))
 
 ;;; The types an instance's tyvars stand for at TYPE (an ntycon of the
 ;;; instance's type constructor): its arguments, or for a flexible head

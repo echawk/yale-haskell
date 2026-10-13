@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Text/Html/
+:o= all
+BlockTable.hs

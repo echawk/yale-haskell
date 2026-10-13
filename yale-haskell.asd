@@ -162,12 +162,13 @@
 (defsystem :yale-haskell/executable
   :description "The yale-haskell command line: the compiler, the prelude, the runtime and the CLI, saved as an executable."
   :class executable-system
-  :depends-on (:yale-haskell :clingon :cffi)
+  :depends-on (:yale-haskell :clingon :cffi :cl-ppcre)
   :serial t
   :components ((:file "tools/build/executable")
                (:file "src/ffi/ffi-runtime")
                (:file "src/ffi/errno-darwin" :if-feature :darwin)
                (:file "src/base/base-runtime")
+               (:file "src/base/posix-runtime")
                (:file "src/cli/cli")
                (:file "src/cli/startup"))
   :build-operation "program-op"

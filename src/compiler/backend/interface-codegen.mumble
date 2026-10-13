@@ -221,7 +221,8 @@
 	 (io?     (and (ntycon? res) (eq? (ntycon-tycon res) (core-symbol "IO"))))
 	 (rtype   (if io? (ffi-expand (car (ntycon-args res))) res))
 	 (spec    (ffi-parse-entity entity (symbol->string (def-name var)))))
-    (when (not (null? (gtype-context gtype)))
+    ;; one list of classes per type variable: Ptr a is fine
+    (when (not (every (function null?) (gtype-context gtype)))
       (ffi-error var "its type has a class context"))
     (let ((arg-ms  (map (lambda (ty) (ffi-marshalling var ty '#f)) args))
 	  (res-m   (ffi-marshalling var rtype '#t))

@@ -76,7 +76,14 @@ primSetEcho        :: Bool -> IO ()
 primTruncateFile   :: String -> Integer -> IO ()
 primCreateTempFile :: String -> String -> String -> IO String
 
+-- Text.Regex: a compiled regular expression (a cl-ppcre scanner)
+data RegexObj
+primRegexCompile   :: String -> Bool -> Bool -> RegexObj
+primRegexMatch     :: RegexObj -> String -> String
+
 {-#
+primRegexCompile   :: LispName("prim.regex-compile")
+primRegexMatch     :: LispName("prim.regex-match")
 primNewRef         :: LispName("prim.new-ref"), Strictness("N,S")
 primReadRef        :: LispName("prim.read-ref")
 primWriteRef       :: LispName("prim.write-ref"), Strictness("S,N,S")

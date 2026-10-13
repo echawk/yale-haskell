@@ -11,7 +11,8 @@ module Foreign.ForeignPtr (
     withForeignPtr, finalizeForeignPtr, unsafeForeignPtrToPtr,
     touchForeignPtr, castForeignPtr,
     mallocForeignPtr, mallocForeignPtrBytes,
-    mallocForeignPtrArray, mallocForeignPtrArray0
+    mallocForeignPtrArray, mallocForeignPtrArray0,
+    addForeignPtrFinalizerIO
   ) where
 
 import ForeignPrims
@@ -56,6 +57,11 @@ addForeignPtrFinalizer fin (ForeignPtr _ st) = primAddFPFinalizer st fin
 
 addForeignPtrFinalizerEnv :: FinalizerEnvPtr env a -> Ptr env -> ForeignPtr a -> IO ()
 addForeignPtrFinalizerEnv fin env (ForeignPtr _ st) = primAddFPFinalizerEnv st fin env
+
+-- A Haskell IO action as a finalizer (Foreign.Concurrent; not in the
+-- Report's Foreign.ForeignPtr).
+addForeignPtrFinalizerIO :: ForeignPtr a -> IO () -> IO ()
+addForeignPtrFinalizerIO (ForeignPtr _ st) act = primAddFPFinalizerIO st act
 
 withForeignPtr :: ForeignPtr a -> (Ptr a -> IO b) -> IO b
 withForeignPtr fp@(ForeignPtr p _) act = do

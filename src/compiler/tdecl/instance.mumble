@@ -533,10 +533,18 @@
 						       simple)))
 				 (class-method-vars class))
 			    (map (lambda (super-class)
-				   (generate-dictionary-type
-				    (lookup-instance algdata super-class)
-				    simple))
+				   (let ((super (lookup-instance algdata super-class)))
+				     (if (eq? super '#f)
+					 (signal-missing-superclass-instance
+					  super-class algdata class)
+					 (generate-dictionary-type super simple))))
 				 (class-super* class))))))
+
+(define (signal-missing-superclass-instance super algdata class)
+  (phase-error 'missing-superclass-instance
+    "There is no instance ~A(~A), which the instance ~A(~A) needs~%~
+     (~A is a superclass of ~A)."
+    super algdata class algdata super class))
 
 ;;; Checks performed here:
 ;;;  Instance context must include the following:

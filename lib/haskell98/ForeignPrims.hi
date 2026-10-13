@@ -6,6 +6,7 @@
 interface ForeignPrims where
 
 import PreludeCore(Int,Integer,Float,Double,Char,Bool)
+import IOPrims(HandleObj)
 
 -- The peek and poke primitives of the Data.Int and Data.Word types have
 -- a polymorphic value type: those types are newtypes over Int or Integer
@@ -93,6 +94,10 @@ primForeignSymbolPtr :: String -> FunPtr a
 primNewFPState     :: Ptr a -> IO FPState
 primAddFPFinalizer :: FPState -> FunPtr a -> IO ()
 primAddFPFinalizerEnv :: FPState -> FunPtr a -> Ptr b -> IO ()
+primAddFPFinalizerIO :: FPState -> IO () -> IO ()
+-- System.IO's hPutBuf and hGetBuf: bytes between memory and a handle
+primHPutBuf          :: HandleObj -> Ptr a -> Int -> IO ()
+primHGetBuf          :: HandleObj -> Ptr a -> Int -> IO Int
 primFinalizeFP     :: FPState -> IO ()
 primTouchFP        :: FPState -> IO ()
 
@@ -170,6 +175,9 @@ primForeignSymbolPtr :: LispName("prim.foreign-symbol-ptr")
 primNewFPState     :: LispName("prim.new-fp-state")
 primAddFPFinalizer :: LispName("prim.add-fp-finalizer")
 primAddFPFinalizerEnv :: LispName("prim.add-fp-finalizer-env")
+primAddFPFinalizerIO :: LispName("prim.add-fp-finalizer-io")
+primHPutBuf          :: LispName("prim.h-put-buf")
+primHGetBuf          :: LispName("prim.h-get-buf")
 primFinalizeFP     :: LispName("prim.finalize-fp")
 primTouchFP        :: LispName("prim.touch-fp")
 primNewStablePtr   :: LispName("prim.new-stable-ptr"), Strictness("N,S")

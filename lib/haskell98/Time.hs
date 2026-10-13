@@ -55,49 +55,23 @@ data Day   =  Sunday | Monday  | Tuesday  | Wednesday | Thursday
            |  Friday | Saturday
            deriving (Eq, Ord, Enum, Ix, Show, Read)
 
--- CalendarTime year month day hour min sec picosec wday yday tzname tz isdst
-data CalendarTime = CalendarTime
-        Int Month Int Int Int Int Integer Day Int String Int Bool
-        deriving (Eq, Ord, Show, Read)
+-- Records, as the Report declares them (a program may update a field).
+data CalendarTime = CalendarTime {
+        ctYear    :: Int,
+        ctMonth   :: Month,
+        ctDay, ctHour, ctMin, ctSec :: Int,
+        ctPicosec :: Integer,
+        ctWDay    :: Day,
+        ctYDay    :: Int,
+        ctTZName  :: String,
+        ctTZ      :: Int,
+        ctIsDST   :: Bool
+        } deriving (Eq, Ord, Show, Read)
 
-ctYear, ctDay, ctHour, ctMin, ctSec, ctYDay, ctTZ :: CalendarTime -> Int
-ctYear    (CalendarTime x _ _ _ _ _ _ _ _ _ _ _) = x
-ctDay     (CalendarTime _ _ x _ _ _ _ _ _ _ _ _) = x
-ctHour    (CalendarTime _ _ _ x _ _ _ _ _ _ _ _) = x
-ctMin     (CalendarTime _ _ _ _ x _ _ _ _ _ _ _) = x
-ctSec     (CalendarTime _ _ _ _ _ x _ _ _ _ _ _) = x
-ctYDay    (CalendarTime _ _ _ _ _ _ _ _ x _ _ _) = x
-ctTZ      (CalendarTime _ _ _ _ _ _ _ _ _ _ x _) = x
-
-ctMonth   :: CalendarTime -> Month
-ctMonth   (CalendarTime _ x _ _ _ _ _ _ _ _ _ _) = x
-
-ctPicosec :: CalendarTime -> Integer
-ctPicosec (CalendarTime _ _ _ _ _ _ x _ _ _ _ _) = x
-
-ctWDay    :: CalendarTime -> Day
-ctWDay    (CalendarTime _ _ _ _ _ _ _ x _ _ _ _) = x
-
-ctTZName  :: CalendarTime -> String
-ctTZName  (CalendarTime _ _ _ _ _ _ _ _ _ x _ _) = x
-
-ctIsDST   :: CalendarTime -> Bool
-ctIsDST   (CalendarTime _ _ _ _ _ _ _ _ _ _ _ x) = x
-
--- TimeDiff year month day hour min sec picosec
-data TimeDiff = TimeDiff Int Int Int Int Int Int Integer
-                deriving (Eq, Ord, Show, Read)
-
-tdYear, tdMonth, tdDay, tdHour, tdMin, tdSec :: TimeDiff -> Int
-tdYear    (TimeDiff x _ _ _ _ _ _) = x
-tdMonth   (TimeDiff _ x _ _ _ _ _) = x
-tdDay     (TimeDiff _ _ x _ _ _ _) = x
-tdHour    (TimeDiff _ _ _ x _ _ _) = x
-tdMin     (TimeDiff _ _ _ _ x _ _) = x
-tdSec     (TimeDiff _ _ _ _ _ x _) = x
-
-tdPicosec :: TimeDiff -> Integer
-tdPicosec (TimeDiff _ _ _ _ _ _ x) = x
+data TimeDiff = TimeDiff {
+        tdYear, tdMonth, tdDay, tdHour, tdMin, tdSec :: Int,
+        tdPicosec :: Integer
+        } deriving (Eq, Ord, Show, Read)
 
 -- Enumerations as numbers (H98 would use fromEnum/toEnum).
 

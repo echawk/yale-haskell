@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/System/Posix/
+:o= all
+Signals.hs

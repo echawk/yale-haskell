@@ -29,8 +29,11 @@
 ;;; that is not a type variable (parsed as a multi-parameter constraint
 ;;; with one type) is reduced through t's instance of C to constraints on
 ;;; type variables: Show [a] is Show a, Eq (Maybe Int) is nothing.  A
-;;; constraint on an application of a type variable (Show (f a)) cannot
-;;; be reduced, and is an error.
+;;; constraint on an application of a type variable (Monad (m s)) cannot
+;;; be reduced: it stays a multi-parameter-style constraint, whose
+;;; dictionary the function takes as a parameter (type/mp-classes.mumble),
+;;; and a use of the class at that type is resolved from it
+;;; (type/dictionary.mumble's process-placeholder-1).
 
 (define (reduce-flexible-contexts signature)
   (let ((keep '())
@@ -40,7 +43,10 @@
       (let ((class (class-ref-class (mp-context-class c))))
 	(if (and (null? (cdr (mp-context-types c)))
 		 (class? class)
-		 (null? (cdr (class-tyvars class))))
+		 (null? (cdr (class-tyvars class)))
+		 ;; Monad (m s): kept, a given whose dictionary is a
+		 ;; parameter, as a multi-parameter constraint's is
+		 (not (tyvar-application? (car (mp-context-types c)))))
 	    (setf added (append (reduce-context-type class (car (mp-context-types c)))
 				added))
 	    (push c keep))))
@@ -292,3 +298,7 @@
 				args)
 		  multi))))
     (values (reverse single) (reverse multi))))
+
+;;; f a, f a b, ... with f a type variable.
+(define (tyvar-application? type)
+  (and (tyapp? type) (tyvar? (tyapp-fun type))))
