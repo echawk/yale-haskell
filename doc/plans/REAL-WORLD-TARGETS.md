@@ -72,11 +72,18 @@ Status (2026-10-13).
   loaded with `-l`.  A scripted 25-step session (init, add, record,
   whatsnew, changes, get, pull, mv, a conflict with its markers, revert,
   diff, annotate, unrecord, check) matches `darcs/session.out`.  With
-  `--unit`, darcs's own unit tests (unit.lhs, QuickCheck 1) run: 33 pass;
-  14 end "Arguments exhausted" and one (the double commute) can fail.
-  Both are darcs 1.0.9's own: its generators never produce the patches
-  some subcommutes handle, and the double commute fails, per darcs's own
-  `commute_nameconflict` rule, when a merged patch has a `-conflict` name.
+  `--unit`, darcs's own unit tests (unit.lhs, QuickCheck 1) run, about a
+  minute: in a typical run 33 properties pass and 14 end "Arguments
+  exhausted", and from run to run zero to three are falsified.  The
+  exhausted ones are darcs's own generator limits: it never produces the
+  Conflictor patches two subcommutes handle, and some subcommutes never
+  fail.  Every falsification seen (double commute, nontrivial commutes
+  of `commute` and `force_commute`, conflict resolution validity)
+  involves a merger of conflicting patches or a `-conflict` name, the
+  corner of darcs 1's conflict handling that darcs 2 replaced; the double
+  commute follows `commute_nameconflict` by hand.  With the random seed
+  fixed, the results are identical with the optimizers on, off, and on
+  the FLIC back end.  GHC 6.6 is not available to compare against.
 
   What darcs needed, in the library: a System.Posix subset
   (posix-runtime.lisp over sb-posix: file status, modes, links, open/dup,

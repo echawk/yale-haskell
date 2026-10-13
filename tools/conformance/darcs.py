@@ -24,10 +24,12 @@ The session (init, add, record, whatsnew, changes, get, pull, a conflict,
 diff, annotate, unrecord) is compared with tools/conformance/darcs/
 session.out, after dates are replaced.  --unit also runs darcs's own
 QuickCheck tests (unit.lhs, about a minute); their cases are random, so
-only the counts are reported.  Two of the results are darcs's own: the
-double-commute property fails when the generator makes a "-conflict"
-name (commute_nameconflict), and properties whose subcommute the
-generators never exercise (the Conflictor ones) end "Arguments exhausted".
+only the counts are reported.  Those not passing are darcs's own as far as
+we can tell: properties whose subcommute darcs's generators never exercise
+(the Conflictor ones) end "Arguments exhausted", and the occasional
+falsification involves a merger of conflicting patches or a "-conflict"
+name (the double commute fails by commute_nameconflict); with a fixed seed
+the results are the same with the optimizers off and on the FLIC back end.
 """
 
 import argparse
