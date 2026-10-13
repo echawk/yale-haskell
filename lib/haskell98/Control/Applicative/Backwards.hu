@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Control/Applicative/
+:o= all
+:package
+Backwards.hs

@@ -4,14 +4,14 @@
 -- tried differ from QuickCheck's; shrinking is a simple greedy search.
 module Test.QuickCheck (
     Gen, generate, sample, sample', choose, elements, oneof, frequency,
-    sized, getSize, resize, scale, listOf, listOf1, vectorOf, suchThat,
+    sized, getSize, resize, scale, listOf, listOf1, vector, vectorOf, suchThat,
     suchThatMaybe, infiniteListOf, sublistOf, shuffle, variant,
     Arbitrary(arbitrary, shrink), CoArbitrary(coarbitrary),
-    arbitrarySizedIntegral, arbitraryBoundedEnum, shrinkIntegral, shrinkList,
+    arbitrarySizedIntegral, arbitrarySizedBoundedIntegral, arbitraryBoundedEnum, shrinkIntegral, shrinkList,
     Property, Testable(property), (==>), forAll, forAllShrink,
     counterexample, label, collect, classify, cover, (.&&.), (.||.),
     conjoin, disjoin, (===), quickCheck, quickCheckWith, verboseCheck,
-    Args(Args, maxSuccess, maxSize), stdArgs, Result(..), quickCheckResult,
+    Args(Args, maxSuccess, maxSize), stdArgs, Result(..), quickCheckResult, quickCheckWithResult,
     NonNegative(NonNegative, getNonNegative), Positive(Positive, getPositive)
   ) where
 
@@ -20,6 +20,8 @@ import Random
 import Data.List (sortBy)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Data.Int (Int8, Int16, Int32, Int64)
+import Data.Word (Word, Word8, Word16, Word32, Word64)
 
 infixr 0 ==>
 infixr 1 .&&., .||.
@@ -91,6 +93,9 @@ listOf g = sized (\n -> choose (0, n) >>= \k -> vectorOf k g)
 listOf1 :: Gen a -> Gen [a]
 listOf1 g = sized (\n -> choose (1, max 1 n) >>= \k -> vectorOf k g)
 
+vector :: Arbitrary a => Int -> Gen [a]
+vector k = vectorOf k arbitrary
+
 vectorOf :: Int -> Gen a -> Gen [a]
 vectorOf k g = sequence (replicate k g)
 
@@ -151,6 +156,46 @@ instance Arbitrary Ordering where arbitrary = elements [LT, EQ, GT]
 instance Arbitrary Int where
   arbitrary = arbitrarySizedIntegral
   shrink = shrinkIntegral
+instance Arbitrary Int8 where
+  arbitrary = arbitrarySizedBoundedIntegral
+  shrink = shrinkIntegral
+instance Arbitrary Int16 where
+  arbitrary = arbitrarySizedBoundedIntegral
+  shrink = shrinkIntegral
+instance Arbitrary Int32 where
+  arbitrary = arbitrarySizedBoundedIntegral
+  shrink = shrinkIntegral
+instance Arbitrary Int64 where
+  arbitrary = arbitrarySizedBoundedIntegral
+  shrink = shrinkIntegral
+instance Arbitrary Word where
+  arbitrary = arbitrarySizedBoundedIntegral
+  shrink = shrinkIntegral
+instance Arbitrary Word8 where
+  arbitrary = arbitrarySizedBoundedIntegral
+  shrink = shrinkIntegral
+instance Arbitrary Word16 where
+  arbitrary = arbitrarySizedBoundedIntegral
+  shrink = shrinkIntegral
+instance Arbitrary Word32 where
+  arbitrary = arbitrarySizedBoundedIntegral
+  shrink = shrinkIntegral
+instance Arbitrary Word64 where
+  arbitrary = arbitrarySizedBoundedIntegral
+  shrink = shrinkIntegral
+
+-- Integers of a bounded type, of magnitude up to the size (QuickCheck's
+-- arbitrarySizedBoundedIntegral, clamped to the type's range).
+arbitrarySizedBoundedIntegral :: (Bounded a, Integral a) => Gen a
+arbitrarySizedBoundedIntegral = g
+  where g = sized (\n ->
+              let lo = max (toInteger (minBound `asTypeOf` genValue g)) (negate (toInteger n))
+                  hi = min (toInteger (maxBound `asTypeOf` genValue g)) (toInteger n)
+              in fmap fromInteger (choose (lo, hi)))
+
+genValue :: Gen a -> a
+genValue _ = undefined
+
 instance Arbitrary Integer where
   arbitrary = arbitrarySizedIntegral
   shrink = shrinkIntegral
@@ -283,19 +328,23 @@ verboseCheck :: Testable p => p -> IO ()
 verboseCheck = quickCheck
 
 quickCheckWith :: Testable p => Args -> p -> IO ()
-quickCheckWith args p = quickCheckWithResult args p >>= report
-  where report (Success n d) = putStrLn ("+++ OK, passed " ++ show n ++ " tests"
-                                         ++ (if d > 0 then "; " ++ show d ++ " discarded." else "."))
-        report (GaveUp n) = putStrLn ("*** Gave up! Passed only " ++ show n ++ " tests.")
-        report (Failure n cs) = do
-          putStrLn ("*** Failed! Falsified (after " ++ show (n + 1) ++ " test" ++ (if n == 0 then "" else "s") ++ "):")
-          mapM_ putStrLn cs
+quickCheckWith args p = quickCheckWithResult args p >> return ()
+
+-- The report, as QuickCheck prints it.
+report :: Result -> IO ()
+report r = case r of
+  Success n d -> putStrLn ("+++ OK, passed " ++ show n ++ " tests"
+                           ++ (if d > 0 then "; " ++ show d ++ " discarded." else "."))
+  GaveUp n -> putStrLn ("*** Gave up! Passed only " ++ show n ++ " tests.")
+  Failure n cs -> do
+    putStrLn ("*** Failed! Falsified (after " ++ show (n + 1) ++ " test" ++ (if n == 0 then "" else "s") ++ "):")
+    mapM_ putStrLn cs
 
 quickCheckResult :: Testable p => p -> IO Result
 quickCheckResult = quickCheckWithResult stdArgs
 
 quickCheckWithResult :: Testable p => Args -> p -> IO Result
-quickCheckWithResult args p = newStdGen >>= \r -> return (go r 0 0)
+quickCheckWithResult args p = newStdGen >>= \r -> let res = go r 0 0 in report res >> return res
   where
     prop = property p
     go r passed discarded

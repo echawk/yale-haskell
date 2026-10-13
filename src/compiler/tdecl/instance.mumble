@@ -287,9 +287,19 @@
 	    (gtype-context (ast->gtype/inst context simple)))
       (with-slots class (super* method-vars) class
 	;; Before computing signatures uniquify tyvar names to prevent
-        ;; collision with method tyvar names
-	(let ((new-tyvars (map (lambda (tyvar) (tuple tyvar (gentyvar "tv")))
-			       (instance-tyvars inst))))
+        ;; collision with method tyvar names.  Under ScopedTypeVariables
+        ;; a name no method signature uses is kept, so that the
+        ;; instance head's type variables scope over the methods (GHC):
+        ;; generate-method-signature marks them as scoped.
+	(let* ((taken (class-method-tyvar-names class))
+	       (new-tyvars
+		(map (lambda (tyvar)
+		       (tuple tyvar
+			      (if (and (module-extension? "ScopedTypeVariables")
+				       (not (memq tyvar taken)))
+				  tyvar
+				  (gentyvar "tv"))))
+		     (instance-tyvars inst))))
 	  (setf (instance-tyvars inst) (map (function tuple-2-2) new-tyvars))
 	  (setf (instance-head-args inst)
 		(map (lambda (ty) (rename-ast-tyvars ty new-tyvars))
@@ -459,6 +469,12 @@
   (let* ((class-context (instance-context inst))
 	 (signature (method-var-method-signature method-var)))
     (make signature
+	  ;; ScopedTypeVariables: the instance's type variables scope over
+	  ;; the method's body (only those kept by name, expand-instance-
+	  ;; decls-1)
+	  (foralls (if (module-extension? "ScopedTypeVariables")
+		       (instance-tyvars inst)
+		       '()))
 	  (context (if keep-method-context?
 		       (append class-context (signature-context signature))
 		       class-context))
@@ -560,3 +576,16 @@
   (phase-error 'instance-context-insufficient-for-super
     "Instance ~A(~A) does not imply super class ~A instance context."
     class algdata super-c))
+
+;;; The type variable names of a class's methods' signatures other than
+;;; the class's own (which substitute-class-tyvars replaces), which
+;;; instance tyvars must not reuse.
+(define (class-method-tyvar-names class)
+  (let ((names '()))
+    (dolist (m (class-method-vars class))
+      (let ((sig (method-var-method-signature m)))
+	(dolist (n (ast-type-tyvars (signature-type sig)))
+	  (push n names))
+	(dolist (c (signature-context sig))
+	  (push (context-tyvar c) names))))
+    (lisp:remove (class-tyvar class) names)))

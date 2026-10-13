@@ -504,8 +504,9 @@
 (define (own-definition-shadows-core? name)
   (and (haskell98?)
        (memq name *ix-core-names*)
+       ;; the module's own, or one it imports (StackSet's index)
        (let ((d  (table-entry *symbol-table* name)))
-	 (and d (eq? (def-module d) *module-name*)))))
+	 (and d (not (def-prelude? d))))))
 
 (define (resolve-toplevel-name name)
   (let ((pc (table-entry *prelude-core-symbols* name)))

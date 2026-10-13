@@ -3,12 +3,13 @@
 -- an IOError, an ErrorCall (error, a failed pattern match) or an
 -- ArithException (division by zero).  catch and try catch all three,
 -- including runtime errors raised by pure code evaluated inside the
--- action.  There is no extensible hierarchy (no existential types):
+-- action.  There is no extensible hierarchy (no existential types; the
+-- SomeException constructor holds the host's condition, which Show shows):
 -- Exception has instances for SomeException, IOException, ErrorCall and
 -- ArithException only, and ExitCode is not an exception (exitWith is not
 -- caught).
 module Control.Exception (
-    SomeException, IOException, ErrorCall(ErrorCall), ArithException(DivideByZero, Overflow),
+    SomeException(SomeException), IOException, ErrorCall(ErrorCall), ArithException(DivideByZero, Overflow),
     Exception(toException, fromException, displayException),
     catch, catches, handle, try, evaluate, throw, throwIO,
     bracket, bracket_, bracketOnError, finally, onException, mask_, uninterruptibleMask_,
@@ -31,6 +32,11 @@ data ArithException = DivideByZero | Overflow
 
 instance Show SomeException where
   showsPrec _ (SomeException e) = showString (primExcMessage e)
+
+-- The exception inside a SomeException: matching (SomeException e) and
+-- showing e works as with base's existential SomeException.
+instance Show Exc where
+  showsPrec _ e = showString (primExcMessage e)
 
 instance Show ErrorCall where
   showsPrec _ (ErrorCall m) = showString m

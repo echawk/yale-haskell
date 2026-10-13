@@ -1,0 +1,107 @@
+StackSet invariants                : +++ OK, passed 100 tests.
+empty: invariant                   : +++ OK, passed 100 tests.
+empty is empty                     : +++ OK, passed 100 tests.
+empty / current                    : +++ OK, passed 100 tests.
+empty / member                     : +++ OK, passed 100 tests.
+view : invariant                   : +++ OK, passed 100 tests.
+view sets current                  : +++ OK, passed 100 tests.
+view idempotent                    : +++ OK, passed 100 tests.
+view reversible                    : +++ OK, passed 100 tests.
+view is local                      : +++ OK, passed 100 tests.
+greedyView : invariant             : +++ OK, passed 100 tests.
+greedyView sets current            : +++ OK, passed 100 tests.
+greedyView is safe                 : +++ OK, passed 100 tests.
+greedyView idempotent              : +++ OK, passed 100 tests.
+greedyView reversible              : +++ OK, passed 100 tests.
+greedyView is local                : +++ OK, passed 100 tests.
+peek/member                        : +++ OK, passed 100 tests.
+index/length                       : +++ OK, passed 100 tests.
+focus left : invariant             : +++ OK, passed 100 tests.
+focus master : invariant           : +++ OK, passed 100 tests.
+focus right: invariant             : +++ OK, passed 100 tests.
+focusWindow: invariant             : +++ OK, passed 100 tests.
+focus left/master                  : +++ OK, passed 100 tests.
+focus right/master                 : +++ OK, passed 100 tests.
+focus master/master                : +++ OK, passed 100 tests.
+focusWindow master                 : +++ OK, passed 100 tests.
+focus left/right                   : +++ OK, passed 100 tests.
+focus right/left                   : +++ OK, passed 100 tests.
+focus all left                     : +++ OK, passed 100 tests.
+focus all right                    : +++ OK, passed 100 tests.
+focus down is local                : +++ OK, passed 100 tests.
+focus up is local                  : +++ OK, passed 100 tests.
+focus master is local              : +++ OK, passed 100 tests.
+focus master idemp                 : +++ OK, passed 100 tests.
+focusWindow is local               : +++ OK, passed 100 tests.
+focusWindow works                  : +++ OK, passed 100 tests.
+focusWindow identity               : +++ OK, passed 100 tests.
+findTag                            : +++ OK, passed 100 tests.
+allWindows/member                  : +++ OK, passed 100 tests.
+currentTag                         : +++ OK, passed 100 tests.
+insert: invariant                  : +++ OK, passed 100 tests.
+insert/new                         : +++ OK, passed 100 tests.
+insert is idempotent               : +++ OK, passed 100 tests.
+insert is reversible               : +++ OK, passed 100 tests.
+insert is local                    : +++ OK, passed 100 tests.
+insert duplicates                  : +++ OK, passed 100 tests.
+insert/peek                        : +++ OK, passed 100 tests.
+insert/size                        : +++ OK, passed 100 tests.
+delete: invariant                  : +++ OK, passed 100 tests.
+delete/empty                       : +++ OK, passed 100 tests.
+delete/member                      : +++ OK, passed 100 tests.
+delete is reversible               : +++ OK, passed 100 tests.
+delete is local                    : +++ OK, passed 100 tests.
+delete/focus                       : +++ OK, passed 100 tests.
+delete  last/focus up              : +++ OK, passed 100 tests.
+delete ~last/focus down            : +++ OK, passed 100 tests.
+filter preserves order             : +++ OK, passed 100 tests.
+swapLeft                           : +++ OK, passed 100 tests.
+swapRight                          : +++ OK, passed 100 tests.
+swapMaster: invariant              : +++ OK, passed 100 tests.
+swapUp: invariant                  : +++ OK, passed 100 tests.
+swapDown: invariant                : +++ OK, passed 100 tests.
+swapMaster id on focus             : +++ OK, passed 100 tests.
+swapUp id on focus                 : +++ OK, passed 100 tests.
+swapDown id on focus               : +++ OK, passed 100 tests.
+swapMaster is idempotent           : +++ OK, passed 100 tests.
+swap all left                      : +++ OK, passed 100 tests.
+swap all right                     : +++ OK, passed 100 tests.
+swapMaster is local                : +++ OK, passed 100 tests.
+swapUp is local                    : +++ OK, passed 100 tests.
+swapDown is local                  : +++ OK, passed 100 tests.
+shiftMaster id on focus            : +++ OK, passed 100 tests.
+shiftMaster is local               : +++ OK, passed 100 tests.
+shiftMaster is idempotent          : +++ OK, passed 100 tests.
+shiftMaster preserves ordering     : +++ OK, passed 100 tests.
+shift: invariant                   : +++ OK, passed 100 tests.
+shift is reversible                : +++ OK, passed 100 tests.
+shiftWin: invariant                : +++ OK, passed 100 tests.
+shiftWin is shift on focus         : +++ OK, passed 100 tests.
+shiftWin fix current               : +++ OK, passed 100 tests.
+shiftWin identity                  : +++ OK, passed 100 tests.
+floating is reversible             : +++ OK, passed 100 tests.
+floating sets geometry             : +++ OK, passed 100 tests.
+floats can be deleted              : +++ OK, passed 100 tests.
+screens includes current           : +++ OK, passed 100 tests.
+differentiate works                : +++ OK, passed 100 tests.
+lookupTagOnScreen                  : +++ OK, passed 100 tests.
+lookupTagOnVisbleScreen            : +++ OK, passed 100 tests.
+screens works                      : +++ OK, passed 100 tests.
+renaming works                     : +++ OK, passed 100 tests.
+ensure works                       : +++ OK, passed 100 tests.
+ensure hidden semantics            : +++ OK, passed 100 tests.
+mapWorkspace id                    : +++ OK, passed 100 tests.
+mapWorkspace inverse               : +++ OK, passed 100 tests.
+mapLayout id                       : +++ OK, passed 100 tests.
+mapLayout inverse                  : +++ OK, passed 100 tests.
+abort fails                        : +++ OK, passed 100 tests.
+new fails with abort               : +++ OK, passed 100 tests.
+point within                       : +++ OK, passed 100 tests; N discarded.
+window resize hints: inc           : +++ OK, passed 100 tests.
+window resize hints: inc all       : +++ OK, passed 100 tests.
+window resize hints: max           : +++ OK, passed 100 tests.
+window resize hints: max all       : +++ OK, passed 100 tests.
+window aspect hints: fits          : +++ OK, passed 100 tests; N discarded.
+window aspect hints: shrinks       : +++ OK, passed 100 tests.
+pointWithin                        : +++ OK, passed 100 tests; N discarded.
+pointWithin mirror                 : +++ OK, passed 100 tests.

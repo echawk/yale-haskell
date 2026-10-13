@@ -62,6 +62,8 @@ import Char (ord, chr, isDigit, isSpace)
 import CPUTime (getCPUTime)
 import TimePrims (primGetClockTime)
 import RandomPrims
+import Data.Int (Int8, Int16, Int32, Int64)
+import Data.Word (Word, Word8, Word16, Word32, Word64)
 
 class RandomGen g where
    next     :: g -> (Int, g)
@@ -138,6 +140,43 @@ class Random a where
   randomIO         = getStdRandom random
 
 instance Random Int where
+  randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
+  random g        = randomR (minBound, maxBound) g
+
+-- The sized integers, as the random package has them.
+instance Random Int8 where
+  randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
+  random g        = randomR (minBound, maxBound) g
+
+instance Random Int16 where
+  randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
+  random g        = randomR (minBound, maxBound) g
+
+instance Random Int32 where
+  randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
+  random g        = randomR (minBound, maxBound) g
+
+instance Random Int64 where
+  randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
+  random g        = randomR (minBound, maxBound) g
+
+instance Random Word where
+  randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
+  random g        = randomR (minBound, maxBound) g
+
+instance Random Word8 where
+  randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
+  random g        = randomR (minBound, maxBound) g
+
+instance Random Word16 where
+  randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
+  random g        = randomR (minBound, maxBound) g
+
+instance Random Word32 where
+  randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
+  random g        = randomR (minBound, maxBound) g
+
+instance Random Word64 where
   randomR (a,b) g = randomIvalInteger (toInteger a, toInteger b) g
   random g        = randomR (minBound, maxBound) g
 
