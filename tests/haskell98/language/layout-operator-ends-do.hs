@@ -18,8 +18,15 @@ total = do
   return x
   >>= \y -> Just (y * 10)
 
+-- ~ and - begin a statement (a lazy pattern, a negation), not an operator
+pairs :: IO Int
+pairs = do
+  ~(a, b) <- return (1, 2)
+  return (a + b)
+
 main :: IO ()
 main = do
+  pairs >>= print
   n <- act
   print n
   print total

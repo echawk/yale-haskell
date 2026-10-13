@@ -491,7 +491,8 @@
   (or (eq-token? '\`)
       (eq-token? 'consym)
       (and (eq-token? 'varsym)
-	   (not (string=? (car *token-args*) "-")))))
+	   ;; these begin a statement: negation, bang and lazy patterns
+	   (not (mem-string (car *token-args*) '("-" "!" "~"))))))
 
 ;;; `let decls' is a statement; `let decls in exp' is an expression
 ;;; statement.
