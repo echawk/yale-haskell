@@ -141,6 +141,9 @@
 	 ;; ambiguous decls.
 	   (when (and (or overloaded-tyvars mp-constraints)
 		      (apply-pattern-binding-rule? decls))
+		 (setf overloaded-tyvars
+		       (lisp:remove-if (function non-generic?)
+				       (restricted-tyvars all-tyvars)))
 		 (setf (dynamic *non-generic-tyvars*)
 		       (do-pattern-binding-rule
 			decls
@@ -270,6 +273,10 @@
 	     (push tyvar overloaded-tyvars)))
 	(when (and (or overloaded-tyvars mp-constraints)
 		   (apply-pattern-binding-rule? (list decl)))
+	 ;; the restriction keeps the constrained type variables
+	 ;; monomorphic, those of a constraint on an application
+	 ;; (Eq (t b), deferred on t) included
+	 (setf overloaded-tyvars (restricted-tyvars all-tyvars))
 	 (setf (dynamic *non-generic-tyvars*)
 	   (do-pattern-binding-rule
 	    (list decl)
@@ -458,8 +465,12 @@
 	      (setf (var-type var) gtype)
 	      (setf new-tyvars tyvars)))
 	  (else
-	   (mlet (((ntype tyvars) (instantiate-gtype/newvars sig)))
+	   (mlet (((ntype tyvars givens) (instantiate-gtype/mp sig)))
 	     (unify ntype (var-type var))
+	     ;; a type variable only in the signature's multi-parameter
+	     ;; constraints (t in (Show t, Stream s m t) => s -> m String)
+	     ;; reaches the body's through the functional dependencies
+	     (improve-mp-placeholders/given (dynamic *placeholders*) givens)
 	     (setf (var-type var) sig)
 	     (setf new-tyvars (prune/l tyvars)))))
     (report-typing var)
@@ -476,3 +487,38 @@
   (cond ((null? decls) (error "Lost the decl of ~A." var))
 	((eq? (decl-var (car decls)) var) (car decls))
 	(else (find-decl-of-var var (cdr decls)))))
+
+;;; The monomorphism restriction keeps the constrained type variables of
+;;; TYVARS monomorphic: those with a context, those with a constraint on
+;;; an application of them (Eq (t b), kept on t until t is known:
+;;; unify.mumble's propagate-contexts/app), and the variables of such an
+;;; application (b), which would otherwise be generalized while the
+;;; constraint on them is not, leaving it nothing to resolve to.
+(define (constrained-tyvars tyvars)
+  (let ((in-apps '()))
+    (dolist (tv tyvars)
+      (dolist (ac (ntyvar-app-contexts tv))
+	(dolist (v (collect-tyvars (tuple-2-1 ac)))
+	  (push v in-apps))))
+    (lisp:remove-if-not
+     (lambda (tv)
+       (or (not (null? (ntyvar-context tv)))
+	   (not (null? (ntyvar-app-contexts tv)))
+	   (memq tv in-apps)))
+     (lisp:remove-duplicates (append tyvars in-apps)))))
+
+;;; All that the restriction keeps monomorphic: the constrained type
+;;; variables of the binding's type, and every type variable of the
+;;; group's pending constraints, including one that appears in no type
+;;; (x in `pt = do x <- many1 anyToken; ... show x', its type fixed later
+;;; by a functional dependency): GHC leaves them all to be determined by
+;;; the rest of the enclosing scope.
+(define (restricted-tyvars tyvars)
+  (let ((res (constrained-tyvars tyvars)))
+    (dolist (p (dynamic *placeholders*))
+      (dolist (v (if (mp-placeholder? p)
+		     (lisp:mapcan (function collect-tyvars) (mp-placeholder-types p))
+		     (collect-tyvars (placeholder-tyvar p))))
+	(when (not (memq v res))
+	  (push v res))))
+    res))

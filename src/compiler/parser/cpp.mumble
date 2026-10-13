@@ -17,8 +17,9 @@
 ;;;   #error message   #warning message   (#line and #pragma are ignored)
 ;;;
 ;;; An #if expression has C's integer operators and defined(NAME); a name
-;;; that is not a macro is 0 (and so is a call of one, such as
-;;; MIN_VERSION_base(4,8,0)).  __YALE_HASKELL__ is defined; GHC's
+;;; that is not a macro is 0, and so is a call of one, except
+;;; MIN_VERSION_pkg(a,b,c) for the packages Yale's libraries follow
+;;; (cpp-min-version).  __YALE_HASKELL__ is defined; GHC's
 ;;; __GLASGOW_HASKELL__ is not, so code for other compilers is chosen.
 ;;; Lines are kept: a directive or a skipped line becomes a blank line, and
 ;;; an included file is bracketed by {-# LINE #-} pragmas (lexer.mumble).
@@ -629,7 +630,42 @@
 	       " 1 " " 0 ")
 	   (cpp-replace-defined (substring s after (string-length s))))))))
 
-;;; Numbers, names (0, and a call of one is 0) and operators.
+;;; MIN_VERSION_pkg(a,b,c), as Cabal defines it: 1 if the version of pkg
+;;; that Yale Haskell's libraries follow is at least a.b.c.  The versions
+;;; are those of GHC 9.6's boot packages, except mtl, whose modules still
+;;; re-export Control.Monad as before 2.3.  Another package, or another
+;;; call, is 0.
+
+(define *cpp-package-versions*
+  '(("base" 4 18 0) ("ghc_prim" 0 10 0) ("containers" 0 6 7)
+    ("transformers" 0 6 1) ("mtl" 2 2 2) ("bytestring" 0 11 5)
+    ("text" 2 0 2) ("parsec" 3 1 18) ("deepseq" 1 4 8) ("array" 0 5 6)
+    ("pretty" 1 1 3) ("time" 1 12 2) ("directory" 1 3 8)
+    ("filepath" 1 4 2) ("process" 1 6 17) ("stm" 2 5 1)
+    ("random" 1 2 1) ("QuickCheck" 2 14 3)))
+
+(define (cpp-min-version name args)
+  (let ((pkg  (and (> (string-length name) 12)
+		   (string=? (substring name 0 12) "MIN_VERSION_")
+		   (lisp:assoc (substring name 12 (string-length name))
+			       *cpp-package-versions* :test (function string=?)))))
+    (if (and pkg (eqv? (length args) 3))
+	(let ((want  (map (lambda (a)
+			    (or (lisp:parse-integer (lisp:string-trim " 	" a)
+						    :junk-allowed '#t)
+				0))
+			  args)))
+	  (if (version>=? (cdr pkg) want) 1 0))
+	0)))
+
+(define (version>=? have want)
+  (cond ((null? want) '#t)
+	((> (car have) (car want)) '#t)
+	((< (car have) (car want)) '#f)
+	(else (version>=? (cdr have) (cdr want)))))
+
+;;; Numbers, names (0, and a call of one is 0 but MIN_VERSION_pkg's) and
+;;; operators.
 
 (define (cpp-tokenize s)
   (let ((n     (string-length s))
@@ -650,7 +686,8 @@
 	      ((cpp-ident-start? c)
 	       (let* ((end   (cpp-name-end s i))
 		      (call  (cpp-macro-args s end)))
-		 (push 0 toks)
+		 (push (if call (cpp-min-version (substring s i end) (car call)) 0)
+		       toks)
 		 (setf i (if call (cdr call) end))))
 	      ((and (char=? c #\') (cpp-char-literal-end s i))
 	       (let ((end  (cpp-char-literal-end s i)))

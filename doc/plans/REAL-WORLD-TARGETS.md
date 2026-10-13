@@ -8,7 +8,8 @@ Traversable, MonadFail) and a few extensions.
 
 ## The ladder
 
-Status (2026-10-12): rungs 1, 2 (as a QuickCheck 2 subset), 4 (Alex and
+Status (2026-10-12): rungs 1, 2 (as a QuickCheck 2 subset), 3 (as
+parsec 3, which LambdaPi uses through the parsec 2 API), 4 (Alex and
 Happy 2.0 output, the GHC-specific kind included), 6 and 7 are climbed,
 and past the ladder cubicaltt (CUBICALTT.md), a 3,000-line proof checker
 using mtl, containers and a dozen GHC extensions, runs unchanged with

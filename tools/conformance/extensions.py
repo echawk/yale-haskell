@@ -620,6 +620,60 @@ f s | Tentative{} <- s, col s > 2 = "tentative"
 main = mapM_ (putStrLn . f) [Tentative 3, Tentative 1, Definitive 7]
 ''',
 'CRLFSource': 'module Main where\r\n\r\nmain :: IO ()\r\nmain = do\r\n  let x = 1 :: Int\r\n  print (x + 1)\r\n  putStrLn "crlf"\r\n',
+'HidePreludeMethod': '''import Prelude hiding ((*))
+data V = V Int deriving Show
+(*) :: V -> Int -> V
+V a * k = V (a + k)
+main = print (V 2 * 3, sum [1, 2, 3 :: Int])
+''',
+'QualifiedClassInstance': '''import qualified Data.Semigroup as S
+newtype MaxI = MaxI Int deriving Show
+instance S.Semigroup MaxI where
+  MaxI a <> MaxI b = MaxI (max a b)
+  sconcat = foldr1 (S.<>)
+  stimes _ x = x
+main = print (MaxI 3 S.<> MaxI 7, S.stimes (5 :: Int) (MaxI 2))
+''',
+'MonomorphismFoldable': '''import Data.List (nub)
+f :: [String] -> String
+f xs = concat (clean xs)
+  where clean = nub . filter (not . null)
+main = putStrLn (f ["a", "", "b", "a"])
+''',
+'FundepSignatureOnly': '''{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances #-}
+class Monad m => Stream s m t | s -> t where
+  uncons :: s -> m (Maybe (t, s))
+instance Monad m => Stream [tok] m tok where
+  uncons [] = return Nothing
+  uncons (t:ts) = return (Just (t, ts))
+firstTok :: Stream s m t => s -> m (Maybe t)
+firstTok s = do { r <- uncons s; return (fmap fst r) }
+describe :: (Show t, Stream s m t) => s -> m String
+describe s = firstTok s >>= \\x -> return (show x)
+main = describe "abc" >>= putStrLn
+''',
+'MinVersionCPP': '''{-# LANGUAGE CPP #-}
+#if MIN_VERSION_base(4,9,0) && !MIN_VERSION_base(99,0,0)
+msg = "modern base"
+#else
+msg = "old base"
+#endif
+main = putStrLn msg
+''',
+'ParsecLibrary': '''import Text.Parsec
+import Text.Parsec.String (Parser)
+num :: Parser Int
+num = read <$> many1 digit <* spaces
+expr :: Parser Int
+expr = chainl1 num ((+) <$ char '+' <* spaces)
+main = do
+  print (parse (spaces *> expr <* eof) "" "1 + 2 + 39")
+  print (parse (spaces *> expr <* eof) "in" "1 + x")
+''',
+'TupleInstances': '''main = do
+  print ((1,2,3,4) == (1,2,3,4::Int), compare (1,2,3,4,5) (1,2,3,4,6::Int))
+  print (maximum [(1,'b'),(1,'c'),(0,'z')], (1,"a",True) < (1,"a",False))
+''',
 }
 
 

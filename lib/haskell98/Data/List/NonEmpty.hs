@@ -16,35 +16,15 @@ import Prelude hiding (map, head, tail, last, init, length, reverse, zip,
 import qualified Prelude as P
 import PreludeModern (Applicative(pure, (<*>)), Alternative(many), liftA2,
                       Semigroup((<>)), Foldable(foldr, null),
-                      Traversable(traverse))
+                      Traversable(traverse), NonEmpty((:|)))
 import qualified PreludeModern as F
 import qualified Data.List as L
 import Data.Ord (comparing)
 
-infixr 5 :|, <|
+infixr 5 <|
 
-data NonEmpty a = a :| [a] deriving (Eq, Ord, Show, Read)
-
-instance Functor NonEmpty where
-  fmap f (x :| xs) = f x :| P.map f xs
-
-instance Foldable NonEmpty where
-  foldr f z (x :| xs) = f x (P.foldr f z xs)
-  null _ = False
-
-instance Traversable NonEmpty where
-  traverse f (x :| xs) = liftA2 (:|) (f x) (traverse f xs)
-
-instance Applicative NonEmpty where
-  pure x = x :| []
-  fs <*> xs = fromList [f x | f <- toList fs, x <- toList xs]
-
-instance Monad NonEmpty where
-  return x = x :| []
-  m >>= f = fromList (P.concatMap (toList . f) (toList m))
-
-instance Semigroup (NonEmpty a) where
-  (x :| xs) <> (y :| ys) = x :| (xs ++ y : ys)
+-- The class instances are PreludeModern's, with the type, as base has
+-- them wherever NonEmpty is.
 
 map :: (a -> b) -> NonEmpty a -> NonEmpty b
 map = fmap

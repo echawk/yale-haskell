@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Text/ParserCombinators/
+:o= all
+:package
+Parsec.hs

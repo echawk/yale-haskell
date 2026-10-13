@@ -1,0 +1,337 @@
+Interpreter for lambda-Pi.
+Type :? for help.
+LP> id :: forall (x :: *) (y :: x) . x
+const :: forall (x :: *) (y :: *) (z :: x) (a :: y) . x
+plus :: forall (x :: Nat) (y :: Nat) . Nat
+pred :: forall x :: Nat . Nat
+natFold :: forall (x :: *)
+                  (y :: x)
+                  (z :: forall z :: x . x)
+                  (a :: Nat) .
+           x
+nat1Elim :: forall (x :: forall x :: Nat . *)
+                   (y :: x 0)
+                   (z :: x 1)
+                   (a :: forall (a :: Nat) (b :: x (1 + a)) . x (2 + a))
+                   (b :: Nat) .
+            x b
+nat2Elim :: forall (x :: forall x :: Nat . *)
+                   (y :: x 0)
+                   (z :: x 1)
+                   (a :: x 2)
+                   (b :: forall (b :: Nat) (c :: x (2 + b)) . x (3 + b))
+                   (c :: Nat) .
+            x c
+inc :: forall x :: Nat . Nat
+finNat :: forall (x :: Nat) (y :: Fin x) . Nat
+Unit :: *
+U :: Fin 1
+unitElim :: forall (x :: forall x :: Fin 1 . *)
+                   (y :: x (FZero 0))
+                   (z :: Fin 1) .
+            x z
+Void :: *
+voidElim :: forall (x :: forall x :: Fin 0 . *) (y :: Fin 0) . x y
+Bool :: *
+False :: Fin 2
+True :: Fin 2
+boolElim :: forall (x :: forall x :: Fin 2 . *)
+                   (y :: x (FZero 1))
+                   (z :: x (FSucc 1 (FZero 0)))
+                   (a :: Fin 2) .
+            x a
+not :: forall x :: Fin 2 . Fin 2
+and :: forall (x :: Fin 2) (y :: Fin 2) . Fin 2
+or :: forall (x :: Fin 2) (y :: Fin 2) . Fin 2
+iff :: forall (x :: Fin 2) (y :: Fin 2) . Fin 2
+xor :: forall (x :: Fin 2) (y :: Fin 2) . Fin 2
+even :: forall x :: Nat . Fin 2
+odd :: forall x :: Nat . Fin 2
+isZero :: forall x :: Nat . Fin 2
+isSucc :: forall x :: Nat . Fin 2
+natEq :: forall (x :: Nat) (y :: Nat) . Fin 2
+Prop :: forall x :: Fin 2 . *
+pNatEqRefl :: forall x :: Nat .
+              finElim
+                (\ y -> natElim (\ z -> forall a :: Fin z . *) (\ z -> Fin 1)
+                          (\ z -> \ a -> natElim (\ b -> forall c :: Fin (1 + b) . *)
+                                           (\ b -> Fin 1)
+                                           (\ b -> \ c -> natElim
+                                                            (\ d -> forall e :: Fin (2 + d) . *)
+                                                            (\ d -> *)
+                                                            (\ d -> \ e -> \ f -> Fin 1)
+                                                            b)
+                                           z)
+                          y)
+                (\ y -> natElim
+                          (\ z -> natElim (\ a -> forall b :: Fin (1 + a) . *) (\ a -> Fin 1)
+                                    (\ a -> \ b -> natElim (\ c -> forall d :: Fin (2 + c) . *)
+                                                     (\ c -> *)
+                                                     (\ c -> \ d -> \ e -> Fin 1)
+                                                     a)
+                                    z
+                                    (FZero z))
+                          (FZero 0)
+                          (\ z -> \ a -> natElim
+                                           (\ b -> natElim (\ c -> forall d :: Fin (2 + c) . *)
+                                                     (\ c -> *)
+                                                     (\ c -> \ d -> \ e -> Fin 1)
+                                                     b
+                                                     (FZero (1 + b)))
+                                           (Fin 0)
+                                           (\ b -> \ c -> FZero 0)
+                                           z)
+                          y)
+                (\ y -> \ z -> \ a -> finElim
+                                        (\ b -> \ c -> natElim (\ d -> forall e :: Fin (1 + d) . *)
+                                                         (\ d -> Fin 1)
+                                                         (\ d -> \ e -> natElim
+                                                                          (\ f -> forall g :: Fin
+                                                                                                (2 + f) .
+                                                                                  *)
+                                                                          (\ f -> *)
+                                                                          (\ f -> \ g -> \ h -> Fin
+                                                                                                  1)
+                                                                          d)
+                                                         b
+                                                         (FSucc b c))
+                                        (\ b -> natElim
+                                                  (\ c -> natElim
+                                                            (\ d -> forall e :: Fin (2 + d) . *)
+                                                            (\ d -> *)
+                                                            (\ d -> \ e -> \ f -> Fin 1)
+                                                            c
+                                                            (FSucc (1 + c) (FZero c)))
+                                                  (Fin 1)
+                                                  (\ c -> \ d -> FZero 0)
+                                                  b)
+                                        (\ b -> \ c -> \ d -> finElim
+                                                                (\ e -> \ f -> natElim
+                                                                                 (\ g -> forall h :: Fin
+                                                                                                       (2 + g) .
+                                                                                         *)
+                                                                                 (\ g -> *)
+                                                                                 (\ g -> \ h -> \ i -> Fin
+                                                                                                         1)
+                                                                                 e
+                                                                                 (FSucc (1 + e)
+                                                                                    (FSucc e f)))
+                                                                (\ e -> FZero 0)
+                                                                (\ e -> \ f -> \ g -> FZero 0)
+                                                                b
+                                                                c)
+                                        y
+                                        z)
+                2
+                (natElim (\ y -> forall z :: Nat . Fin 2)
+                   (\ y -> natElim (\ z -> Fin 2) (FSucc 1 (FZero 0))
+                             (\ z -> \ a -> FZero 1)
+                             y)
+                   (\ y -> \ z -> \ a -> natElim (\ b -> Fin 2) (FZero 1)
+                                           (\ b -> \ c -> z b)
+                                           a)
+                   x
+                   x)
+Not :: forall x :: * . *
+leibniz :: forall (x :: *)
+                  (y :: *)
+                  (z :: forall z :: x . y)
+                  (a :: x)
+                  (b :: x)
+                  (c :: Eq x a b) .
+           Eq y (z a) (z b)
+symm :: forall (x :: *) (y :: x) (z :: x) (a :: Eq x y z) .
+        Eq x z y
+tran :: forall (x :: *)
+               (y :: x)
+               (z :: x)
+               (a :: x)
+               (b :: Eq x y z)
+               (c :: Eq x z a) .
+        Eq x y a
+apply :: forall (x :: *) (y :: *) (z :: Eq * x y) (a :: x) . y
+p1IsNot0 :: forall x :: Eq Nat 1 0 . Fin 0
+p0IsNot1 :: forall x :: Eq Nat 0 1 . Fin 0
+p0IsNoSucc :: forall (x :: Nat) (y :: Eq Nat 0 (1 + x)) . Fin 0
+replicate :: forall (x :: Nat) (y :: *) (z :: y) . Vec y x
+replicate' :: forall (x :: *) (y :: Nat) (z :: x) . Vec x y
+fromto :: forall x :: Nat . Vec Nat x
+append :: forall (x :: *)
+                 (y :: Nat)
+                 (z :: Vec x y)
+                 (a :: Nat)
+                 (b :: Vec x a) .
+          Vec x
+            (natElim (\ c -> forall d :: Nat . Nat) (\ c -> c)
+               (\ c -> \ d -> \ e -> (1 + d e))
+               y
+               a)
+tail' :: forall (x :: *)
+                (y :: Nat)
+                (z :: Vec x y)
+                (a :: Nat)
+                (b :: Eq Nat y (1 + a)) .
+         Vec x a
+tail :: forall (x :: *) (y :: Nat) (z :: Vec x (1 + y)) . Vec x y
+at :: forall (x :: *) (y :: Nat) (z :: Vec x y) (a :: Fin y) . x
+head :: forall (x :: *) (y :: Nat) (z :: Vec x (1 + y)) . x
+map :: forall (x :: *)
+              (y :: *)
+              (z :: forall z :: x . y)
+              (a :: Nat)
+              (b :: Vec x a) .
+       Vec y a
+p0PlusNisN :: forall x :: Nat . Eq Nat x x
+pNPlus0isN :: forall x :: Nat .
+              Eq Nat
+                (natElim (\ y -> forall z :: Nat . Nat) (\ y -> y)
+                   (\ y -> \ z -> \ a -> (1 + z a))
+                   x
+                   0)
+                x
+LP> mult :: forall (x :: Nat) (y :: Nat) . Nat
+LP> pow :: forall (x :: Nat) (y :: Nat) . Nat
+LP> fact :: forall x :: Nat . Nat
+LP> sum :: forall x :: Nat . Nat
+LP> 1200 :: Nat
+LP> 729 :: Nat
+LP> 120 :: Nat
+LP> 1770 :: Nat
+LP> FSucc 1 (FZero 0) :: Fin 2
+LP> FSucc 1 (FZero 0) :: Fin 2
+LP> FSucc 1 (FZero 0) :: Fin 2
+LP> FZero 1 :: Fin 2
+LP> FSucc 1 (FZero 0) :: Fin 2
+LP> FSucc 1 (FZero 0) :: Fin 2
+LP> Cons Nat 24 24
+  (Cons Nat 23 23
+     (Cons Nat 22 22
+        (Cons Nat 21 21
+           (Cons Nat 20 20
+              (Cons Nat 19 19
+                 (Cons Nat 18 18
+                    (Cons Nat 17 17
+                       (Cons Nat 16 16
+                          (Cons Nat 15 15
+                             (Cons Nat 14 14
+                                (Cons Nat 13 13
+                                   (Cons Nat 12 12
+                                      (Cons Nat 11 11
+                                         (Cons Nat 10 10
+                                            (Cons Nat 9 9
+                                               (Cons Nat 8 8
+                                                  (Cons Nat 7 7
+                                                     (Cons Nat 6 6
+                                                        (Cons Nat 5 5
+                                                           (Cons Nat 4 4
+                                                              (Cons Nat 3 3
+                                                                 (Cons Nat 2 2
+                                                                    (Cons Nat 1 1
+                                                                       (Cons Nat 0 0
+                                                                          (Nil
+                                                                             Nat))))))))))))))))))))))))) :: Vec
+                                                                                                               Nat
+                                                                                                               25
+LP> Cons Nat 25 11
+  (Cons Nat 24 10
+     (Cons Nat 23 9
+        (Cons Nat 22 8
+           (Cons Nat 21 7
+              (Cons Nat 20 6
+                 (Cons Nat 19 5
+                    (Cons Nat 18 4
+                       (Cons Nat 17 3
+                          (Cons Nat 16 2
+                             (Cons Nat 15 1
+                                (Cons Nat 14 0
+                                   (Cons Nat 13 13
+                                      (Cons Nat 12 12
+                                         (Cons Nat 11 11
+                                            (Cons Nat 10 10
+                                               (Cons Nat 9 9
+                                                  (Cons Nat 8 8
+                                                     (Cons Nat 7 7
+                                                        (Cons Nat 6 6
+                                                           (Cons Nat 5 5
+                                                              (Cons Nat 4 4
+                                                                 (Cons Nat 3 3
+                                                                    (Cons Nat 2 2
+                                                                       (Cons Nat 1 1
+                                                                          (Cons Nat 0 0
+                                                                             (Nil
+                                                                                Nat)))))))))))))))))))))))))) :: Vec
+                                                                                                                   Nat
+                                                                                                                   26
+LP> Cons Nat 19 361
+  (Cons Nat 18 324
+     (Cons Nat 17 289
+        (Cons Nat 16 256
+           (Cons Nat 15 225
+              (Cons Nat 14 196
+                 (Cons Nat 13 169
+                    (Cons Nat 12 144
+                       (Cons Nat 11 121
+                          (Cons Nat 10 100
+                             (Cons Nat 9 81
+                                (Cons Nat 8 64
+                                   (Cons Nat 7 49
+                                      (Cons Nat 6 36
+                                         (Cons Nat 5 25
+                                            (Cons Nat 4 16
+                                               (Cons Nat 3 9
+                                                  (Cons Nat 2 4
+                                                     (Cons Nat 1 1
+                                                        (Cons Nat 0 0
+                                                           (Nil Nat)))))))))))))))))))) :: Vec Nat
+                                                                                             20
+LP> Cons (Fin 2) 29 (FSucc 1 (FZero 0))
+  (Cons (Fin 2) 28 (FSucc 1 (FZero 0))
+     (Cons (Fin 2) 27 (FSucc 1 (FZero 0))
+        (Cons (Fin 2) 26 (FSucc 1 (FZero 0))
+           (Cons (Fin 2) 25 (FSucc 1 (FZero 0))
+              (Cons (Fin 2) 24 (FSucc 1 (FZero 0))
+                 (Cons (Fin 2) 23 (FSucc 1 (FZero 0))
+                    (Cons (Fin 2) 22 (FSucc 1 (FZero 0))
+                       (Cons (Fin 2) 21 (FSucc 1 (FZero 0))
+                          (Cons (Fin 2) 20 (FSucc 1 (FZero 0))
+                             (Cons (Fin 2) 19 (FSucc 1 (FZero 0))
+                                (Cons (Fin 2) 18 (FSucc 1 (FZero 0))
+                                   (Cons (Fin 2) 17 (FSucc 1 (FZero 0))
+                                      (Cons (Fin 2) 16 (FSucc 1 (FZero 0))
+                                         (Cons (Fin 2) 15 (FSucc 1 (FZero 0))
+                                            (Cons (Fin 2) 14 (FSucc 1 (FZero 0))
+                                               (Cons (Fin 2) 13 (FSucc 1 (FZero 0))
+                                                  (Cons (Fin 2) 12 (FSucc 1 (FZero 0))
+                                                     (Cons (Fin 2) 11 (FSucc 1 (FZero 0))
+                                                        (Cons (Fin 2) 10 (FSucc 1 (FZero 0))
+                                                           (Cons (Fin 2) 9 (FSucc 1 (FZero 0))
+                                                              (Cons (Fin 2) 8 (FSucc 1 (FZero 0))
+                                                                 (Cons (Fin 2) 7 (FSucc 1 (FZero 0))
+                                                                    (Cons (Fin 2) 6
+                                                                       (FSucc 1 (FZero 0))
+                                                                       (Cons (Fin 2) 5
+                                                                          (FSucc 1 (FZero 0))
+                                                                          (Cons (Fin 2) 4
+                                                                             (FSucc 1 (FZero 0))
+                                                                             (Cons (Fin 2) 3
+                                                                                (FSucc 1 (FZero 0))
+                                                                                (Cons (Fin 2) 2
+                                                                                   (FSucc 1
+                                                                                      (FZero 0))
+                                                                                   (Cons (Fin 2) 1
+                                                                                      (FSucc 1
+                                                                                         (FZero 0))
+                                                                                      (Cons (Fin 2)
+                                                                                         0
+                                                                                         (FSucc 1
+                                                                                            (FZero
+                                                                                               0))
+                                                                                         (Nil
+                                                                                            (Fin
+                                                                                               2))))))))))))))))))))))))))))))) :: Vec
+                                                                                                                                     (Fin
+                                                                                                                                        2)
+                                                                                                                                     30
+LP> Vec Nat 7
+LP> forall x :: Nat . Eq Nat x x
+LP> 

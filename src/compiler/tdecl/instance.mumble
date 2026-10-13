@@ -391,10 +391,17 @@
 (define (rename-instance-decl decl new-instance-vars methods-used)
   (let ((decl-vars (collect-pattern-vars (valdef-lhs decl))))
     (dolist (var decl-vars)
-      (resolve-var var)
       ;; An instance's binding names the class's method, whatever is in
       ;; scope under that name (H2010 4.3.2): a module's fail or foldr may be
-      ;; the Prelude's while the class is PreludeModern's.
+      ;; the Prelude's while the class is PreludeModern's, and the class
+      ;; may be imported only qualified (Semigroup.<> in parsec).
+      (let ((by-name (lisp:find (var-ref-name var) new-instance-vars
+				:key (lambda (m-v) (def-name (tuple-2-1 m-v))))))
+	(if (and by-name
+		 (eq? (var-ref-var var) *undefined-def*)
+		 (eq? (resolve-toplevel-name (var-ref-name var)) '#f))
+	    (setf (var-ref-var var) (tuple-2-1 by-name))
+	    (resolve-var var)))
       (let* ((by-name (lisp:find (var-ref-name var) new-instance-vars
 				 :key (lambda (m-v) (def-name (tuple-2-1 m-v)))))
 	     (method (if (and by-name

@@ -4,5 +4,5 @@ macro-name
 NAME stays in strings, and TWICE(1) too
 feature on
 not ghc
-old base
+new base
 4

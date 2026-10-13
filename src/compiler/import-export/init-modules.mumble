@@ -32,6 +32,7 @@
 
 (define (init-standard-module)
    (setf (module-library? *module*) (dynamic *compiling-library?*))
+   (record-prelude-import-specs *module*)
    (let ((seen-prelude? '#f))
     (dolist (import (module-imports *module*))
       (let* ((name (import-decl-module-name import))
@@ -60,8 +61,7 @@
 		 (table-for-each (lambda (k v)
 				   (setf (table-entry fix-table k) v))
 				 *prelude-fixity-table*))))))
-    (when (and (modern-prelude?)
-	       (not (module-library? *module*))
+    (when (and (modern-module?)
 	       (not (module-prelude? *module*))
 	       (not (eq? *module-name* '|PreludeModern|)))
       (let ((modern  (locate-module '|PreludeModern|)))
@@ -95,7 +95,7 @@
 ;;; Under --modern-prelude a module's Prelude is Prelude and PreludeModern
 ;;; together, so a name hidden from it need be exported by only one.
 (define (quiet-unused-hiding? module-name)
-  (and (modern-prelude?)
+  (and (modern-module?)
        (memq module-name '(|Prelude| |PreludeModern|))))
 
 (define (add-imported-module module . maybe-hiding)
@@ -114,10 +114,13 @@
 (define *not-in-ghc-prelude*
   (cons (make entity-con (name '|Alternative|))
     (cons (make entity-con (name '|WrappedMonad|))
+     (cons (make entity-con (name '|NonEmpty|))
 	  (map (lambda (name) (make entity-var (name name)))
 	       '(|<**>| |liftA| |liftA3| |optional|
 		 ;; Data.Foldable's
-		 |toList| |foldl'| |foldr'| |find| |maximumBy| |minimumBy|)))))
+		 |toList| |foldl'| |foldr'| |find| |maximumBy| |minimumBy|
+		 ;; Data.Semigroup's
+		 |sconcat| |stimes|))))))
 
 (define (filter-complete-module-exports exports)
   (if (null? exports)

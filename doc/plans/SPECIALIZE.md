@@ -17,7 +17,9 @@ Status: implemented (2026-10-11), as planned below with these choices:
   (`dict-Ord-List dict-Ord-Int`) becomes a top-level `dict@spec`
   variable, made once (`specialized-dictionary`), which selector
   folding sees through.
-- Budget: 60 specializations per module; copies nothing calls after
+- Budget: 200 specializations per module (60 until 2026-10-12, when
+  cubicaltt's Eval, Connections and generated Exp.Abs all reached it;
+  YALE_HASKELL_SPECIALIZE_MAX overrides it); copies nothing calls after
   the last iteration are dropped (`remove-unused-specializations`).
 - `YALE_HASKELL_NO_SPECIALIZE=1` turns it off, for comparisons; a
   comma-separated list of module names turns it off in those only.

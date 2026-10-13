@@ -260,6 +260,30 @@
       '()))
 
 (define (parse-signature)
+  (if (parenthesized-qualified-type?)
+      ;; (C a => t), a whole signature in parentheses (GHC; parsec's
+      ;; alphaNum :: (Stream s m Char => ParsecT s u m Char))
+      (begin
+	(advance-token)
+	(let ((sig (parse-signature)))
+	  (require-token \) (signal-missing-token "`)'" "type signature"))
+	  sig))
+      (parse-signature-1)))
+
+(define (parenthesized-qualified-type?)
+  (and (haskell98?)
+       (eq-token? '\()
+       (let ((saved-excursion (save-scanner-state)))
+	 (advance-token)
+	 (let ((res (and (scan-for-context-arrow 0)
+			 ;; the parentheses close the whole signature:
+			 ;; (forall a. C a => a -> t) -> u is a rank-2 argument
+			 (scan-to-close-paren 0)
+			 (not (memq *token* '(-> varid conid \( \[))))))
+	   (restore-excursion saved-excursion)
+	   res))))
+
+(define (parse-signature-1)
   (let ((foralls (skip-explicit-forall)))
     (mlet (((contexts mcontexts) (split-contexts (parse-optional-context)))
 	   (type (parse-type)))

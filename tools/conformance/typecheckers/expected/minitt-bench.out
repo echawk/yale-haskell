@@ -1,0 +1,22 @@
+checking let Bool : U = Sum (true 1 | false 1)
+checking letrec Nat : U = Sum (zero 1 | succ Nat)
+checking let one : Nat = $ succ ($ zero 0)
+checking let two : Nat = $ succ one
+checking let three : Nat = $ succ two
+checking letrec add : Pi _ : Nat . Pi _ : Nat . Nat = \ x . fun (zero -> \ _ . x | succ -> \ y . $ succ (add x y))
+checking letrec mult : Pi _ : Nat . Pi _ : Nat . Nat = \ x . fun (zero -> \ _ . $ zero 0 | succ -> \ y . add x (mult x y))
+checking letrec pow : Pi _ : Nat . Pi _ : Nat . Nat = \ x . fun (zero -> \ _ . one | succ -> \ y . mult x (pow x y))
+checking letrec eqNat : Pi _ : Nat . Pi _ : Nat . Bool = fun (zero -> \ _ . fun (zero -> \ _ . $ true 0 | succ -> \ y . $ false 0) | succ -> \ x . fun (zero -> \ _ . $ false 0 | succ -> \ y . eqNat x y))
+checking let Empty : U = Sum ()
+checking let IsTrue : Pi _ : Bool . U = fun (true -> \ _ . 1 | false -> \ _ . Empty)
+checking letrec T : Pi _ : Nat . U = fun (zero -> \ _ . 1 | succ -> \ n . T n)
+checking let ten : Nat = add (mult three three) one
+checking let x1 : T (pow two ten) = 0
+checking let x2 : T (pow three (add three (add two two))) = 0
+checking let p1 : IsTrue (eqNat (pow two ten) (mult (pow two (add three two)) (pow two (add three two)))) = 0
+checking let p2 : IsTrue (eqNat (mult (pow three three) (pow three three)) (pow three (add three three))) = 0
+checking letrec List : Pi _ : U . U = \ A . Sum (nil 1 | cons (Sig _ : A . List A))
+checking letrec replicate : Pi _ : Nat . Pi A : U . Pi _ : A . List A = fun (zero -> \ _ . \ A . \ a . $ nil 0 | succ -> \ n . \ A . \ a . $ cons (a, replicate n A a))
+checking letrec length : Pi A : U . Pi _ : List A . Nat = \ A . fun (nil -> \ _ . $ zero 0 | cons -> \ (a, as) . $ succ (length A as))
+checking let p3 : IsTrue (eqNat (length Nat (replicate (pow two (add ten one)) Nat one)) (pow two (add ten one))) = 0
+type-checking succeded.

@@ -117,22 +117,93 @@ Wall-clock time to check each file, one at a time unless noted, on an
 Apple M-series machine; Yale's includes about 0.6 s of start-up and
 loading the compiled program.
 
-| example | Yale | GHC -O | ratio |
-|---|---|---|---|
-| univprop | 81.6 s | 27.8 s | 2.9× |
-| csystem | 75.4 s | 19.1 s | 3.9× |
-| torsor | 35.3 s | 9.1 s | 3.9× |
-| opposite | 20.0 s | 4.6 s | 4.4× |
-| category | 19.0 s | 4.6 s | 4.1× |
-| grothendieck | 11.7 s | 2.9 s | 4.0× |
-| hz | 5.4 s | 1.1 s | 4.7× |
-| setquot | 4.9 s | 1.0 s | 4.9× |
-| the other 35 | 0.7–2.1 s each | 0.04–0.6 s | mostly start-up |
+| example | Yale, first | Yale, now | GHC -O | ratio now |
+|---|---|---|---|---|
+| univprop | 81.6 s | 27.0 s | 27.8 s | 0.97× |
+| csystem | 75.4 s | 17.6 s | 19.1 s | 0.92× |
+| torsor | 35.3 s | 13.0 s | 9.1 s | 1.4× |
+| opposite | 20.0 s | 5.0 s | 4.6 s | 1.1× |
+| category | 19.0 s | 5.7 s | 4.6 s | 1.2× |
+| grothendieck | 11.7 s | 6.4 s | 2.9 s | 2.2× |
+| hz | 5.4 s | 3.2 s | 1.1 s | 2.8× |
+| setquot | 4.9 s | 2.9 s | 1.0 s | 2.9× |
+| the other 34 | 0.7–2.1 s | 0.6–1.9 s | 0.04–0.6 s | mostly start-up |
 
-(The Yale column was measured with four examples running at once, so it
-is slightly pessimistic.)  Compiling cubicaltt from scratch, libraries
+"First" is the round that brought cubicaltt up; "now" is after the
+optimizations below (2026-10-12), measured two examples at a time on a
+loaded machine.  Most of the change is one thing: tuple instances.
+cubicaltt compares environments (`Eq Ctxt`, `Eq Loc`, an `Env` that is a
+4-tuple) constantly, and every tuple comparison used to build `Eq`
+dictionaries at run time and go through a generic loop
+(`PreludeTuple.tupleEq`); the Prelude now has GHC's instances for 2- to
+7-tuples as ordinary code, which the specializer and inliner handle.
+
+Compiling cubicaltt from scratch, libraries
 included, takes about a minute; the unit cache makes later runs start in
 under a second.
+
+## Two more checkers: LambdaPi and Mini-TT
+
+    tools/conformance/typecheckers.py [-v] [NAME ...]
+
+Two small dependently typed checkers of the same family, smaller and
+older than cubicaltt, run unchanged, with output identical to GHC's:
+
+- **LambdaPi** (Löh, McBride and Swierstra's tutorial implementation,
+  2010; about 1,200 lines): Haskell 98 with parsec, old mtl's
+  `Control.Monad.Error`, readline and the Prelude's `catch`.  It runs in
+  Yale's plain Haskell 98 mode.  Its module is `LP`, so a two-line `Main`
+  wrapper calls it (GHC needs `-main-is` for it).  Sessions are fed to
+  its interpreter: `smoke.in` loads its prelude and browses it;
+  `bench.in` does unary arithmetic by `natElim` (factorials, powers to
+  2^19, `natEq` on the results), vectors and proofs.
+- **Mini-TT** (Coquand, Kinoshita, Nordström and Takeyama, 2009, the
+  paper's ~400 lines with a BNFC parser): checks the paper's examples
+  and `bench.mtt`, where types are computed by unary arithmetic
+  (`T (pow two eleven)`), which the conversion check must normalize.
+
+The GHC builds need patches (no `Control.Monad.Error` in mtl 2.3, no
+readline package, no Prelude `catch`, `<>` in the Prelude); Yale runs
+the sources as written.  Neither repository gives a licence, so the
+script fetches them at pinned versions and nothing of theirs is
+committed; Mini-TT's parser is generated at run time (BNFC_BIN).
+
+What they needed: parsec 3.1.18, ported unchanged (BSD, with its
+`Text.ParserCombinators.Parsec` compatibility modules), as a `:package`
+unit, which gives a library unit base's Prelude in every mode;
+CPP's `MIN_VERSION_pkg`; `Control.Monad.Error`, `Control.Monad.Cont`,
+`System.Console.Readline`, `Data.Data`, `Data.Text.Lazy`; `sconcat` and
+`stimes` as `Semigroup` methods and NonEmpty's instances in
+PreludeModern, as base has them; and these fixes:
+
+- instance methods of a class imported only qualified (`instance
+  Semigroup.Semigroup ... where (<>) = ...`);
+- `(C a => t)`, a whole signature in parentheses;
+- the monomorphism restriction generalized type variables that pending
+  constraints still mentioned (`Eq (t b)` once `null` is Foldable's, a
+  variable determined only by a functional dependency), which then could
+  not be defaulted;
+- a signature's multi-parameter constraints did not improve the body's
+  by functional dependency when the dictionaries were attached, so a
+  type variable only in the constraints (`(Show t, Stream s m t) =>
+  s -> m String`) was lost;
+- `import Prelude hiding ((*))` and a definition of `*`: a Prelude class
+  method could not be redefined (and the hidden one was still used);
+- an explicit `import Prelude hiding (...)` brought the Haskell 98
+  Monad's `fail` back under `--modern-prelude`.
+
+| benchmark | Yale | GHC -O | ratio | Yale GC | GHC GC | allocated, Yale / GHC |
+|---|---|---|---|---|---|---|
+| lambdapi-bench | 3.9 s | 1.2 s | 3.2× | 2.2 s | 0.32 s | 4.4 / 3.1 GB |
+| minitt-bench | 3.1 s | 1.2 s | 2.6× | 1.1 s | 0.53 s | 4.0 / 2.5 GB |
+
+These evaluators are dominated by closures and thunks.  Yale allocates
+1.5–1.6 times GHC's bytes (a thunk is a cons plus a closure, a
+constructor a vector with its tag) and spends much more time in SBCL's
+collector than GHC in its own; the mutator alone is 1.6× (LambdaPi) and
+2.4× (Mini-TT) GHC's.  Closing that is representation work (smaller
+thunks and constructors) and fewer thunks (stronger demand analysis),
+not a missing simplifier pass.
 
 ## Next: libraries
 
@@ -142,7 +213,7 @@ internals.
 
 | library | needed by | approach | size |
 |---|---|---|---|
-| parsec 3 | most parsers that are not generated | port the source: it needs MultiParamTypeClasses, FlexibleInstances, FlexibleContexts, RankNTypes, all present | small |
+| parsec 3 | most parsers that are not generated | **done** (2026-10-12): the unchanged source, a `:package` unit | small |
 | megaparsec | modern parsers | after parsec; needs TypeFamilies (present) and a Stream class over Text | medium |
 | optparse-applicative | almost every command-line tool | the source is plain Applicative code over Text.PrettyPrint.ANSI; port with a no-colour prettyprinter | medium |
 | a packed Text and ByteString | anything that reads files | keep the API, change the representation to Lisp strings and `(unsigned-byte 8)` vectors (GHC-EXTENSIONS.md, "What running modern Haskell needs") | medium |
@@ -154,9 +225,8 @@ internals.
 | QuickCheck's full API | test suites | the rest of QuickCheck 2: Gen combinators, `quickCheckWith`, labels, `Testable` instances for functions of more arguments | small |
 | stm with threads | concurrent programs | needs the threaded runtime first (GHC-EXTENSIONS.md tier 4) | large |
 
-Programs of the same kind as cubicaltt to try next, each a step up:
-**LambdaPi** (Löh, McBride and Swierstra's tutorial checker) and
-**Mini-TT** are small dependently typed checkers that should run now;
+Programs of the same kind as cubicaltt to try next, each a step up
+(LambdaPi and Mini-TT, suggested here first, now run):
 **Elm 0.x's compiler** and a **Scheme interpreter in the "Write Yourself
 a Scheme" style** need parsec; a **terminal roguelike** (no graphics
 library needed) would exercise records, State and Data.Map in a long
@@ -164,37 +234,45 @@ interactive loop.
 
 ## Next: optimizations
 
-A profile of grothendieck.ctt (`YALE_HASKELL_PROFILE=1`) puts most of
-the time in forcing thunks (80% of samples below `FORCE-THUNK`) and, as
-self time, in derived equality: `Eq [a]` specialized at CTT's types,
-`Eq Loc`, `Eq Ctxt`, and `tupleEq`, `Data.List.unionBy` and
-`deleteFirstsBy` under the nominal `support` functions.  GHC does the
-same comparisons; what Yale adds is visible in two rows:
-`TUPLEEQDICT/L`, a tuple's `Eq` dictionary built at run time from its
-components' on every use (`src/runtime/tuple-prims.mumble`), and the generic
-`tupleEq` it dispatches through.  The specializer makes Map's `Ord`
-dictionaries at `Name` and `Face` constant already (`compare@spec`).
-In order of expected effect here (GHC-OPTIMIZATIONS.md §3 has the full
-list):
+Done in this round (2026-10-12), measured:
 
-0. **Constant tuple dictionaries**: treat `tupleEqDict d1 d2` (and the
-   Ord, Show and Ix ones) with constant arguments as a constant
-   dictionary, so the specializer and selector folding see through it
-   as they do for `dict-Eq-List dict-Eq-Char`; and derive a tuple's
-   `==` per arity instead of through the generic runtime function.
-   Cheap, and it removes the 3% spent building dictionaries.
-1. **Worker/wrapper with CPR** (unboxed returns through CL `values`):
-   the ExceptT/ReaderT layers return `Either` values that are tested at
-   once; a constructed-product return would avoid the allocation.
-2. **Case of case with join points**: the `>>=` of ExceptT inlined into
-   ReaderT's leaves `case (case … of Left → …; Right → …) of …`, which
-   `let-case-of-case` handles only for small bodies.
-3. **A size-based inliner**: much of the remaining dictionary-passing
-   overhead is small library functions without `Inline` annotations.
-4. **SpecConstr**: the evaluator's recursion over `Val` with known
-   constructors at recursive calls.
-5. **Update avoidance** for single-entry thunks (usage analysis):
-   evaluation-heavy code creates many thunks forced exactly once.
+- **Tuple instances as code** (2- to 7-tuples, PreludeCore.hs): the
+  largest win, above.  A profile had put 74% of torsor's samples under
+  the generic `tupleEq` and its run-time dictionaries (`TUPLEEQDICT/L`).
+- **Specializer budget** 60 → 200 per module: Eval, Connections and
+  Exp.Abs had reached 60; torsor allocates 4% less.
+- **Block-buffered stdout** when it is not a terminal (6% of torsor was
+  a `write` per output line).
+- **Blackholing drops the closure** while a thunk is evaluated, as GHC's
+  does (no measurable change on these benchmarks, but it removes a
+  space leak).
+- Tried and dropped: writing evaluated values back into the fields that
+  held their thunks (GHC's collector removes such indirections; doing
+  it in the mutator measured no gain).
 
-Measure with `tools/conformance/cubicaltt.py csystem univprop category`
-before and after; the per-example ratios above are the baseline.
+What the profiles show now:
+
+- cubicaltt: string equality (`Eq [Char]`, specialized, 17% of torsor)
+  and `Data.List.unionBy` under the nominal `support` functions; the
+  same work GHC does.  torsor and grothendieck remain at 1.4× and 2.2×.
+- LambdaPi and Mini-TT: GC (above), then closure and thunk allocation in
+  their evaluators.
+
+In order of expected effect (GHC-OPTIMIZATIONS.md §3 has the full list):
+
+1. **Smaller thunks and constructors**: a thunk is a two-word cons plus
+   a closure; a constructor is a vector with a tag word.  A one-object
+   thunk (a funcallable instance or a closure with a mutable slot) and
+   struct instances for constructors (SBCL allocates those inline; a
+   simple vector is a call on arm64) would cut allocation and GC.
+2. **Demand analysis upgrades** (fewer thunks): absence, and strictness
+   of constructor fields and of arguments through `>>=` of the
+   transformer stacks these checkers use.
+3. **Worker/wrapper with CPR** (unboxed returns through CL `values`):
+   the ExceptT/ReaderT layers return `Either` values tested at once.
+4. **Case of case with join points**.
+5. **A size-based inliner**.
+
+Measure with `tools/conformance/cubicaltt.py torsor grothendieck`,
+`tools/conformance/typecheckers.py`, and `YALE_HASKELL_TIME=1` for GC
+time and bytes allocated (which do not depend on machine load).

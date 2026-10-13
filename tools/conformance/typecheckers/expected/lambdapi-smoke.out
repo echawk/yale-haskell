@@ -1,0 +1,259 @@
+Interpreter for lambda-Pi.
+Type :? for help.
+LP> id :: forall (x :: *) (y :: x) . x
+const :: forall (x :: *) (y :: *) (z :: x) (a :: y) . x
+plus :: forall (x :: Nat) (y :: Nat) . Nat
+pred :: forall x :: Nat . Nat
+natFold :: forall (x :: *)
+                  (y :: x)
+                  (z :: forall z :: x . x)
+                  (a :: Nat) .
+           x
+nat1Elim :: forall (x :: forall x :: Nat . *)
+                   (y :: x 0)
+                   (z :: x 1)
+                   (a :: forall (a :: Nat) (b :: x (1 + a)) . x (2 + a))
+                   (b :: Nat) .
+            x b
+nat2Elim :: forall (x :: forall x :: Nat . *)
+                   (y :: x 0)
+                   (z :: x 1)
+                   (a :: x 2)
+                   (b :: forall (b :: Nat) (c :: x (2 + b)) . x (3 + b))
+                   (c :: Nat) .
+            x c
+inc :: forall x :: Nat . Nat
+finNat :: forall (x :: Nat) (y :: Fin x) . Nat
+Unit :: *
+U :: Fin 1
+unitElim :: forall (x :: forall x :: Fin 1 . *)
+                   (y :: x (FZero 0))
+                   (z :: Fin 1) .
+            x z
+Void :: *
+voidElim :: forall (x :: forall x :: Fin 0 . *) (y :: Fin 0) . x y
+Bool :: *
+False :: Fin 2
+True :: Fin 2
+boolElim :: forall (x :: forall x :: Fin 2 . *)
+                   (y :: x (FZero 1))
+                   (z :: x (FSucc 1 (FZero 0)))
+                   (a :: Fin 2) .
+            x a
+not :: forall x :: Fin 2 . Fin 2
+and :: forall (x :: Fin 2) (y :: Fin 2) . Fin 2
+or :: forall (x :: Fin 2) (y :: Fin 2) . Fin 2
+iff :: forall (x :: Fin 2) (y :: Fin 2) . Fin 2
+xor :: forall (x :: Fin 2) (y :: Fin 2) . Fin 2
+even :: forall x :: Nat . Fin 2
+odd :: forall x :: Nat . Fin 2
+isZero :: forall x :: Nat . Fin 2
+isSucc :: forall x :: Nat . Fin 2
+natEq :: forall (x :: Nat) (y :: Nat) . Fin 2
+Prop :: forall x :: Fin 2 . *
+pNatEqRefl :: forall x :: Nat .
+              finElim
+                (\ y -> natElim (\ z -> forall a :: Fin z . *) (\ z -> Fin 1)
+                          (\ z -> \ a -> natElim (\ b -> forall c :: Fin (1 + b) . *)
+                                           (\ b -> Fin 1)
+                                           (\ b -> \ c -> natElim
+                                                            (\ d -> forall e :: Fin (2 + d) . *)
+                                                            (\ d -> *)
+                                                            (\ d -> \ e -> \ f -> Fin 1)
+                                                            b)
+                                           z)
+                          y)
+                (\ y -> natElim
+                          (\ z -> natElim (\ a -> forall b :: Fin (1 + a) . *) (\ a -> Fin 1)
+                                    (\ a -> \ b -> natElim (\ c -> forall d :: Fin (2 + c) . *)
+                                                     (\ c -> *)
+                                                     (\ c -> \ d -> \ e -> Fin 1)
+                                                     a)
+                                    z
+                                    (FZero z))
+                          (FZero 0)
+                          (\ z -> \ a -> natElim
+                                           (\ b -> natElim (\ c -> forall d :: Fin (2 + c) . *)
+                                                     (\ c -> *)
+                                                     (\ c -> \ d -> \ e -> Fin 1)
+                                                     b
+                                                     (FZero (1 + b)))
+                                           (Fin 0)
+                                           (\ b -> \ c -> FZero 0)
+                                           z)
+                          y)
+                (\ y -> \ z -> \ a -> finElim
+                                        (\ b -> \ c -> natElim (\ d -> forall e :: Fin (1 + d) . *)
+                                                         (\ d -> Fin 1)
+                                                         (\ d -> \ e -> natElim
+                                                                          (\ f -> forall g :: Fin
+                                                                                                (2 + f) .
+                                                                                  *)
+                                                                          (\ f -> *)
+                                                                          (\ f -> \ g -> \ h -> Fin
+                                                                                                  1)
+                                                                          d)
+                                                         b
+                                                         (FSucc b c))
+                                        (\ b -> natElim
+                                                  (\ c -> natElim
+                                                            (\ d -> forall e :: Fin (2 + d) . *)
+                                                            (\ d -> *)
+                                                            (\ d -> \ e -> \ f -> Fin 1)
+                                                            c
+                                                            (FSucc (1 + c) (FZero c)))
+                                                  (Fin 1)
+                                                  (\ c -> \ d -> FZero 0)
+                                                  b)
+                                        (\ b -> \ c -> \ d -> finElim
+                                                                (\ e -> \ f -> natElim
+                                                                                 (\ g -> forall h :: Fin
+                                                                                                       (2 + g) .
+                                                                                         *)
+                                                                                 (\ g -> *)
+                                                                                 (\ g -> \ h -> \ i -> Fin
+                                                                                                         1)
+                                                                                 e
+                                                                                 (FSucc (1 + e)
+                                                                                    (FSucc e f)))
+                                                                (\ e -> FZero 0)
+                                                                (\ e -> \ f -> \ g -> FZero 0)
+                                                                b
+                                                                c)
+                                        y
+                                        z)
+                2
+                (natElim (\ y -> forall z :: Nat . Fin 2)
+                   (\ y -> natElim (\ z -> Fin 2) (FSucc 1 (FZero 0))
+                             (\ z -> \ a -> FZero 1)
+                             y)
+                   (\ y -> \ z -> \ a -> natElim (\ b -> Fin 2) (FZero 1)
+                                           (\ b -> \ c -> z b)
+                                           a)
+                   x
+                   x)
+Not :: forall x :: * . *
+leibniz :: forall (x :: *)
+                  (y :: *)
+                  (z :: forall z :: x . y)
+                  (a :: x)
+                  (b :: x)
+                  (c :: Eq x a b) .
+           Eq y (z a) (z b)
+symm :: forall (x :: *) (y :: x) (z :: x) (a :: Eq x y z) .
+        Eq x z y
+tran :: forall (x :: *)
+               (y :: x)
+               (z :: x)
+               (a :: x)
+               (b :: Eq x y z)
+               (c :: Eq x z a) .
+        Eq x y a
+apply :: forall (x :: *) (y :: *) (z :: Eq * x y) (a :: x) . y
+p1IsNot0 :: forall x :: Eq Nat 1 0 . Fin 0
+p0IsNot1 :: forall x :: Eq Nat 0 1 . Fin 0
+p0IsNoSucc :: forall (x :: Nat) (y :: Eq Nat 0 (1 + x)) . Fin 0
+replicate :: forall (x :: Nat) (y :: *) (z :: y) . Vec y x
+replicate' :: forall (x :: *) (y :: Nat) (z :: x) . Vec x y
+fromto :: forall x :: Nat . Vec Nat x
+append :: forall (x :: *)
+                 (y :: Nat)
+                 (z :: Vec x y)
+                 (a :: Nat)
+                 (b :: Vec x a) .
+          Vec x
+            (natElim (\ c -> forall d :: Nat . Nat) (\ c -> c)
+               (\ c -> \ d -> \ e -> (1 + d e))
+               y
+               a)
+tail' :: forall (x :: *)
+                (y :: Nat)
+                (z :: Vec x y)
+                (a :: Nat)
+                (b :: Eq Nat y (1 + a)) .
+         Vec x a
+tail :: forall (x :: *) (y :: Nat) (z :: Vec x (1 + y)) . Vec x y
+at :: forall (x :: *) (y :: Nat) (z :: Vec x y) (a :: Fin y) . x
+head :: forall (x :: *) (y :: Nat) (z :: Vec x (1 + y)) . x
+map :: forall (x :: *)
+              (y :: *)
+              (z :: forall z :: x . y)
+              (a :: Nat)
+              (b :: Vec x a) .
+       Vec y a
+p0PlusNisN :: forall x :: Nat . Eq Nat x x
+pNPlus0isN :: forall x :: Nat .
+              Eq Nat
+                (natElim (\ y -> forall z :: Nat . Nat) (\ y -> y)
+                   (\ y -> \ z -> \ a -> (1 + z a))
+                   x
+                   0)
+                x
+LP> forall (x :: Nat) (y :: Nat) . Nat
+LP> 3 :: Nat
+LP> finElim
+Fin
+FSucc
+FZero
+eqElim
+Eq
+Refl
+vecElim
+Vec
+Cons
+Nil
+natElim
+Nat
+Succ
+Zero
+id
+const
+plus
+pred
+natFold
+nat1Elim
+nat2Elim
+inc
+finNat
+Unit
+U
+unitElim
+Void
+voidElim
+Bool
+False
+True
+boolElim
+not
+and
+or
+iff
+xor
+even
+odd
+isZero
+isSucc
+natEq
+Prop
+pNatEqRefl
+Not
+leibniz
+symm
+tran
+apply
+p1IsNot0
+p0IsNot1
+p0IsNoSucc
+replicate
+replicate'
+fromto
+append
+tail'
+tail
+at
+head
+map
+p0PlusNisN
+pNPlus0isN
+it
+LP> 

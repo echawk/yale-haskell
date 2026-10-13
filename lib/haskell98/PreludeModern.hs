@@ -16,7 +16,8 @@
 module PreludeModern (
     Applicative(pure, (<*>), (*>), (<*)), Alternative(empty, (<|>), some, many),
     MonadFail(fail), (<$>), (<$), (<**>), liftA, liftA2, liftA3, optional,
-    Semigroup((<>)), Monoid(mempty, mappend, mconcat),
+    Semigroup((<>), sconcat, stimes), Monoid(mempty, mappend, mconcat),
+    NonEmpty((:|)),
     Foldable(foldMap, foldr, foldl, foldr', foldl', foldr1, foldl1, toList,
              null, length, elem, maximum, minimum, sum, product),
     Traversable(traverse, sequenceA, mapM, sequence),
@@ -157,6 +158,50 @@ instance Monoid b => Monoid (a -> b) where
 
 class Semigroup a where
   (<>) :: a -> a -> a
+  sconcat :: NonEmpty a -> a
+  stimes :: Integral b => b -> a -> a
+
+  sconcat (a :| as) = go a as
+    where go b (c : cs) = b <> go c cs
+          go b [] = b
+  stimes n x
+    | n <= 0 = error "stimes: positive multiplier expected"
+    | n == 1 = x
+    | even n = let y = stimes (n `div` 2) x in y <> y
+    | otherwise = x <> stimes (n - 1) x
+
+-- Data.List.NonEmpty's type, here for sconcat (base: GHC.Base); not
+-- exported by the implicit import (*not-in-ghc-prelude*).
+infixr 5 :|
+data NonEmpty a = a :| [a] deriving (Eq, Ord, Show, Read)
+
+neList :: NonEmpty a -> [a]
+neList (x :| xs) = x : xs
+
+neFromList :: [a] -> NonEmpty a
+neFromList (x : xs) = x :| xs
+neFromList [] = error "NonEmpty.fromList: empty list"
+
+instance Functor NonEmpty where
+  fmap f (x :| xs) = f x :| L.map f xs
+
+instance Foldable NonEmpty where
+  foldr f z (x :| xs) = f x (L.foldr f z xs)
+  null _ = False
+
+instance Traversable NonEmpty where
+  traverse f (x :| xs) = liftA2 (:|) (f x) (traverse f xs)
+
+instance Applicative NonEmpty where
+  pure x = x :| []
+  fs <*> xs = neFromList [f x | f <- neList fs, x <- neList xs]
+
+instance Monad NonEmpty where
+  return x = x :| []
+  m >>= f = neFromList (L.concatMap (neList . f) (neList m))
+
+instance Semigroup (NonEmpty a) where
+  (x :| xs) <> (y :| ys) = x :| (xs ++ y : ys)
 
 class Semigroup a => Monoid a where
   mempty  :: a

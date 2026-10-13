@@ -24,7 +24,7 @@ compiler = "ghc"
 compiler = "not ghc"
 #endif
 
-#if MIN_VERSION_base(4,8,0)
+#if MIN_VERSION_base(4,8,0) && !MIN_VERSION_base(99,0,0) && !MIN_VERSION_unknownpkg(0,0,0)
 base = "new base"
 #else
 base = "old base"

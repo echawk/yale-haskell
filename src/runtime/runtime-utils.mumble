@@ -88,9 +88,15 @@
 		(setf (dynamic *blackhole-trail*) old)
 		(setf (car th) '|%thunk-evaluated%|)
 		(setf (cdr th) result)))
-	    (let ((result (funcall (the function code))))
-	      (setf (car th) '|%thunk-evaluated%|)
-	      (setf (cdr th) result))))))
+	    (begin
+	      ;; Drop the closure while it runs, as GHC's blackholing does:
+	      ;; the thunk no longer keeps the closure's free variables alive
+	      ;; (often a whole environment) for the length of its
+	      ;; evaluation.  Kept when tracking, to restore the thunk.
+	      (setf (cdr th) '())
+	      (let ((result (funcall (the function code))))
+		(setf (car th) '|%thunk-evaluated%|)
+		(setf (cdr th) result)))))))
 
 
 ;;; (delay form)

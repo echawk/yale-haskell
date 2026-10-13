@@ -1,7 +1,7 @@
--- Data.Semigroup (base): Semigroup (PreludeModern's), sconcat and stimes
--- as functions (they are methods in base), and the semigroup newtypes.
+-- Data.Semigroup (base): Semigroup (PreludeModern's, with sconcat and
+-- stimes), and the semigroup newtypes.
 module Data.Semigroup (
-    Semigroup((<>)), sconcat, stimes, stimesMonoid, cycle1, mtimesDefault,
+    Semigroup((<>), sconcat, stimes), stimesMonoid, cycle1, mtimesDefault,
     Min(Min, getMin), Max(Max, getMax), First(First, getFirst),
     Last(Last, getLast), WrappedMonoid(WrapMonoid, unwrapMonoid),
     Dual(Dual, getDual), Endo(Endo, appEndo), All(All, getAll),
@@ -11,19 +11,7 @@ module Data.Semigroup (
 
 import PreludeModern
 import Data.Monoid (Dual(..), Endo(..), All(..), Any(..), Sum(..), Product(..))
-import Data.List.NonEmpty (NonEmpty((:|)))
 
-sconcat :: Semigroup a => NonEmpty a -> a
-sconcat (a :| as) = go a as
-  where go b (c : cs) = b <> go c cs
-        go b [] = b
-
-stimes :: (Integral b, Semigroup a) => b -> a -> a
-stimes n x
-  | n <= 0 = error "stimes: positive multiplier expected"
-  | n == 1 = x
-  | even n = let y = stimes (n `div` 2) x in y <> y
-  | otherwise = x <> stimes (n - 1) x
 
 stimesMonoid :: (Integral b, Monoid a) => b -> a -> a
 stimesMonoid n x = if n == 0 then mempty else stimes n x

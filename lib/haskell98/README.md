@@ -54,12 +54,13 @@ rejects re-exporting an entity it gets from the Prelude.
   Dialogue I/O names.
 - **Always in scope** (compiler core symbols in `PreludeCore`): the
   types `Ratio`, `Complex` (with `:+`) and `Array`.  Programs cannot
-  define these names.  (`Assoc` and `:=` are core symbols too, but user
-  modules may define them: `hidden-core-name?` in
-  `top/symbol-table.mumble`.)  The 1.2 `Text`, `Binary` and `Bin` are not
+  define these names unless their `import Prelude` hides them (`import
+  Prelude hiding ((*))`; `Assoc` and `:=` always may be defined:
+  `hidden-core-name?` in `top/symbol-table.mumble`).  The 1.2 `Text`, `Binary` and `Bin` are not
   core names here (`*feature-retired-names*` in
   `top/core-symbols.mumble`).
-- The runtime builds
+- Tuples of 2 to 7 components have `Eq` and `Ord` instances in
+  PreludeCore.hs, as base has; otherwise the runtime builds
   tuple dictionaries for `Eq`, `Ord`, `Ix`, `Bounded`, `Show` and `Read`; superclass slots are
   computed from the class definitions, and `compare` is the last `Ord`
   method; `Ix`'s methods are range, index, inRange, rangeSize
@@ -68,3 +69,10 @@ rejects re-exporting an entity it gets from the Prelude.
 - `Char` is Latin-1; the character predicates follow Latin-1.
 - Programs run with the host's float traps masked, so `1/0` is `Infinity`
   and `0/0` is `NaN`, as in H98.
+- A unit file (`.hu`) with a `:package` line is a package written against
+  GHC's base, ported unchanged (parsec, `Text/Parsec*`): its modules see
+  base's Prelude (PreludeModern imported implicitly, Foldable's names and
+  MonadFail's `fail`, no `catch`) whatever the dialect mode, where other
+  library modules see the Haskell 98 Prelude.  CPP's `MIN_VERSION_pkg`
+  answers from the versions in `*cpp-package-versions*`
+  (`src/compiler/parser/cpp.mumble`).

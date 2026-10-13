@@ -201,6 +201,24 @@
 
 (define *compiling-library?* '#f)
 
+;;; A library unit whose .hu says :package is a port of a package written
+;;; against GHC's base (parsec): its modules get base's Prelude, as user
+;;; modules do under --modern-prelude, in every mode (modern-module?).
+;;; *package-units* holds the .hu names, as the unit files are read.
+
+(define *compiling-package?* '#f)
+(define *package-units* (lisp:make-hash-table :test (function lisp:equal)))
+
+(define (package-unit? ufile)
+  (lisp:values (lisp:gethash ufile *package-units*)))
+
+;;; Whether the module being compiled sees base's Prelude: PreludeModern
+;;; imported implicitly, Foldable's names and MonadFail's fail in place of
+;;; the Haskell 98 Prelude's.
+(define (modern-module?)
+  (or (dynamic *compiling-package?*)
+      (and (modern-prelude?) (not (dynamic *compiling-library?*)))))
+
 (define (library-source-file? file)
   (and (string? file)
        (or (string-starts? "$HASKELL_LIBRARY/" file)

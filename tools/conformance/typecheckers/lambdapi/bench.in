@@ -1,0 +1,21 @@
+:load prelude.lp
+let mult = natElim (\ _ -> Nat -> Nat) (\ _ -> Zero) (\ p rec n -> plus n (rec n))
+let pow = (\ b e -> natElim (\ _ -> Nat) 1 (\ p rec -> mult b rec) e) :: Nat -> Nat -> Nat
+let fact = natElim (\ _ -> Nat) 1 (\ p rec -> mult (Succ p) rec)
+let sum = natElim (\ _ -> Nat) 0 (\ p rec -> plus p rec)
+mult 40 30
+pow 3 6
+fact 5
+sum 60
+natEq (fact 9) (mult 36288 10)
+natEq (pow 2 19) (mult 512 1024)
+natEq (sum 700) (mult 350 699)
+even (pow 3 9)
+odd (sum 150)
+natEq (pow 7 6) (mult 343 343)
+fromto 25
+append Nat 12 (fromto 12) 14 (fromto 14)
+map Nat Nat (\ x -> mult x x) 20 (fromto 20)
+replicate 30 Bool True
+:type append Nat 3 (fromto 3) 4 (fromto 4)
+:type p0PlusNisN

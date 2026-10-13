@@ -41,6 +41,33 @@
 (define prim.stderr-handle (make-haskell-handle 'stderr "<stderr>" '#f '#t '#f))
 (setf (haskell-handle-buffering prim.stderr-handle) 0)
 
+;;; At a program's start: standard output is line-buffered on a terminal
+;;; and block-buffered otherwise, as GHC's is, so that output to a file
+;;; or a pipe is not a write per line.  (The REPL keeps line buffering.)
+;;; YALE_HASKELL_NURSERY_MB: SBCL's allocation between collections
+;;; (bytes-consed-between-gcs), for experiments; YALE_HASKELL_GC_LOG=1:
+;;; the heap in use after each collection, on stderr.
+(define (init-gc-parameters)
+  #+sbcl
+  (let ((mb (getenv "YALE_HASKELL_NURSERY_MB")))
+    (when (and mb (not (string=? mb "")))
+      (setf (sb-ext:bytes-consed-between-gcs)
+	    (* (lisp:parse-integer mb) 1048576))))
+  #+sbcl
+  (when (env-flag? "YALE_HASKELL_GC_LOG")
+    (push (lambda ()
+	    (lisp:format lisp:*error-output* "~&gc: ~,1F MB in use~%"
+			 (/ (sb-kernel:dynamic-usage) 1048576.0)))
+	  sb-ext:*after-gc-hooks*)))
+
+(define (init-standard-handle-buffering)
+  (setf (haskell-handle-buffering prim.stdout-handle)
+	(if (stdout-terminal?) 1 2)))
+
+(define (stdout-terminal?)
+  #+sbcl (lisp:values (sb-unix:unix-isatty 1))
+  #-sbcl '#t)
+
 ;;; Turn a file name into a pathname without treating *, ? or [ as
 ;;; wildcards.
 #+sbcl

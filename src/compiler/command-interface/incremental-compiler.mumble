@@ -184,7 +184,8 @@
 ;;; YALE_HASKELL_TIME=1: the compile (and load) and run times, CPU and
 ;;; real seconds, go to stderr when main returns (not when the program
 ;;; ends with exitWith).  YALE_HASKELL_PROFILE=1: main runs under SBCL's
-;;; statistical profiler, whose flat report goes to stderr.
+;;; statistical profiler, whose flat report goes to stderr (=alloc: its
+;;; allocation mode).
 
 (define (run-program name)
   (let ((t0  (timing-point)))
@@ -211,7 +212,9 @@
 (define (profile-main main-var)
   #+sbcl
   (let ((sprof  (lisp:find-package "SB-SPROF")))
-    (lisp:funcall (lisp:intern "START-PROFILING" sprof) :mode :cpu
+    ;; YALE_HASKELL_PROFILE=alloc: where the allocation happens instead
+    (lisp:funcall (lisp:intern "START-PROFILING" sprof)
+		  :mode (if (equal? (getenv "YALE_HASKELL_PROFILE") "alloc") :alloc :cpu)
 		  :sample-interval 0.001 :max-samples 200000)
     (lisp:unwind-protect
 	(apply-exec main-var)
@@ -222,7 +225,7 @@
   #-sbcl
   (apply-exec main-var))
 
-;;; (cpu-seconds real-seconds bytes-allocated)
+;;; (cpu-seconds real-seconds bytes-allocated gc-seconds)
 
 (define (timing-point)
   (list (/ (lisp:float (lisp:get-internal-run-time))
@@ -230,14 +233,19 @@
 	(/ (lisp:float (lisp:get-internal-real-time))
 	   lisp:internal-time-units-per-second)
 	#+sbcl (sb-ext:get-bytes-consed)
-	#-sbcl 0))
+	#-sbcl 0
+	;; GC time, in seconds
+	#+sbcl (/ (lisp:float sb-ext:*gc-run-time*)
+		  lisp:internal-time-units-per-second)
+	#-sbcl 0.0))
 
 (define (report-timing t0 t1 t2)
   (lisp:force-output)
   (lisp:format lisp:*error-output*
-     "~&yale-haskell: compile ~,3F s cpu ~,3F s real; run ~,3F s cpu ~,3F s real, ~:D bytes allocated~%"
+     "~&yale-haskell: compile ~,3F s cpu ~,3F s real; run ~,3F s cpu ~,3F s real (~,3F s GC), ~:D bytes allocated~%"
      (- (car t1) (car t0)) (- (cadr t1) (cadr t0))
      (- (car t2) (car t1)) (- (cadr t2) (cadr t1))
+     (- (cadddr t2) (cadddr t1))
      (- (caddr t2) (caddr t1)))
   (lisp:finish-output lisp:*error-output*))
 

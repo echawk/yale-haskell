@@ -1,0 +1,4 @@
+lambdapi-smoke 0.01
+lambdapi-bench 1.21
+minitt-paper 0.01
+minitt-bench 1.19

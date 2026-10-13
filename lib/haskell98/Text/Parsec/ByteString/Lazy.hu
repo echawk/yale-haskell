@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Text/Parsec/ByteString/
+:o= all
+:package
+Lazy.hs

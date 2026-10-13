@@ -272,6 +272,14 @@
 		(not (def-prelude? def)))
 	   (setf (table-entry *symbol-table* name) def)
 	   (setf (table-entry *inverted-symbol-table* def) name))
+	  ;; a Prelude class method or other core name that the module's
+	  ;; import of the Prelude hides (import Prelude hiding ((*)))
+	  ((and (def-prelude? old-definition)
+		(haskell98?)
+		(not (def-prelude? def))
+		(prelude-import-hides? name))
+	   (setf (table-entry *symbol-table* name) def)
+	   (setf (table-entry *inverted-symbol-table* def) name))
 	  ((def-prelude? old-definition)
 	   (signal-core-redefinition name))
 	  ((and (module-uses-standard-prelude? *module*)
@@ -386,6 +394,10 @@
   (and (haskell98?)
        (not (module-prelude? *module*))
        (or (memq name '(|Assoc| |;:=|))
+	   ;; hidden by the Prelude import and given another meaning here
+	   (and (prelude-import-hides? name)
+		(let ((d (table-entry *symbol-table* name)))
+		  (and d (not (def-prelude? d)))))
 	   ;; the Monad fail; PreludeModern's MonadFail(fail) replaces it
 	   (and (eq? name '|fail|) (monadfail-fail-module?))
 	   ;; the list foldr; PreludeModern's Foldable foldr replaces it
@@ -403,7 +415,7 @@
     |any| |all| |mapM_| |sequence_| |mapM| |sequence|))
 
 (define (foldable-prelude-module?)
-  (and (modern-prelude?) (not (module-library? *module*))))
+  (modern-module?))
 
 ;;; Whether DEF, PreludeModern's, replaces OLD, the Prelude's, for NAME.
 
@@ -412,7 +424,10 @@
 
 (define (supersedes-prelude-def? name def old)
   (and (or (memq name *foldable-prelude-names*)
-	   (memq name *foldable-list-names*))
+	   (memq name *foldable-list-names*)
+	   ;; MonadFail's fail over the Haskell 98 Monad's, imported
+	   ;; explicitly (import Prelude hiding (...))
+	   (and (eq? name '|fail|) (monadfail-fail-module?)))
        (foldable-prelude-module?)
        (eq? (def-module def) '|PreludeModern|)
        (not (eq? (def-module old) '|PreludeModern|))
@@ -431,7 +446,7 @@
 ;;; modules defining or importing it.
 
 (define (monadfail-fail-module?)
-  (or (and (modern-prelude?) (not (module-library? *module*)))
+  (or (modern-module?)
       (memq *module-name* '(|PreludeModern| |Control.Monad.Fail|))
       (lisp:some (lambda (i)
 		   (memq (import-decl-module-name i)
@@ -462,6 +477,30 @@
 
 (define *ix-core-names* '(|index| |range| |inRange| |rangeSize|))
 
+;;; Whether the module imports the Prelude explicitly and leaves NAME out:
+;;; import Prelude hiding (name), or import Prelude (...) without it.
+;;; (H98 5.6.1: then the module may define the name itself.)
+(define (prelude-import-hides? name)
+  (let ((imports (module-prelude-import-specs *module*)))
+    (and (not (null? imports))
+	 (every (lambda (i)
+		  (if (eq? (car i) 'all)
+		      (memq name (cdr i))
+		      (not (memq name (cdr i)))))
+		imports))))
+
+;;; Recorded by init-standard-module, before the import phase consumes
+;;; the import declarations.
+(define (record-prelude-import-specs mod)
+  (setf (module-prelude-import-specs mod)
+	(map (lambda (i)
+	       (cons (import-decl-mode i)
+		     (map (function entity-name) (import-decl-specs i))))
+	     (lisp:remove-if-not
+	      (lambda (i) (and (eq? (import-decl-module-name i) '|Prelude|)
+			       (not (import-decl-qualified? i))))
+	      (module-imports mod)))))
+
 (define (own-definition-shadows-core? name)
   (and (haskell98?)
        (memq name *ix-core-names*)
@@ -488,8 +527,8 @@
 
 (define (prelude-symbol-entry name)
   (and (not (and (memq name *not-in-2010-prelude*)
-		 (haskell2010?)
-		 (not (module-library? *module*))))
+		 (or (dynamic *compiling-package?*)
+		     (and (haskell2010?) (not (module-library? *module*))))))
        (not (and (memq name *foldable-prelude-names*)
 		 (foldable-prelude-module?)))
        (table-entry *prelude-symbol-table* name)))

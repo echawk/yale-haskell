@@ -1,0 +1,18 @@
+checking let id : Pi A : U . Pi _ : A . A = \ A . \ x . x
+checking let Bool : U = Sum (true 1 | false 1)
+checking let valueTrue : Bool = $ true 0
+checking let valueFalse : Bool = $ false 0
+checking letrec Nat : U = Sum (zero 1 | succ Nat)
+checking let valueZero : Nat = $ zero 0
+checking let valueOne : Nat = $ succ valueZero
+checking let valueOneB : Nat = $ succ ($ zero 0)
+checking let valueTwo : Nat = $ succ valueOne
+checking letrec List : Pi _ : U . U = \ A . Sum (nil 1 | cons (Sig _ : A . List A))
+checking let valuePair : Sig _ : Nat . List Nat = (valueZero, $ nil 0)
+checking let valueListNatEmpty : List Nat = $ nil 0
+checking let valueListNatSingle : List Nat = $ cons (valueZero, $ nil 0)
+checking let valueListNat012 : List Nat = $ cons (valueZero, $ cons (valueOne, $ cons (valueTwo, $ nil 0)))
+checking letrec add : Pi _ : Nat . Pi _ : Nat . Nat = \ x . fun (zero -> \ _ . x | succ -> \ y . $ succ (add x y))
+checking letrec eqNat : Pi _ : Nat . Pi _ : Nat . Bool = fun (zero -> \ _ . fun (zero -> \ _ . $ true 0 | succ -> \ y . $ false 0) | succ -> \ x . fun (zero -> \ _ . $ false 0 | succ -> \ y . eqNat x y))
+checking letrec (V, T) : Sig X : U . Pi _ : X . U = (Sum (nat 1 | pi (Sig x : V . Pi _ : T x . V)), fun (nat -> \ _ . Nat | pi -> \ (x, f) . Pi y : T x . T (f y)))
+type-checking succeded.

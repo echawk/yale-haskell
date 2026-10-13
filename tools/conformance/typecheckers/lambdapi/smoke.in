@@ -1,0 +1,4 @@
+:load prelude.lp
+:type plus
+plus (Succ (Succ Zero)) (Succ Zero)
+:browse

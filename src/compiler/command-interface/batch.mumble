@@ -52,6 +52,8 @@
   ;; getArgs, getProgName and exitWith (src/runtime/system-prims.mumble)
   (set-haskell-program-args file args)
   (setup-batch-mode)
+  (init-standard-handle-buffering)
+  (init-gc-parameters)
   ;; compiled units are kept between runs (src/compiler/csys/unit-cache.mumble)
   (setup-unit-cache-for 'all)
   (exit-with-batch-status (lambda () (run-program file))))

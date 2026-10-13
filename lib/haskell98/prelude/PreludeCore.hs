@@ -972,3 +972,86 @@ instance  (Read a) => Read [a]  where
 
 -- Tuple instances of Eq, Ord, Ix, Bounded, Show and Read are built by the
 -- runtime for every arity (src/runtime/tuple-prims.mumble, PreludeTuple).
+
+-- Tuples up to seven components: instances as GHC derives them, so that their
+-- comparisons are ordinary code the optimizer can specialize and inline.
+-- Larger tuples get the generic instances built at run time
+-- (src/compiler/util/instance-manager.mumble, PreludeTuple).
+
+instance (Eq a, Eq b) => Eq (a, b) where
+  (a, b) == (c, d) = a == c && b == d
+  (a, b) /= (c, d) = a /= c || b /= d
+  {-# (==) :: Inline #-}
+
+instance (Ord a, Ord b) => Ord (a, b) where
+  compare (a, b) (c, d) = case compare a c of { EQ -> compare b d; o -> o }
+  (a, b) <  (c, d) = a < c || (a == c && b <  d)
+  (a, b) <= (c, d) = a < c || (a == c && b <= d)
+  (a, b) >  (c, d) = a > c || (a == c && b >  d)
+  (a, b) >= (c, d) = a > c || (a == c && b >= d)
+
+instance (Eq a, Eq b, Eq c) => Eq (a, b, c) where
+  (a, b, c) == (d, e, f) = a == d && b == e && c == f
+  (a, b, c) /= (d, e, f) = a /= d || b /= e || c /= f
+
+instance (Ord a, Ord b, Ord c) => Ord (a, b, c) where
+  compare (a, b, c) (d, e, f) =
+    case compare a d of
+      EQ -> case compare b e of { EQ -> compare c f; o -> o }
+      o -> o
+  x <  y = compare x y == LT
+  x <= y = compare x y /= GT
+  x >  y = compare x y == GT
+  x >= y = compare x y /= LT
+
+instance (Eq a, Eq b, Eq c, Eq d) => Eq (a, b, c, d) where
+  (x1, x2, x3, x4) == (y1, y2, y3, y4) =
+    x1 == y1 && x2 == y2 && x3 == y3 && x4 == y4
+  x /= y = not (x == y)
+
+instance (Ord a, Ord b, Ord c, Ord d) => Ord (a, b, c, d) where
+  compare (x1, x2, x3, x4) (y1, y2, y3, y4) =
+    case compare x1 y1 of { EQ -> case compare x2 y2 of { EQ -> case compare x3 y3 of { EQ -> compare x4 y4; o -> o }; o -> o }; o -> o }
+  x <  y = compare x y == LT
+  x <= y = compare x y /= GT
+  x >  y = compare x y == GT
+  x >= y = compare x y /= LT
+
+instance (Eq a, Eq b, Eq c, Eq d, Eq e) => Eq (a, b, c, d, e) where
+  (x1, x2, x3, x4, x5) == (y1, y2, y3, y4, y5) =
+    x1 == y1 && x2 == y2 && x3 == y3 && x4 == y4 && x5 == y5
+  x /= y = not (x == y)
+
+instance (Ord a, Ord b, Ord c, Ord d, Ord e) => Ord (a, b, c, d, e) where
+  compare (x1, x2, x3, x4, x5) (y1, y2, y3, y4, y5) =
+    case compare x1 y1 of { EQ -> case compare x2 y2 of { EQ -> case compare x3 y3 of { EQ -> case compare x4 y4 of { EQ -> compare x5 y5; o -> o }; o -> o }; o -> o }; o -> o }
+  x <  y = compare x y == LT
+  x <= y = compare x y /= GT
+  x >  y = compare x y == GT
+  x >= y = compare x y /= LT
+
+instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f) => Eq (a, b, c, d, e, f) where
+  (x1, x2, x3, x4, x5, x6) == (y1, y2, y3, y4, y5, y6) =
+    x1 == y1 && x2 == y2 && x3 == y3 && x4 == y4 && x5 == y5 && x6 == y6
+  x /= y = not (x == y)
+
+instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f) => Ord (a, b, c, d, e, f) where
+  compare (x1, x2, x3, x4, x5, x6) (y1, y2, y3, y4, y5, y6) =
+    case compare x1 y1 of { EQ -> case compare x2 y2 of { EQ -> case compare x3 y3 of { EQ -> case compare x4 y4 of { EQ -> case compare x5 y5 of { EQ -> compare x6 y6; o -> o }; o -> o }; o -> o }; o -> o }; o -> o }
+  x <  y = compare x y == LT
+  x <= y = compare x y /= GT
+  x >  y = compare x y == GT
+  x >= y = compare x y /= LT
+
+instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g) => Eq (a, b, c, d, e, f, g) where
+  (x1, x2, x3, x4, x5, x6, x7) == (y1, y2, y3, y4, y5, y6, y7) =
+    x1 == y1 && x2 == y2 && x3 == y3 && x4 == y4 && x5 == y5 && x6 == y6 && x7 == y7
+  x /= y = not (x == y)
+
+instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g) => Ord (a, b, c, d, e, f, g) where
+  compare (x1, x2, x3, x4, x5, x6, x7) (y1, y2, y3, y4, y5, y6, y7) =
+    case compare x1 y1 of { EQ -> case compare x2 y2 of { EQ -> case compare x3 y3 of { EQ -> case compare x4 y4 of { EQ -> case compare x5 y5 of { EQ -> case compare x6 y6 of { EQ -> compare x7 y7; o -> o }; o -> o }; o -> o }; o -> o }; o -> o }; o -> o }
+  x <  y = compare x y == LT
+  x <= y = compare x y /= GT
+  x >  y = compare x y == GT
+  x >= y = compare x y /= LT

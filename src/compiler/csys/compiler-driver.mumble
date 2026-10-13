@@ -247,6 +247,8 @@
 	     (setf stable? '#t))
 	    ((string=? ":prelude" s)
 	     (setf load-prelude? '#f))
+	    ((string=? ":package" s)
+	     (setf (lisp:gethash filename *package-units*) '#t))
 	    ((setf temp (string-match-prefix ":p=" s))
 	     (setf printers-set? '#t)
 	     (setf printers
@@ -495,8 +497,9 @@
 	      (dolist (m (cdr scan))
 		(push (cons m file) imports))
 	      ;; imported implicitly (init-standard-module)
-	      (when (and (modern-prelude?)
-			 (not (library-source-file? (ucache-ufile c))))
+	      (when (or (package-unit? (ucache-ufile c))
+			(and (modern-prelude?)
+			     (not (library-source-file? (ucache-ufile c)))))
 		(push (cons '|PreludeModern| file) imports)))))
 	(let ((available
 	       (map (lambda (m) (module-name m))
@@ -833,6 +836,7 @@
 (define (locally-compile c cflags)
   (dynamic-let ((*compiling-library?*
 		  (library-source-file? (ucache-ufile c)))
+		(*compiling-package?* (package-unit? (ucache-ufile c)))
 		(*printers*
 		  (cond ((ucache-printers-set? c)
 			 (ucache-printers c))

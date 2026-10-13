@@ -11,7 +11,7 @@ nofib suites (`tools/conformance/nofib.py`, with `--suite real
 
 | measure | before this round | now |
 |---|---|---|
-| extension and library probes | 28 of 28 (only what was implemented) | 73 of 78 (50 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt needed) |
+| extension and library probes | 28 of 28 (only what was implemented) | 80 of 85 (57 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt, LambdaPi and Mini-TT needed) |
 | nofib imaginary + spectral | 68 pass | 69 pass (mandel) |
 | nofib real + gc + shootout | 28 pass, 11 compile errors, 2 wrong, 1 timeout | 40 pass, 2 known (ByteString pointers), no failures |
 
@@ -62,8 +62,20 @@ FlexibleInstances, FlexibleContexts, TypeSynonymInstances,
 MultiParamTypeClasses, FunctionalDependencies, UndecidableInstances (in
 the mtl style), ConstrainedClassMethods, ConstraintKinds (constraint
 synonyms), ScopedTypeVariables, PolyKinds (kinds are not checked at
-all), CPP, overlapping instances (OVERLAPPABLE/OVERLAPPING: the most
-specific matching flexible head is used; the pragmas are not needed).
+all), CPP (with Cabal's MIN_VERSION_pkg(a,b,c) answered from the
+package versions Yale's libraries follow, `cpp-min-version`), overlapping
+instances (OVERLAPPABLE/OVERLAPPING: the most specific matching flexible
+head is used; the pragmas are not needed).
+
+Haskell 98 and 2010 points fixed on the way (2026-10-12): a Prelude class
+method hidden by `import Prelude hiding ((*))` can be defined again; an
+instance may bind the methods of a class imported only qualified; the
+monomorphism restriction keeps every type variable of a restricted
+group's pending constraints monomorphic (`Eq (t b)` on Foldable's `t`, a
+variable only a functional dependency determines), instead of
+generalizing and then failing to default it; a signature's
+multi-parameter constraints improve the body's by functional dependency
+(`(Show t, Stream s m t) => s -> m String`).
 
 ### 2. Supported permissively: what GHC accepts runs; less is rejected
 
@@ -140,10 +152,13 @@ The probes say the language is mostly there.  The gaps that real
 programs hit first are, in order:
 
 1. **Libraries.**  Each modern program imports a few packages beyond
-   base.  text, bytestring, containers, mtl, transformers, stm and
-   deepseq exist now (some as approximations); vector, unordered-
-   containers, aeson, optparse-applicative, filepath, directory,
-   process, time do not.  These are mostly Haskell and could be ported
+   base.  text, bytestring, containers, mtl, transformers, stm,
+   deepseq, parsec (3.1.18, the unchanged source as a `:package` unit:
+   compiled against base's Prelude in every mode), filepath, time
+   (Data.Time.Clock), QuickCheck (a subset) and haskeline (without line
+   editing) exist now (some as approximations); vector,
+   unordered-containers, aeson, optparse-applicative and process do
+   not.  These are mostly Haskell and could be ported
    module by module (GHC-specific internals are the obstacle: vector's
    primitive arrays map onto Yale's MutArr).
 2. **Record update of a duplicated field** (`r { name = x }` with

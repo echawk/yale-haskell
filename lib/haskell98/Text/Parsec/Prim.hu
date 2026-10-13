@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Text/Parsec/
+:o= all
+:package
+Prim.hs
