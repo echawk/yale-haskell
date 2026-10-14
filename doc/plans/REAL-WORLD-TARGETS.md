@@ -126,3 +126,23 @@ What husk needed:
 - **Libraries:** Data.Knob (in-memory handles, for string ports),
   Data.ByteString.UTF8, Data.Fixed, Data.Unique, Data.Time.Clock.POSIX,
   System.CPUTime, getEnvironment, Haskeline's Completion module.
+
+## happy
+
+Status (2026-10-14).  **happy 1.20.1.1** (`tools/conformance/happy.py`),
+the parser generator, about 7,000 lines including its own happy-generated
+GHC-style parsers (MagicHash, `GHC.Exts` primops, OPTIONS -X pragmas),
+runs unchanged.  On its 33 test and example grammars with its test
+suite's flag sets (none, -a, -g, -gc, -gac), every generated parser,
+grammar info file and message is identical to GHC 9.14's happy: 166 of
+166 (compared by SHA-256, tools/conformance/happy/expected.sha256).
+
+issue93.y, a 1,250-line grammar, is kept as a performance guard (a time
+limit, ISSUE93_LIMIT): it ran for over an hour, from two causes now
+fixed.  The optimizer's let-hoist-lambda moved a let into the lambda
+after it whatever the let computed, so `precalcClosure0 g = \n -> lookup
+n table where table = ...` rebuilt the closure table for every lookup
+(ErlParser.ly: 45 s and 67 GB allocated, now 0.3 s and 0.5 GB); and the
+Report's `sortBy` (an insertion sort, O(n^2), whose chain of insertBy
+thunks exhausted the 4 GB heap), now GHC's merge sort.  It takes about
+45 s against GHC's 8 s.
