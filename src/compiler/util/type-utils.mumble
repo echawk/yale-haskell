@@ -155,7 +155,9 @@
 	((tyapp? type)
 	 (mlet (((fun env1) (type->gtype (tyapp-fun type) env))
 		((types env2) (type->gtype/l (tyapp-args type) env1)))
-	   (values (**ntyapp fun types) env2)))
+	   ;; a type constructor applied in two steps ((Either e) a, from a
+	   ;; synonym for a partial application) is one application
+	   (values (apply-ntype fun types) env2)))
 	(else
 	 (mlet (((types env1) (type->gtype/l (tycon-args type) env)))
 	   (values (**ntycon (tycon-def type) types) env1)))))

@@ -52,6 +52,7 @@
 			 (unify-1 type2 type1))))
 		 ((and (ntyvar? type2)
 		       (ntyvar-read-only? type2)
+		       (not (ntyvar-existential? type2))
 		       (non-generic? type1))
 		  (type-error
  "Type signature cannot be used: monomorphic type variables present."))

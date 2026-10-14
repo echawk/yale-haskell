@@ -160,6 +160,7 @@
 ;;; type constructor application.
 
 (define (expand-over-applied-synonym type)
+  (ensure-synonym-defined (tycon-def type))
   (let* ((def    (tycon-def type))
 	 (n      (tycon-def-arity def))
 	 (args   (tycon-args type))
@@ -172,6 +173,18 @@
 	   (setf (tycon-def type) (tycon-def exp))
 	   (setf (tycon-args type) (append (tycon-args exp) (lisp:nthcdr n args)))
 	   '#t))))
+
+;;; A synonym of this module used (over-applied) by a data declaration
+;;; before process-type-declarations has reached the synonyms (husk's
+;;; type ThrowsError = Either LispError, used in data LispVal) is defined
+;;; now.
+
+(define (ensure-synonym-defined def)
+  (when (and (not (synonym-body def)) (not (synonym-family? def))
+	     (null? (synonym-constraints def)))
+    (let ((decl (lisp:find-if (lambda (d) (eq? (tycon-def (synonym-decl-simple d)) def))
+			      (module-synonyms *module*))))
+      (when decl (synonym->def decl)))))
 
 (define (resolve-type/list args vars)
   (if (null? args)

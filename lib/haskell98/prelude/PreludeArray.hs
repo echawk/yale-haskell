@@ -58,8 +58,9 @@ unBox (MkBox x) = x
 -- Array construction and update using index/value associations share
 -- the same helper function.
 
+-- rangeSize, not index b bmax + 1: the bounds may be empty, (0, -1)
 array b@(bmin, bmax) ivs =
-  let size = (index b bmax) + 1
+  let size = rangeSize b
       v = primMakeVector size uninitializedArrayError
   in (MkArray b (updateArrayIvs b v ivs))
 {-# array :: Inline #-}
@@ -83,7 +84,7 @@ uninitializedArrayError =
 -- computation
 
 listArray b@(bmin, bmax) vs =
-  let size = (index b bmax) + 1
+  let size = rangeSize b
       v = primMakeVector size uninitializedArrayError
   in (MkArray b (updateArrayVs size v vs))
 {-# listArray :: Inline #-}
@@ -112,7 +113,7 @@ indices		      = range . bounds
 
 elems a@(MkArray b@(bmin, bmax) v) =
   build (\ c n -> 
-          let size = (index b bmax) + 1
+          let size = rangeSize b
 	      g j  = if (j == size)
 	                then n
 			else c (unBox (primVectorSel v j)) (g (j + 1))
@@ -140,7 +141,7 @@ accum f a@(MkArray b v) ivs =
 {-# accum :: Inline #-}
 
 accumArray f z b@(bmin, bmax) ivs =
-  let size = (index b bmax) + 1
+  let size = rangeSize b
       v = primMakeVector size (MkBox z)
   in (MkArray b (accumArrayIvs f b v ivs))
 {-# accumArray :: Inline #-}
@@ -165,7 +166,7 @@ accumArrayIvs f b v ivs =
 -- again, be smart and bypass full array indexing on array mapping
 
 amap f a@(MkArray b@(bmin, bmax) v) =
-  let size = (index b bmax) + 1
+  let size = rangeSize b
       v' = primMakeVector size uninitializedArrayError
       g j = if (j == size)
               then v'
@@ -189,6 +190,10 @@ instance  (Ix a, Eq b)  => Eq (Array a b)  where
 
 instance  (Ix a, Ord b) => Ord (Array a b)  where
     a <=  a'  	    	=  assocs a <=  assocs a'
+
+-- The Report's (chapter 16)
+instance  (Ix a) => Functor (Array a)  where
+    fmap = amap
 
 -- Show and Read instances as in the H98 Report's Array module (arrPrec = 10).
 instance  (Ix a, Show a, Show b) => Show (Array a b)  where

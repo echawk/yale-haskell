@@ -126,6 +126,29 @@ main = print (both show, twice (\\x -> show x ++ "."))
 data S = forall a. Show a => S a
 main = mapM_ (\\(S x) -> print x) [S (1 :: Int), S "two"]
 ''',
+    'ExistentialMonadic': '''{-# LANGUAGE ExistentialQuantification #-}
+-- an existential's type used by two binds in one monadic body (husk)
+type ThrowsError = Either String
+data Unpacker = forall a . Eq a => AnyUnpacker (Int -> ThrowsError a)
+same :: Int -> Int -> Unpacker -> ThrowsError Bool
+same x y (AnyUnpacker f) = do
+  a <- f x
+  b <- f y
+  return (a == b)
+main = print (same 1 2 (AnyUnpacker (Right . (`div` 2))), same 1 3 (AnyUnpacker Right))
+''',
+    'PartialSynonymInData': '''-- a synonym for a partial application, over-applied in a data type
+-- declared before it, with which it is mutually recursive (husk)
+data Val = Num Int | Fun ([Val] -> ThrowsError Val)
+data Err = Err String Val
+type ThrowsError = Either Err
+apply :: Val -> [Val] -> ThrowsError Val
+apply (Fun f) args = f args
+apply v _ = Left (Err "not a function" v)
+main = case apply (Fun (\\vs -> Right (Num (length vs)))) [Num 1, Num 2] of
+         Right (Num n) -> print n
+         _ -> putStrLn "error"
+''',
     'FlexibleInstances': '''{-# LANGUAGE FlexibleInstances #-}
 class C a where c :: a -> String
 instance C [Char] where c s = s

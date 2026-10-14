@@ -53,6 +53,7 @@
       (dolist (b by-tyvar)
 	(let ((tv (tuple-2-1 b)))
 	  (setf (ntyvar-read-only? tv) '#t)
+	  (setf (ntyvar-existential? tv) '#t)
 	  (push (tuple (car (dynamic *enclosing-decls*)) (tuple-2-2 b))
 		(ntyvar-dict-params tv))))
       (values type (reverse pats)))))

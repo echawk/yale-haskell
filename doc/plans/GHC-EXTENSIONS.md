@@ -11,7 +11,7 @@ nofib suites (`tools/conformance/nofib.py`, with `--suite real
 
 | measure | before this round | now |
 |---|---|---|
-| extension and library probes | 28 of 28 (only what was implemented) | 81 of 85 (57 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt, LambdaPi and Mini-TT needed) |
+| extension and library probes | 28 of 28 (only what was implemented) | 83 of 87 (59 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt, LambdaPi, Mini-TT and husk-scheme needed) |
 | nofib imaginary + spectral | 68 pass | 69 pass (mandel) |
 | nofib real + gc + shootout | 28 pass, 11 compile errors, 2 wrong, 1 timeout | 40 pass, 2 known (ByteString pointers), no failures |
 

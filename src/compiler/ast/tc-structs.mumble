@@ -22,6 +22,9 @@
    ;; could be encoded in value.
    (context (type (list class)) (default ()))
    (read-only? (type bool) (default #f) (bit #t))
+   ;; an existential pattern's rigid variable (existentials.mumble): the
+   ;; monomorphic variables of its match may be unified with it
+   (existential? (type bool) (default #f) (bit #t))
    (dict-params (type (list (tuple valdef (list (tuple class var))))))
    ;; Constraints (ntyapp . classes) on applications headed by this
    ;; variable, waiting for it to be instantiated.
