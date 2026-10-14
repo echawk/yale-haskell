@@ -5,9 +5,60 @@
 
 (define (lookup-instance alg-def class-def)
   (let ((res (lookup-instance-1 alg-def (class-instances class-def))))
-    (if (and (eq? res '#f) (algdata-real-tuple? alg-def))
-	(lookup-possible-tuple-instances alg-def class-def)
-	res)))
+    (cond ((not (eq? res '#f)) res)
+	  ((algdata-real-tuple? alg-def)
+	   (or (lookup-possible-tuple-instances alg-def class-def)
+	       (and (typeable-class? class-def)
+		    (get-typeable-instance alg-def class-def
+					   (length (algdata-tyvars alg-def))))))
+	  ((typeable-class? class-def)
+	   (get-typeable-instance alg-def class-def (length (algdata-tyvars alg-def))))
+	  (else '#f))))
+
+;;; Data.Typeable: every type constructor is Typeable, as in GHC.  The
+;;; instance for T a1 .. an, made when first wanted, has the context
+;;; (Typeable a1, ..., Typeable an); its dictionary is Data.Typeable's
+;;; primTypeableDict applied to T's name and the arguments' dictionaries
+;;; (dict-ref-code, type/dictionary.mumble; the builder is
+;;; prim.typeable-dict in base-runtime.lisp).
+
+(define (typeable-class? class-def)
+  (and (eq? (def-name class-def) '|Typeable|)
+       (eq? (def-module class-def) '|Data.Typeable|)))
+
+(define *saved-typeable-instances* '())
+
+(define (get-typeable-instance alg class n)
+  (let ((res (lisp:find-if (lambda (x)
+			     (and (eq? (tuple-2-1 x) alg)
+				  (eq? (instance-class (tuple-2-2 x)) class)
+				  (eqv? (length (instance-tyvars (tuple-2-2 x))) n)))
+			   *saved-typeable-instances*)))
+    (if res
+	(tuple-2-2 res)
+	(and (typeable-dict-builder)
+	     (let ((inst (make-tuple-instance-n
+			  alg n class (typeable-dict-builder))))
+	       (push (tuple alg inst) *saved-typeable-instances*)
+	       inst)))))
+
+(define (typeable-dict-builder)
+  (let ((m (table-entry *modules* '|BasePrims|)))
+    (and m (table-entry (module-symbol-table m) '|primTypeableDict|))))
+
+(define (typeable-instance? inst)
+  (and (instance-special? inst)
+       (typeable-class? (instance-class inst))))
+
+;;; The name a Typeable instance's TypeRep shows for its type constructor.
+
+(define (typeable-tycon-name alg)
+  (cond ((eq? alg (core-symbol "List")) "[]")
+	((eq? alg (core-symbol "Arrow")) "->")
+	((eq? alg (core-symbol "UnitType")) "()")
+	((algdata-real-tuple? alg)
+	 (string-append "(" (make-string (1- (tuple-size alg)) #\,) ")"))
+	(else (symbol->string (def-name alg)))))
 
 (define (lookup-instance-1 alg-def instances)
   (cond ((null? instances)
@@ -28,6 +79,13 @@
 ;;; with one instance) this is lookup-instance.
 
 (define (lookup-instance/type alg-def class-def type)
+  (if (and (typeable-class? class-def) (ntycon? type)
+	   (null? (lookup-instance-1 alg-def (class-instances class-def))))
+      ;; at T applied to fewer arguments than it takes (Typeable Maybe)
+      (get-typeable-instance alg-def class-def (length (ntycon-args type)))
+      (lookup-instance/type-1 alg-def class-def type)))
+
+(define (lookup-instance/type-1 alg-def class-def type)
   (let ((all (lisp:remove-if-not
 	      (lambda (i) (and (eq? (instance-algdata i) alg-def) (instance-ok? i)))
 	      (class-instances class-def))))
@@ -160,8 +218,10 @@
 	  inst))))
 
 (define (make-tuple-instance algdata class dict)
-  (let* ((size (tuple-size algdata))
-	 (tyvars (gen-symbols size))
+  (make-tuple-instance-n algdata (tuple-size algdata) class dict))
+
+(define (make-tuple-instance-n algdata size class dict)
+  (let* ((tyvars (gen-symbols size))
 	 (context (map (lambda (tyvar)
 			  (**context (**class/def class) tyvar))
 			tyvars))

@@ -257,3 +257,23 @@
 		      for e across gends
 		      do (cl:write-char (cl:code-char 0) out)
 			 (cl:when s (cl:write-string (cl:subseq string s e) out)))))))
+
+;;; Data.Typeable.  A type's representation is (name . argument reps),
+;;; NAME a Lisp string ("Maybe", "[]", "->", "(,)").  The type checker
+;;; makes Typeable T's dictionary as primTypeableDict "T" d1 .. dn, the di
+;;; the arguments' dictionaries (util/instance-manager.mumble); Typeable
+;;; has one method, so the dictionary is that method, a function from a
+;;; Proxy to the representation.
+(cl:defparameter prim.typeable-dict
+  (make-vfun (cl:lambda (name cl:&rest dicts)
+	       (cl:let ((rep (cl:cons (haskell-string->string (force name))
+				      (cl:mapcar (cl:lambda (d)
+						   (force (apply-1 (force d) (box 0))))
+						 dicts))))
+		 (cl:lambda (proxy)
+		   (cl:declare (cl:ignore proxy))
+		   rep)))))
+
+(cl:defun prim.typerep-name (rep) (cl:car rep))
+(cl:defun prim.typerep-arity (rep) (cl:length (cl:cdr rep)))
+(cl:defun prim.typerep-arg (rep i) (cl:nth i (cl:cdr rep)))

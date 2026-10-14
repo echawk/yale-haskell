@@ -300,7 +300,10 @@
   (instance-arg-types instance type))
 
 (define (dict-ref-code instance)
-  (**var/def (instance-dictionary instance)))
+  (if (typeable-instance? instance)
+      (**app (**var/def (typeable-dict-builder))
+	     (**string (typeable-tycon-name (instance-algdata instance))))
+      (**var/def (instance-dictionary instance))))
 
 ;;; This is used to locate the correct enclosing decl.
 

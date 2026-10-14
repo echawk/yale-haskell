@@ -11,13 +11,16 @@ nofib suites (`tools/conformance/nofib.py`, with `--suite real
 
 | measure | before this round | now |
 |---|---|---|
-| extension and library probes | 28 of 28 (only what was implemented) | 80 of 85 (57 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt, LambdaPi and Mini-TT needed) |
+| extension and library probes | 28 of 28 (only what was implemented) | 81 of 85 (57 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt, LambdaPi and Mini-TT needed) |
 | nofib imaginary + spectral | 68 pass | 69 pass (mandel) |
 | nofib real + gc + shootout | 28 pass, 11 compile errors, 2 wrong, 1 timeout | 40 pass, 2 known (ByteString pointers), no failures |
 
-The five failing probes: DeriveDataTypeable (typeOf), QuantifiedConstraints,
-a catch-all instance (`instance Show a => Pretty a`), Arrows,
-TemplateHaskell.
+The four failing probes: QuantifiedConstraints, a catch-all instance
+(`instance Show a => Pretty a`), Arrows, TemplateHaskell.  Typeable is
+GHC's: every type constructor is Typeable without an instance (the type
+checker builds the dictionary from the constructor's name and the
+arguments' dictionaries, util/instance-manager.mumble), so typeOf, cast
+and Data.Dynamic work and show types as GHC does.
 
 Every GHC2021 extension is accepted except where a probe below says
 otherwise, and so are most of the extensions modern code turns on beyond

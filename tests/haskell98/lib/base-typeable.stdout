@@ -1,0 +1,14 @@
+(P,[Char],Maybe Int)
+T Char (Maybe [Bool])
+(Bool -> Bool,(Int,Char,()),Either Integer (Maybe Int))
+(Int -> Int) -> [Int] -> [Int]
+(Just 3,Nothing)
+[<<Int>>,<<[Char]>>,<<Char>>]
+[Just 1,Nothing,Nothing]
+"two"
+[Maybe Double]
+value of type [Maybe Char]
+Maybe [Map Int [Char]]
+(Age,IO (),Double)
+[Int,Char]
+Rec Maybe

@@ -60,6 +60,8 @@
 			(algdata-tuple? alg))
 		    (setf insts (add-derivable-instance insts alg class '#f))
 		    (signal-cant-derive-bounded alg)))
+	       ;; every type is Typeable already (util/instance-manager.mumble)
+	       ((typeable-class? class))
 	       ((constructor-class-derivable? class)
 		(setf insts (add-constructor-class-instance insts alg class)))
 	       ;; DeriveAnyClass (GHC): an empty instance, as GHC prefers

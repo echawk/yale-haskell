@@ -80,10 +80,19 @@ primCreateTempFile :: String -> String -> String -> IO String
 data RegexObj
 primRegexCompile   :: String -> Bool -> Bool -> RegexObj
 primRegexMatch     :: RegexObj -> String -> String
+data TypeRepObj
+primTypeRepName    :: TypeRepObj -> String
+primTypeRepArity   :: TypeRepObj -> Int
+primTypeRepArg     :: TypeRepObj -> Int -> TypeRepObj
+primTypeableDict   :: a
 
 {-#
 primRegexCompile   :: LispName("prim.regex-compile")
 primRegexMatch     :: LispName("prim.regex-match")
+primTypeRepName    :: LispName("prim.typerep-name")
+primTypeRepArity   :: LispName("prim.typerep-arity")
+primTypeRepArg     :: LispName("prim.typerep-arg")
+primTypeableDict   :: LispName("prim.typeable-dict")
 primNewRef         :: LispName("prim.new-ref"), Strictness("N,S")
 primReadRef        :: LispName("prim.read-ref")
 primWriteRef       :: LispName("prim.write-ref"), Strictness("S,N,S")
