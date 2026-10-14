@@ -40,7 +40,7 @@
 -- equality.
 -----------------------------------------------------------------------------
 
-module Data.Set  ( foldl, foldr', foldl', 
+module Data.Set  ( foldl, foldr, foldr', foldl', 
             -- * Set type
               Set          -- instance Eq,Ord,Show,Read,Data,Typeable
 

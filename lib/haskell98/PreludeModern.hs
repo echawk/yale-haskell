@@ -22,8 +22,11 @@ module PreludeModern (
              null, length, elem, maximum, minimum, sum, product),
     Traversable(traverse, sequenceA, mapM, sequence),
     mapM_, sequence_, concat, concatMap, and, or, any, all, notElem,
-    find, maximumBy, minimumBy, WrappedMonad(WrapMonad, unwrapMonad)
+    find, maximumBy, minimumBy, WrappedMonad(WrapMonad, unwrapMonad),
+    Word
   ) where
+
+import Data.Word (Word)   -- GHC's Prelude exports Word
 
 import PreludeIO (catch)
 import Prelude hiding (foldr, foldl, foldr1, foldl1, null, length, elem,

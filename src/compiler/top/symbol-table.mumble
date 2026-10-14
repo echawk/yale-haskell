@@ -542,8 +542,16 @@
   (and (feature? 'qualified-names)
        (mlet (((base mod) (split-qualified-name name)))
 	 (and (eq? mod '|Prelude|)
-	      (or (table-entry *prelude-core-symbols* base)
-		  (prelude-symbol-entry base))))))
+	      ;; with the modern Prelude, Prelude.foldr is Foldable's (from
+	      ;; PreludeModern, imported implicitly with the Prelude), and
+	      ;; Prelude.pure, Prelude.<> ... are PreludeModern's
+	      (or (and (foldable-prelude-module?)
+		       (memq base *foldable-prelude-names*)
+		       (prelude-modern-def base))
+		  (table-entry *prelude-core-symbols* base)
+		  (prelude-symbol-entry base)
+		  (and (foldable-prelude-module?)
+		       (prelude-modern-def base)))))))
 
 (define (resolve-toplevel-name-1 name)
   (cond ((eq? (module-inherited-env *module*) '#f)

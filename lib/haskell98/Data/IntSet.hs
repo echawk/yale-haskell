@@ -42,7 +42,7 @@
 -- (32 or 64).
 -----------------------------------------------------------------------------
 
-module Data.IntSet  ( foldl, foldr', foldl', 
+module Data.IntSet  ( foldl, foldr, foldr', foldl', 
             -- * Set type
               IntSet          -- instance Eq,Show
 

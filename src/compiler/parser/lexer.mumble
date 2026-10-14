@@ -309,6 +309,8 @@
 	      (lex-line-pragma))
 	     ((string-ci=? (list->string word) "LANGUAGE")
 	      (lex-language-pragma))
+	     ((or (string=/list? word "OPTIONS") (string=/list? word "OPTIONS_GHC"))
+	      (lex-options-pragma))
 	     ((and (pragma-word? word)
 		   (not (string=/list? word "STRICT")))
 	      (skip-pragma *current-line*))
@@ -337,6 +339,23 @@
       (advance-char))
     (dolist (name (split-extension-names (list->string (reverse chars))))
       (push name (dynamic *language-extensions*)))
+    (skip-pragma *current-line*)))
+
+;;; {-# OPTIONS -XMagicHash -XBangPatterns -cpp #-} (and OPTIONS_GHC), the
+;;; older way to turn extensions on (Happy's output uses it): each -X flag
+;;; is an extension, as in a LANGUAGE pragma; other flags are ignored.
+
+(define (lex-options-pragma)
+  (let ((chars '()))
+    (do ()
+	((or *at-eof?*
+	     (and (char=? *char* #\#) (char=? *peek-char* #\-)
+		  (char=? (peek-char-2) #\}))))
+      (push *char* chars)
+      (advance-char))
+    (dolist (flag (split-extension-names (list->string (reverse chars))))
+      (when (and (> (string-length flag) 2) (string-starts? "-X" flag))
+	(push (substring flag 2 (string-length flag)) (dynamic *language-extensions*))))
     (skip-pragma *current-line*)))
 
 (define (split-extension-names text)

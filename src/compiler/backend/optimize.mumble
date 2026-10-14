@@ -413,7 +413,13 @@
 		 (nconc bindings (flic-let-bindings body)))
 	   (setf (flic-let-body object) (flic-let-body body))
 	   object))
-	((is-type? 'flic-lambda (flic-let-body object))
+	((and (is-type? 'flic-lambda (flic-let-body object))
+	      ;; only when the bindings do no work: moved inside the lambda
+	      ;; they are evaluated again at every call (happy's memo table
+	      ;; f g = \n -> lookup n table where table = ..., recomputed per
+	      ;; lookup: issue93.y took over an hour against GHC's 8 s).  GHC
+	      ;; does not eta-expand across an expensive let either.
+	      (every-1 (lambda (v) (hoistable-into-lambda? (var-value v))) bindings))
 	 ;; Hoist lambda outside of LET.  This may permit
 	 ;; merging of nested lambdas on a future pass.
 	 (record-hack 'let-hoist-lambda)
@@ -1181,6 +1187,17 @@
 	   (is-type? 'flic-ref (flic-app-fn exp))
 	   (memq (flic-ref-var (flic-app-fn exp))
 		 (list (core-symbol "build") (core-symbol "inlineBuild"))))))
+
+;;; A binding that may move inside a lambda (let-hoist-lambda): one doing no
+;;; work, but not a list producer (build), which would make its list again
+;;; at each call.
+
+(define (hoistable-into-lambda? exp)
+  (and (work-free-value? exp)
+       (not (and (is-type? 'flic-app exp)
+		 (is-type? 'flic-ref (flic-app-fn exp))
+		 (memq (flic-ref-var (flic-app-fn exp))
+		       (list (core-symbol "build") (core-symbol "inlineBuild")))))))
 
 (define (optimize-flic-ref-aux object)
   (let ((var     (flic-ref-var object)))

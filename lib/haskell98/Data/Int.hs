@@ -327,3 +327,8 @@ instance Bits Int64 where
   bitSize _    = 64
   isSigned _   = True
   popCount (Int64 x) = popCount (x `mod` 18446744073709551616)
+
+instance FiniteBits Int8 where finiteBitSize = bitSize
+instance FiniteBits Int16 where finiteBitSize = bitSize
+instance FiniteBits Int32 where finiteBitSize = bitSize
+instance FiniteBits Int64 where finiteBitSize = bitSize

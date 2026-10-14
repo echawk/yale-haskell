@@ -271,12 +271,19 @@
 	;; itself while its arguments do not decide (families below)
 	(let ((r (reduce-family-app type)))
 	  (if (eq? r 'stuck) type (expand-ntype-synonym r)))
-	(expand-ntype-synonym
-  	  (expand-ntype-synonym-1 (synonym-body syn)
-				  (map (lambda (var val)
-					 (tuple var val))
-				       (synonym-args syn)
-				       (ntycon-args type))))))
+	;; over-applied (type R = Either String; R a): the expansion
+	;; applied to the arguments beyond the synonym's own
+	(let* ((n (length (synonym-args syn)))
+	       (args (ntycon-args type))
+	       (body (expand-ntype-synonym-1 (synonym-body syn)
+					     (map (lambda (var val)
+						    (tuple var val))
+						  (synonym-args syn)
+						  args))))
+	  (expand-ntype-synonym
+	   (if (> (length args) n)
+	       (apply-ntype (prune body) (lisp:nthcdr n args))
+	       body)))))
       type))
 
 ;;; TypeFamilies (GHC; parser/typedecl-parser.mumble, tdecl/alg-syn

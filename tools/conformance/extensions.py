@@ -149,6 +149,111 @@ main = case apply (Fun (\\vs -> Right (Num (length vs)))) [Num 1, Num 2] of
          Right (Num n) -> print n
          _ -> putStrLn "error"
 ''',
+    'ExplicitForAll': '''{-# LANGUAGE ExplicitForAll #-}
+idf :: forall a. a -> a
+idf x = x
+pairUp :: forall a b. a -> b -> (a, b)
+pairUp = (,)
+main = print (idf (3 :: Int), pairUp 'x' True)
+''',
+    'TypeSynonymInstances': '''{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+type Name = String
+class Pretty a where pretty :: a -> String
+instance Pretty Name where pretty n = "<" ++ n ++ ">"
+main = putStrLn (pretty ("x" :: Name))
+''',
+    'StarIsType': '''{-# LANGUAGE KindSignatures #-}
+import Data.Kind (Type)
+data Box (f :: * -> *) a = Box (f a)
+data Box2 (f :: Type -> Type) a = Box2 (f a)
+unbox :: Box f a -> f a
+unbox (Box x) = x
+main = print (unbox (Box (Just 'c')), case Box2 [1 :: Int] of Box2 xs -> xs)
+''',
+    'RoleAnnotations': '''{-# LANGUAGE RoleAnnotations #-}
+type role Tagged phantom representational
+newtype Tagged t a = Tagged a deriving Show
+main = print (Tagged 5 :: Tagged Bool Int)
+''',
+    'DisambiguateRecordFields': '''{-# LANGUAGE DisambiguateRecordFields #-}
+module Main where
+import qualified Data.Map as M
+data P = P { size :: Int, name :: String } deriving Show
+main = print (P { size = 3, name = "n" }, M.size (M.fromList [(1 :: Int, 'a')]))
+''',
+    'ExplicitNamespaces': '''{-# LANGUAGE ExplicitNamespaces, TypeOperators #-}
+module Main (main, type (+++), Pair) where
+import Data.Foldable (type Foldable)
+type a +++ b = Either a b
+type Pair = (,)
+f :: Int +++ Bool -> String
+f = either show show
+g :: Pair Int Char
+g = (1, 'x')
+main = putStrLn (f (Left 3) ++ f (Right True)) >> print g
+''',
+    'MonoLocalBinds': '''{-# LANGUAGE MonoLocalBinds #-}
+-- a closed local binding is still generalized; one mentioning n is not
+f :: Int -> (Int, Char, Bool)
+f n = let h x = x
+          g x = (x, n > 0)
+      in (h n, h 'c', snd (g n))
+main = print (f 3)
+''',
+    # --- where GHC departs from the Haskell 2010 Report (users guide,
+    # "Haskell standards vs. Glasgow Haskell"); --modern-prelude follows GHC
+    'GHCShowRecordParens': '''data R = R { field :: Int } deriving Show
+main = print (Just (R 42), [R 1])
+''',
+    'GHCReadHexInt': '''main = print (read "0xff" :: Int, read "0o17" :: Integer, read "  12 " :: Int)
+''',
+    'GHCSplitAtStrict': '''import Control.Exception
+main = do
+  r <- try (evaluate (length (fst (splitAt undefined ([] :: [Int])))))
+  putStrLn (either (\\e -> const "undefined" (e :: SomeException)) show r)
+''',
+    'GHCExtraInstances': '''main = do
+  print (fmap (+ 1) (\\x -> x * 2) 5 :: Int)
+  print (((+) >>= \\a -> \\b -> a b) 3 :: Int)
+  print (fmap (+ 1) ('c', 1 :: Int), fmap (+ 1) (Right 1 :: Either String Int))
+  print (Left "e" >>= \\x -> Right (x + 1 :: Int), Right 2 >>= \\x -> Right (x * 2 :: Int) :: Either String Int)
+''',
+    'GHCNumNoSuperclasses': '''newtype F = F (Int -> Int)
+instance Num F where
+  F f + F g = F (\\x -> f x + g x)
+  F f * F g = F (\\x -> f x * g x)
+  abs (F f) = F (abs . f)
+  signum (F f) = F (signum . f)
+  fromInteger n = F (const (fromInteger n))
+  negate (F f) = F (negate . f)
+apply :: F -> Int -> Int
+apply (F f) = f
+main = print (apply (F (* 2) + 3) 10)
+''',
+    'GHCArrayLastWins': '''import Data.Array
+main = print (array (1, 2) [(1, 'a'), (2, 'b'), (1, 'c')] ! 1)
+''',
+    'GHCPreludeWord': '''main = print (maxBound :: Word, fromIntegral (-1 :: Int) :: Word, 3 + 4 :: Word)
+''',
+    'DataBitsModern': '''import Data.Bits
+import Data.Word
+import Data.Int
+main = do
+  print (finiteBitSize (0 :: Word8), countLeadingZeros (1 :: Word16), countTrailingZeros (8 :: Int32))
+  print (bitSizeMaybe (0 :: Integer), bitSizeMaybe (0 :: Word32), zeroBits :: Word8)
+  print ((1 :: Int) .<<. 4, (256 :: Word) .>>. 4, (5 :: Int) .^. 3, popCountDefault (255 :: Int))
+  print (toIntegralSized (300 :: Int) :: Maybe Word8, toIntegralSized (200 :: Int) :: Maybe Word8)
+  print (unsafeShiftL (3 :: Word64) 2, testBitDefault (4 :: Int) 2, bitDefault 3 :: Int)
+''',
+    'GHCCharMaxBound': '''main = print (fromEnum (maxBound :: Char), maxBound :: Char)
+''',
+    'GHCIntWraps': '''import Data.Int
+main = do
+  print (maxBound :: Int, minBound :: Int)
+  print ((maxBound :: Int) + 1 == minBound)
+  print (2 ^ 63 :: Int, 2 ^ 64 :: Int, fromIntegral (2 ^ 64 + 5 :: Integer) :: Int)
+  print (fromIntegral (300 :: Int) :: Int8)
+''',
     'FlexibleInstances': '''{-# LANGUAGE FlexibleInstances #-}
 class C a where c :: a -> String
 instance C [Char] where c s = s

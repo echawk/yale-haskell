@@ -407,3 +407,9 @@ instance Bits Word where
   bitSize _    = 64
   isSigned _   = False
   popCount (Word x) = popCount x
+
+instance FiniteBits Word8 where finiteBitSize = bitSize
+instance FiniteBits Word16 where finiteBitSize = bitSize
+instance FiniteBits Word32 where finiteBitSize = bitSize
+instance FiniteBits Word64 where finiteBitSize = bitSize
+instance FiniteBits Word where finiteBitSize = bitSize

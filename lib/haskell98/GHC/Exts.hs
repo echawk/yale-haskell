@@ -18,6 +18,9 @@ module GHC.Exts (
     (+#), (-#), (*#), quotInt#, remInt#, negateInt#, (==#), (/=#), (<#),
     (<=#), (>#), (>=#), isTrue#, andI#, orI#, xorI#, notI#,
     uncheckedIShiftL#, uncheckedIShiftRA#, uncheckedIShiftRL#,
+    iShiftL#, iShiftRA#, iShiftRL#, uncheckedShiftL#, uncheckedShiftRL#,
+    narrow8Int#, narrow16Int#, narrow32Int#, narrow8Word#, narrow16Word#,
+    narrow32Word#, Any,
     (+##), (-##), (*##), (/##), (**##), (==##), (/=##), (<##), (<=##),
     (>##), (>=##), negateDouble#, sqrtDouble#, expDouble#, logDouble#,
     sinDouble#, cosDouble#, int2Double#, double2Int#,
@@ -203,6 +206,30 @@ xor# = xor
 
 not# :: Word -> Word
 not# = complement
+
+-- Happy's array templates use these (GHC.Base's names)
+iShiftL#, iShiftRA#, iShiftRL# :: Int -> Int -> Int
+iShiftL# = uncheckedIShiftL#
+iShiftRA# = uncheckedIShiftRA#
+iShiftRL# = uncheckedIShiftRL#
+
+uncheckedShiftL#, uncheckedShiftRL# :: Word -> Int -> Word
+uncheckedShiftL# = shiftL
+uncheckedShiftRL# = shiftR
+
+narrow8Int#, narrow16Int#, narrow32Int# :: Int -> Int
+narrow8Int# n = signed 8 (n `mod` 256)
+narrow16Int# n = signed 16 (n `mod` 65536)
+narrow32Int# n = signed 32 (n `mod` 4294967296)
+
+narrow8Word#, narrow16Word#, narrow32Word# :: Word -> Word
+narrow8Word# w = w `mod` 256
+narrow16Word# w = w `mod` 65536
+narrow32Word# w = w `mod` 4294967296
+
+-- GHC's Any (of any kind; here kind *): a value of it is only coerced to
+-- and from other types
+data Any
 
 shiftL#, shiftRL# :: Word -> Int -> Word
 shiftL# = shiftL

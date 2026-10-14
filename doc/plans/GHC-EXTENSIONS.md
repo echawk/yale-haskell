@@ -40,6 +40,39 @@ was an error before) are accepted always.  Extensions that add implicit
 imports (OverloadedStrings: Data.String; OverloadedLists: GHC.IsList;
 RecursiveDo: Control.Monad.Fix) add them for the dependency scan too.
 
+## Where GHC departs from the Report
+
+GHC's users guide lists where GHC itself differs from Haskell 98 and
+2010 ("Haskell standards vs. Glasgow Haskell", bugs.html).  Programs
+written for GHC rely on these, so `--modern-prelude` follows GHC where
+it can; `--haskell98` follows the Report except where noted.  The probes
+named `GHC...` in tools/conformance/extensions.py check them against
+GHC 9.14.
+
+| GHC behaviour | here |
+|---|---|
+| derived Show of a record argument in parentheses, `Just (R {f = 1})` | as GHC (probe GHCShowRecordParens) |
+| `read` of Int/Integer accepts `0x`, `0o`, `0b` | as GHC in both modes (GHCReadHexInt); the Report's would fail, so only a failure becomes a value |
+| `splitAt` strict in its count | as GHC (GHCSplitAtStrict) |
+| instances `Functor ((->) r)`, `Monad ((->) r)`, `Functor ((,) a)`, `Functor`/`Monad (Either e)` | as GHC (GHCExtraInstances) |
+| `array` with a repeated index: the last value | as GHC (GHCArrayLastWins) |
+| `maxBound :: Char` is `'\1114111'` | as GHC (GHCCharMaxBound) |
+| `Word` exported by the Prelude | with `--modern-prelude` (GHCPreludeWord) |
+| `Monad` has an `Applicative` superclass; `fail` is MonadFail's | with `--modern-prelude` |
+| `Num` has no `Eq`/`Show` superclasses | **not yet**: `instance Num F` still needs `Eq F` and `Show F` (GHCNumNoSuperclasses); the class is shared with `--haskell98` |
+| `Int` is 64 bits and wraps modulo 2^64 | **not yet**: Int is the fixnum range (62 bits) and overflow is an error (GHCIntWraps; nofib sphere) |
+| `Bits` has no `Num` superclass | **no**: the Report's `Num` superclass is kept (Haskell 2010 code uses it); GHC's additions (FiniteBits, zeroBits, bitSizeMaybe, `.<<.`, bitDefault, ...) are there (DataBitsModern) |
+| NondecreasingIndentation (GHC: in its Haskell98 language only) | accepted in both modes |
+| an operator in a do block's column closes the block (parse-error(t)) | yes |
+| a record's `}` and other explicit braces open an explicit layout context | yes |
+| dependency analysis ignores references to variables with signatures | yes |
+
+GHC2021, GHC's default language, is probed extension by extension; of
+GHC2024's additions, DataKinds, DerivingStrategies, GADTs, LambdaCase,
+RoleAnnotations (accepted, not checked), DisambiguateRecordFields,
+ExplicitNamespaces (`type` in import and export lists) and
+MonoLocalBinds are probed too.
+
 ## The tiers
 
 ### 1. Supported as GHC does it

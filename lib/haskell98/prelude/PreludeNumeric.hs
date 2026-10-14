@@ -145,10 +145,22 @@ readSigned readPos = readParen False read'
 readSignedDec :: (Integral a) => ReadS a
 readSignedDec r =
     case dropWhile isSpace r of
-      ('-':s@(c:_)) | isDigit c -> fast negate s
-      s@(c:_)       | isDigit c -> fast id s
+      ('-':s@(c:_)) | isDigit c -> radix negate s
+      s@(c:_)       | isDigit c -> radix id s
       _                         -> readSigned readDec r
   where
+    -- GHC reads 0x1f, 0o17 and 0b101 too (users guide, "Haskell
+    -- standards vs. Glasgow Haskell"); the Report reads only decimal
+    radix sign ('0':x:s@(d:_))
+      | (x == 'x' || x == 'X') && isHexDigit d = based sign 16 isHexDigit s
+      | (x == 'o' || x == 'O') && isOctDigit d = based sign 8 isOctDigit s
+      | (x == 'b' || x == 'B') && isBin d = based sign 2 isBin s
+    radix sign s = fast sign s
+    isBin d = d == '0' || d == '1'
+    based sign b isDig s = case span isDig s of
+                             (ds,t) | numberEnds t ->
+                                        [(sign (foldl (\n d -> n * b + fromIntegral (digitToInt d)) 0 ds), t)]
+                             _ -> []
     fast sign s = case span isDigit s of
                     (ds,t) | numberEnds t -> [(sign (decValue 0 ds), t)]
                            | otherwise    -> readSigned readDec r

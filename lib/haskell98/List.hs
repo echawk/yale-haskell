@@ -152,8 +152,37 @@ unfoldr f b             = case f b of
 sort                    :: (Ord a) => [a] -> [a]
 sort                    =  sortBy compare
 
+-- The Report defines sortBy as foldr (insertBy cmp) [], which is O(n^2)
+-- and builds a chain of insertBy thunks as long as the list (happy's
+-- issue93 grammar exhausted the heap).  This is GHC's stable merge sort
+-- (Data.OldList): the same results, in O(n log n).
 sortBy                  :: (a -> a -> Ordering) -> [a] -> [a]
-sortBy cmp              =  foldr (insertBy cmp) []
+sortBy cmp = mergeAll . sequences
+  where
+    sequences (a:b:xs)
+      | a `cmp` b == GT = descending b [a]  xs
+      | otherwise       = ascending  b (\ys -> a : ys) xs
+    sequences xs = [xs]
+
+    descending a as (b:bs)
+      | a `cmp` b == GT = descending b (a:as) bs
+    descending a as bs  = (a:as) : sequences bs
+
+    ascending a as (b:bs)
+      | a `cmp` b /= GT = ascending b (\ys -> as (a:ys)) bs
+    ascending a as bs   = let x = as [a] in x `seq` (x : sequences bs)
+
+    mergeAll [x] = x
+    mergeAll xs  = mergeAll (mergePairs xs)
+
+    mergePairs (a:b:xs) = let x = merge a b in x `seq` (x : mergePairs xs)
+    mergePairs xs       = xs
+
+    merge as@(a:as') bs@(b:bs')
+      | a `cmp` b == GT = b : merge as  bs'
+      | otherwise       = a : merge as' bs
+    merge [] bs         = bs
+    merge as []         = as
 
 insert                  :: (Ord a) => a -> [a] -> [a]
 insert                  = insertBy compare

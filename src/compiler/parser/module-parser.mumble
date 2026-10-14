@@ -148,6 +148,11 @@
     (cond ((at-varid-named? "family") (parse-type-family-decl))
 	  (else (advance-token) (parse-type-equation)))
     (terminate-topdecl mod-ast in-layout? 'topdecl))
+   ;; RoleAnnotations (GHC): type role T nominal representational;
+   ;; roles only restrict coerce, which is not checked here
+   ((no-advance satisfies at-role-annotation?)
+    (skip-to-decl-end)
+    (terminate-topdecl mod-ast in-layout? 'topdecl))
    (|type| (let ((synonym-decl (parse-synonym-decl)))
 	     (push-decl-list synonym-decl (module-synonyms mod-ast)))
 	   (terminate-topdecl mod-ast in-layout? 'topdecl))
@@ -249,6 +254,12 @@
        (or (eq? (peek-1-type) '|instance|)
 	   (and (eq? (peek-1-type) 'varid)
 		(equal? (peek-1-text) "family")))))
+
+(define (at-role-annotation?)
+  (and (haskell98?) (eq-token? '|type|)
+       (eq? (peek-1-type) 'varid)
+       (equal? (peek-1-text) "role")
+       (memq (peek-2-type) '(conid \())))
 
 (define (at-data-family-decl?)
   (and (haskell98?) (memq *token* '(|data| |newtype|))
@@ -519,6 +530,19 @@
   (save-parser-context
    (token-case
     (var (var->entity))
+    ;; ExplicitNamespaces (GHC): `type (+++)', `type T' name a type
+    ;; (constructor); an operator is the type operator (type-parser.mumble)
+    (|type|
+     (token-case
+      (\( (if (memq *token* '(consym varsym))
+	      (let ((name (if (eq? *token* 'varsym)
+			      (string->symbol (string-append "type%" (car *token-args*)))
+			      (token->symbol))))
+		(advance-token)
+		(require-token \) (signal-missing-token "`)'" "type operator entity"))
+		(make entity-con (name name)))
+	      (signal-invalid-syntax "an entity")))
+      (else (parse-entity context))))
     ;; Haskell 98: `module M' (Haskell 1.2 wrote M..), in an export list
     (|module|
      (if (eq? context 'export)

@@ -1,7 +1,7 @@
 -- Control.Monad.Trans.Writer.Lazy (transformers)
 module Control.Monad.Trans.Writer.Lazy (
     WriterT(WriterT, runWriterT), Writer, runWriter, execWriter, execWriterT,
-    mapWriterT, writer, tell, listen, pass, censor
+    mapWriterT, mapWriter, writer, tell, listen, pass, censor
   ) where
 
 import PreludeModern
@@ -22,6 +22,9 @@ execWriter m = snd (runWriter m)
 
 execWriterT :: Monad m => WriterT w m a -> m w
 execWriterT m = runWriterT m >>= \ ~(_, w) -> return w
+
+mapWriter :: ((a, w) -> (b, w')) -> Writer w a -> Writer w' b
+mapWriter f = mapWriterT (Identity . f . runIdentity)
 
 mapWriterT :: (m (a, w) -> n (b, w')) -> WriterT w m a -> WriterT w' n b
 mapWriterT f m = WriterT (f (runWriterT m))
