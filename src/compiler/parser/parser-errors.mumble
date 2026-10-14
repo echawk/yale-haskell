@@ -38,6 +38,10 @@
 (define (search-layout-stack layouts tokens column)
   (cond ((null? layouts)
 	 (abort-compilation))
+	;; an explicit context (token.mumble) is abandoned
+	((eqv? (layout-col (car layouts)) -1)
+	 (setf *layout-stack* (cdr *layout-stack*))
+	 (search-layout-stack (cdr layouts) tokens column))
 	((> column (layout-col (car layouts)))
 	 (recover-to-next-decl (cdr tokens)))
 	((= column (layout-col (car layouts)))

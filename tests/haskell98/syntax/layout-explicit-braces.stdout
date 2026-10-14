@@ -1,0 +1,2 @@
+Circle {centre = (0,0), radius = 2}
+Box {corner = (3,0), size = 4}

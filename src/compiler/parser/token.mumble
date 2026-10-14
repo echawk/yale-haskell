@@ -65,9 +65,25 @@
 		 (resolve-layout *token-stream* *layout-stack*)))
 	 (advance-token))
 	(else
+	 ;; An explicit { opens an explicit context (the Report's L pushes 0;
+	 ;; here column -1, columns counting from 0): no layout inside it, a
+	 ;; record declaration's } in the first column included
+	 (cond ((eq? type '\{)
+		(push (cons -1 '#f) *layout-stack*))
+	       ((eq? type '\})
+		(setf *layout-stack* (remove-explicit-context *layout-stack*))))
 	 (setf *token* type)
 	 (setf *token-args* args)
 	 type)))
+
+;;; The stack without its innermost explicit context: implicit blocks
+;;; opened inside the braces and not yet closed (parse-error(t) closes them
+;;; after the } is seen) stay, for close-layout to pop.
+
+(define (remove-explicit-context stack)
+  (cond ((null? stack) '())
+	((eqv? (layout-col (car stack)) -1) (cdr stack))
+	(else (cons (car stack) (remove-explicit-context (cdr stack))))))
 
 (define (insert-extra-token tok-type stream) ; used by layout
   (cons (list tok-type) stream))
