@@ -121,16 +121,17 @@ be accepted.
   completion; an MVar or STM operation that would block fails.  Worker
   threads that report through MVars work (nofib fannkuch-redux,
   binary-trees).
-- **GHC.Generics, Data.Typeable, Control.DeepSeq**: the classes exist
-  and deriving them gives empty instances, so programs that derive them
-  for a library compile.  Generic representations, `typeOf`, and deep
-  `rnf` for user types (it evaluates to WHNF) are not there.
+- **GHC.Generics, Control.DeepSeq**: the classes exist and deriving
+  them gives empty instances, so programs that derive them for a library
+  compile.  Generic representations and deep `rnf` for user types (it
+  evaluates to WHNF) are not there.  Data.Typeable is complete for types
+  of kind `*` and their constructors (`typeOf`, `cast`, Data.Dynamic);
+  `Typeable (f a)` for a type variable `f` is not.
 
 ### 4. Not supported yet, but realistic
 
 | extension | what it needs | size |
 |---|---|---|
-| Typeable's `typeOf` | a `TypeRep` per type: an automatic instance for every type constructor, built from the type checker's types | medium |
 | A catch-all instance (`instance Show a => Pretty a`) | instance lookup falling back to a type-variable head | medium |
 | QuantifiedConstraints | contexts with `forall` in instance heads; dictionary functions as dictionary fields | medium-large |
 | Arrows (`proc` notation) | the desugaring to `arr`/`>>>`/`first` | medium, rarely used |
