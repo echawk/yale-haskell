@@ -196,8 +196,10 @@
 	    (append (module-annotations mod-ast) annotations)))
     (terminate-topdecl mod-ast in-layout? state))
    (pat-start (if (foreign-decl-start?)
-		  (push-decl-list (parse-foreign-import)
-				  (module-foreign-imports mod-ast))
+		  (if (foreign-export-start?)
+		      (parse-foreign-export mod-ast)
+		      (push-decl-list (parse-foreign-import)
+				      (module-foreign-imports mod-ast)))
 		  (let ((decl (parse-decl)))
 		    (setf (module-decls mod-ast)
 			  (decl-push decl (module-decls mod-ast)))))
@@ -373,7 +375,8 @@
 	     (null? (module-synonyms mod-ast))
 	     (null? (module-instances mod-ast))
 	     (null? (module-classes mod-ast))
-	     (null? (module-foreign-imports mod-ast)))
+	     (null? (module-foreign-imports mod-ast))
+	     (null? (module-foreign-exports mod-ast)))
     (signal-empty-module)))
 
 (define (signal-empty-module)
@@ -621,26 +624,69 @@
 	   (restore-excursion saved)
 	   res))))
 
+(define (foreign-export-start?)
+  (let ((saved  (save-scanner-state)))
+    (advance-token)
+    (let ((res  (at-varid-named? "export")))
+      (restore-excursion saved)
+      res)))
+
+(define (parse-foreign-callconv what)
+  (if (or (at-varid-named? "ccall") (at-varid-named? "capi"))
+      (advance-token)
+      (parser-error 'foreign-callconv
+		    (format '#f "The calling convention of a foreign ~A must be ccall."
+			    what))))
+
+(define (parse-foreign-entity)
+  (token-case
+   ((string no-advance)
+    (let ((s  (car *token-args*)))
+      (advance-token)
+      s))
+   (else "")))
+
+;;; foreign export ccall ["entity"] f :: t.  The entity is the C name,
+;;; by default f's.  See the foreign-export struct (ast/modules.mumble).
+
+(define (parse-foreign-export mod-ast)
+  (let ((line  (capture-current-line)))
+    (advance-token)			; foreign
+    (advance-token)			; export
+    (parse-foreign-callconv "export")
+    (let* ((entity  (parse-foreign-entity))
+	   (sd      (parse-signdecl))
+	   (vars    (signdecl-vars sd)))
+      (when (not (null? (cdr vars)))
+	(parser-error 'foreign-vars
+		      "A foreign export declares exactly one name."))
+      (let* ((name    (var-ref-name (car vars)))
+	     (hidden  (string->symbol (format '#f "~A%fexport" name)))
+	     (ref     (generated-var-ref hidden))
+	     (sign    (make signdecl (vars (list (generated-var-ref hidden)))
+			    (signature (signdecl-signature sd))))
+	     (def     (**valdef/pat (make var-pat (var ref))
+				    (generated-var-ref name)))
+	     (fe      (make foreign-export (var ref) (name name)
+			    (entity (if (string=? entity "")
+					(symbol->string name)
+					entity)))))
+	(setf (ast-node-line-number sign) line)
+	(setf (ast-node-line-number def) line)
+	(setf (ast-node-line-number fe) line)
+	(setf (module-decls mod-ast) (decl-push sign (module-decls mod-ast)))
+	(setf (module-decls mod-ast) (decl-push def (module-decls mod-ast)))
+	(push-decl-list fe (module-foreign-exports mod-ast))))))
+
 (define (parse-foreign-import)
   (let ((line  (capture-current-line)))
     (advance-token)			; foreign
-    (when (at-varid-named? "export")
-      (parser-error 'foreign-export
-		    "foreign export is not supported yet; only foreign import."))
     (advance-token)			; import
-    (if (or (at-varid-named? "ccall") (at-varid-named? "capi"))
-	(advance-token)
-	(parser-error 'foreign-callconv
-		      "The calling convention of a foreign import must be ccall."))
+    (parse-foreign-callconv "import")
     (when (or (at-varid-named? "safe") (at-varid-named? "unsafe")
 	      (at-varid-named? "interruptible"))
       (advance-token))
-    (let* ((entity  (token-case
-		     ((string no-advance)
-		      (let ((s  (car *token-args*)))
-			(advance-token)
-			s))
-		     (else "")))
+    (let* ((entity  (parse-foreign-entity))
 	   (sd      (parse-signdecl))
 	   (vars    (signdecl-vars sd)))
       (when (not (null? (cdr vars)))

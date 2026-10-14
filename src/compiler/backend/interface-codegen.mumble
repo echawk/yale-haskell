@@ -224,6 +224,9 @@
     ;; one list of classes per type variable: Ptr a is fine
     (when (not (every (function null?) (gtype-context gtype)))
       (ffi-error var "its type has a class context"))
+    (when (eq? (car spec) 'wrapper)
+      (lisp:throw 'ffi-error
+	(codegen-foreign-wrapper var args io? rtype)))
     (let ((arg-ms  (map (lambda (ty) (ffi-marshalling var ty '#f)) args))
 	  (res-m   (ffi-marshalling var rtype '#t))
 	  (params  (map (lambda (ty) (declare (ignore ty)) (gensym "A")) args))
@@ -255,8 +258,6 @@
 		    (entry      (symbol-append (fullname var) '|/ffi|))
 		    (all-params (if io? (append params (list state)) params))
 		    (strictness (map (lambda (p) (declare (ignore p)) '#t) all-params)))
-	       (when (eq? (car spec) 'wrapper)
-		 (ffi-error var "\"wrapper\" imports (callbacks) are not supported yet"))
 	       (setf (var-optimized-entry var) entry)
 	       (setf (var-strict? var) '#t)
 	       (setf (var-arity var) (length all-params))
@@ -276,6 +277,105 @@
 			  (codegen-curried-fn `(function ,entry) strictness)
 			  '#t))))))))))
 
+;;; Callbacks (src/ffi/ffi-runtime.lisp): a "wrapper" import
+;;;   mk :: ft -> IO (FunPtr ft)
+;;; makes a C function pointer that calls a Haskell function of type ft.
+;;; Its entry takes a slot of the import's callback pool; the pool's
+;;; adapter converts the C arguments, applies the function (to the state
+;;; too when ft's result is IO) and converts the result.
+
+(define (codegen-foreign-wrapper var args io? rtype)
+  (when (or (not io?) (not (eqv? (length args) 1))
+	    (not (ffi-funptr-type? rtype)))
+    (ffi-error var "a \"wrapper\" import must have type ft -> IO (FunPtr ft)"))
+  (let* ((cb     (ffi-callback var (car args)))
+	 (pool   (symbol-append (fullname var) '|/callbacks|))
+	 (entry  (symbol-append (fullname var) '|/ffi|))
+	 (strictness  '(#t #t)))
+    (setf (var-optimized-entry var) entry)
+    (setf (var-strict? var) '#t)
+    (setf (var-arity var) 2)
+    (setf (var-strictness var) strictness)
+    `(begin
+       (define ,pool
+	 (ffi-make-callback-pool ,(symbol->string (fullname var))
+				 ,(caddr cb) ',(car cb) ',(cadr cb)))
+       (define (,entry fn state)
+	 (declare (ignore state))
+	 (ffi-new-callback ,pool fn))
+       (define ,(fullname var)
+	 ,(maybe-make-box-value
+	   (codegen-curried-fn `(function ,entry) strictness)
+	   '#t)))))
+
+(define (ffi-funptr-type? ty)
+  (let ((ty  (ffi-expand ty)))
+    (and (ntycon? ty)
+	 (eq? (def-name (ntycon-tycon ty)) '|FunPtr|)
+	 (eq? (def-module (ntycon-tycon ty)) '|ForeignPrims|))))
+
+;;; For a callback of type TY: (result-cffi-type arg-cffi-types adapter),
+;;; where the adapter is a lambda form of the (evaluated) Haskell function
+;;; and the C arguments.
+
+(define (ffi-callback var ty)
+  (let* ((types   (ffi-gather-arg-types ty))
+	 (args    (butlast types))
+	 (res     (car (last types)))
+	 (io?     (and (ntycon? res) (eq? (ntycon-tycon res) (core-symbol "IO"))))
+	 (rtype   (if io? (ffi-expand (car (ntycon-args res))) res))
+	 (arg-ms  (map (lambda (ty) (ffi-marshalling var ty '#f)) args))
+	 (res-m   (ffi-marshalling var rtype '#t))
+	 (params  (map (lambda (ty) (declare (ignore ty)) (gensym "A")) args))
+	 (fn      (gensym "F"))
+	 (hs-args (append (map (lambda (m p) `(box ,(ffi-callback-arg m p)))
+			       arg-ms params)
+			  (if io? '((box 'state)) '())))
+	 (call    (if (null? hs-args)
+		      `(force ,fn)
+		      `(force (apply-n ,fn ,@hs-args))))
+	 (value   (if io? `(force ,call) call)))
+    (list (car res-m)
+	  (map (function car) arg-ms)
+	  `(lambda (,fn ,@params)
+	     ,(if (eq? (car res-m) ':void)
+		  `(begin ,value 0)
+		  (ffi-apply (cadr res-m) value))))))
+
+;;; A C argument as its Haskell value: the from-C conversion of a result
+;;; (Bool's int), except that an argument has no void.
+(define (ffi-callback-arg m p)
+  (ffi-apply (caddr m) p))
+
+(define (ffi-gather-arg-types ty)
+  (let ((ty  (ffi-expand ty)))
+    (if (arrow-type? ty)
+	(let ((a  (ntycon-args ty)))
+	  (cons (car a) (ffi-gather-arg-types (cadr a))))
+	(list ty))))
+
+;;; foreign export ccall "name" f :: t: a callback calling f%fexport (f
+;;; at type t, a binding the parser added), known to the runtime by
+;;; NAME.  Emitted after the module's code.
+
+(define (codegen-foreign-exports mods)
+  (concat
+   (map (lambda (mod)
+	  (map (function codegen-foreign-export) (module-foreign-exports mod)))
+	mods)))
+
+(define (codegen-foreign-export fe)
+  (let ((var  (var-ref-var (foreign-export-var fe))))
+    (remember-context fe
+      (dynamic-let ((*ffi-export* fe))
+	(lisp:catch 'ffi-error
+	  (let ((gtype  (var-signature var)))
+	    (when (not (every (function null?) (gtype-context gtype)))
+	      (ffi-error var "its type has a class context"))
+	    (let ((cb  (ffi-callback var (gtype-type gtype))))
+	      `(ffi-define-export ,(foreign-export-entity fe) ',(fullname var)
+				  ,(caddr cb) ',(car cb) ',(cadr cb)))))))))
+
 (define (ffi-cffi-symbol name)
   (let ((pkg  (lisp:find-package "CFFI")))
     (if (eq? pkg '#f)
@@ -288,9 +388,15 @@
 (define (ffi-expand ty)
   (expand-ntype-synonym (prune ty)))
 
+(define *ffi-export* '#f)	; the foreign-export being generated
+
 (define (ffi-error var what)
-  (phase-error 'bad-foreign-import
-    "The foreign import ~A is not supported: ~A." (def-name var) what)
+  (if (dynamic *ffi-export*)
+      (phase-error 'bad-foreign-export
+	"The foreign export ~A is not supported: ~A."
+	(foreign-export-name (dynamic *ffi-export*)) what)
+      (phase-error 'bad-foreign-import
+	"The foreign import ~A is not supported: ~A." (def-name var) what))
   ;; after a recoverable error, no code for this declaration
   (lisp:throw 'ffi-error '(begin)))
 

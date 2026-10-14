@@ -96,6 +96,8 @@
     ;; the scope phase generates for them
     (foreign-imports (type (list foreign-import)) (default '()))
     (foreign-code (type list) (default '()))
+    ;; foreign export declarations
+    (foreign-exports (type list) (default '()))
     ;; the GHC extensions its file's LANGUAGE pragmas name (strings)
     (extensions (type list) (default '()))
     ;; TypeFamilies: (tuple lhs-tycon-ast rhs-ast) for each equation of a
@@ -284,6 +286,18 @@
 ;;; foreign import callconv [safety] "entity" var :: type
 ;;; (Haskell 2010 report 8.4).  Only ccall (capi is treated as ccall);
 ;;; the safety is ignored.  See backend/interface-codegen.mumble.
+
+;;; foreign export ccall "entity" f :: t (report 8.4).  The parser adds
+;;; a binding f%fexport :: t; f%fexport = f to the module's declarations,
+;;; so the type checker checks f against t, and VAR is that binding's
+;;; var-ref.  See backend/interface-codegen.mumble.
+
+(define-struct foreign-export
+  (include ast-node)
+  (slots
+   (var (type var-ref))
+   (name (type symbol))			; f
+   (entity (type string))))
 
 (define-struct foreign-import
   (include ast-node)

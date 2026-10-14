@@ -204,6 +204,7 @@
 
 (predefine (codegen-top x))  ; in backend/codegen.mumble
 (predefine (codegen-exported-types x)) ; "
+(predefine (codegen-foreign-exports x)) ; backend/interface-codegen.mumble
 (predefine (codegen-prim-entries x))  ; ditto
 
 (predefine (grin-lower-top x))  ; in grin/grin-lower.mumble
@@ -221,7 +222,8 @@
 	 ,@(concat (map (function module-foreign-code) mods))
 	 ,(if (eq? grin '#f)
 	      (codegen-top big-let)
-	      (grin-emit-top grin)))
+	      (grin-emit-top grin))
+	 ,@(codegen-foreign-exports mods))
       #f)))
 
 (define (haskell-grin big-let)

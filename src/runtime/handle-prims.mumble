@@ -154,13 +154,17 @@
 (lisp:defvar *file-external-format*
   #+sbcl '(:utf-8 :replacement #\U+FFFD) #-sbcl ':default)
 
-;;; hSetBinaryMode on a standard handle: the Lisp stream it uses is
-;;; replaced by a new one on the same descriptor, decoding and encoding
-;;; Latin-1 (binary, one Char per byte) or UTF-8.  File handles keep
-;;; their encoding (openBinaryFile opens a binary one).
+;;; hSetBinaryMode: the Lisp stream a handle uses is replaced by one
+;;; decoding and encoding Latin-1 (binary, one Char per byte) or UTF-8 --
+;;; for a standard handle, a new stream on the same descriptor; for a
+;;; file, the file opened again at the same byte position (CL cannot
+;;; change an open stream's external format).
 
 (define (prim.h-set-binary-mode h binary?)
   (check-open h "hSetBinaryMode")
+  (when (haskell-handle-file? h)
+    (with-handle-errors "hSetBinaryMode" h
+      (reopen-file-handle h (if binary? ':latin-1 *file-external-format*))))
   #+sbcl
   (let ((ef (if binary? ':latin-1 '(:utf-8 :replacement #\U+FFFD))))
     (case (haskell-handle-stream h)
@@ -179,6 +183,26 @@
 	     (sb-sys:make-fd-stream 2 ':output lisp:t ':buffering ':none
 				    ':external-format ef)))))
   0)
+
+;;; Reading and writing go on where they were: output is flushed first,
+;;; and the position is the old stream's (in bytes, as file-position
+;;; counts for a file).
+
+(define (reopen-file-handle h ef)
+  (let* ((old   (handle-stream h))
+	 (path  (native-pathname (haskell-handle-name h))))
+    (when (haskell-handle-writable? h)
+      (lisp:finish-output old))
+    (let* ((pos  (lisp:file-position old))
+	   (new  (if (haskell-handle-writable? h)
+		     (lisp:open path :direction (if (haskell-handle-readable? h)
+						    :io :output)
+				:external-format ef
+				:if-exists :overwrite :if-does-not-exist :create)
+		     (lisp:open path :direction :input :external-format ef))))
+      (lisp:file-position new pos)
+      (lisp:close old)
+      (setf (haskell-handle-stream h) new))))
 
 (define (prim.open-file-1 name mode)
   (let ((path  (native-pathname name)))

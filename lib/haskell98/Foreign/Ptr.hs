@@ -1,8 +1,8 @@
 -- Foreign.Ptr: the Haskell 2010 library module (Report 2010, chapter 31),
 -- for Yale Haskell's Haskell 98 dialect.  Ptr and FunPtr are CFFI
 -- foreign pointers (ForeignPrims.hi, src/ffi/ffi-runtime.lisp).
--- FunPtrs made from Haskell functions ("wrapper" imports) are not
--- supported yet, so freeHaskellFunPtr does nothing.
+-- freeHaskellFunPtr frees the callback of a "wrapper" import
+-- (src/ffi/ffi-runtime.lisp's callback pools).
 module Foreign.Ptr (
     Ptr, nullPtr, castPtr, plusPtr, alignPtr, minusPtr,
     FunPtr, nullFunPtr, castFunPtr, castFunPtrToPtr, castPtrToFunPtr,
@@ -44,7 +44,7 @@ castPtrToFunPtr :: Ptr a -> FunPtr b
 castPtrToFunPtr = primCastPtrToFunPtr
 
 freeHaskellFunPtr :: FunPtr a -> IO ()
-freeHaskellFunPtr _ = return ()
+freeHaskellFunPtr = primFreeHaskellFunPtr
 
 instance Eq (Ptr a) where
   p == q = primPtrEq p q

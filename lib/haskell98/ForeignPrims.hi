@@ -105,6 +105,8 @@ primTouchFP        :: FPState -> IO ()
 primNewStablePtr   :: a -> IO (Ptr ())
 primDerefStablePtr :: Ptr () -> IO a
 primFreeStablePtr  :: Ptr () -> IO ()
+-- freeHaskellFunPtr: a "wrapper" import's callback slot is free again
+primFreeHaskellFunPtr :: FunPtr a -> IO ()
 primUnsafePerformIO :: IO a -> a
 
 {-#
@@ -113,6 +115,7 @@ primNullFunPtr       :: LispName("prim.null-ptr")
 primPlusPtr          :: LispName("prim.plus-ptr")
 primMinusPtr         :: LispName("prim.minus-ptr")
 primPtrEq            :: LispName("prim.ptr-eq")
+primFreeHaskellFunPtr :: LispName("prim.free-haskell-fun-ptr")
 primPtrLe            :: LispName("prim.ptr-le")
 primFunPtrEq         :: LispName("prim.ptr-eq")
 primFunPtrLe         :: LispName("prim.ptr-le")

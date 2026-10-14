@@ -88,8 +88,8 @@ main), `YALE_HASKELL_PROFILE=alloc`, `YALE_HASKELL_DEBUG=1`,
 ## 3. Current state (verified as of 2026-10-14, commit a28af4a)
 
 - **Haskell 98 and 2010: done**, including records, qualified names,
-  newtype, constructor classes, monadic IO, do, FFI (no `foreign
-  export`/`"wrapper"`), pattern guards, CPP.
+  newtype, constructor classes, monadic IO, do, FFI (`foreign export`
+  reached through `&name`, `"wrapper"` callbacks), pattern guards, CPP.
 - **Modern base and GHC extensions: 83 of 87 probes pass** (GHC2021 +
   common non-2021 extensions + modern libraries; MPTC with fundeps,
   FlexibleInstances/Contexts, RankN, GADTs (permissive),
@@ -117,10 +117,9 @@ main), `YALE_HASKELL_PROFILE=alloc`, `YALE_HASKELL_DEBUG=1`,
 
 Realistic, in rough order of value:
 
-1. **Binary I/O**: `openBinaryFile`, `withBinaryFile`,
-   `hSetBinaryMode`, `hGetBuf`/`hPutBuf` need a Latin-1 (byte)
-   external format for handles in `src/runtime/handle-prims.mumble`.
-   Unblocks nofib `mandel` and darcs-style file work.
+1. **Binary I/O**: done (`openBinaryFile`, `withBinaryFile`,
+   `hSetBinaryMode` on standard and file handles, `hGetBuf`/`hPutBuf`;
+   Latin-1 streams in `src/runtime/handle-prims.mumble`).
 2. **A packed representation for Data.Text and Data.ByteString** (keep
    the API; storage as Lisp strings / `(unsigned-byte 8)` vectors;
    pointer-level `.Unsafe`/`.Internal` may stay missing). This is the
@@ -135,9 +134,9 @@ Realistic, in rough order of value:
    an `aeson` subset (no Generic), `Data.Graph` (Data.Array.ST,
    which it needs, already exists), the rest of QuickCheck 2's API, real haskeline
    line editing.
-4. **`foreign export` and `"wrapper"` imports** (FFI callbacks: CFFI
-   callbacks are static, so a Haskell closure needs a trampoline
-   table; `src/ffi/ffi-runtime.lisp`, `doc/FFI.md`).
+4. **`foreign export` and `"wrapper"` imports**: done (2026-10-14;
+   trampoline pools in `src/ffi/ffi-runtime.lisp`, `doc/FFI.md`).
+   Exports are reached through `&name`, not by the C linker.
 5. **GHC departures not yet followed** (`doc/plans/GHC-EXTENSIONS.md`,
    "Where GHC departs from the Report"): `Num` without `Eq`/`Show`
    superclasses (the class is shared with --haskell98, so gate it), and

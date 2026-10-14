@@ -28,7 +28,7 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
 
 | Change | Status |
 |---|---|
-| FFI (chapter 8) | yes (doc/FFI.md); no `foreign export` or `"wrapper"` |
+| FFI (chapter 8) | yes (doc/FFI.md), with `"wrapper"` callbacks and `foreign export` (2026-10-14; an export is reached through `&name`, not by the C linker) |
 | Hierarchical modules | yes |
 | Pattern guards | yes |
 | Empty data declarations | yes |
@@ -181,6 +181,8 @@ GHC extension or a modern-base idiom, and compares them with GHC's output:
    Left to do:
    - superclasses of a multi-parameter class (rejected);
    - FlexibleInstances heads, such as `C [Char] t` (rejected).
-7. **`foreign export` and `"wrapper"` imports** (doc/FFI.md).
+7. **`foreign export` and `"wrapper"` imports:** done (2026-10-14,
+   doc/FFI.md; tests/haskell98/ffi/callback*.hs). Exports are not linker
+   symbols: C reaches them through a `FunPtr`.
 8. **A broader corpus:** nofib `real`, then the programs of
    REAL-WORLD-TARGETS.md.
