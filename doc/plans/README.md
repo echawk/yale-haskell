@@ -17,6 +17,7 @@ these are what comes after M11.
 | [GHC-EXTENSIONS.md](GHC-EXTENSIONS.md) | GHC extensions and modern libraries: what is supported exactly, permissively or by approximation, what is realistic, what is not | 80/85 probes |
 | [CUBICALTT.md](CUBICALTT.md) | cubicaltt, a cubical type theory proof checker, as the program that tests the GHC features together; what it needed, its speed against GHC, and the library and optimization targets that follow | cubicaltt 42/42, LambdaPi and Mini-TT match GHC |
 | [MUMBLE-TO-CL.md](MUMBLE-TO-CL.md) | Moving the compiler from mumble to plain Common Lisp, piece by piece | planned |
+| [FUTURE-TARGETS.md](FUTURE-TARGETS.md) | Further real-world targets to try compiling (inline-java, Template Haskell, JHC, rusholme, Helium, UHC, NHC98) | proposed (2026-10-14) |
 
 Suggested order: MicroCabal (it doubles as the gap list for real
 code), then Lisp interop, with the mumble → CL move and portability

@@ -41,7 +41,7 @@ Each rung is a real codebase, chosen to need one new thing at a time.
 ## How to run a rung
 
 - Clone into `ref/` (gitignored).  Record any workaround as a patch in
-  `tools/<target>/`, never as edits to the clone.
+  `tools/conformance/<target>/`, never as edits to the clone.
 - A survey script that loads each module in dependency order and
   prints the first error (as tools/microcabal/survey.sh does).
 - Done when the package's own tests or examples run with output

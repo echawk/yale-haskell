@@ -48,14 +48,14 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
 - Derived `Show` of types with more than 6 constructors no longer
   needs `Read`.
 
-**nofib:** 67 pass, 5 known deviations, 3 skipped, no failures
-(2026-10-10; 45 and 25 skipped before CPP and the base libraries).
+**nofib:** 68 pass, 4 known deviations, 3 skipped, no failures
+(2026-10-10, after simple's fix; 45 and 25 skipped before CPP and the
+base libraries).
 - **Known deviations:**
   - mandel: `hSetBinaryMode`.
   - minimax: correct but slow at its size.
   - secretary: a different random generator.
   - sphere: 64-bit `Int` wrap-around.
-  - simple: exhausts the heap; see below.
 - **Skips:** three programs have no `Main`, or no expected output that
   GHC can make.
 - **CPP** (`--cpp`, `{-# LANGUAGE CPP #-}`; src/compiler/parser/cpp.mumble):
@@ -125,14 +125,12 @@ GHC extension or a modern-base idiom, and compares them with GHC's output:
 
 ## Next
 
-1. **simple's space leak.** It compiles in seconds but its run fills
-   4 GB with both back ends.
-   - Suspect the selector-thunk leak: lazy tuple patterns such as
-     `let (a, b) = e` keep `e` alive through the thunk for `a`. GHC's
-     collector short-cuts these; ours does not.
-   - Find it with a smaller input, then either evaluate selector thunks
-     during GC (hard on a Lisp GC) or select eagerly when the tuple is
-     already evaluated.
+1. **simple's space leak:** fixed (2026-10-10, bench/RESULTS.md).
+   The cause was that single-constructor patterns did not evaluate the
+   value. Making them strict fixed it. A lazy pattern binding
+   `let (a, b) = e` can still keep `e` alive through the thunk for `a`
+   (GHC's collector short-cuts these, ours does not); selecting eagerly
+   when the tuple is evaluated is GHC-OPTIMIZATIONS.md's item for that.
 2. **Binary I/O** (base, not the Report): `openBinaryFile`,
    `withBinaryFile`, `hSetBinaryMode`, `hGetBuf`/`hPutBuf`. This needs a
    Latin-1 (byte) external format for handles (`prim.open-file`), and it
@@ -175,8 +173,8 @@ GHC extension or a modern-base idiom, and compares them with GHC's output:
      Data.Sequence and Data.Tree. They are version 0.3.0.0 as nhc98 ships
      it (Haskell 98 with CPP), imported by tools/gen/import-containers.py
      without Data.Typeable.
-     - Still missing: Data.Graph, which needs Data.Array.ST, and the
-       `.Strict` modules.
+     - Still missing: Data.Graph (Data.Array.ST, which it needs, now
+       exists) and the `.Strict` modules.
 6. **Multi-parameter type classes:** done (e19c23a, 9ffb5a5), with
    functional dependencies, instance contexts, recursive bindings and
    interface files. Tests are in tests/haskell98/language/mptc-*.
