@@ -137,6 +137,24 @@
   #-yale-cffi (cl:setf (uiop:getenv name) "")
   0)
 
+;;; getEnvironment: the NAME=VALUE strings, each followed by a NUL.  From
+;;; libc's environ, so setEnv's changes are seen.
+(cl:defun prim.environment ()
+  (cl:let ((entries
+	     (cl:or
+	      #+yale-cffi
+	      (cl:let ((p (cffi:foreign-symbol-pointer "environ")))
+		(cl:when p
+		  (cl:loop with env = (cffi:mem-ref p :pointer)
+			   for i from 0
+			   for e = (cffi:mem-aref env :pointer i)
+			   until (cffi:null-pointer-p e)
+			   collect (cffi:foreign-string-to-lisp e))))
+	      #+sbcl (sb-ext:posix-environ)
+	      #-sbcl cl:nil)))
+    (cl:format cl:nil "~{~a~a~}"
+	       (cl:loop for e in entries append (cl:list e (cl:code-char 0))))))
+
 (cl:defun prim.home-directory ()
   (cl:or (libc-getenv "HOME") (cl:namestring (cl:user-homedir-pathname))))
 
@@ -277,3 +295,48 @@
 (cl:defun prim.typerep-name (rep) (cl:car rep))
 (cl:defun prim.typerep-arity (rep) (cl:length (cl:cdr rep)))
 (cl:defun prim.typerep-arg (rep i) (cl:nth i (cl:cdr rep)))
+
+;;; Data.Knob (knob): an in-memory file.  A knob is its contents (a string
+;;; of bytes as characters, as ByteString's) and the string output streams
+;;; of the handles writing it, drained into the contents when they are
+;;; read.  Its handles are text handles in UTF-8, as the real ones are in
+;;; the locale's encoding.  Mode: 0 read, 1 write (truncating), 2 append,
+;;; 3 read-write (as write).
+(cl:defstruct knob (data "") (outs cl:nil))
+
+(cl:defun knob-utf8-encode (s)
+  #+sbcl (cl:map 'cl:string (cl:function cl:code-char)
+		 (sb-ext:string-to-octets s :external-format :utf-8))
+  #-sbcl s)
+
+(cl:defun knob-utf8-decode (s)
+  #+sbcl (sb-ext:octets-to-string
+	  (cl:map '(cl:vector (cl:unsigned-byte 8))
+		  (cl:lambda (c) (cl:logand (cl:char-code c) 255)) s)
+	  :external-format '(:utf-8 :replacement #\?))
+  #-sbcl s)
+
+(cl:defun prim.knob-new (s) (make-knob :data s))
+
+(cl:defun prim.knob-contents (k)
+  (cl:dolist (o (cl:reverse (knob-outs k)))
+    (cl:setf (knob-data k)
+	     (cl:concatenate 'cl:string (knob-data k)
+			     (knob-utf8-encode (cl:get-output-stream-string o)))))
+  (knob-data k))
+
+(cl:defun prim.knob-set (k s)
+  (prim.knob-contents k)
+  (cl:setf (knob-data k) s)
+  0)
+
+(cl:defun prim.knob-handle (k name mode)
+  (cl:if (cl:eql mode 0)
+	 (make-haskell-handle (cl:make-string-input-stream
+			       (knob-utf8-decode (prim.knob-contents k)))
+			      name cl:t cl:nil cl:nil)
+	 (cl:let ((o (cl:make-string-output-stream)))
+	   (prim.knob-contents k)
+	   (cl:unless (cl:eql mode 2) (cl:setf (knob-data k) ""))
+	   (cl:push o (knob-outs k))
+	   (make-haskell-handle o name cl:nil cl:t cl:nil))))

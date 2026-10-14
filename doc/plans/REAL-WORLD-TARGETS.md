@@ -99,3 +99,30 @@ Status (2026-10-13).
   and the unit cache now records a program's own units by absolute name,
   so a program run from another directory reuses its compiled units
   (darcs went from 11 s to under 1.5 s a command).
+
+## husk-scheme
+
+Status (2026-10-14).  **husk-scheme 3.20** (`tools/conformance/husk.py`),
+an R7RS Scheme interpreter in about 11,000 lines of Haskell (parsec,
+mtl's ExceptT over IO, existential types, IORef environments, hygienic
+and explicit-renaming macros, first-class continuations, SRFIs 1, 2, 9,
+39), runs unchanged; only Cabal's generated Paths_husk_scheme is
+supplied.  Its own test suites (run-tests.scm, about 900 assertions;
+run-tests7.scm, R7RS libraries; r5rs_pitfall.scm) print exactly what
+GHC 9.14's build of the same sources prints, including the one
+numerical assertion GHC's build also fails (2.9999999999999996 for 3).
+The suite takes 3.1 s against GHC's 1.0 s (Yale's includes about 0.7 s
+of loading compiled units).
+
+What husk needed:
+- **Language:** an explicit `{` opens an explicit layout context, as the
+  Report's L does (a record declaration's `}` in column 1); a synonym for
+  a partial application (`type ThrowsError = Either LispError`) used
+  over-applied in a data type declared before it; one application for
+  `(Either e) a`; an existential pattern's rigid type variable unified
+  with the monomorphic variables of its match.
+- **Prelude:** arrays with empty bounds (`listArray (0, -1) []`), and
+  Haskell 98's `Functor (Array a)` instance.
+- **Libraries:** Data.Knob (in-memory handles, for string ports),
+  Data.ByteString.UTF8, Data.Fixed, Data.Unique, Data.Time.Clock.POSIX,
+  System.CPUTime, getEnvironment, Haskeline's Completion module.

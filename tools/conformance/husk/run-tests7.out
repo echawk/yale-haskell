@@ -1,0 +1,11 @@
+
+------------------------------------------
+Running R7RS test suite
+
+Testing r7rs library syntax... 
+ Passed: 6 Failed: 0
+
+------------------------------------------
+All tests complete! 
+Total Passed: 6
+Total Failed: 0

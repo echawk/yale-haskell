@@ -4,7 +4,8 @@
 module Data.Time.Clock (
     UTCTime, NominalDiffTime, DiffTime, getCurrentTime, diffUTCTime,
     addUTCTime, nominalDiffTimeToSeconds, secondsToNominalDiffTime,
-    nominalDay, picosecondsToDiffTime, secondsToDiffTime
+    nominalDay, picosecondsToDiffTime, secondsToDiffTime,
+    POSIXTime, getPOSIXTime, utcTimeToPOSIXSeconds, posixSecondsToUTCTime
   ) where
 
 import Time (toUTCTime, toClockTime, CalendarTime(..), ctYear, ctMonth,
@@ -59,6 +60,18 @@ getCurrentTime :: IO UTCTime
 getCurrentTime = do
   (s, ps) <- primGetClockTime
   return (UTCTime (s * picos + ps))
+
+-- Data.Time.Clock.POSIX's: seconds since 1970 as a NominalDiffTime
+type POSIXTime = NominalDiffTime
+
+getPOSIXTime :: IO POSIXTime
+getPOSIXTime = fmap utcTimeToPOSIXSeconds getCurrentTime
+
+utcTimeToPOSIXSeconds :: UTCTime -> POSIXTime
+utcTimeToPOSIXSeconds (UTCTime t) = NominalDiffTime t
+
+posixSecondsToUTCTime :: POSIXTime -> UTCTime
+posixSecondsToUTCTime (NominalDiffTime t) = UTCTime t
 
 diffUTCTime :: UTCTime -> UTCTime -> NominalDiffTime
 diffUTCTime (UTCTime a) (UTCTime b) = NominalDiffTime (a - b)

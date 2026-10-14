@@ -5,6 +5,7 @@
 interface BasePrims where
 
 import PreludeCore(Int,Integer,Bool,Char,Array)
+import IOPrims(HandleObj)
 
 -- an exception: a Lisp condition (Control.Exception)
 data Exc
@@ -85,6 +86,12 @@ primTypeRepName    :: TypeRepObj -> String
 primTypeRepArity   :: TypeRepObj -> Int
 primTypeRepArg     :: TypeRepObj -> Int -> TypeRepObj
 primTypeableDict   :: a
+data KnobObj
+primKnobNew        :: String -> IO KnobObj
+primEnvironment    :: IO String
+primKnobContents   :: KnobObj -> IO String
+primKnobSet        :: KnobObj -> String -> IO ()
+primKnobHandle     :: KnobObj -> String -> Int -> IO HandleObj
 
 {-#
 primRegexCompile   :: LispName("prim.regex-compile")
@@ -93,6 +100,11 @@ primTypeRepName    :: LispName("prim.typerep-name")
 primTypeRepArity   :: LispName("prim.typerep-arity")
 primTypeRepArg     :: LispName("prim.typerep-arg")
 primTypeableDict   :: LispName("prim.typeable-dict")
+primKnobNew        :: LispName("prim.knob-new")
+primEnvironment    :: LispName("prim.environment")
+primKnobContents   :: LispName("prim.knob-contents")
+primKnobSet        :: LispName("prim.knob-set")
+primKnobHandle     :: LispName("prim.knob-handle")
 primNewRef         :: LispName("prim.new-ref"), Strictness("N,S")
 primReadRef        :: LispName("prim.read-ref")
 primWriteRef       :: LispName("prim.write-ref"), Strictness("S,N,S")
