@@ -25,10 +25,9 @@ class Hashable a where
   hash :: a -> Int
   hash = hashWithSalt defaultSalt
 
--- FNV-1's step, in Integer and reduced modulo a prime below 2^61 (Int is
--- the fixnum here, and its products are not wrapped)
+-- FNV-1's step (Int arithmetic wraps)
 combine :: Int -> Int -> Int
-combine h x = fromInteger (((toInteger h * 16777619) `xor` toInteger x) `mod` 2305843009213693951)
+combine h x = (h * 16777619) `xor` x
 
 hashUsing :: Hashable b => (a -> b) -> Int -> a -> Int
 hashUsing f salt x = hashWithSalt salt (f x)

@@ -1028,18 +1028,23 @@
 ;;; Various simplifications on numeric functions.
 ;;; *** Obviously, could get much fancier about this.
 		  
+(define (wrap-to-fixnum n)
+  #+sbcl (sb-c::mask-signed-field sb-vm:n-fixnum-bits n)
+  #-sbcl (begin
+	   (phase-error 'int-overflow "Int overflow in primIntegerToInt: ~s" n)
+	   n))
+
 (define (optimize-integer-to-int fn args)
   (let ((arg  (car args)))
     (cond ((is-type? 'flic-const arg)
 	   (record-hack 'integer-to-int-constant-fold)
 	   (if (is-type? 'integer (flic-const-value arg))
 	       (let ((value  (flic-const-value arg)))
-		 (when (not (is-type? 'fixnum value))
-		   ;; Overflow is a user error, not an implementation error.
-		   (phase-error 'int-overflow
-				"Int overflow in primIntegerToInt: ~s"
-				value))
-		 (values arg (cdr args)))
+		 (if (is-type? 'fixnum value)
+		     (values arg (cdr args))
+		     ;; an out-of-range literal wraps, as at run time
+		     ;; (prim.integer-to-int; GHC warns and wraps too)
+		     (values (make-flic-const (wrap-to-fixnum value)) (cdr args))))
 	       (error "Bad argument ~s to primIntegerToInt." arg)))
 	  ((and (is-type? 'flic-app arg)
 		(is-type? 'flic-ref (flic-app-fn arg))

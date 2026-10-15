@@ -600,10 +600,13 @@
       (lisp:truncate (the-integer i1) (the-integer i2))
     (make-tuple (box (the-integer q)) (box (the-integer r)))))
 
+;;; fromInteger to Int wraps, as GHC's does (modulo 2^63 here): a
+;;; negative Int through Word and back (Data.IntMap's keys) is itself again.
 (define (prim.integer-to-int i)
   (if (is-fixnum? i)
       (the-fixnum i)
-      (haskell-runtime-error "Integer -> Int overflow.")))
+      #+sbcl (sb-c::mask-signed-field sb-vm:n-fixnum-bits i)
+      #-sbcl (haskell-runtime-error "Integer -> Int overflow.")))
 
 (define-syntax (prim.int-to-integer i)
   i)

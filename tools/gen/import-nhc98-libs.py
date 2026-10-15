@@ -21,6 +21,8 @@ of each module says how:
     in today's base (PreludeModern).
   * Data.Sequence hides Data.Foldable's length and null, methods since
     base 4.8, as it defines its own.
+  * IntMap and IntSet's Nat is a key's 63-bit unsigned image (Int is
+    the 63-bit fixnum, Word 64 bits).
   * Map, IntMap, Set and IntSet get the folds of newer containers they
     lack (foldrWithKey, foldlWithKey', foldr', ...), through toAscList.
 """
@@ -85,6 +87,12 @@ def patch_containers(name, src):
             l if re.match(r'\s*(--|import\b)', l)
             else re.sub(r"(?<![\w.'])foldr(?=['\s])", 'keyedFoldr', l)
             for l in src.split('\n'))
+    # Int is the 63-bit fixnum but Word 64 bits: a key's Nat is its 63-bit
+    # unsigned image, so that the masks fit in an Int (a negative key's
+    # top bit, 2^62, is minBound), as GHC's 64-bit Int and Word agree
+    if name in ('Data.IntMap', 'Data.IntSet'):
+        src = src.replace('natFromInt i = fromIntegral i',
+                          'natFromInt i = fromIntegral i `mod` 9223372036854775808', 1)
     src = add_newer_folds(name, src)
     return CONTAINERS_NOTE % name + src
 

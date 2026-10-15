@@ -207,7 +207,7 @@ infixl 9 \\{-This comment teaches CPP correct behaviour -}
 type Nat = Word
 
 natFromInt :: Key -> Nat
-natFromInt i = fromIntegral i
+natFromInt i = fromIntegral i `mod` 9223372036854775808
 
 intFromNat :: Nat -> Key
 intFromNat w = fromIntegral w
