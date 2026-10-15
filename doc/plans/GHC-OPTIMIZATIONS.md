@@ -203,7 +203,11 @@ bench/RESULTS.md entry.
    state token when FLIC is built, so that let-hoist-lambda may move any
    binding into them (since 2026-10-14 only work-free and cheap ones
    move, which costs ioref 0.05 -> 0.27 s and ioloop; bench/RESULTS.md,
-   2026-10-15).
+   2026-10-15).  Tried and dropped: marking the parameter of `IO (\s
+   -> e)` in ast-to-flic (a var flag kept by copy-flic) changed nothing,
+   as ioref's hot lambda is an eta-expanded function's state argument
+   (cfn's ARG), not a lambda under the IO constructor; the marking has
+   to follow the types (an argument of type SystemState).
 9. **General RULES** as an annotation, with the foldr/build identities
    moved into the Prelude as rules.
 
