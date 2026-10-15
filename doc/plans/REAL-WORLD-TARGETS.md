@@ -170,3 +170,24 @@ replaced by a list of its properties.  What it needed:
   Test.QuickCheck.Property.
 - **Flags:** `-D__GLASGOW_HASKELL__=906` for the package's own files (the
   examples define `(<>)` for GHC 7.2 and older otherwise).
+
+## megaparsec (blocked)
+
+Surveyed 2026-10-15 (megaparsec 9.6.1, parser-combinators 1.3.0,
+case-insensitive 1.2.1.0, in build/conformance/megaparsec).  Done on the
+way: Data.Scientific, Data.Hashable, ReadP/ReadPrec, RWS, MonadPlus
+implying Alternative, Control.Monad's Applicative functions.  What stops
+it:
+
+- **Associated type families with superclass contexts over them:**
+  `class (Ord (Token s), Ord (Tokens s)) => Stream s where type Token
+  s; type Tokens s`, and everything after relies on `Stream s` giving
+  `Ord (Token s)`.  Declaring the associated types as top-level families
+  would be easy; a superclass constraint on a family application needs
+  dictionaries for non-variable superclasses.
+- **Recursive modules** (`{-# SOURCE #-}` imports, .hs-boot files): Error,
+  State and Stream import each other, as do Class and Internal.  Yale
+  compiles a cycle as one unit only when a .hu file lists its modules
+  together; the implicit units (one per file) report it as circular.
+  Merging an import cycle's files into one unit automatically would fix
+  this.

@@ -29,6 +29,7 @@ module PreludeModern (
 import Data.Word (Word)   -- GHC's Prelude exports Word
 
 import PreludeIO (catch)
+import Monad (MonadPlus(mzero, mplus))
 import Prelude hiding (foldr, foldl, foldr1, foldl1, null, length, elem,
                        maximum, minimum, sum, product, mapM, sequence,
                        mapM_, sequence_, concat, concatMap, and, or, any,
@@ -369,6 +370,13 @@ instance Monad m => Functor (WrappedMonad m) where
 instance Monad m => Applicative (WrappedMonad m) where
   pure x = WrapMonad (return x)
   WrapMonad f <*> WrapMonad a = WrapMonad (f >>= \g -> a >>= \x -> return (g x))
+
+-- MonadPlus has no Alternative superclass here either: Alternative m
+-- from MonadPlus m comes through this (type-utils.mumble's
+-- monad-implied-class?)
+instance MonadPlus m => Alternative (WrappedMonad m) where
+  empty = WrapMonad mzero
+  WrapMonad a <|> WrapMonad b = WrapMonad (mplus a b)
 
 class (Functor t, Foldable t) => Traversable t where
   traverse  :: Applicative f => (a -> f b) -> t a -> f (t b)

@@ -174,7 +174,7 @@
     (when (or (not (monad-implied-class? class)) (eq? wrapped '#f))
       (error "No dictionary for class ~A." (def-name class)))
     (**app (dict-ref-code (lookup-instance wrapped class))
-	   (dict-reference-code (core-symbol "Monad") param-vars))))
+	   (dict-reference-code (implying-class class) param-vars))))
 
 (define (placeholder->method p param-vars decls)
   (let* ((method (method-placeholder-method p))

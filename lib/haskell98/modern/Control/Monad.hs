@@ -1,7 +1,8 @@
 -- Control.Monad as in GHC's base, for --modern-prelude (modules under
 -- lib/haskell98/modern/ are found before the library's own,
 -- csys/compiler-driver.mumble): as the 2010 Report's, but guard is
--- Alternative's (base's), mapM, forM, sequence, msum and their _ forms are
+-- Alternative's (base's), replicateM, when, forever, filterM, zipWithM
+-- and their _ forms are over Applicative (base's), mapM, forM, sequence, msum and their _ forms are
 -- over Traversable or Foldable (base's), and base's additions.  MonadFail
 -- is exported without its fail, which a module gets from the Prelude:
 -- library modules (mtl's) re-export Control.Monad under the core Prelude.
@@ -16,10 +17,41 @@ module Control.Monad (
 
 import Prelude hiding (mapM, mapM_, sequence, sequence_, foldr)
 import ControlMonadBase hiding (guard, mapM, mapM_, forM, forM_, sequence,
-                               sequence_, msum)
-import PreludeModern (Applicative(pure), Alternative(empty), MonadFail,
+                               sequence_, msum, replicateM, replicateM_, when,
+                               unless, forever, filterM, zipWithM, zipWithM_)
+import PreludeModern (Applicative(pure, (<*>), (*>)), liftA2, Alternative(empty), MonadFail,
                       Traversable(mapM, sequence), Foldable(foldr),
                       mapM_, sequence_)
+
+-- over an Applicative, as base's since 4.9
+replicateM :: Applicative m => Int -> m a -> m [a]
+replicateM n m = loop n
+  where loop k | k <= 0 = pure []
+               | otherwise = liftA2 (:) m (loop (k - 1))
+
+replicateM_ :: Applicative m => Int -> m a -> m ()
+replicateM_ n m = loop n
+  where loop k | k <= 0 = pure ()
+               | otherwise = m *> loop (k - 1)
+
+when, unless :: Applicative f => Bool -> f () -> f ()
+when p s = if p then s else pure ()
+unless p s = if p then pure () else s
+{-# when :: Inline #-}
+{-# unless :: Inline #-}
+
+forever :: Applicative f => f a -> f b
+forever a = let a' = a *> a' in a'
+
+filterM :: Applicative m => (a -> m Bool) -> [a] -> m [a]
+filterM p = foldr (\x -> liftA2 (\flg -> if flg then (x :) else id) (p x)) (pure [])
+
+zipWithM :: Applicative m => (a -> b -> m c) -> [a] -> [b] -> m [c]
+zipWithM f xs ys = sequenceA' (zipWith f xs ys)
+  where sequenceA' = foldr (liftA2 (:)) (pure [])
+
+zipWithM_ :: Applicative m => (a -> b -> m c) -> [a] -> [b] -> m ()
+zipWithM_ f xs ys = foldr (*>) (pure ()) (zipWith f xs ys)
 
 -- over any Traversable or Foldable, as base's
 forM :: (Traversable t, Monad m) => t a -> (a -> m b) -> m (t b)

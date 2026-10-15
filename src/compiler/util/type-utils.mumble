@@ -472,7 +472,7 @@
   (and (not (null? ctxt))
        (or (memq class ctxt)
 	   (super-class-implies? ctxt class)
-	   (and (monad-implied-class? class) (context-has-monad? ctxt))
+	   (and (monad-implied-class? class) (context-implies-monad-class? ctxt class))
 	   (catch-all-implies? ctxt class))))
 
 ;;; A catch-all instance ctx => C a gives C at a type variable whose
@@ -497,10 +497,35 @@
 (define (monad-implied-class? class)
   (and (table-entry *modules* '|PreludeModern|)
        (or (eq? class (core-symbol "Functor"))
-	   (eq? class (prelude-modern-def '|Applicative|)))))
+	   (eq? class (prelude-modern-def '|Applicative|))
+	   (alternative-class? class))))
+
+;;; base's MonadPlus has Alternative as a superclass; ours (the Haskell 98
+;;; Monad module's) does not, so Alternative m comes from MonadPlus m
+;;; through WrappedMonad's instance, as Applicative m does from Monad m.
+
+(define (alternative-class? class)
+  (eq? class (prelude-modern-def '|Alternative|)))
+
+(define (monadplus-class)
+  (let ((m (table-entry *modules* '|Monad|)))
+    (and m (table-entry (module-symbol-table m) '|MonadPlus|))))
+
+;;; The class whose dictionary gives CLASS's implied one: MonadPlus for
+;;; Alternative, Monad for Functor and Applicative.
+(define (implying-class class)
+  (if (alternative-class? class) (monadplus-class) (core-symbol "Monad")))
 
 (define (context-has-monad? ctxt)
   (lisp:some (function monad-class?) ctxt))
+
+;;; Whether CTXT gives CLASS by monad-implied-class? (its implying class
+;;; or a subclass of it).
+(define (context-implies-monad-class? ctxt class)
+  (let ((need (implying-class class)))
+    (and need
+	 (lisp:some (lambda (c) (or (eq? c need) (memq need (class-super* c))))
+		    ctxt))))
 
 (define (monad-class? class)
   (let ((monad  (core-symbol "Monad")))
