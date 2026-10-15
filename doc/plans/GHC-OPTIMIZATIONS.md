@@ -207,7 +207,15 @@ bench/RESULTS.md entry.
    -> e)` in ast-to-flic (a var flag kept by copy-flic) changed nothing,
    as ioref's hot lambda is an eta-expanded function's state argument
    (cfn's ARG), not a lambda under the IO constructor; the marking has
-   to follow the types (an argument of type SystemState).
+   to follow the types (an argument of type SystemState).  A second try
+   (2026-10-15) carried the mark through copy-flic, interface dumps
+   (dump-flic) and if-hoist-lambda's new parameter: the Prelude's
+   `>>=` and `thenIO_` then had one-shot state parameters, but ioref's
+   hot lambdas were still fresh ARG parameters wrapping `let s = ARG in
+   ...`, made by a rewrite that does not look at the mark (only
+   do-if-hoist-lambda was taught to).  Typing the state parameter (a
+   flag set wherever a variable of type SystemState is bound, from the
+   type checker's types) would not depend on following every rewrite.
 9. **General RULES** as an annotation, with the foldr/build identities
    moved into the Prelude as rules.
 
