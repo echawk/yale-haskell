@@ -203,6 +203,13 @@
   (slots
    (pattern (type pattern))))
 
+(define-struct view-pat  ;; (f -> pat) inside a pattern synonym's pattern
+  (include apat)         ;; (ViewPatterns); F is a var-ref to a function the
+  (predicate view-pat?)  ;; parser made top-level.  The scope phase turns a
+  (slots                 ;; use into a variable and a pattern guard.
+   (fn (type var-ref))
+   (pattern (type pattern))))
+
 (define-struct var-pat  ;; v
   (include apat)
   (predicate var-pat?)

@@ -1,0 +1,18 @@
+HELLO
+(ExitFailure 3,"out\n","err\n")
+apple
+fig
+pear
+ExitSuccess
+ExitSuccess
+call process
+call command
+ExitFailure 2
+ExitSuccess
+/
+bar
+Nothing
+True
+with
+ExitSuccess
+readCreateProcess: false (exit 1): failed

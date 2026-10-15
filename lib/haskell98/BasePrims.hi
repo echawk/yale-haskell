@@ -55,6 +55,18 @@ primEvaluate       :: a -> IO a
 primSystem         :: String -> IO Int
 primLastExitCode      :: IO Int
 primReadProcessOutput :: String -> String -> IO String
+-- System.Process: a running process (uiop's process-info)
+data Proc
+primLaunchProcess  :: String -> String -> Bool -> String -> Int -> HandleObj
+                      -> Int -> HandleObj -> Int -> HandleObj -> IO Proc
+primProcessHandle  :: Proc -> Int -> IO HandleObj
+primWaitProcess    :: Proc -> IO Int
+primProcessRunning :: Proc -> IO Bool
+primTerminateProcess :: Proc -> IO ()
+primReadProcessFull :: String -> String -> Bool -> String -> String -> Bool
+                       -> IO String
+primLastStderr     :: IO String
+primProcessFailed  :: String -> IO a
 
 primOS             :: String
 primArch           :: String
@@ -129,6 +141,14 @@ primObjToExc       :: LispName("prim.identity")
 primEvaluate       :: LispName("prim.identity"), Strictness("S,S")
 primSystem         :: LispName("prim.system")
 primLastExitCode      :: LispName("prim.last-exit-code")
+primLaunchProcess  :: LispName("prim.launch-process")
+primProcessHandle  :: LispName("prim.process-handle")
+primWaitProcess    :: LispName("prim.wait-process")
+primProcessRunning :: LispName("prim.process-running")
+primTerminateProcess :: LispName("prim.terminate-process")
+primReadProcessFull :: LispName("prim.read-process-full")
+primLastStderr     :: LispName("prim.last-stderr")
+primProcessFailed  :: LispName("prim.process-failed")
 primReadProcessOutput :: LispName("prim.read-process-output")
 primOS             :: LispName("prim.os")
 primArch           :: LispName("prim.arch")

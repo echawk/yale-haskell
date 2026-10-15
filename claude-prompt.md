@@ -90,7 +90,7 @@ main), `YALE_HASKELL_PROFILE=alloc`, `YALE_HASKELL_DEBUG=1`,
 - **Haskell 98 and 2010: done**, including records, qualified names,
   newtype, constructor classes, monadic IO, do, FFI (`foreign export`
   reached through `&name`, `"wrapper"` callbacks), pattern guards, CPP.
-- **Modern base and GHC extensions: 83 of 87 probes pass** (GHC2021 +
+- **Modern base and GHC extensions: 98 of 104 probes pass** (GHC2021 +
   common non-2021 extensions + modern libraries; MPTC with fundeps,
   FlexibleInstances/Contexts, RankN, GADTs (permissive),
   TypeFamilies, DataKinds, PatternSynonyms (cross-module),
@@ -129,11 +129,10 @@ Realistic, in rough order of value:
    never edit the clone): `vector` (boxed over Lisp simple-vectors, unboxed over
    specialized arrays; no stream fusion at first),
    `unordered-containers` + `hashable` (a Data.Map-backed
-   implementation is acceptable behind the API), `process`
-   (`readProcess`/`system` via run-program), `optparse-applicative`,
-   an `aeson` subset (no Generic), `Data.Graph` (Data.Array.ST,
-   which it needs, already exists), the rest of QuickCheck 2's API, real haskeline
-   line editing.
+   implementation is acceptable behind the API), `optparse-applicative`,
+   an `aeson` subset (no Generic), the rest of QuickCheck 2's API,
+   real haskeline line editing. (`process` and `Data.Graph`: done
+   2026-10-14.)
 4. **`foreign export` and `"wrapper"` imports**: done (2026-10-14;
    trampoline pools in `src/ffi/ffi-runtime.lisp`, `doc/FFI.md`).
    Exports are reached through `&name`, not by the C linker.
@@ -285,7 +284,9 @@ Success looks like: `make test` green, `nofib.py --try-all` with no
 new failures and a pass count above today's (record the starting
 count for every suite in `bench/RESULTS.md` before you begin; the
 last recorded imaginary/spectral count is 68),
-`extensions.py` at ≥85/87, and `bench/compare-ghc` ratios for the
+`extensions.py` with at most 4 failures (6 of 104 today: Num without
+Eq/Show, Int wrap-around, QuantifiedConstraints, UndecidableInstances,
+Arrows, TemplateHaskell), and `bench/compare-ghc` ratios for the
 modern bench programs (foldable, mapcount, statemonad, starray)
 reduced toward 2×, with LambdaPi/Mini-TT and cubicaltt torsor/grothendieck
 at or below 2× — every number appended to `bench/RESULTS.md`.

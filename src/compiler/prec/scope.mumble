@@ -361,7 +361,7 @@
 
 (define-walker-method scope valdef (object env)
   (setf (valdef-module object) *module-name*)
-  (setf (valdef-lhs object) (massage-pattern (valdef-lhs object)))
+  (setf (valdef-lhs object) (reject-view-pats (massage-pattern (valdef-lhs object))))
   (setf (valdef-definitions object)
 	(scope-ast/list (valdef-definitions object) env))
   object)
@@ -370,16 +370,86 @@
 ;;; For a single-fun-def, do the where-decls first, and then walk the
 ;;; rhs in an env that includes both the where-decls and the args.
 
+;;; The patterns are massaged first: a pattern synonym's expansion may
+;;; bring view patterns, which become variables and guards (lift-view-pats).
+
 (define-walker-method scope single-fun-def (object env)
+  (setf (single-fun-def-args object)
+	(massage-pattern-list (single-fun-def-args object)))
+  (let ((views (lift-view-pats (single-fun-def-args object))))
+    (setf (single-fun-def-args object) (car views))
+    (setf (single-fun-def-rhs-list object)
+	  (add-view-pattern-guards (cdr views) (single-fun-def-rhs-list object))))
   (setf env (add-pattern-variables (single-fun-def-args object) env))
   (setf env (add-local-declarations (single-fun-def-where-decls object) env))
   (setf (single-fun-def-where-decls object)
 	(scope-ast/decl-list (single-fun-def-where-decls object) env))
-  (setf (single-fun-def-args object)
-	(massage-pattern-list (single-fun-def-args object)))
   (setf (single-fun-def-rhs-list object)
 	(scope-ast/list (single-fun-def-rhs-list object) env))
   object)
+
+;;; PATS without view-pats: (new-pats . views), each view-pat replaced by
+;;; a new variable v, and the views (v f pat), outer ones first, as
+;;; add-view-pattern-guards (parser/pattern-parser.mumble) takes them.
+
+(define (lift-view-pats pats)
+  (let* ((box  (list '()))
+	 (new  (map (lambda (p) (lift-view-pat p box)) pats)))
+    (cons new (reverse (car box)))))
+
+;;; BOX is a list whose car accumulates the views, newest first.
+(define (lift-view-pat p box)
+  (cond ((is-type? 'view-pat p)
+	 (let* ((name  (string->symbol
+			(format '#f "view%~A" (incf *view-pattern-count*))))
+		(entry (list name (view-pat-fn p) '#f)))
+	   (push entry (car box))
+	   (setf (caddr entry) (lift-view-pat (view-pat-pattern p) box))
+	   (make var-pat (var (generated-var-ref name)))))
+	((is-type? 'pcon p)
+	 (setf (pcon-pats p) (map (lambda (q) (lift-view-pat q box)) (pcon-pats p)))
+	 p)
+	((is-type? 'list-pat p)
+	 (setf (list-pat-pats p) (map (lambda (q) (lift-view-pat q box)) (list-pat-pats p)))
+	 p)
+	((is-type? 'as-pat p)
+	 (setf (as-pat-pattern p) (lift-view-pat (as-pat-pattern p) box)) p)
+	((is-type? 'irr-pat p)
+	 (setf (irr-pat-pattern p) (lift-view-pat (irr-pat-pattern p) box)) p)
+	((is-type? 'bang-pat p)
+	 (setf (bang-pat-pattern p) (lift-view-pat (bang-pat-pattern p) box)) p)
+	((is-type? 'sig-pat p)
+	 (setf (sig-pat-pattern p) (lift-view-pat (sig-pat-pattern p) box)) p)
+	(else p)))
+
+;;; A generator whose pattern (once massaged) has views becomes a
+;;; generator of a variable followed by one for each view: pat <- f v in
+;;; a pattern guard, pat <- [f v] in a list comprehension (LIST?).
+
+(define (expand-view-quals quals list?)
+  (lisp:mapcan
+   (lambda (q)
+     (if (not (is-type? 'qual-generator q))
+	 (list q)
+	 (let ((views (lift-view-pats
+		       (list (massage-pattern (qual-generator-pat q))))))
+	   (setf (qual-generator-pat q) (car (car views)))
+	   (cons q
+		 (map (lambda (v)
+			(let ((app (make app (fn (cadr v))
+					 (arg (generated-var-ref (car v))))))
+			  (make qual-generator
+				(pat (caddr v))
+				(exp (if list? (make list-exp (exps (list app))) app)))))
+		      (cdr views))))))
+   quals))
+
+;;; Where no guard can follow (lambdas, bindings).
+(define (reject-view-pats pat)
+  (when (pair? (cdr (lift-view-pats (list pat))))
+    (phase-error 'view-pattern-synonym
+      "A pattern synonym with a view pattern cannot be used in a lambda or a pattern binding."))
+  pat)
 
 
 ;;;===================================================================
@@ -388,7 +458,8 @@
 
 (define-walker-method scope lambda (object env)
   (setf env (add-pattern-variables (lambda-pats object) env))
-  (setf (lambda-pats object) (massage-pattern-list (lambda-pats object)))
+  (setf (lambda-pats object)
+	(map (function reject-view-pats) (massage-pattern-list (lambda-pats object))))
   (setf (lambda-body object) (scope-ast-1 (lambda-body object) env))
   object)
 
@@ -404,6 +475,9 @@
 
 (define-walker-method scope guarded-rhs (object env)
   (let ((guard  (guarded-rhs-guard object)))
+    (when (is-type? 'pattern-guard guard)
+      (setf (pattern-guard-quals guard)
+	    (expand-view-quals (pattern-guard-quals guard) '#f)))
     (if (is-type? 'pattern-guard guard)
 	(dolist (q (pattern-guard-quals guard))
 	  (cond ((is-type? 'qual-generator q)
@@ -412,7 +486,7 @@
 		 (setf env
 		       (add-pattern-variables (list (qual-generator-pat q)) env))
 		 (setf (qual-generator-pat q)
-		       (massage-pattern (qual-generator-pat q))))
+		       (reject-view-pats (massage-pattern (qual-generator-pat q)))))
 		((is-type? 'qual-filter q)
 		 (setf (qual-filter-exp q)
 		       (scope-ast-1 (qual-filter-exp q) env)))
@@ -429,11 +503,14 @@
 (define-walker-method scope case (object env)
   (setf (case-exp object) (scope-ast-1 (case-exp object) env))
   (dolist (a (case-alts object))
+    (setf (alt-pat a) (massage-pattern (alt-pat a)))
+    (let ((views (lift-view-pats (list (alt-pat a)))))
+      (setf (alt-pat a) (car (car views)))
+      (setf (alt-rhs-list a) (add-view-pattern-guards (cdr views) (alt-rhs-list a))))
     (let ((env  (add-pattern-variables (list (alt-pat a)) env)))
       (setf env (add-local-declarations (alt-where-decls a) env))
       (setf (alt-where-decls a)
 	    (scope-ast/decl-list (alt-where-decls a) env))
-      (setf (alt-pat a) (massage-pattern (alt-pat a)))
       (setf (alt-rhs-list a)
 	    (scope-ast/list (alt-rhs-list a) env))))
   object)
@@ -476,6 +553,7 @@
 	object)))
 
 (define-walker-method scope list-comp (object env)
+  (setf (list-comp-quals object) (expand-view-quals (list-comp-quals object) '#t))
   (dolist (q (list-comp-quals object))
     (cond ((is-type? 'qual-generator q)
 	   (setf (qual-generator-exp q)
@@ -483,7 +561,7 @@
 	   (setf env
 		 (add-pattern-variables (list (qual-generator-pat q)) env))
 	   (setf (qual-generator-pat q)
-		 (massage-pattern (qual-generator-pat q))))
+		 (reject-view-pats (massage-pattern (qual-generator-pat q)))))
 	  ((is-type? 'qual-filter q)
 	   (setf (qual-filter-exp q)
 		 (scope-ast-1 (qual-filter-exp q) env)))))

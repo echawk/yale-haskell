@@ -528,9 +528,28 @@
      (\, (cons name (parse-op-list)))
      (else (list name)))))
 
+;;; PatternSynonyms: `pattern P' in an export or import list names P's
+;;; builder, pattern%P, whose def carries the synonym's template
+;;; (pattern-parser.mumble).
+
+(define (pattern-entity-start?)
+  (and (at-varid-named? "pattern")
+       (let ((saved  (save-scanner-state)))
+	 (advance-token)
+	 (let ((res  (memq *token* '(conid \())))
+	   (restore-excursion saved)
+	   res))))
+
 (define (parse-entity context)
  (trace-parser entity
   (save-parser-context
+   (if (pattern-entity-start?)
+       (begin
+	 (advance-token)		; pattern
+	 (make entity-var (name (pattern-builder-name (con->symbol)))))
+       (parse-entity-1 context)))))
+
+(define (parse-entity-1 context)
    (token-case
     (var (var->entity))
     ;; ExplicitNamespaces (GHC): `type (+++)', `type T' name a type
@@ -570,7 +589,7 @@
 		  (signal-invalid-syntax "an entity")))
 	(else
 	 (make entity-con (name name))))))
-    (else (signal-invalid-syntax "an entity"))))))
+    (else (signal-invalid-syntax "an entity"))))
 
 (define (parse-entity-class class-name)
   (let ((vars (parse-var-list)))

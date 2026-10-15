@@ -107,6 +107,106 @@
     out))
 (cl:defun prim.last-exit-code () *last-exit-code*)
 
+;;; System.Process's createProcess and readProcessWithExitCode, over
+;;; uiop:launch-program / run-program.  A command is its argument words
+;;; joined by NUL characters (the Haskell side's [String]); ENV, when
+;;; HAS-ENV? is true, is NAME=VALUE words likewise, and replaces the
+;;; environment (through env -i).  A stream mode is 0 inherit, 1 a new
+;;; pipe, 2 no stream (/dev/null), 3 the handle given.
+
+(cl:defun split-nul (s)
+  (cl:if (cl:string= s "")
+	 '()
+	 (cl:loop for start = 0 then (cl:1+ end)
+		  for end = (cl:position (cl:code-char 0) s :start start)
+		  collect (cl:subseq s start end)
+		  while end)))
+
+(cl:defun process-command (argv has-env? env)
+  (cl:let ((words (split-nul argv)))
+    (cl:if has-env?
+	   (cl:append (cl:list "/usr/bin/env" "-i") (split-nul env) words)
+	   words)))
+
+(cl:defun process-stream-arg (mode h)
+  (cl:case mode
+    (0 :interactive)
+    (1 :stream)
+    (2 cl:nil)
+    (cl:t (cl:if (standard-handle? h)
+		 :interactive
+		 (handle-stream h)))))
+
+(cl:defun prim.launch-process (argv cwd has-env? env in-mode in-h out-mode out-h
+				    err-mode err-h)
+  ;; our buffered output is not flushed first, as GHC's is not
+  (cl:let ((command (process-command argv has-env? env)))
+    (cl:handler-case
+	(uiop:launch-program command
+			     :input (process-stream-arg in-mode in-h)
+			     :output (process-stream-arg out-mode out-h)
+			     :error-output (process-stream-arg err-mode err-h)
+			     :directory (cl:if (cl:string= cwd "") cl:nil
+					       (uiop:ensure-directory-pathname cwd)))
+      (cl:error (c)
+	(cl:error (make-io-error 'does-not-exist "createProcess"
+				 (cl:princ-to-string c)
+				 (cl:first command) cl:nil))))))
+
+;;; The process's end of a pipe as a handle: 0 its stdin (we write), 1
+;;; its stdout, 2 its stderr (we read).
+(cl:defun prim.process-handle (p which)
+  (cl:let ((name (cl:format cl:nil "<process ~A>"
+			    (cl:case which (0 "stdin") (1 "stdout") (cl:t "stderr")))))
+    (cl:case which
+      (0 (make-haskell-handle (uiop:process-info-input p) name cl:nil cl:t cl:nil))
+      (1 (make-haskell-handle (uiop:process-info-output p) name cl:t cl:nil cl:nil))
+      (cl:t (make-haskell-handle (uiop:process-info-error-output p) name
+				 cl:t cl:nil cl:nil)))))
+
+;;; The exit code; a process killed by signal N is -N, as in the process
+;;; package (uiop gives 128+N and N).
+(cl:defun prim.wait-process (p)
+  (cl:let ((in (uiop:process-info-input p)))
+    (cl:when (cl:and in (cl:open-stream-p in))
+      (cl:finish-output in)))
+  (cl:multiple-value-bind (code signal) (uiop:wait-process p)
+    (cl:cond (signal (cl:- signal))
+	     ((cl:integerp code) code)
+	     (cl:t -1))))
+
+(cl:defun prim.process-running (p) (cl:if (uiop:process-alive-p p) cl:t cl:nil))
+
+(cl:defun prim.terminate-process (p)
+  (cl:when (uiop:process-alive-p p) (uiop:terminate-process p))
+  0)
+
+;;; readCreateProcess(WithExitCode): the output of the command ARGV
+;;; with INPUT on its stdin; its exit code is then prim.last-exit-code,
+;;; and its standard error, when CAPTURE-ERR?, prim.last-stderr (else it
+;;; goes to ours).
+(cl:defvar *last-stderr* "")
+(cl:defun prim.read-process-full (argv cwd has-env? env input capture-err?)
+  (cl:let ((command (process-command argv has-env? env)))
+    (cl:multiple-value-bind (out err code)
+	(cl:handler-case
+	    (cl:with-input-from-string (in input)
+	      (uiop:run-program command :input in :output :string
+				:error-output (cl:if capture-err? :string :interactive)
+				:directory (cl:if (cl:string= cwd "") cl:nil
+						  (uiop:ensure-directory-pathname cwd))
+				:ignore-error-status cl:t))
+	  (cl:error (c)
+	    (cl:error (make-io-error 'does-not-exist "readCreateProcessWithExitCode"
+				     (cl:princ-to-string c) (cl:first command) cl:nil))))
+      (cl:setf *last-exit-code* code *last-stderr* (cl:or err ""))
+      out)))
+(cl:defun prim.last-stderr () *last-stderr*)
+
+;;; A failed command: an IOError of no particular kind ("LOC: failed").
+(cl:defun prim.process-failed (location)
+  (cl:error (make-io-error 'other location "" cl:nil cl:nil)))
+
 ;;; The platform, in GHC's spelling (System.Info).
 
 (cl:defparameter prim.os

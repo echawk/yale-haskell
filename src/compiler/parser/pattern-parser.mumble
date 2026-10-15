@@ -373,30 +373,60 @@
 ;;; guard  p1 <- e1 v1, ..., pn <- en vn, g.
 
 (define (add-view-pattern-guards views rhs-list)
-  (if (null? views)
-      rhs-list
-      (map (lambda (grhs)
-	     (let ((g      (guarded-rhs-guard grhs))
-		   (quals  (map (lambda (v)
-				  (make qual-generator
-					(pat (caddr v))
-					(exp (make app (fn (cadr v))
-						   (arg (generated-var-ref (car v)))))))
-				views)))
-	       (make guarded-rhs
-		     (guard (make pattern-guard
-				  (quals (append quals
-						 (cond ((is-type? 'omitted-guard g) '())
-						       ((is-type? 'pattern-guard g)
-							(pattern-guard-quals g))
-						       (else (list (make qual-filter (exp g)))))))))
-		     (rhs (guarded-rhs-rhs grhs)))))
-	   rhs-list)))
+  (cond ((null? views)
+	 rhs-list)
+	((null? (cdr rhs-list))
+	 (list (view-guarded-rhs views (car rhs-list))))
+	(else
+	 ;; several guards: one guard binds the views, then a case over
+	 ;; the guards yields [e] or [], so that when every guard fails
+	 ;; the clause still falls through (the views' patterns cannot be
+	 ;; shared by several guards)
+	 (let* ((r       (string->symbol
+			  (format '#f "view%~A" (incf *view-pattern-count*))))
+		(guards  (map (lambda (grhs)
+				(make guarded-rhs
+				      (guard (guarded-rhs-guard grhs))
+				      (rhs (make list-exp
+						 (exps (list (guarded-rhs-rhs grhs)))))))
+			      rhs-list))
+		(alts    (list (**alt (make wildcard-pat) guards '())
+			       (**alt/simple (make wildcard-pat)
+					     (make list-exp (exps '())))))
+		(choice  (**case (generated-var-ref (car (car views))) alts))
+		(bind    (make qual-generator
+			       (pat (make list-pat
+					  (pats (list (make var-pat
+							    (var (generated-var-ref r)))))))
+			       (exp choice))))
+	   (list (make guarded-rhs
+		       (guard (make pattern-guard
+				    (quals (append (view-quals views) (list bind)))))
+		       (rhs (generated-var-ref r))))))))
+
+(define (view-quals views)
+  (map (lambda (v)
+	 (make qual-generator
+	       (pat (caddr v))
+	       (exp (make app (fn (cadr v))
+			  (arg (generated-var-ref (car v)))))))
+       views))
+
+(define (view-guarded-rhs views grhs)
+  (let ((g  (guarded-rhs-guard grhs)))
+    (make guarded-rhs
+	  (guard (make pattern-guard
+		       (quals (append (view-quals views)
+				      (cond ((is-type? 'omitted-guard g) '())
+					    ((is-type? 'pattern-guard g)
+					     (pattern-guard-quals g))
+					    (else (list (make qual-filter (exp g)))))))))
+	  (rhs (guarded-rhs-rhs grhs)))))
 
 ;;; PatternSynonyms (GHC), within a module:
 ;;;   pattern P x y = pat        (bidirectional)
 ;;;   pattern P x y <- pat [where P x y = e]
-;;;   pattern P :: type          (ignored)
+;;;   pattern P, Q :: type       (the builders' signature)
 ;;; A use P p1 ... pn in a pattern is pat with x, y, ... replaced by the
 ;;; patterns (prec/prec-parse.mumble's massage-pattern); in an expression
 ;;; P is the function pattern%P (prec/scope.mumble), defined from pat (as
@@ -415,8 +445,8 @@
 
 (define (parse-pattern-synonym)
   (advance-token)
-  (if (eq? (peek-1-type) '\:\:)
-      (skip-to-decl-end)   ; a signature
+  (if (memq (peek-1-type) '(\:\: \,))
+      (parse-pattern-synonym-signature)
       (let* ((name (con->symbol))
 	     (params (parse-pattern-synonym-params)))
 	(token-case
@@ -424,20 +454,74 @@
 	      (push (list name params pat) *pattern-synonyms*)
 	      (push (pattern-builder name params (pattern->exp pat))
 		    *pattern-builders*)))
-	 (<- (let ((pat (parse-pat)))
+	 (<- (let ((pat (parse-synonym-pattern name)))
 	       (push (list name params pat) *pattern-synonyms*)
 	       (let ((builder '#f))
 		 (when (eq-token? '|where|)
 		   (advance-token)
-		   (let ((decls (parse-decl-list)))
-		     (when (pair? decls)
-		       (setf builder (explicit-pattern-builder (car decls))))))
-		 (push (if builder
-			   (pattern-builder name (car builder) (cdr builder))
-			   (let ((b (pattern-builder-name name)))
-			     (**define b '() (generated-var-ref b))))
+		   (setf builder (explicit-pattern-builder name (parse-decl-list))))
+		 (push (or builder
+			   (**define (pattern-builder-name name) '()
+				     (**app (**var/def (core-symbol "error"))
+					    (**string (format '#f "~A: a one-way pattern synonym used as an expression"
+							      (remove-con-prefix-if (symbol->string name)))))))
 		       *pattern-builders*))))
 	 (else (signal-missing-token "`=' or `<-'" "pattern synonym"))))))
+
+;;; pattern P, Q :: t gives the builders pattern%P and pattern%Q type t,
+;;; so that a builder is not defaulted (pattern Two :: Int; pattern Two =
+;;; 2).  A signature with required and provided contexts (CReq => CProv
+;;; => t) is not parsed by parse-signature; it is skipped.
+
+(define (parse-pattern-synonym-signature)
+  (let ((names (parse-pattern-synonym-names)))
+    (require-token \:\: (signal-missing-token "`::'" "pattern synonym signature"))
+    (let ((signature (parse-signature)))
+      (if (eq? *token* '=>)
+	  (skip-to-decl-end)
+	  (push (make signdecl
+		      (vars (map (lambda (n) (generated-var-ref (pattern-builder-name n)))
+				 names))
+		      (signature signature))
+		*pattern-builders*)))))
+
+(define (parse-pattern-synonym-names)
+  (let ((name (con->symbol)))
+    (token-case
+     (\, (cons name (parse-pattern-synonym-names)))
+     (else (list name)))))
+
+;;; A one-way synonym's pattern.  Its view patterns (f -> p) become
+;;; view-pats, each f a top-level function view%P%k x = f x, so that the
+;;; pattern can be copied to its uses, and into other modules as a
+;;; template.
+
+(define (parse-synonym-pattern name)
+  (let ((outer  *view-patterns*))
+    (setf *view-patterns* '())
+    (let* ((pat    (parse-pat))
+	   (views  (take-view-patterns))   ; inner views first
+	   (count  0)
+	   (env    '()))
+      (setf *view-patterns* outer)
+      (dolist (v views)
+	(incf count)
+	(let ((fname (string->symbol
+		      (format '#f "view%~A%~A"
+			      (remove-con-prefix-if (symbol->string name)) count))))
+	  ;; eta-expanded: a function binding is not defaulted (the
+	  ;; monomorphism restriction)
+	  (push (**define fname '(|view%x|) (**app (cadr v) (generated-var-ref '|view%x|)))
+		*pattern-builders*)
+	  ;; a view's pattern may hold an inner view's variable
+	  (push (tuple (car v)
+		       (make view-pat (fn (generated-var-ref fname))
+			     (pattern (copy-pattern (caddr v) env))))
+		env)))
+      (if (null? env) pat (copy-pattern pat env)))))
+
+(define (remove-con-prefix-if s)
+  (if (has-con-prefix? s) (remove-con-prefix s) s))
 
 (define (parse-pattern-synonym-params)
   (if (eq-token? 'varid)
@@ -454,25 +538,35 @@
 (define (pattern-builder name params exp)
   (**define (pattern-builder-name name) params exp))
 
-;;; where P x y = e: (params . e), or #f
-(define (explicit-pattern-builder decl)
+;;; where P p1 ... pn = e; ...: the builder pattern%P with those clauses,
+;;; or #f when a declaration is not a clause of P.
+
+(define (explicit-pattern-builder name decls)
+  (let ((defs (map (lambda (d) (explicit-builder-clause name d)) decls)))
+    (and (pair? defs)
+	 (every (lambda (d) d) defs)
+	 (make valdef
+	       (lhs (make var-pat (var (generated-var-ref (pattern-builder-name name)))))
+	       (definitions (concat defs))))))
+
+;;; A where-declaration P p1 ... pn = e as its single-fun-defs over p1 ... pn.
+(define (explicit-builder-clause name decl)
   (and (is-type? 'valdef decl)
-       (let ((lhs  (valdef-lhs decl))
-	     (defs (valdef-definitions decl)))
-	 (and (pair? defs)
-	      (let* ((def (car defs))
-		     (args (cond ((is-type? 'pcon lhs) (pcon-pats lhs))
-				 ((is-type? 'pp-pat-list lhs) (cdr (pp-pat-list-pats lhs)))
-				 (else (single-fun-def-args def))))
-		     (rhs (car (single-fun-def-rhs-list def))))
-		(and (every (lambda (p) (is-type? 'var-pat p)) args)
-		     (cons (map (lambda (p) (var-ref-name (var-pat-var p))) args)
-			   (guarded-rhs-rhs rhs))))))))
+       (let ((lhs  (valdef-lhs decl)))
+	 (map (lambda (def)
+		(make single-fun-def
+		      (args (cond ((is-type? 'pcon lhs) (pcon-pats lhs))
+				  ((is-type? 'pp-pat-list lhs) (cdr (pp-pat-list-pats lhs)))
+				  (else (single-fun-def-args def))))
+		      (rhs-list (single-fun-def-rhs-list def))
+		      (where-decls (single-fun-def-where-decls def))
+		      (infix? '#f)))
+	      (valdef-definitions decl)))))
 
 ;;; A pattern as the expression that builds the value it matches.
 (define (pattern->exp p)
   (cond ((is-type? 'var-pat p) (generated-var-ref (var-ref-name (var-pat-var p))))
-	((is-type? 'const-pat p) (const-pat-value p))
+	((is-type? 'const-pat p) (copy-const (const-pat-value p)))
 	((is-type? 'pcon p)
 	 (**app/l (make con-ref (name (pcon-name p)) (con (pcon-con p))
 			(infix? (pcon-infix? p)))
@@ -486,6 +580,18 @@
 	(else (parser-error 'pattern-synonym-not-invertible
 		"A pattern synonym with = needs a pattern that is also an expression; use <- and where."))))
 
+;;; A literal for another place: the type checker annotates literal
+;;; nodes, so the builder and each use of a synonym need their own.
+(define (copy-const c)
+  (cond ((is-type? 'integer-const c) (make integer-const (value (integer-const-value c))))
+	((is-type? 'char-const c) (make char-const (value (char-const-value c))))
+	((is-type? 'string-const c) (make string-const (value (string-const-value c))))
+	((is-type? 'float-const c)
+	 (make float-const (numerator (float-const-numerator c))
+	       (denominator (float-const-denominator c))
+	       (exponent (float-const-exponent c))))
+	(else c)))
+
 ;;; The pattern of a use: a copy of the synonym's, its parameters replaced.
 (define (instantiate-pattern-synonym syn args)
   (copy-pattern (caddr syn)
@@ -498,7 +604,7 @@
 	       (tuple-2-2 b)
 	       (make var-pat (var (generated-var-ref (var-ref-name (var-pat-var p))))))))
 	((is-type? 'wildcard-pat p) (make wildcard-pat))
-	((is-type? 'const-pat p) (make const-pat (value (const-pat-value p))))
+	((is-type? 'const-pat p) (make const-pat (value (copy-const (const-pat-value p)))))
 	((is-type? 'pcon p)
 	 (make pcon (name (pcon-name p)) (con (pcon-con p)) (infix? (pcon-infix? p))
 	       (pats (map (lambda (q) (copy-pattern q env)) (pcon-pats p)))))
@@ -511,12 +617,18 @@
 	       (pattern (copy-pattern (as-pat-pattern p) env))))
 	((is-type? 'irr-pat p) (make irr-pat (pattern (copy-pattern (irr-pat-pattern p) env))))
 	((is-type? 'bang-pat p) (make bang-pat (pattern (copy-pattern (bang-pat-pattern p) env))))
+	((is-type? 'view-pat p)
+	 (make view-pat (fn (copy-var-ref (view-pat-fn p)))
+	       (pattern (copy-pattern (view-pat-pattern p) env))))
 	(else p)))
+
+(define (copy-var-ref r)
+  (make var-ref (name (var-ref-name r)) (var (var-ref-var r)) (infix? '#f)))
 ;;; Pattern synonyms across modules.  The defining module's scope phase
 ;;; resolves each synonym's pattern (prec/scope.mumble) and records it as
 ;;; a template, plain data an interface file can hold:
 ;;;   (v name) (w) (i n) (ch c) (s str) (c con name infix? pat ...)
-;;;   (l pat ...) (a name pat) (r pat) (b pat)
+;;;   (l pat ...) (a name pat) (r pat) (b pat) (vw fn-def pat)
 ;;; keyed by the builder's def.  A use in another module finds the
 ;;; builder by name (pattern%P, or M.pattern%P for M.P) and instantiates
 ;;; the template, its constructors already resolved.
@@ -552,6 +664,9 @@
 	 `(a ,(var-ref-name (as-pat-var p)) ,(pattern->template (as-pat-pattern p))))
 	((is-type? 'irr-pat p) `(r ,(pattern->template (irr-pat-pattern p))))
 	((is-type? 'bang-pat p) `(b ,(pattern->template (bang-pat-pattern p))))
+	((and (is-type? 'view-pat p)
+	      (not (eq? (var-ref-var (view-pat-fn p)) *undefined-def*)))
+	 `(vw ,(var-ref-var (view-pat-fn p)) ,(pattern->template (view-pat-pattern p))))
 	(else (lisp:throw 'no-template '#f))))
 
 ;;; The pattern of a use of an imported synonym: ARGS for its parameters.
@@ -576,6 +691,8 @@
       (a (make as-pat (var (generated-var-ref (cadr tp)))
 	       (pattern (funcall sub (caddr tp)))))
       (r (make irr-pat (pattern (funcall sub (cadr tp)))))
+      (vw (make view-pat (fn (**var/def (cadr tp)))
+		(pattern (funcall sub (caddr tp)))))
       (else (make bang-pat (pattern (funcall sub (cadr tp))))))))
 
 ;;; The builder's name for a use of P or M.P: pattern%P or M.pattern%P.

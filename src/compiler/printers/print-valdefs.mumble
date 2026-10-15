@@ -119,6 +119,13 @@
   (write-string "!" xp)
   (write-apat (bang-pat-pattern object) xp))
 
+(define-ast-printer view-pat (object xp)
+  (write-char #\( xp)
+  (write (view-pat-fn object) xp)
+  (write-string " -> " xp)
+  (write (view-pat-pattern object) xp)
+  (write-char #\) xp))
+
 (define-ast-printer sig-pat (object xp)
   (write-char #\( xp)
   (write (sig-pat-pattern object) xp)

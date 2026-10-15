@@ -173,8 +173,20 @@ GHC extension or a modern-base idiom, and compares them with GHC's output:
      Data.Sequence and Data.Tree. They are version 0.3.0.0 as nhc98 ships
      it (Haskell 98 with CPP), imported by tools/gen/import-containers.py
      without Data.Typeable.
-     - Still missing: Data.Graph (Data.Array.ST, which it needs, now
-       exists) and the `.Strict` modules.
+     - Data.Graph (2026-10-14): Hugs's, with containers 0.7's
+       `NECyclicSCC` (and `CyclicSCC` as a pattern synonym) and
+       `reverseTopSort`; output matches GHC 9.14's
+       (tests/haskell98/lib/data-graph.hs).
+     - Still missing: the `.Strict` modules.
+   - **process** (2026-10-14): `createProcess` with pipes, `proc`/`shell`,
+     `cwd`/`env`, `waitForProcess`, `getProcessExitCode`,
+     `terminateProcess`, `withCreateProcess`, `callProcess`,
+     `spawnProcess`, the `read*Process*` family (standard error
+     captured), over uiop's launch-program (tests/haskell98/system/
+     process.hs, checked against GHC).  Not there: process groups,
+     signals other than terminate, `Pid`.  Our own buffered output is not
+     flushed before a child runs, as GHC's is not; under a pipe, GHC's
+     block-buffered stdout can then appear after the child's.
 6. **Multi-parameter type classes:** done (e19c23a, 9ffb5a5), with
    functional dependencies, instance contexts, recursive bindings and
    interface files. Tests are in tests/haskell98/language/mptc-*.
