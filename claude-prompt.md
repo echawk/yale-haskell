@@ -123,14 +123,14 @@ Realistic, in rough order of value:
    Latin-1 streams in `src/runtime/handle-prims.mumble`).
 2. **A packed representation for Data.Text and Data.ByteString**: done
    2026-10-14 (both Lisp strings; a ByteString's characters are bytes;
-   `src/base/text-runtime.lisp`). Next: megaparsec and
-   optparse-applicative as the proof (B1).
+   `src/base/text-runtime.lisp`). optparse-applicative's test suite
+   passes (2026-10-15, `tools/conformance/optparse.py`); megaparsec next.
 3. **Missing libraries** (mostly plain Haskell; clone into `ref/`,
    record workarounds as patches in `tools/conformance/<target>/`,
    never edit the clone): `vector` (boxed over Lisp simple-vectors, unboxed over
    specialized arrays; no stream fusion at first),
    `unordered-containers` + `hashable` (a Data.Map-backed
-   implementation is acceptable behind the API), `optparse-applicative`,
+   implementation is acceptable behind the API),
    an `aeson` subset (no Generic), the rest of QuickCheck 2's API,
    real haskeline line editing. (`process` and `Data.Graph`: done
    2026-10-14.)

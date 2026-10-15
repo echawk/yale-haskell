@@ -7,16 +7,19 @@
 (define *di-context-changed* '#f)
 
 (define (add-derived-instances modules)
-  (let ((insts '()))
+  (let ((insts '())
+	(owners '()))   ; (inst . the module deriving it)
     (walk-modules modules
-     (lambda () (setf insts (append (find-derivable-instances) insts))))
+     (lambda ()
+       (let ((new (find-derivable-instances)))
+	 (dolist (i new) (push (cons i *module*) owners))
+	 (setf insts (append new insts)))))
     (compute-di-fixpoint insts)
     (dolist (inst insts)
       (when (instance-ok? inst)
         (create-instance-fns inst)
-	(push inst (module-instance-defs
-		    (table-entry *modules*
-				 (def-module (instance-algdata inst)))))))))
+	(let ((m (cdr (assq inst owners))))
+	  (push inst (module-instance-defs m)))))))
 
 (define (compute-di-fixpoint insts)
   (setf *di-context-changed* '#f)
@@ -32,6 +35,24 @@
 	(insts '()))
     (dolist (alg algs)
       (dolist (class (algdata-deriving alg))
+	(setf insts (derive-instance alg class insts)))
+      (dolist (d (algdata-special-derivings alg))
+	(add-special-derived-instance alg (tuple-2-1 d) (tuple-2-2 d))))
+    ;; StandaloneDeriving of a type declared in another module
+    (dolist (d (reverse (module-standalone-derivings *module*)))
+      (remember-context (tuple-2-1 d)
+	(let ((class-ref (tuple-2-1 d))
+	      (alg       (lookup-toplevel-name (tuple-2-2 d))))
+	  (resolve-class class-ref)
+	  (if (not (algdata? alg))
+	      (signal-not-derivable (tuple-2-2 d))
+	      (setf insts (derive-instance alg (class-ref-class class-ref) insts))))))
+    insts))
+
+;;; The derived instance of CLASS for ALG, added to INSTS (the standard
+;;; classes, whose instances are computed together) or to the module.
+
+(define (derive-instance alg class insts)
 	 (cond ((memq class (list (core-symbol "Eq")
 				  (core-symbol "Ord")
 				  (core-symbol "Text")
@@ -74,10 +95,8 @@
 	       ((and (haskell98?) (algdata-newtype? alg))
 		(add-newtype-derived-instance alg class))
 	       (else
-		(signal-not-derivable class))))
-      (dolist (d (algdata-special-derivings alg))
-	(add-special-derived-instance alg (tuple-2-1 d) (tuple-2-2 d))))
-    insts))
+		(signal-not-derivable class)))
+  insts)
 
 ;;; DerivingStrategies (GHC), parser/typedecl-parser.mumble:
 ;;;  - anyclass: an empty instance (DeriveAnyClass), its methods the
@@ -99,13 +118,19 @@
 			 (else strategy))))
 	(setf (instance-ok? inst) '#t)
 	(setf (instance-suppress-readers? inst) '#f)
-	(setf (instance-decls inst) (if via (via-method-decls class via) '()))
 	(setf (instance-context inst)
 	      (if via
 		  (map (lambda (v) (**context (**class/def class) v))
 		       (lisp:intersection (algdata-tyvars alg) (ast-type-tyvars via)))
 		  '()))
+	(setf (instance-decls inst)
+	      (if via (via-method-decls class via) '()))
+	(setf (instance-scoped-tyvars? inst) '#t)
 	(push inst (module-instance-defs *module*)))))
+
+;;; The via type's variables are the instance head's, which scope over the
+;;; methods (instance-scoped-tyvars?): deriving Describe (Wrap a) via
+;;; Maybe a needs Describe (Maybe a) at the instance's a.
 
 (define (via-method-decls class via)
   (map (lambda (m)

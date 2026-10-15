@@ -146,3 +146,27 @@ n table where table = ...` rebuilt the closure table for every lookup
 Report's `sortBy` (an insertion sort, O(n^2), whose chain of insertBy
 thunks exhausted the 4 GB heap), now GHC's merge sort.  It takes about
 45 s against GHC's 8 s.
+
+## optparse-applicative
+
+Status (2026-10-15).  **optparse-applicative 0.18.1.0**
+(`tools/conformance/optparse.py`), with prettyprinter 1.7.1 and
+prettyprinter-ansi-terminal 1.1.3 from source: its test suite's 100
+QuickCheck properties pass, most of them help texts rendered and
+compared with the upstream golden files (tests/*.err.txt).  The one
+adaptation: test.hs's `$(quickCheckAll)` main (Template Haskell) is
+replaced by a list of its properties.  What it needed:
+
+- **Language:** Arrows' `proc` notation (Examples/Cabal.hs); standalone
+  deriving of a type from another module, newtype-derived for a class
+  whose underlying instance has a context; hiding a data constructor by
+  name (H98 5.3.4); `P..` as a qualified `.`; hiding a name a module
+  does not export (GHC warns only); `MIN_VERSION_pkg` defined for
+  `#ifndef`.
+- **Libraries:** Control.Arrow, Control.Category, Data.Functor.Const,
+  Numeric.Natural, Data.Text.Lazy as its own type and
+  Data.Text.Lazy.Builder, System.Console.ANSI, ExceptT's Alternative,
+  QuickCheck's `once`, `withMaxSuccess`, `ioProperty`, `isSuccess` and
+  Test.QuickCheck.Property.
+- **Flags:** `-D__GLASGOW_HASKELL__=906` for the package's own files (the
+  examples define `(<>)` for GHC 7.2 and older otherwise).

@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Test/QuickCheck/
+:o= all
+Property.hs

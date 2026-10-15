@@ -331,7 +331,8 @@
 	       (new-tyvars
 		(map (lambda (tyvar)
 		       (tuple tyvar
-			      (if (and (module-extension? "ScopedTypeVariables")
+			      (if (and (or (module-extension? "ScopedTypeVariables")
+					   (instance-scoped-tyvars? inst))
 				       (not (memq tyvar taken)))
 				  tyvar
 				  (gentyvar "tv"))))
@@ -508,7 +509,8 @@
 	  ;; ScopedTypeVariables: the instance's type variables scope over
 	  ;; the method's body (only those kept by name, expand-instance-
 	  ;; decls-1)
-	  (foralls (if (module-extension? "ScopedTypeVariables")
+	  (foralls (if (or (module-extension? "ScopedTypeVariables")
+			   (instance-scoped-tyvars? inst))
 		       (instance-tyvars inst)
 		       '()))
 	  (context (if keep-method-context?

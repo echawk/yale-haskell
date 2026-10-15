@@ -98,6 +98,9 @@
     (foreign-code (type list) (default '()))
     ;; foreign export declarations
     (foreign-exports (type list) (default '()))
+    ;; StandaloneDeriving of a type declared elsewhere: (tuple class-ref
+    ;; type-name), derived by derived/derived-instances.mumble
+    (standalone-derivings (type list) (default '()))
     ;; the GHC extensions its file's LANGUAGE pragmas name (strings)
     (extensions (type list) (default '()))
     ;; TypeFamilies: (tuple lhs-tycon-ast rhs-ast) for each equation of a

@@ -63,15 +63,17 @@
 	    (setf hiding (remove-entity group hiding)))
 	   (else
 	    ;; a method, field or constructor hidden by its own name
+	    ;; (a constructor's name has its prefix, ;C, in the group; the
+	    ;; hiding list names it as C, H98 5.3.4)
 	    (let ((kept  (cons (car group)
 			       (lisp:remove-if
 				(lambda (n-d)
 				  (lisp:find (tuple-2-1 n-d) hiding
-					     :key (function entity-name)))
+					     :test (function hidden-name-matches?)))
 				(cdr group)))))
 	      (dolist (n-d (cdr group))
 		(setf hiding (lisp:remove (tuple-2-1 n-d) hiding
-					  :key (function entity-name))))
+					  :test (function hidden-name-matches?))))
 	      (import-group (rename-group kept renamings) module)))))
    (module-export-table module))
   (when (and (not (null? hiding))
@@ -80,6 +82,11 @@
       (dolist (h hiding)
 	(signal-unused-hiding (entity-name h) (module-name module)))))
   (find-unused-renamings renamings import-decl))
+
+(define (hidden-name-matches? name entity)
+  (let ((e (entity-name entity)))
+    (or (eq? name e)
+	(eq? name (add-con-prefix/symbol e)))))
 
 (define (import-named-entities mod specs renamings import-decl)
   (dolist (entity specs)

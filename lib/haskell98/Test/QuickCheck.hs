@@ -9,9 +9,10 @@ module Test.QuickCheck (
     Arbitrary(arbitrary, shrink), CoArbitrary(coarbitrary),
     arbitrarySizedIntegral, arbitrarySizedBoundedIntegral, arbitraryBoundedEnum, shrinkIntegral, shrinkList,
     Property, Testable(property), (==>), forAll, forAllShrink,
+    once, withMaxSuccess, ioProperty, idempotentIOProperty, mapPropResult,
     counterexample, label, collect, classify, cover, (.&&.), (.||.),
     conjoin, disjoin, (===), quickCheck, quickCheckWith, verboseCheck,
-    Args(Args, maxSuccess, maxSize), stdArgs, Result(..), quickCheckResult, quickCheckWithResult,
+    Args(Args, maxSuccess, maxSize), stdArgs, Result(..), isSuccess, quickCheckResult, quickCheckWithResult,
     NonNegative(NonNegative, getNonNegative), Positive(Positive, getPositive)
   ) where
 
@@ -22,6 +23,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Word (Word, Word8, Word16, Word32, Word64)
+import System.IO.Unsafe (unsafePerformIO)
 
 infixr 0 ==>
 infixr 1 .&&., .||.
@@ -246,18 +248,40 @@ instance (Num a, Ord a, Arbitrary a) => Arbitrary (NonNegative a) where
 instance (Num a, Ord a, Arbitrary a) => Arbitrary (Positive a) where
   arbitrary = fmap (Positive . (+ 1) . abs) arbitrary
 
--- Properties: a test gives Nothing (discarded) or Just (passed, messages)
+-- Properties: a test gives Nothing (discarded) or Just (passed, messages);
+-- MaxTests is the number of tests the property asks for (once).
 
-newtype Property = Property (Gen (Maybe (Bool, [String])))
+data Property = MkProperty (Maybe Int) (Gen (Maybe (Bool, [String])))
+
+propGen :: Gen (Maybe (Bool, [String])) -> Property
+propGen g = MkProperty Nothing g
 
 unProperty :: Property -> Gen (Maybe (Bool, [String]))
-unProperty (Property g) = g
+unProperty (MkProperty _ g) = g
+
+propMax :: Property -> Maybe Int
+propMax (MkProperty m _) = m
+
+-- the test results of P changed by F, keeping P's test count
+mapPropResult :: Testable p => (Maybe (Bool, [String]) -> Maybe (Bool, [String])) -> p -> Property
+mapPropResult f p = let q = property p in MkProperty (propMax q) (fmap f (unProperty q))
+
+once :: Testable p => p -> Property
+once = withMaxSuccess 1
+
+withMaxSuccess :: Testable p => Int -> p -> Property
+withMaxSuccess n p = MkProperty (Just n) (unProperty (property p))
+
+-- the action runs when the test does (as QuickCheck's ioProperty)
+ioProperty, idempotentIOProperty :: Testable p => IO p -> Property
+ioProperty m = propGen (MkGen (\r n -> unGen (unProperty (property (unsafePerformIO m))) r n))
+idempotentIOProperty = ioProperty
 
 class Testable a where
   property :: a -> Property
 
 instance Testable Bool where
-  property b = Property (return (Just (b, [])))
+  property b = propGen (return (Just (b, [])))
 
 instance Testable () where
   property () = property True
@@ -266,7 +290,7 @@ instance Testable Property where
   property p = p
 
 instance Testable a => Testable (Gen a) where
-  property g = Property (g >>= unProperty . property)
+  property g = propGen (g >>= unProperty . property)
 
 instance (Arbitrary a, Show a, Testable b) => Testable (a -> b) where
   property f = forAllShrink arbitrary shrink f
@@ -275,17 +299,17 @@ forAll :: (Show a, Testable b) => Gen a -> (a -> b) -> Property
 forAll g f = forAllShrink g (const []) f
 
 forAllShrink :: (Show a, Testable b) => Gen a -> (a -> [a]) -> (a -> b) -> Property
-forAllShrink g _ f = Property (do
+forAllShrink g _ f = propGen (do
   x <- g
   r <- unProperty (property (f x))
   return (fmap (\(ok, msgs) -> (ok, show x : msgs)) r))
 
 (==>) :: Testable b => Bool -> b -> Property
-False ==> _ = Property (return Nothing)
+False ==> _ = propGen (return Nothing)
 True ==> p = property p
 
 counterexample :: Testable p => String -> p -> Property
-counterexample s p = Property (fmap (fmap (\(ok, ms) -> (ok, ms ++ [s]))) (unProperty (property p)))
+counterexample s = mapPropResult (fmap (\(ok, ms) -> (ok, ms ++ [s])))
 
 label, collect :: (Show l, Testable p) => l -> p -> Property
 label _ = property
@@ -302,10 +326,10 @@ p .&&. q = conjoin [property p, property q]
 p .||. q = disjoin [property p, property q]
 
 conjoin, disjoin :: Testable p => [p] -> Property
-conjoin ps = Property (fmap combine (mapM (unProperty . property) ps))
+conjoin ps = propGen (fmap combine (mapM (unProperty . property) ps))
   where combine rs = if any (== Nothing) (map (fmap fst) rs) then Nothing
                      else Just (all (maybe True fst) rs, concatMap (maybe [] snd) rs)
-disjoin ps = Property (fmap combine (mapM (unProperty . property) ps))
+disjoin ps = propGen (fmap combine (mapM (unProperty . property) ps))
   where combine rs = Just (any (maybe False fst) rs, concatMap (maybe [] snd) rs)
 
 (===) :: (Eq a, Show a) => a -> a -> Property
@@ -321,6 +345,11 @@ data Result = Success { numTests :: Int, numDiscarded :: Int }
             | GaveUp { numTests :: Int }
   deriving Show
 
+isSuccess :: Result -> Bool
+isSuccess r = case r of
+  Success _ _ -> True
+  _ -> False
+
 quickCheck :: Testable p => p -> IO ()
 quickCheck p = quickCheckWith stdArgs p
 
@@ -333,7 +362,7 @@ quickCheckWith args p = quickCheckWithResult args p >> return ()
 -- The report, as QuickCheck prints it.
 report :: Result -> IO ()
 report r = case r of
-  Success n d -> putStrLn ("+++ OK, passed " ++ show n ++ " tests"
+  Success n d -> putStrLn ("+++ OK, passed " ++ show n ++ (if n == 1 then " test" else " tests")
                            ++ (if d > 0 then "; " ++ show d ++ " discarded." else "."))
   GaveUp n -> putStrLn ("*** Gave up! Passed only " ++ show n ++ " tests.")
   Failure n cs -> do
@@ -347,14 +376,15 @@ quickCheckWithResult :: Testable p => Args -> p -> IO Result
 quickCheckWithResult args p = newStdGen >>= \r -> let res = go r 0 0 in report res >> return res
   where
     prop = property p
+    limit = maybe (maxSuccess args) id (propMax prop)
     go r passed discarded
-      | passed >= maxSuccess args = Success passed discarded
-      | discarded > 10 * maxSuccess args = GaveUp passed
+      | passed >= limit = Success passed discarded
+      | discarded > 10 * limit = GaveUp passed
       | otherwise =
           let (r1, r2) = split r
               -- discarded cases make the size grow too
               size = min (maxSize args)
-                         (((passed + discarded `div` 2) * maxSize args) `div` maxSuccess args)
+                         (((passed + discarded `div` 2) * maxSize args) `div` max 1 limit)
           in case unGen (unProperty prop) r1 size of
                Nothing -> go r2 passed (discarded + 1)
                Just (True, _) -> go r2 (passed + 1) discarded

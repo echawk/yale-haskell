@@ -309,7 +309,8 @@
   (and (haskell98?) (eq-token? '|deriving|) (eq? (peek-1-type) '|instance|)))
 
 ;;; A standalone deriving declaration adds the class to the deriving
-;;; clause of the type's declaration, which must be in this module.
+;;; clause of the type's declaration when that is in this module; one for
+;;; a type from elsewhere is kept for the derived-instance phase.
 
 (define (attach-standalone-derivings mod-ast)
   (dolist (d (reverse *standalone-derivings*))
@@ -318,9 +319,7 @@
       (if decl
 	  (setf (data-decl-deriving decl)
 		(append (data-decl-deriving decl) (list (tuple-2-1 d))))
-	  (parser-error 'standalone-deriving-elsewhere
-	    "Standalone deriving for ~A, which is not declared in this module, is not supported."
-	    (tuple-2-2 d)))))
+	  (push d (module-standalone-derivings mod-ast)))))
   (setf *standalone-derivings* '()))
 
 (define (wrapup-module mod-ast)

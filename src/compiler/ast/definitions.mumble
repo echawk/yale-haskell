@@ -254,5 +254,9 @@
    ;; #f, tyvars is (a); it is used at a type no other instance of C is
    ;; for, and its context is on that whole type
    (catch-all? (type bool) (bit #t) (default #f))
+   ;; the head's type variables scope over the methods, as under
+   ;; ScopedTypeVariables: a derived instance's coerced methods
+   ;; (derived-instances.mumble's via-method-decls) name them
+   (scoped-tyvars? (type bool) (bit #t) (default #f))
    ))
 
