@@ -10,18 +10,18 @@ import IOBase (Handle(Handle))
 import System.IO (IOMode(..), hClose)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Exception (bracket)
-import Data.ByteString.Internal (ByteString(BS))
+import Data.ByteString.Internal (ByteString, unBS, bsFromString)
 
 newtype Knob = Knob KnobObj
 
 newKnob :: MonadIO m => ByteString -> m Knob
-newKnob (BS s) = liftIO (fmap Knob (primKnobNew s))
+newKnob b = liftIO (fmap Knob (primKnobNew (unBS b)))
 
 getContents :: MonadIO m => Knob -> m ByteString
-getContents (Knob k) = liftIO (fmap BS (primKnobContents k))
+getContents (Knob k) = liftIO (fmap bsFromString (primKnobContents k))
 
 setContents :: MonadIO m => Knob -> ByteString -> m ()
-setContents (Knob k) (BS s) = liftIO (primKnobSet k s)
+setContents (Knob k) b = liftIO (primKnobSet k (unBS b))
 
 newFileHandle :: MonadIO m => Knob -> String -> IOMode -> m Handle
 newFileHandle (Knob k) name mode = liftIO (fmap Handle (primKnobHandle k name m))

@@ -98,7 +98,8 @@ main), `YALE_HASKELL_PROFILE=alloc`, `YALE_HASKELL_DEBUG=1`,
   RecursiveDo, ViewPatterns, …). Libraries beyond the Report:
   transformers, mtl, containers, array (ST/IO/Unboxed/IArray),
   parsec 3 (unchanged source), QuickCheck 2 subset, pretty,
-  haskeline, time, filepath, GetOpt, Data.Text/ByteString (String-backed).
+  haskeline, time, filepath, GetOpt, Data.Text/ByteString (packed
+  Lisp strings since 2026-10-14).
 - **Real-world programs run unchanged** with output matching GHC 9.14:
   MicroCabal (`mcabal parse` agrees on 19 .cabal files), xmonad's core
   + 107 QuickCheck properties, darcs 1.0.9 (25-step session + unit
@@ -120,10 +121,10 @@ Realistic, in rough order of value:
 1. **Binary I/O**: done (`openBinaryFile`, `withBinaryFile`,
    `hSetBinaryMode` on standard and file handles, `hGetBuf`/`hPutBuf`;
    Latin-1 streams in `src/runtime/handle-prims.mumble`).
-2. **A packed representation for Data.Text and Data.ByteString** (keep
-   the API; storage as Lisp strings / `(unsigned-byte 8)` vectors;
-   pointer-level `.Unsafe`/`.Internal` may stay missing). This is the
-   cost gap every file-reading program hits.
+2. **A packed representation for Data.Text and Data.ByteString**: done
+   2026-10-14 (both Lisp strings; a ByteString's characters are bytes;
+   `src/base/text-runtime.lisp`). Next: megaparsec and
+   optparse-applicative as the proof (B1).
 3. **Missing libraries** (mostly plain Haskell; clone into `ref/`,
    record workarounds as patches in `tools/conformance/<target>/`,
    never edit the clone): `vector` (boxed over Lisp simple-vectors, unboxed over

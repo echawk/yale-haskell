@@ -8,10 +8,10 @@ import Prelude hiding (length, take, drop, splitAt, lines)
 import qualified Prelude as P
 import Data.Char (chr, ord)
 import Data.Bits ((.&.), (.|.), shiftL, shiftR)
-import Data.ByteString.Internal (ByteString(BS))
+import Data.ByteString.Internal (ByteString, unBS, bsFromString)
 
 fromString :: String -> ByteString
-fromString s = BS (concatMap encodeChar s)
+fromString s = bsFromString (concatMap encodeChar s)
 
 encodeChar :: Char -> String
 encodeChar c
@@ -24,7 +24,7 @@ encodeChar c
   where n = ord c
 
 toString :: ByteString -> String
-toString (BS s) = go s
+toString b = go (unBS b)
   where go [] = []
         go cs = case decodeChars cs of (c, _, rest) -> c : go rest
 
@@ -47,12 +47,14 @@ decodeChars (c : cs)
 decodeChars [] = error "Data.ByteString.UTF8: empty"
 
 decode :: ByteString -> Maybe (Char, Int)
-decode (BS []) = Nothing
-decode (BS s) = case decodeChars s of (c, k, _) -> Just (c, k)
+decode b = case unBS b of
+  [] -> Nothing
+  s -> case decodeChars s of (c, k, _) -> Just (c, k)
 
 uncons :: ByteString -> Maybe (Char, ByteString)
-uncons (BS []) = Nothing
-uncons (BS s) = case decodeChars s of (c, _, rest) -> Just (c, BS rest)
+uncons b = case unBS b of
+  [] -> Nothing
+  s -> case decodeChars s of (c, _, rest) -> Just (c, bsFromString rest)
 
 length :: ByteString -> Int
 length = P.length . toString

@@ -168,6 +168,7 @@
                (:file "src/ffi/ffi-runtime")
                (:file "src/ffi/errno-darwin" :if-feature :darwin)
                (:file "src/base/base-runtime")
+               (:file "src/base/text-runtime")
                (:file "src/base/posix-runtime")
                (:file "src/cli/cli")
                (:file "src/cli/startup"))

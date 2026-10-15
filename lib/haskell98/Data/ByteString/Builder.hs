@@ -24,7 +24,7 @@ instance Show Builder where
   show b = show (toLazyByteString b)
 
 toLazyByteString :: Builder -> ByteString
-toLazyByteString (Builder f) = BS (f "")
+toLazyByteString (Builder f) = bsFromString (f "")
 
 hPutBuilder :: Handle -> Builder -> IO ()
 hPutBuilder h (Builder f) = hPutStr h (f "")
@@ -33,8 +33,8 @@ str :: String -> Builder
 str s = Builder (s ++)
 
 byteString, lazyByteString :: ByteString -> Builder
-byteString (BS s) = str s
-lazyByteString (BS s) = str s
+byteString b = str (unBS b)
+lazyByteString b = str (unBS b)
 
 char7, char8, charUtf8 :: Char -> Builder
 char7 c = Builder (c :)

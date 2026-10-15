@@ -426,3 +426,55 @@ Against the previous section: foldable 1.64 -> 1.16 s (its derived
 `foldr`'s thunks), mapcount 1.06 -> 0.88 s (no `Ord` dictionary calls
 left; the time is allocating Map nodes), statemonad 0.135 -> 0.097 s,
 ioloop 0.39 -> 0.21 s (`mapM_` specialized at IO).
+
+## Packed Data.Text and Data.ByteString (2026-10-14)
+
+Data.Text was a newtype over a fully evaluated String; it is now a Lisp
+string (lib/haskell98/TextPrims.hi, src/base/text-runtime.lisp), and a
+ByteString is the same with characters 0..255.  The common operations
+(length, index, append, concat, comparisons, slices, search, splitOn,
+lines, words, replace, case mapping, strip, map, filter, span, foldl')
+are primitives; Data.Text.IO and Data.ByteString's readFile and
+hGetContents read the whole file in one piece.  The rest of the API
+goes through String.  tests/haskell98/lib/data-text.hs and
+data-bytestring.hs check the whole API against GHC 9.14.
+
+New program bench/modern/textproc.hs (build, write, read back, split,
+search, case-map and replace a 4.3 MB text):
+
+```
+                 Yale run    Yale MB   GHC -O2
+before (String)    4.497      4,284     0.115   (3.47 s of it GC)
+after (packed)     0.462        432     0.115
+```
+
+`bench/compare-ghc -n 3` with everything else (load average ~2):
+
+```
+program          Yale    Yale MB  GHC -O0  GHC -O2    ratio  check
+bigint          0.157        558    0.067    0.064     2.5x  ok
+integrate       0.066        186    0.343    0.112     0.6x  ok
+interp          0.087        176    0.252    0.054     1.6x  ok
+ioloop          0.473       1068    0.138    0.124     3.8x  ok
+loop            0.209          0   14.564    0.202     1.0x  ok
+nfib            0.564          0    5.275    0.337     1.7x  ok
+queens          0.410        715    2.147    0.166     2.5x  ok
+sieve           0.042        132    0.050    0.019     2.3x  ok
+tree            0.307        584    0.346    0.220     1.4x  ok
+wheel           0.008         13    0.069    0.012     0.7x  ok
+existential     0.086        190    0.074    0.027     3.2x  ok
+foldable        0.751       1199    0.680    0.253     3.0x  ok
+ioref           0.278        560    0.518    0.015    18.2x  ok
+mapcount        0.917       1542    0.431    0.338     2.7x  ok
+starray         1.220       2274    3.058    0.057    21.5x  ok
+statemonad      0.109        341    0.694    0.025     4.3x  ok
+textproc        0.462        432    0.167    0.115     4.0x  ok
+```
+
+compare-ghc's timing pattern had not matched since the run line gained
+its GC time (every program read as FAIL); fixed.  Against the
+2026-10-11 table, ioref (0.040 -> 0.278 s), starray (0.217 -> 1.220 s),
+ioloop (0.212 -> 0.473 s), existential and integrate are slower.  The
+same numbers come from a28af4a, the commit before this round, so the
+slowdown came in between 1640aa7 and a28af4a; it is being bisected
+(next section).

@@ -1,0 +1,92 @@
+-- TextPrims.hi -- the packed Data.Text (a Lisp string) and its
+-- primitives: src/base/text-runtime.lisp.  A Char is passed as its code;
+-- a TextList is a [Text] (Data.Text coerces), forced by the primitive.
+
+interface TextPrims where
+
+import PreludeCore(Int,Integer,Char,Bool)
+import IOPrims(HandleObj)
+
+data TextRep
+data TextList
+
+primTextPack         :: String -> TextRep
+primTextUnpack       :: TextRep -> String
+primTextSingleton    :: Char -> TextRep
+primTextLength       :: TextRep -> Int
+primTextIndex        :: TextRep -> Int -> Char
+primTextCompare      :: TextRep -> TextRep -> Int
+primTextEq           :: TextRep -> TextRep -> Bool
+primTextAppend       :: TextRep -> TextRep -> TextRep
+primTextConcat       :: TextList -> TextRep
+primTextIntercalate  :: TextRep -> TextList -> TextRep
+primTextCons         :: Char -> TextRep -> TextRep
+primTextSnoc         :: TextRep -> Char -> TextRep
+primTextReplicate    :: Int -> TextRep -> TextRep
+primTextReverse      :: TextRep -> TextRep
+primTextSlice        :: TextRep -> Int -> Int -> TextRep
+primTextSearch       :: TextRep -> TextRep -> Int -> Int
+primTextIsPrefix, primTextIsSuffix, primTextIsInfix :: TextRep -> TextRep -> Bool
+primTextCount        :: TextRep -> TextRep -> Int
+primTextReplace      :: TextRep -> TextRep -> TextRep -> TextRep
+primTextSplitOn      :: TextRep -> TextRep -> TextList
+primTextLines, primTextWords :: TextRep -> TextList
+primTextUnlines, primTextUnwords :: TextList -> TextRep
+primTextStrip        :: TextRep -> Int -> TextRep
+primTextMap          :: (Char -> Char) -> TextRep -> TextRep
+primTextFilter       :: (Char -> Bool) -> TextRep -> TextRep
+primTextSpanLength, primTextSpanLengthEnd :: (Char -> Bool) -> TextRep -> Int
+primTextFindIndex    :: (Char -> Bool) -> TextRep -> Int
+primTextFoldlStrict  :: (a -> Char -> a) -> a -> TextRep -> a
+primTextToUpper, primTextToLower :: TextRep -> TextRep
+primTextReadFile     :: String -> IO TextRep
+primTextHGetContents :: HandleObj -> IO TextRep
+primTextHPutStr      :: HandleObj -> TextRep -> IO ()
+-- Data.ByteString.Char8's IO (a ByteString is a TextRep of bytes)
+primBytesReadFile    :: String -> IO TextRep
+primBytesHGetContents :: HandleObj -> IO TextRep
+primBytesHPutStr     :: HandleObj -> TextRep -> IO ()
+
+{-#
+primTextPack         :: LispName("prim.text-pack")
+primTextUnpack       :: LispName("prim.text-unpack")
+primTextSingleton    :: LispName("prim.text-singleton")
+primTextLength       :: LispName("prim.text-length")
+primTextIndex        :: LispName("prim.text-index")
+primTextCompare      :: LispName("prim.text-compare")
+primTextEq           :: LispName("prim.text-eq")
+primTextAppend       :: LispName("prim.text-append")
+primTextConcat       :: LispName("prim.text-concat"), Strictness("N")
+primTextIntercalate  :: LispName("prim.text-intercalate"), Strictness("S,N")
+primTextCons         :: LispName("prim.text-cons")
+primTextSnoc         :: LispName("prim.text-snoc")
+primTextReplicate    :: LispName("prim.text-replicate")
+primTextReverse      :: LispName("prim.text-reverse")
+primTextSlice        :: LispName("prim.text-slice")
+primTextSearch       :: LispName("prim.text-search")
+primTextIsPrefix     :: LispName("prim.text-is-prefix")
+primTextIsSuffix     :: LispName("prim.text-is-suffix")
+primTextIsInfix      :: LispName("prim.text-is-infix")
+primTextCount        :: LispName("prim.text-count")
+primTextReplace      :: LispName("prim.text-replace")
+primTextSplitOn      :: LispName("prim.text-split-on")
+primTextLines        :: LispName("prim.text-lines")
+primTextWords        :: LispName("prim.text-words")
+primTextUnlines      :: LispName("prim.text-unlines"), Strictness("N")
+primTextUnwords      :: LispName("prim.text-unwords"), Strictness("N")
+primTextStrip        :: LispName("prim.text-strip")
+primTextMap          :: LispName("prim.text-map")
+primTextFilter       :: LispName("prim.text-filter")
+primTextSpanLength   :: LispName("prim.text-span-length")
+primTextSpanLengthEnd :: LispName("prim.text-span-length-end")
+primTextFindIndex    :: LispName("prim.text-find-index")
+primTextFoldlStrict  :: LispName("prim.text-foldl-strict"), Strictness("S,N,S")
+primTextToUpper      :: LispName("prim.text-to-upper")
+primTextToLower      :: LispName("prim.text-to-lower")
+primTextReadFile     :: LispName("prim.text-read-file")
+primTextHGetContents :: LispName("prim.text-h-get-contents")
+primTextHPutStr      :: LispName("prim.text-h-put-str")
+primBytesReadFile    :: LispName("prim.bytes-read-file")
+primBytesHGetContents :: LispName("prim.bytes-h-get-contents")
+primBytesHPutStr     :: LispName("prim.bytes-h-put-str")
+#-}

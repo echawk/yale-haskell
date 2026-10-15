@@ -154,9 +154,12 @@ be accepted.
   `Int#` is `Int`, primops are the ordinary operations (GHC.Exts,
   GHC.Base, GHC.Prim), `(# a, b #)` is a tuple.  nofib's spectral-norm
   and compress2 use this.
-- **Data.Text, Data.ByteString**: the APIs over `String`.  Semantics
-  match; the packed representation's speed does not.  Pointer-level
-  access (Data.ByteString.Unsafe, .Internal) is not provided.
+- **Data.Text, Data.ByteString**: packed (2026-10-14): a Text is a
+  Lisp string, a ByteString a Lisp string of characters 0..255
+  (lib/haskell98/TextPrims.hi, src/base/text-runtime.lisp), the common
+  operations primitives, files read in one piece.  The lazy variants
+  are the strict types.  Pointer-level access (Data.ByteString.Unsafe,
+  .Internal's ForeignPtr) is not provided.
 - **Control.Concurrent, STM**: one thread.  `forkIO` runs the thread to
   completion; an MVar or STM operation that would block fails.  Worker
   threads that report through MVars work (nofib fannkuch-redux,
@@ -207,9 +210,8 @@ programs hit first are, in order:
 2. **Record update of a duplicated field** (`r { name = x }` with
    `name` in several types) needs the record's type; construction,
    patterns and `r.name` work.
-3. **Performance of the String-backed Text and ByteString**: a real
-   packed representation (Lisp strings and `(unsigned-byte 8)` vectors)
-   would keep the API and fix the cost.
+3. ~~Performance of the String-backed Text and ByteString~~: packed
+   since 2026-10-14 (bench/RESULTS.md: textproc 4.5 s -> 0.46 s).
 4. **Concurrency** for servers and parallel programs.
 
 ## Implementation map

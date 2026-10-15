@@ -20,7 +20,7 @@ YALE = os.path.join(ROOT, 'bin', 'yale-haskell')
 H98_MODULES = {'Array': 'Data.Array', 'List': 'Data.List', 'Char': 'Data.Char',
                'Monad': 'Control.Monad', 'IO': 'System.IO', 'Ratio': 'Data.Ratio',
                'Maybe': 'Data.Maybe'}
-TIME = re.compile(r'run ([0-9.]+) s cpu ([0-9.]+) s real, ([0-9,]+) bytes')
+TIME = re.compile(r'run ([0-9.]+) s cpu ([0-9.]+) s real(?: \([0-9.]+ s GC\))?, ([0-9,]+) bytes')
 
 
 def programs():

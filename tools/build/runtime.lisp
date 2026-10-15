@@ -110,6 +110,7 @@
     (when (lisp:probe-file errnos)
       (load-plain-cl-file errnos))))
 (load-plain-cl-file "src/base/base-runtime.lisp")
+(load-plain-cl-file "src/base/text-runtime.lisp")
 (load-plain-cl-file "src/base/posix-runtime.lisp")
 (load-plain-cl-file "src/cli/cli.lisp")
 

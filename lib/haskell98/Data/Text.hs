@@ -1,7 +1,7 @@
--- Data.Text (text): the API over a String.  Strict text is a fully
--- evaluated String here (pack forces it); the functions are the list
--- ones, so a program using Data.Text runs the same, without text's
--- packed representation.
+-- Data.Text (text): a Text is a packed string, a Lisp string
+-- (TextPrims.hi, src/base/text-runtime.lisp).  The common operations
+-- are primitives; the rest go through String.  Not here: the
+-- .Internal/.Unsafe/.Array modules (text's own representation).
 module Data.Text (
     Text, pack, unpack, empty, singleton, cons, snoc, append, uncons,
     unsnoc, head, last, tail, init, null, length, compareLength, map,
@@ -23,96 +23,109 @@ import Prelude hiding (head, last, tail, init, null, length, map, reverse,
                        all, maximum, minimum, scanl, scanl1, scanr, scanr1,
                        replicate, take, drop, takeWhile, dropWhile,
                        splitAt, break, span, lines, words, unlines,
-                       unwords, filter, elem, zip, zipWith)
+                       unwords, filter, elem, zip, zipWith, index)
 import qualified Prelude as P
 import qualified Data.List as L
 import qualified Data.Char as C
 import PreludeModern (Semigroup((<>)), Monoid(mempty, mappend))
 import Data.String (IsString(fromString))
-
-newtype Text = Text String
+import TextPrims
+import Data.Text.Rep (Text(..))
+import Unsafe.Coerce (unsafeCoerce)
 
 instance Eq Text where
-  Text a == Text b = a == b
+  Text a == Text b = primTextEq a b
 instance Ord Text where
-  compare (Text a) (Text b) = compare a b
+  compare (Text a) (Text b) = case primTextCompare a b of
+                                0 -> EQ
+                                n -> if n < 0 then LT else GT
 instance Show Text where
-  showsPrec p (Text s) = showsPrec p s
+  showsPrec p t = showsPrec p (unpack t)
 instance Read Text where
-  readsPrec p s = [(Text x, r) | (x, r) <- readsPrec p s]
+  readsPrec p s = [(pack x, r) | (x, r) <- readsPrec p s]
 instance Semigroup Text where
-  Text a <> Text b = Text (a ++ b)
+  (<>) = append
 instance Monoid Text where
-  mempty = Text ""
+  mempty = empty
 instance IsString Text where
   fromString = pack
 
--- strict: the characters are evaluated
+toList :: [Text] -> TextList
+toList = unsafeCoerce
+
+fromList :: TextList -> [Text]
+fromList = unsafeCoerce
+
 pack :: String -> Text
-pack s = forceAll s `seq` Text s
-  where forceAll = P.foldr seq ()
+pack s = Text (primTextPack s)
 
 unpack :: Text -> String
-unpack (Text s) = s
+unpack (Text s) = primTextUnpack s
 
 unpackCString :: String -> Text
 unpackCString = pack
 
 lift :: (String -> String) -> Text -> Text
-lift f (Text s) = pack (f s)
+lift f t = pack (f (unpack t))
 
 empty :: Text
-empty = Text ""
+empty = pack ""
 
 singleton :: Char -> Text
-singleton c = Text [c]
+singleton c = Text (primTextSingleton c)
 
 cons :: Char -> Text -> Text
-cons c (Text s) = Text (c : s)
+cons c (Text s) = Text (primTextCons c s)
 
 snoc :: Text -> Char -> Text
-snoc (Text s) c = Text (s ++ [c])
+snoc (Text s) c = Text (primTextSnoc s c)
 
 append :: Text -> Text -> Text
-append (Text a) (Text b) = Text (a ++ b)
+append (Text a) (Text b) = Text (primTextAppend a b)
+
+slice :: Text -> Int -> Int -> Text
+slice (Text s) a b = Text (primTextSlice s a b)
 
 uncons :: Text -> Maybe (Char, Text)
-uncons (Text (c : s)) = Just (c, Text s)
-uncons _ = Nothing
+uncons t | null t = Nothing
+         | otherwise = Just (unsafeHead t, slice t 1 (length t))
 
 unsnoc :: Text -> Maybe (Text, Char)
-unsnoc (Text []) = Nothing
-unsnoc (Text s) = Just (Text (P.init s), P.last s)
+unsnoc t | null t = Nothing
+         | otherwise = let n = length t in Just (slice t 0 (n - 1), index t (n - 1))
 
 emptyError :: String -> a
 emptyError f = error ("Data.Text." ++ f ++ ": empty input")
 
+unsafeHead :: Text -> Char
+unsafeHead (Text s) = primTextIndex s 0
+
 head :: Text -> Char
-head (Text s) = if P.null s then emptyError "head" else P.head s
+head t = if null t then emptyError "head" else unsafeHead t
 
 last :: Text -> Char
-last (Text s) = if P.null s then emptyError "last" else P.last s
+last t = if null t then emptyError "last" else index t (length t - 1)
 
 tail :: Text -> Text
-tail (Text s) = if P.null s then emptyError "tail" else Text (P.tail s)
+tail t = if null t then emptyError "tail" else slice t 1 (length t)
 
 init :: Text -> Text
-init (Text s) = if P.null s then emptyError "init" else Text (P.init s)
+init t = if null t then emptyError "init" else slice t 0 (length t - 1)
 
 null :: Text -> Bool
-null (Text s) = P.null s
+null t = length t == 0
 
 length :: Text -> Int
-length (Text s) = P.length s
+length (Text s) = primTextLength s
 
 compareLength :: Text -> Int -> Ordering
-compareLength (Text s) n = compare (P.length s) n
+compareLength t n = compare (length t) n
 
 map :: (Char -> Char) -> Text -> Text
-map f = lift (P.map f)
+map f (Text s) = Text (primTextMap f s)
 
 intercalate :: Text -> [Text] -> Text
-intercalate (Text sep) ts = pack (L.intercalate sep (P.map unpack ts))
+intercalate (Text sep) ts = Text (primTextIntercalate sep (toList ts))
 
 intersperse :: Char -> Text -> Text
 intersperse c = lift (L.intersperse c)
@@ -121,69 +134,66 @@ transpose :: [Text] -> [Text]
 transpose ts = P.map pack (L.transpose (P.map unpack ts))
 
 reverse :: Text -> Text
-reverse = lift P.reverse
+reverse (Text s) = Text (primTextReverse s)
 
 -- replace needle replacement haystack
 replace :: Text -> Text -> Text -> Text
 replace (Text needle) (Text rep) (Text hay)
-  | P.null needle = error "Data.Text.replace: empty input"
-  | otherwise = pack (go hay)
-  where
-    n = P.length needle
-    go [] = []
-    go s@(c : cs)
-      | needle `L.isPrefixOf` s = rep ++ go (P.drop n s)
-      | otherwise = c : go cs
+  | primTextLength needle == 0 = error "Data.Text.replace: empty input"
+  | otherwise = Text (primTextReplace needle rep hay)
 
 toCaseFold, toLower, toUpper, toTitle :: Text -> Text
 toCaseFold = toLower
-toLower = map C.toLower
-toUpper = map C.toUpper
-toTitle (Text s) = pack (go True s)
+toLower (Text s) = Text (primTextToLower s)
+toUpper (Text s) = Text (primTextToUpper s)
+toTitle t = pack (go True (unpack t))
   where go _ [] = []
         go up (c : cs)
           | C.isAlpha c = (if up then C.toUpper c else C.toLower c) : go False cs
           | otherwise = c : go True cs
 
 justifyLeft, justifyRight, center :: Int -> Char -> Text -> Text
-justifyLeft k c (Text s) = pack (s ++ P.replicate (k - P.length s) c)
-justifyRight k c (Text s) = pack (P.replicate (k - P.length s) c ++ s)
-center k c (Text s) =
-  let len = P.length s
+justifyLeft k c t = append t (replicateChar (k - length t) c)
+justifyRight k c t = append (replicateChar (k - length t) c) t
+center k c t =
+  let len = length t
       d = k - len
       r = d `div` 2
       l = d - r
-  in if len >= k then Text s
-     else pack (P.replicate l c ++ s ++ P.replicate r c)
+  in if len >= k then t
+     else concat [replicateChar l c, t, replicateChar r c]
+
+replicateChar :: Int -> Char -> Text
+replicateChar n c = replicate n (singleton c)
 
 foldl :: (a -> Char -> a) -> a -> Text -> a
-foldl f z (Text s) = P.foldl f z s
+foldl f z t = P.foldl f z (unpack t)
 
 foldl' :: (a -> Char -> a) -> a -> Text -> a
-foldl' f z (Text s) = L.foldl' f z s
+foldl' f z (Text s) = primTextFoldlStrict f z s
 
 foldl1 :: (Char -> Char -> Char) -> Text -> Char
-foldl1 f (Text s) = P.foldl1 f s
+foldl1 f t = if null t then emptyError "foldl1" else foldl' f (unsafeHead t) (tail t)
 
 foldr :: (Char -> a -> a) -> a -> Text -> a
-foldr f z (Text s) = P.foldr f z s
+foldr f z t = P.foldr f z (unpack t)
 
 foldr1 :: (Char -> Char -> Char) -> Text -> Char
-foldr1 f (Text s) = P.foldr1 f s
+foldr1 f t = P.foldr1 f (unpack t)
 
 concat :: [Text] -> Text
-concat ts = Text (P.concatMap unpack ts)
+concat ts = Text (primTextConcat (toList ts))
 
 concatMap :: (Char -> Text) -> Text -> Text
-concatMap f (Text s) = Text (P.concatMap (unpack . f) s)
+concatMap f t = concat (P.map f (unpack t))
 
 any, all :: (Char -> Bool) -> Text -> Bool
-any p (Text s) = P.any p s
-all p (Text s) = P.all p s
+any p t = findIndexInt p t >= 0
+all p t = findIndexInt (not . p) t < 0
 
 maximum, minimum :: Text -> Char
-maximum (Text s) = P.maximum s
-minimum (Text s) = P.minimum s
+maximum t = if null t then emptyError "maximum" else foldl1 max t
+minimum t = if null t then emptyError "minimum" else foldl1 min t
 
 scanl :: (Char -> Char -> Char) -> Char -> Text -> Text
 scanl f z = lift (P.scanl f z)
@@ -198,13 +208,13 @@ scanr1 :: (Char -> Char -> Char) -> Text -> Text
 scanr1 f = lift (P.scanr1 f)
 
 mapAccumL :: (a -> Char -> (a, Char)) -> a -> Text -> (a, Text)
-mapAccumL f z (Text s) = let (a, s') = L.mapAccumL f z s in (a, pack s')
+mapAccumL f z t = let (a, s') = L.mapAccumL f z (unpack t) in (a, pack s')
 
 mapAccumR :: (a -> Char -> (a, Char)) -> a -> Text -> (a, Text)
-mapAccumR f z (Text s) = let (a, s') = L.mapAccumR f z s in (a, pack s')
+mapAccumR f z t = let (a, s') = L.mapAccumR f z (unpack t) in (a, pack s')
 
 replicate :: Int -> Text -> Text
-replicate n (Text s) = Text (P.concat (P.replicate n s))
+replicate n (Text s) = Text (primTextReplicate n s)
 
 unfoldr :: (a -> Maybe (Char, a)) -> a -> Text
 unfoldr f z = pack (L.unfoldr f z)
@@ -213,38 +223,38 @@ unfoldrN :: Int -> (a -> Maybe (Char, a)) -> a -> Text
 unfoldrN n f z = pack (P.take n (L.unfoldr f z))
 
 take, takeEnd, drop, dropEnd :: Int -> Text -> Text
-take n (Text s) = Text (P.take n s)
-drop n (Text s) = Text (P.drop n s)
-takeEnd n (Text s) = Text (P.drop (P.length s - n) s)
-dropEnd n (Text s) = Text (P.take (P.length s - n) s)
+take n t = slice t 0 n
+drop n t = slice t n (length t)
+takeEnd n t = let l = length t in slice t (l - max 0 n) l
+dropEnd n t = slice t 0 (length t - max 0 n)
 
 takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, dropAround,
   filter :: (Char -> Bool) -> Text -> Text
-takeWhile p (Text s) = Text (P.takeWhile p s)
-dropWhile p (Text s) = Text (P.dropWhile p s)
-takeWhileEnd p (Text s) = Text (P.reverse (P.takeWhile p (P.reverse s)))
-dropWhileEnd p (Text s) = Text (L.dropWhileEnd p s)
+takeWhile p t@(Text s) = slice t 0 (primTextSpanLength p s)
+dropWhile p t@(Text s) = slice t (primTextSpanLength p s) (length t)
+takeWhileEnd p t@(Text s) = let l = length t in slice t (l - primTextSpanLengthEnd p s) l
+dropWhileEnd p t@(Text s) = slice t 0 (length t - primTextSpanLengthEnd p s)
 dropAround p = dropWhile p . dropWhileEnd p
-filter p (Text s) = Text (P.filter p s)
+filter p (Text s) = Text (primTextFilter p s)
 
 strip, stripStart, stripEnd :: Text -> Text
-strip = dropAround C.isSpace
-stripStart = dropWhile C.isSpace
-stripEnd = dropWhileEnd C.isSpace
+strip (Text s) = Text (primTextStrip s 0)
+stripStart (Text s) = Text (primTextStrip s 1)
+stripEnd (Text s) = Text (primTextStrip s 2)
 
 splitAt :: Int -> Text -> (Text, Text)
-splitAt n (Text s) = let (a, b) = P.splitAt n s in (Text a, Text b)
+splitAt n t = (take n t, drop n t)
+
+search :: Text -> Text -> Int -> Int
+search (Text needle) (Text hay) i = primTextSearch needle hay i
 
 -- breakOn needle haystack: the text before the first needle, and the rest
 breakOn :: Text -> Text -> (Text, Text)
-breakOn (Text needle) (Text hay)
-  | P.null needle = error "Data.Text.breakOn: empty input"
-  | otherwise = let (a, b) = go hay in (Text a, Text b)
-  where
-    go [] = ([], [])
-    go s@(c : cs)
-      | needle `L.isPrefixOf` s = ([], s)
-      | otherwise = let (a, b) = go cs in (c : a, b)
+breakOn needle hay
+  | null needle = error "Data.Text.breakOn: empty input"
+  | otherwise = case search needle hay 0 of
+                  -1 -> (hay, empty)
+                  i -> (take i hay, drop i hay)
 
 breakOnEnd :: Text -> Text -> (Text, Text)
 breakOnEnd needle hay =
@@ -253,115 +263,114 @@ breakOnEnd needle hay =
      else (reverse (drop (length needle) b) `append` needle, reverse a)
 
 breakOnAll :: Text -> Text -> [(Text, Text)]
-breakOnAll (Text needle) (Text hay) =
-  [ (Text (P.take i hay), Text (P.drop i hay))
-  | i <- [0 .. P.length hay - 1], needle `L.isPrefixOf` P.drop i hay ]
+breakOnAll needle hay
+  | null needle = error "Data.Text.breakOnAll: empty input"
+  | otherwise = go 0
+  where go i = case search needle hay i of
+                 -1 -> []
+                 j -> (take j hay, drop j hay) : go (j + 1)
 
 break, span :: (Char -> Bool) -> Text -> (Text, Text)
-break p (Text s) = let (a, b) = P.break p s in (Text a, Text b)
-span p (Text s) = let (a, b) = P.span p s in (Text a, Text b)
+break p = span (not . p)
+span p t@(Text s) = splitAt (primTextSpanLength p s) t
 
 spanM :: Monad m => (Char -> m Bool) -> Text -> m (Text, Text)
-spanM p (Text s) = go [] s
-  where go acc [] = return (Text (P.reverse acc), Text [])
-        go acc (c : cs) = do
-          ok <- p c
-          if ok then go (c : acc) cs else return (Text (P.reverse acc), Text (c : cs))
+spanM p t = go 0
+  where n = length t
+        go i | i >= n = return (t, empty)
+             | otherwise = do
+                 ok <- p (index t i)
+                 if ok then go (i + 1) else return (splitAt i t)
 
 group :: Text -> [Text]
-group (Text s) = P.map Text (L.group s)
+group = groupBy (==)
 
 groupBy :: (Char -> Char -> Bool) -> Text -> [Text]
-groupBy f (Text s) = P.map Text (L.groupBy f s)
+groupBy f t = P.map pack (L.groupBy f (unpack t))
 
 inits, tails :: Text -> [Text]
-inits (Text s) = P.map Text (L.inits s)
-tails (Text s) = P.map Text (L.tails s)
+inits t = [take i t | i <- [0 .. length t]]
+tails t = [drop i t | i <- [0 .. length t]]
 
 -- splitOn separator text
 splitOn :: Text -> Text -> [Text]
 splitOn (Text sep) (Text s)
-  | P.null sep = error "Data.Text.splitOn: empty delimiter"
-  | otherwise = P.map Text (go s)
-  where
-    n = P.length sep
-    go str = case search str of
-               (a, Nothing) -> [a]
-               (a, Just rest) -> a : go rest
-    search [] = ([], Nothing)
-    search str@(c : cs)
-      | sep `L.isPrefixOf` str = ([], Just (P.drop n str))
-      | otherwise = let (a, r) = search cs in (c : a, r)
+  | primTextLength sep == 0 = error "Data.Text.splitOn: empty delimiter"
+  | otherwise = fromList (primTextSplitOn sep s)
 
 split :: (Char -> Bool) -> Text -> [Text]
-split p (Text s) = P.map Text (go s)
-  where go str = case P.break p str of
-                   (a, []) -> [a]
-                   (a, _ : rest) -> a : go rest
+split p t = case findIndexInt p t of
+              -1 -> [t]
+              i -> take i t : split p (drop (i + 1) t)
 
 chunksOf :: Int -> Text -> [Text]
-chunksOf k (Text s)
+chunksOf k t
   | k <= 0 = []
-  | otherwise = go s
-  where go [] = []
-        go str = Text (P.take k str) : go (P.drop k str)
+  | null t = []
+  | otherwise = take k t : chunksOf k (drop k t)
 
 lines, words :: Text -> [Text]
-lines (Text s) = P.map Text (P.lines s)
-words (Text s) = P.map Text (P.words s)
+lines (Text s) = fromList (primTextLines s)
+words (Text s) = fromList (primTextWords s)
 
 unlines, unwords :: [Text] -> Text
-unlines ts = Text (P.unlines (P.map unpack ts))
-unwords ts = Text (P.unwords (P.map unpack ts))
+unlines ts = Text (primTextUnlines (toList ts))
+unwords ts = Text (primTextUnwords (toList ts))
 
 isPrefixOf, isSuffixOf, isInfixOf :: Text -> Text -> Bool
-isPrefixOf (Text a) (Text b) = L.isPrefixOf a b
-isSuffixOf (Text a) (Text b) = L.isSuffixOf a b
-isInfixOf (Text a) (Text b) = L.isInfixOf a b
+isPrefixOf (Text a) (Text b) = primTextIsPrefix a b
+isSuffixOf (Text a) (Text b) = primTextIsSuffix a b
+isInfixOf (Text a) (Text b) = primTextIsInfix a b
 
 stripPrefix, stripSuffix :: Text -> Text -> Maybe Text
-stripPrefix (Text p) (Text s) = fmap Text (L.stripPrefix p s)
-stripSuffix (Text p) (Text s) =
-  fmap (Text . P.reverse) (L.stripPrefix (P.reverse p) (P.reverse s))
+stripPrefix p t
+  | p `isPrefixOf` t = Just (drop (length p) t)
+  | otherwise = Nothing
+stripSuffix p t
+  | p `isSuffixOf` t = Just (dropEnd (length p) t)
+  | otherwise = Nothing
 
 commonPrefixes :: Text -> Text -> Maybe (Text, Text, Text)
-commonPrefixes (Text a) (Text b) =
-  let pre = P.map fst (P.takeWhile (uncurry (==)) (P.zip a b))
-      n = P.length pre
+commonPrefixes a b =
+  let n = P.length (P.takeWhile id (P.zipWith (==) (unpack a) (unpack b)))
   in if n == 0 then Nothing
-     else Just (Text pre, Text (P.drop n a), Text (P.drop n b))
+     else Just (take n a, drop n a, drop n b)
+
+findIndexInt :: (Char -> Bool) -> Text -> Int
+findIndexInt p (Text s) = primTextFindIndex p s
 
 find :: (Char -> Bool) -> Text -> Maybe Char
-find p (Text s) = L.find p s
+find p t = case findIndexInt p t of
+             -1 -> Nothing
+             i -> Just (index t i)
 
 elem :: Char -> Text -> Bool
-elem c (Text s) = P.elem c s
+elem c t = findIndexInt (== c) t >= 0
 
 partition :: (Char -> Bool) -> Text -> (Text, Text)
-partition p (Text s) = let (a, b) = L.partition p s in (Text a, Text b)
+partition p t = (filter p t, filter (not . p) t)
 
 index :: Text -> Int -> Char
-index (Text s) n = s !! n
+index t@(Text s) n
+  | n < 0 || n >= length t = error "Data.Text.index: index out of bounds"
+  | otherwise = primTextIndex s n
 
 findIndex :: (Char -> Bool) -> Text -> Maybe Int
-findIndex p (Text s) = L.findIndex p s
+findIndex p t = case findIndexInt p t of
+                  -1 -> Nothing
+                  i -> Just i
 
 -- count needle haystack: non-overlapping occurrences
 count :: Text -> Text -> Int
 count (Text needle) (Text hay)
-  | P.null needle = error "Data.Text.count: empty input"
-  | otherwise = go hay
-  where n = P.length needle
-        go [] = 0
-        go s@(_ : cs)
-          | needle `L.isPrefixOf` s = 1 + go (P.drop n s)
-          | otherwise = go cs
+  | primTextLength needle == 0 = error "Data.Text.count: empty input"
+  | otherwise = primTextCount needle hay
 
 zip :: Text -> Text -> [(Char, Char)]
-zip (Text a) (Text b) = P.zip a b
+zip a b = P.zip (unpack a) (unpack b)
 
 zipWith :: (Char -> Char -> Char) -> Text -> Text -> Text
-zipWith f (Text a) (Text b) = pack (P.zipWith f a b)
+zipWith f a b = pack (P.zipWith f (unpack a) (unpack b))
 
 copy :: Text -> Text
 copy t = t

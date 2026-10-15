@@ -1,0 +1,22 @@
+("\NUL\SOH\DEL\128\200\255",[0,1,127,128,200,255],6,0,255,255,0)
+("\SOH\STX\128\129\201\NUL","\255\200\128\DEL\SOH\NUL","\t\NUL\SOH\DEL\128\200\255","\NUL\SOH\DEL\128\200\255\a",True,True)
+(711,[0,1,127,128,200,255],"\NUL\128\200",1)
+(["\NUL\SOH\DEL","\200\255"],["\NUL\SOH","","","",""],Just 2,Just 5,200)
+("\NUL\SOH","\200\255",("\NUL\SOH\DEL","\128\200\255"),("\NUL\SOH\DEL","\128\200\255"),("\NUL\SOH\DEL","\128\200\255"))
+([(1,3),(2,4)],("\SOH\ETX","\STX\EOT"),"AAA","\NUL\SOH\DEL\128\200\255\NUL\SOH\DEL\128\200\255")
+("hello world, hello bytes",24,["hello","world,","hello","bytes"],["a","b","","c"],"x\ny\n","x y")
+("HELLO WORLD, HELLO BYTES",["hello world"," hello bytes"],[],["he","","o wor","d, he","","o bytes"],5)
+(True,True,True,Just "world, hello bytes")
+(("hello ","world, hello bytes"),("","hello world, hello bytes"),("hello world, hello bytes",""),("abc","123"))
+(Just (-42," rest"),Nothing,Just (123456789012345678901," z"),Just (7,""))
+([2,3,9,15,16],Just 16,[4,7,17],Nothing,Just 'h')
+("x ","x","hello world, hello byte","bytes")
+(["aa","b","ccc"],["","a","ab"],["ab","b",""],"a, b","a-b-c")
+(("ABC",Just 3),[('a','c'),('b','d')],Nothing,Just ("a",'b'))
+("\187\146",[187,146],GT,True,True)
+("hello world, hello bytes","ab",[],"","hello world, hello bytes!")
+"abc42de"
+(256,[250,251,252,253,254],True)
+(261,"tail\n")
+plain ascii
+λ
