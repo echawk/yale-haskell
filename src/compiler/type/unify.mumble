@@ -339,7 +339,8 @@
 ;;; type variable.  (A list, possibly empty: not #f.)
 
 (define (instance-head-matches? instance type)
-  (or (null? (instance-head-args instance))
+  (or (instance-catch-all? instance)
+      (null? (instance-head-args instance))
       (not (eq? (instance-head-bindings instance type) '#f))))
 
 (define (instance-head-bindings instance type)
@@ -347,13 +348,15 @@
 		   (list (tuple '|%none| '|%none|))))
 
 (define (instance-arg-types instance type)
-  (if (null? (instance-head-args instance))
-      (ntycon-args type)
+  (cond ((instance-catch-all? instance) (list type))
+	((null? (instance-head-args instance))
+	 (ntycon-args type))
+	(else
       (let ((b (instance-head-bindings instance type)))
 	(map (lambda (v)
 	       (let ((x (and b (assq v b))))
 		 (if x (tuple-2-2 x) (**ntyvar))))
-	     (instance-tyvars instance)))))
+	     (instance-tyvars instance))))))
 
 ;;; The routines which handle contexts (merge-contexts and context-implies?)
 ;;; are in type-utils.  The occurs check is also there.

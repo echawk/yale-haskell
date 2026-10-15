@@ -250,5 +250,9 @@
    ;; FlexibleInstances: the head's argument types when they are not
    ;; distinct type variables (instance C [Char]); tyvars are theirs
    (head-args (type (list type)) (default '()))
+   ;; a catch-all instance C a (GHC's UndecidableInstances): algdata is
+   ;; #f, tyvars is (a); it is used at a type no other instance of C is
+   ;; for, and its context is on that whole type
+   (catch-all? (type bool) (bit #t) (default #f))
    ))
 

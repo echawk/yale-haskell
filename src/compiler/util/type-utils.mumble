@@ -472,7 +472,20 @@
   (and (not (null? ctxt))
        (or (memq class ctxt)
 	   (super-class-implies? ctxt class)
-	   (and (monad-implied-class? class) (context-has-monad? ctxt)))))
+	   (and (monad-implied-class? class) (context-has-monad? ctxt))
+	   (catch-all-implies? ctxt class))))
+
+;;; A catch-all instance ctx => C a gives C at a type variable whose
+;;; context implies ctx (dictionary.mumble's catch-all-dict).
+(define *catch-all-classes* '())   ; those being tried, against loops
+
+(define (catch-all-implies? ctxt class)
+  (let ((inst (catch-all-instance class)))
+    (and inst
+	 (not (memq class (dynamic *catch-all-classes*)))
+	 (dynamic-let ((*catch-all-classes* (cons class (dynamic *catch-all-classes*))))
+	   (every (lambda (c) (single-class-implies? ctxt c))
+		  (car (instance-gcontext inst)))))))
 
 ;;; The Functor-Applicative-Monad hierarchy of today's base: Monad m
 ;;; implies Functor m and Applicative m.  The Haskell 98 Prelude's Monad

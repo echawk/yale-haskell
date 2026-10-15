@@ -86,6 +86,42 @@
     "The instance overlaps another instance of class ~A." class))
 
 (define (instance->def-1 inst-decl)
+ (if (tyvar? (instance-decl-simple inst-decl))
+     (catch-all-instance->def inst-decl)
+     (instance->def-2 inst-decl)))
+
+;;; instance ctx => C a: one per class (as GHC, it overlaps every other
+;;; instance of C, which win where they apply).
+
+(define (catch-all-instance->def inst-decl)
+ (recover-errors '#f
+  (remember-context inst-decl
+    (with-slots instance-decl (context class simple decls mcontext) inst-decl
+      (resolve-class class)
+      (let* ((class-def (class-ref-class class))
+	     (tyvar (tyvar-name simple)))
+	(resolve-signature-aux (list tyvar) context)
+	(when (lisp:some (lambda (i) (instance-catch-all? i))
+			 (class-instances class-def))
+	  (signal-multiple-instance class-def simple))
+	(let ((inst (make instance (algdata '#f) (tyvars (list tyvar))
+			  (class class-def) (gcontext '()) (context '())
+			  (dictionary (make-new-var
+				       (unique-instance-name
+					(string-append "dict-"
+						       (symbol->string (print-name class-def))
+						       "-all")))))))
+	  (setf (instance-catch-all? inst) '#t)
+	  (link-instance inst)
+	  (setf (instance-context inst) context)
+	  (dolist (c mcontext)
+	    (resolve-class (mp-context-class c)))
+	  (setf (instance-mcontext inst) mcontext)
+	  (setf (instance-decls inst) decls)
+	  (setf (instance-ok? inst) '#t)
+	  inst))))))
+
+(define (instance->def-2 inst-decl)
  (recover-errors '#f
   (remember-context inst-decl
     (with-slots instance-decl (context class simple decls mcontext) inst-decl
@@ -485,6 +521,11 @@
 			(instance-mcontext inst))))))
 
 (define (make-instance-type inst)
+  (if (instance-catch-all? inst)
+      (**tyvar (car (instance-tyvars inst)))
+      (make-instance-type-1 inst)))
+
+(define (make-instance-type-1 inst)
   (**tycon/def (instance-algdata inst)
 	       (if (null? (instance-head-args inst))
 		   (map (function **tyvar) (instance-tyvars inst))
@@ -585,6 +626,10 @@
 ;;;  All super class instances must exist
 
 (define (check-inst-type inst)
+  (when (not (instance-catch-all? inst))
+    (check-inst-type-1 inst)))
+
+(define (check-inst-type-1 inst)
    (let* ((class (instance-class inst))
 	  (algdata (instance-algdata inst))
 	  (inst-context (instance-gcontext inst))

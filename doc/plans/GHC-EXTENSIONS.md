@@ -11,12 +11,12 @@ nofib suites (`tools/conformance/nofib.py`, with `--suite real
 
 | measure | before this round | now |
 |---|---|---|
-| extension and library probes | 28 of 28 (only what was implemented) | 98 of 104 (2026-10-14; 83 of 87 before the last 17 probes) (59 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt, LambdaPi, Mini-TT and husk-scheme needed) |
+| extension and library probes | 28 of 28 (only what was implemented) | 100 of 104 (2026-10-14; 83 of 87 before the last 17 probes) (59 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt, LambdaPi, Mini-TT and husk-scheme needed) |
 | nofib imaginary + spectral | 68 pass | 69 pass (mandel) |
 | nofib real + gc + shootout | 28 pass, 11 compile errors, 2 wrong, 1 timeout | 40 pass, 2 known (ByteString pointers), no failures |
 
-The four failing probes: QuantifiedConstraints, a catch-all instance
-(`instance Show a => Pretty a`), Arrows, TemplateHaskell.  Typeable is
+The four failing probes: GHCIntWraps (a deliberate departure: Int is
+the 63-bit fixnum), QuantifiedConstraints, Arrows, TemplateHaskell.  Typeable is
 GHC's: every type constructor is Typeable without an instance (the type
 checker builds the dictionary from the constructor's name and the
 arguments' dictionaries, util/instance-manager.mumble), so typeOf, cast
@@ -105,7 +105,10 @@ synonyms), ScopedTypeVariables, PolyKinds (kinds are not checked at
 all), CPP (with Cabal's MIN_VERSION_pkg(a,b,c) answered from the
 package versions Yale's libraries follow, `cpp-min-version`), overlapping
 instances (OVERLAPPABLE/OVERLAPPING: the most specific matching flexible
-head is used; the pragmas are not needed).
+head is used; the pragmas are not needed), and a catch-all instance
+`instance ctx => C a` (2026-10-14: one per class, used at any type no
+other instance of C is for, and at a type variable whose context
+implies ctx; util/instance-manager.mumble's catch-all-instance).
 
 Haskell 98 and 2010 points fixed on the way (2026-10-12): a Prelude class
 method hidden by `import Prelude hiding ((*))` can be defined again; an
@@ -169,7 +172,6 @@ be accepted.
 
 | extension | what it needs | size |
 |---|---|---|
-| A catch-all instance (`instance Show a => Pretty a`) | instance lookup falling back to a type-variable head | medium |
 | QuantifiedConstraints | contexts with `forall` in instance heads; dictionary functions as dictionary fields | medium-large |
 | Arrows (`proc` notation) | the desugaring to `arr`/`>>>`/`first` | medium, rarely used |
 | Real concurrency | a thread-safe runtime: thunk update and the allocation paths under SBCL threads | large |

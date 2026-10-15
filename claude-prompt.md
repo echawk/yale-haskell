@@ -90,7 +90,7 @@ main), `YALE_HASKELL_PROFILE=alloc`, `YALE_HASKELL_DEBUG=1`,
 - **Haskell 98 and 2010: done**, including records, qualified names,
   newtype, constructor classes, monadic IO, do, FFI (`foreign export`
   reached through `&name`, `"wrapper"` callbacks), pattern guards, CPP.
-- **Modern base and GHC extensions: 98 of 104 probes pass** (GHC2021 +
+- **Modern base and GHC extensions: 100 of 104 probes pass** (GHC2021 +
   common non-2021 extensions + modern libraries; MPTC with fundeps,
   FlexibleInstances/Contexts, RankN, GADTs (permissive),
   TypeFamilies, DataKinds, PatternSynonyms (cross-module),
@@ -145,9 +145,8 @@ Realistic, in rough order of value:
    variables, and local type refinement in GADT matches (right-hand
    sides are currently coerced instead). The cost today is that some
    programs GHC rejects are accepted — worth fixing only after 1–5.
-7. **Catch-all instances** (`instance Show a => Pretty a`): instance
-   lookup falling back to a type-variable head; medium effort, one of
-   the 4 failing probes. The other failing probes: QuantifiedConstraints
+7. **Catch-all instances** (`instance Show a => Pretty a`): done
+   2026-10-14. The failing probes: GHCIntWraps (by choice), QuantifiedConstraints
    (medium-large), Arrows (rarely used), TemplateHaskell (out of scope
    for this mission — `doc/plans/FUTURE-TARGETS.md` §2 keeps it as
    a design question).
@@ -279,13 +278,11 @@ join points, SpecConstr, float-in/CSE, size-based inliner, RULES
 (§5.4–5.6, 5.8–5.9). Eager selection (§5.7) when a program shows
 the remaining `let (a,b) = e` leak.
 
-Success looks like: `make test` green, `nofib.py --try-all` with no
-new failures and a pass count above today's (record the starting
-count for every suite in `bench/RESULTS.md` before you begin; the
-last recorded imaginary/spectral count is 68),
-`extensions.py` with at most 4 failures (6 of 104 today: Num without
-Eq/Show, Int wrap-around, QuantifiedConstraints, UndecidableInstances,
-Arrows, TemplateHaskell), and `bench/compare-ghc` ratios for the
+Success looks like: `make test` green, `nofib.py --try-all` at or
+above 69 imaginary/spectral and 40 real/gc/shootout with no failures
+(the counts in GHC-EXTENSIONS.md's status table),
+`extensions.py` with at most 4 failures (4 of 104 since 2026-10-14:
+Int wrap-around, QuantifiedConstraints, Arrows, TemplateHaskell), and `bench/compare-ghc` ratios for the
 modern bench programs (foldable, mapcount, statemonad, starray)
 reduced toward 2×, with LambdaPi/Mini-TT and cubicaltt torsor/grothendieck
 at or below 2× — every number appended to `bench/RESULTS.md`.

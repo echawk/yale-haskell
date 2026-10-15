@@ -469,7 +469,8 @@
 	     (setf decls (remove-fixity-decls decls))))
 	(if simple
 	    ;; FlexibleInstances (GHC): any arguments (tdecl/instance.mumble)
-	    (if (and (haskell98?) (tycon? simple))
+	    ;; and a catch-all instance C a (UndecidableInstances)
+	    (if (and (haskell98?) (or (tycon? simple) (tyvar? simple)))
 		'#t
 		(check-simple simple '#f "instance declaration"))
 	    (dolist (ty types)

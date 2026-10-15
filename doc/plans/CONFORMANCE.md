@@ -48,11 +48,10 @@ The haskell98 dialect aims at the Haskell 98 Report (revised) and, with
 - Derived `Show` of types with more than 6 constructors no longer
   needs `Read`.
 
-**nofib:** 68 pass, 4 known deviations, 3 skipped, no failures
-(2026-10-10, after simple's fix; 45 and 25 skipped before CPP and the
-base libraries).
+**nofib:** 69 pass, 3 known deviations, 3 skipped, no failures (after
+simple's fix on 2026-10-10 and mandel's binary I/O; 45 and 25 skipped
+before CPP and the base libraries).  real + gc + shootout: 40 pass.
 - **Known deviations:**
-  - mandel: `hSetBinaryMode`.
   - minimax: correct but slow at its size.
   - secretary: a different random generator.
   - sphere: 64-bit `Int` wrap-around.

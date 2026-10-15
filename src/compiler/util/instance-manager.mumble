@@ -83,7 +83,14 @@
 	   (null? (lookup-instance-1 alg-def (class-instances class-def))))
       ;; at T applied to fewer arguments than it takes (Typeable Maybe)
       (get-typeable-instance alg-def class-def (length (ntycon-args type)))
-      (lookup-instance/type-1 alg-def class-def type)))
+      (or (lookup-instance/type-1 alg-def class-def type)
+	  (catch-all-instance class-def))))
+
+;;; The class's catch-all instance C a, or #f: used at a type no other
+;;; instance is for (tdecl/instance.mumble's catch-all-instance->def).
+(define (catch-all-instance class-def)
+  (lisp:find-if (lambda (i) (and (instance-catch-all? i) (instance-ok? i)))
+		(class-instances class-def)))
 
 (define (lookup-instance/type-1 alg-def class-def type)
   (let ((all (lisp:remove-if-not
@@ -278,9 +285,10 @@
 ;;; multi-parameter class (a tyvar position is `a').
 
 (define (instance-type-name inst)
-  (if (null? (instance-mp-types inst))
-      (symbol->string (print-name (instance-algdata inst)))
-      (mp-types-name (instance-mp-types inst))))
+  (cond ((instance-catch-all? inst) "all")
+	((null? (instance-mp-types inst))
+	 (symbol->string (print-name (instance-algdata inst))))
+	(else (mp-types-name (instance-mp-types inst)))))
 
 (define (mp-types-name types)
   (if (null? types)
