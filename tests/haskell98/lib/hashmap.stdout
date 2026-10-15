@@ -1,0 +1,8 @@
+([("brown",5),("dog",3),("fox",3),("jumps",5),("lazy",4),("over",4),("quick",5),("the",3)],8,Just 3,Nothing,Just 3)
+([('i',4),('m',1),('p',2),('s',4)],0,True)
+([('i',4),('p',2),('s',40)],"ips")
+[('i',4),('m',1),('p',2),('s',104),('x',1)]
+([2,3,5,5],11,6)
+([('i',(4,'I'))],True)
+(" dehlorw",8,True,[2,3,4])
+(True,fromList [('k',True)],fromList [5])

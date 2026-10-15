@@ -129,8 +129,8 @@ Realistic, in rough order of value:
    record workarounds as patches in `tools/conformance/<target>/`,
    never edit the clone): `vector` (boxed over Lisp simple-vectors, unboxed over
    specialized arrays; no stream fusion at first),
-   `unordered-containers` + `hashable` (a Data.Map-backed
-   implementation is acceptable behind the API),
+   `unordered-containers` + `hashable` (done 2026-10-15: an IntMap of
+   hash buckets behind the API),
    an `aeson` subset (no Generic), the rest of QuickCheck 2's API,
    real haskeline line editing. (`process` and `Data.Graph`: done
    2026-10-14.)
