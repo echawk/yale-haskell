@@ -101,7 +101,7 @@ Revealed* (doc/optimizer/optimizer.dvi), describes it.
 | Binder swap, case merging (`-fcase-merge`), case folding (`-fcase-folding`) | Clean up nested cases on the same scrutinee | **partial**: redundant and duplicate test removal in `case-block` | optimize |
 | Let floating (local) | Move `let` out of applications and into `case` branches | **have** (outward): `app-hoist-let`, `case-block-hoist-let`, `let-hoist-lambda`, `foldr-hoist-let` | optimize |
 | Eta expansion (`-fdo-lambda-eta-expansion`) and arity analysis | Give a function its full arity, so calls are saturated | **partial**: `app-make-saturated`, `lambda-compress`, `if-hoist-lambda`, and since 2026-10-10 `seq-hoist-lambda`: eta through a bang pattern | optimize |
-| The "state hack" | Treat `State# RealWorld` lambdas as one-shot, so eta expansion through `IO` is free | **partial**: the same effect for IO and ST loops via `if-hoist-lambda`/`seq-hoist-lambda`.  There is no one-shot information to make it general | optimize |
+| The "state hack" | Treat `State# RealWorld` lambdas as one-shot, so eta expansion through `IO` is free | **have** (2026-10-15): a lambda whose parameter is passed where a known function's type has `SystemState` is one-shot, and let-hoist-lambda moves any binding into it (`state-lambda?`); also `if-hoist-lambda`/`seq-hoist-lambda` for IO and ST loops | optimize |
 | Eta reduction | `\x -> f x` becomes `f` | **partial** (2026-10-11): an argument abstracting over a dictionary, `\d x… -> g d x…`, becomes `g` (`eta-reduce-dictionary-lambdas`); a constrained rank-N argument passed on arrives as one.  General eta reduction is left out: it changes a binding's arity, which Yale's saturated calls depend on, and `seq` can tell the difference | optimize |
 | Instances for tuples as ordinary code (base's `Eq (a, b)` … up to 15-tuples) | Tuple comparisons are derived-instance code the simplifier specializes and inlines | **have** (2026-10-12) for 2- to 7-tuples (`Eq`, `Ord`, in the Haskell 98 Prelude's PreludeCore.hs); larger tuples keep the generic instances built at run time (`tupleEqDict`).  Before, every tuple comparison built a dictionary vector at run time and went through a generic loop: cubicaltt's environment equality was 74% of its profile, and category.ctt went from 19.0 s to 6.1 s (GHC 4.6 s), univprop from 81.6 s to 31 s (GHC 27.8 s) | Prelude source |
 | Known-call saturation of class-method selectors (ClassOp rules) | `op dict` at a known instance becomes the instance's method | **have**: `app-fold-selector` (constant dictionary) and, since 2026-10-10, `app-fold-selector-dictionary-fn` (an instance with a context applied to dictionaries) | optimize |
@@ -198,24 +198,20 @@ bench/RESULTS.md entry.
 7. **Float in**, then a conservative **full laziness** (constant
    expressions only), and **CSE**.
 8. **Usage analysis and update avoidance**; **eager selection** of
-   fields of evaluated tuples (the selector-thunk leak); **one-shot
-   state lambdas** (GHC's state hack): mark the lambdas over the IO/ST
-   state token when FLIC is built, so that let-hoist-lambda may move any
-   binding into them (since 2026-10-14 only work-free and cheap ones
-   move, which costs ioref 0.05 -> 0.27 s and ioloop; bench/RESULTS.md,
-   2026-10-15).  Tried and dropped: marking the parameter of `IO (\s
-   -> e)` in ast-to-flic (a var flag kept by copy-flic) changed nothing,
-   as ioref's hot lambda is an eta-expanded function's state argument
-   (cfn's ARG), not a lambda under the IO constructor; the marking has
-   to follow the types (an argument of type SystemState).  A second try
-   (2026-10-15) carried the mark through copy-flic, interface dumps
-   (dump-flic) and if-hoist-lambda's new parameter: the Prelude's
-   `>>=` and `thenIO_` then had one-shot state parameters, but ioref's
-   hot lambdas were still fresh ARG parameters wrapping `let s = ARG in
-   ...`, made by a rewrite that does not look at the mark (only
-   do-if-hoist-lambda was taught to).  Typing the state parameter (a
-   flag set wherever a variable of type SystemState is bound, from the
-   type checker's types) would not depend on following every rewrite.
+   fields of evaluated tuples (the selector-thunk leak).  **One-shot
+   state lambdas** (GHC's state hack): done 2026-10-15.  A lambda is a
+   state lambda when one of its parameters is passed directly where a
+   function's type has `SystemState` (a primitive's, `returnIO`'s, or
+   any typed global's argument of type `IO a`, seen through newtypes
+   such as `ST s a` over `IO a`); let-hoist-lambda then moves any
+   binding into it (`state-lambda?` in optimize.mumble,
+   `*state-hack?*` to turn it off).  Deciding by use rather than by a
+   mark avoids both earlier failures (2026-10-14/15: a mark set where
+   FLIC is built was lost by the rewrites that make ioref's hot
+   lambda, an eta-expanded function's fresh state argument).  ioref
+   0.256 s / 560 MB -> 0.045 s / 0 MB, integrate 0.077 s / 186 MB ->
+   0.019 s / 58 MB (bench/RESULTS.md).  As in GHC, an action that is
+   shared and run many times repeats the work moved into it.
 9. **General RULES** as an annotation, with the foldr/build identities
    moved into the Prelude as rules.
 

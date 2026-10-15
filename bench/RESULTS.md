@@ -540,3 +540,47 @@ textproc        0.430        432    0.153    0.100     4.3x  ok
 ```
 
 The Int-heavy programs (loop, nfib, sieve, queens) are unchanged.
+
+## One-shot state lambdas (GHC's state hack) (2026-10-15)
+
+A lambda whose parameter is passed where a known function's type has
+`SystemState` (a primitive's, `returnIO`'s, any typed global's argument
+of type `IO a`, seen through newtypes such as `ST s a`) is entered once
+per run of its action, so let-hoist-lambda now moves any binding into it
+(optimize.mumble, `state-lambda?`).  ioref's loop `go x = let b = go
+(x+1) in \s -> ... b s'` becomes a function of `x` and `s`.  Also fixed
+on the way: 6a29fb0 had made IntMap's `natFromInt` a bignum `mod` per key
+(mapcount 1542 -> 2053 MB); non-negative keys convert directly again
+(3fe16fc).  `bench/compare-ghc -n 3`, before (baseline of this session)
+and after:
+
+```
+program        before   MB     after    MB     ratio
+integrate       0.077   186    0.019    58     0.6x -> 0.2x
+ioref           0.256   560    0.045     0    18.8x -> 3.2x
+mapcount        1.083  2053    0.845  1542     3.8x -> 2.9x   (3fe16fc)
+starray         0.208    80    0.226    80     4.2x -> 4.5x   (noise)
+```
+
+The other programs are unchanged.  make test 276; nofib
+imaginary/spectral 69 pass; extensions 101/104; happy 166/166; darcs,
+husk, LambdaPi, Mini-TT and cubicaltt (42/42) match.  Tried with it and
+dropped: inlining the IO primitives' wrappers (`define-integrable`) and
+the mutable array primitives: starray 0.21 -> 0.19 s but ioref 0.048 ->
+0.058 s, both within what run-to-run noise and code layout move.
+
+Census taken for item C1 (smaller thunks), counting closure sizes at
+`delay`: LambdaPi's bench makes 40M thunks (34.6M with two free
+variables, 5.7M with five), Mini-TT's 41M (13.6M with one, 27.2M with
+two); about 2 GB of each run's 3.6-3.9 GB is thunks.  A one-object
+struct thunk (code + free variables) is 32 bytes for one free variable,
+48 for two, 64 for five, against 48, 48 and 80 now (SBCL/arm64 has no
+compact instance header, so a struct is a header, a layout and its
+slots, rounded to an even number of words): about 2.5% of LambdaPi's
+allocation and 6% of Mini-TT's, for a closure-converting code
+generator.  Not built.  GHC allocates 3.06 GB on the same LambdaPi run
+(Yale 3.64 GB) but spends 0.28 s in GC to Yale's 1.6 s: SBCL's gencgc
+copies the ~50 MB that survives each 214 MB nursery at roughly 0.75
+GB/s.  A 400 MB nursery (`YALE_HASKELL_NURSERY_MB=400`) cuts LambdaPi's
+GC to 1.1 s and its run to 2.5 s, but raises peak RSS from 1.7 to
+2.2 GB; generation 1's settings change nothing.

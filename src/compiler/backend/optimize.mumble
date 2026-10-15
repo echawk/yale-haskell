@@ -419,7 +419,10 @@
 	      ;; f g = \n -> lookup n table where table = ..., recomputed per
 	      ;; lookup: issue93.y took over an hour against GHC's 8 s).  GHC
 	      ;; does not eta-expand across an expensive let either.
-	      (every-1 (lambda (v) (hoistable-into-lambda? (var-value v))) bindings))
+	      (or (every-1 (lambda (v) (hoistable-into-lambda? (var-value v)))
+			   bindings)
+		  ;; a state lambda is entered once per run of its action
+		  (state-lambda? (flic-let-body object))))
 	 ;; Hoist lambda outside of LET.  This may permit
 	 ;; merging of nested lambdas on a future pass.
 	 (record-hack 'let-hoist-lambda)
@@ -1226,6 +1229,100 @@
 		       (flic-let-bindings exp))
 	      (hoistable-into-lambda? (flic-let-body exp))))
 	(else '#f)))
+
+;;; One-shot state lambdas (GHC's "state hack").  A lambda over the IO
+;;; state token is entered once each time its action runs, so a binding
+;;; outside it may move inside (let-hoist-lambda) whatever its cost, and
+;;; the lambdas then merge: ioref's loop `go x = let b = go (x+1) in \s ->
+;;; ... b s'` becomes a function of x and s that allocates nothing.  As
+;;; in GHC, an action run many times (a shared `act` in `forever act`)
+;;; then repeats the moved work at each run; *state-hack?* turns it off.
+;;;
+;;; FLIC's variables carry no types, so a parameter is known to be the
+;;; state token by its use: passed directly where a function's type has
+;;; SystemState (a primitive's, returnIO's, any typed global's argument
+;;; of type IO a, seen through newtypes such as ST over IO).
+
+(define *state-hack?* '#t)
+
+(define (state-lambda? lam)
+  (and (dynamic *state-hack?*)
+       (lisp:some (lambda (v) (flic-uses-as-state? (flic-lambda-body lam) v))
+	     (flic-lambda-vars lam))))
+
+(define (flic-uses-as-state? exp v)
+  (flic-find (lambda (e)
+	       (and (is-type? 'flic-app e)
+		    (is-type? 'flic-ref (flic-app-fn e))
+		    (state-arg-of? (flic-ref-var (flic-app-fn e)) (flic-app-args e) v)))
+	     exp))
+
+;;; Is (PRED e) true of some subexpression e of EXP (EXP included)?
+;;; Bindings' values and lambda bodies are searched.
+(define (flic-find pred exp)
+  (or (funcall pred exp)
+      (typecase exp
+	(flic-app
+	 (or (flic-find pred (flic-app-fn exp))
+	     (lisp:some (lambda (a) (flic-find pred a)) (flic-app-args exp))))
+	(flic-lambda (flic-find pred (flic-lambda-body exp)))
+	(flic-let
+	 (or (lisp:some (lambda (b) (flic-find pred (var-value b)))
+			(flic-let-bindings exp))
+	     (flic-find pred (flic-let-body exp))))
+	(flic-case-block
+	 (lisp:some (lambda (e) (flic-find pred e)) (flic-case-block-exps exp)))
+	(flic-return-from (flic-find pred (flic-return-from-exp exp)))
+	(flic-and (lisp:some (lambda (e) (flic-find pred e)) (flic-and-exps exp)))
+	(flic-if
+	 (or (flic-find pred (flic-if-test-exp exp))
+	     (flic-find pred (flic-if-then-exp exp))
+	     (flic-find pred (flic-if-else-exp exp))))
+	(flic-sel (flic-find pred (flic-sel-exp exp)))
+	(flic-is-constructor (flic-find pred (flic-is-constructor-exp exp)))
+	(flic-con-number (flic-find pred (flic-con-number-exp exp)))
+	(else '#f))))
+
+;;; Is V, as one of ARGS, passed where FN's type has SystemState?
+(define (state-arg-of? fn args v)
+  (let ((type  (or (var-type fn) (var-signature fn))))
+    (and type
+	 (state-arg-of-1 (if (gtype? type) (gtype-type type) type) args v 0))))
+
+(define (state-arg-of-1 type args v i)
+  (cond ((null? args) '#f)
+	((and (is-type? 'flic-ref (car args))
+	      (eq? (flic-ref-var (car args)) v)
+	      (state-arg-type? type i))
+	 '#t)
+	(else (state-arg-of-1 type (cdr args) v (1+ i)))))
+
+;;; Is argument I of a function of TYPE the state token?
+(define (state-arg-type? type i)
+  (let ((type  (expand-to-arrow type 5)))
+    (and (arrow-type? type)
+	 (if (eqv? i 0)
+	     (systemstate? (expand-to-arrow (car (ntycon-args type)) 5))
+	     (state-arg-type? (cadr (ntycon-args type)) (1- i))))))
+
+;;; TYPE with synonyms and newtypes (IO, ST, StateT ...) expanded at the
+;;; top, at most N deep.  A newtype's field type is not instantiated: its
+;;; arrows and type constructors are what is looked at, and a field that
+;;; is a type variable stops the expansion (it says nothing).
+(define (expand-to-arrow type n)
+  (let ((type  (expand-ntype-synonym type)))
+    (if (and (> n 0)
+	     (ntycon? type)
+	     (algdata? (ntycon-tycon type))
+	     (algdata-newtype? (ntycon-tycon type)))
+	;; the constructor's signature is field -> T a ...
+	(let* ((con  (car (algdata-constrs (ntycon-tycon type))))
+	       (sig  (con-signature con))
+	       (sig  (if (gtype? sig) (gtype-type sig) sig)))
+	  (if (and (eqv? (con-arity con) 1) (arrow-type? sig))
+	      (expand-to-arrow (car (ntycon-args sig)) (1- n))
+	      type))
+	type)))
 
 (define (optimize-flic-ref-aux object)
   (let ((var     (flic-ref-var object)))
