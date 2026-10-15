@@ -59,8 +59,8 @@ GHC 9.14.
 | `maxBound :: Char` is `'\1114111'` | as GHC (GHCCharMaxBound) |
 | `Word` exported by the Prelude | with `--modern-prelude` (GHCPreludeWord) |
 | `Monad` has an `Applicative` superclass; `fail` is MonadFail's | with `--modern-prelude` |
-| `Num` has no `Eq`/`Show` superclasses | **not yet**: `instance Num F` still needs `Eq F` and `Show F` (GHCNumNoSuperclasses); the class is shared with `--haskell98` |
-| `Int` is 64 bits and wraps modulo 2^64 | **not yet**: Int is the fixnum range (62 bits) and overflow is an error (GHCIntWraps; nofib sphere) |
+| `Num` has no `Eq`/`Show` superclasses | with `--modern-prelude` (2026-10-14): the class, shared with `--haskell98`, keeps them, but an `instance Num F` without `Eq F` or `Show F` gets stub instances whose methods are errors (tdecl/instance.mumble's add-num-superclass-stubs), so GHC's programs compile; using `==` or `show` on F is then a run-time error where GHC gives a type error (GHCNumNoSuperclasses) |
+| `Int` is 64 bits and wraps modulo 2^64 | **no**: Int is SBCL's fixnum, -2^62 .. 2^62-1, and arithmetic wraps modulo 2^63; `fromIntegral` of an Integer outside that range is an error (GHCIntWraps; nofib sphere).  A 64-bit Int would put a fixnum-or-bignum check on every Int load from the heap |
 | `Bits` has no `Num` superclass | **no**: the Report's `Num` superclass is kept (Haskell 2010 code uses it); GHC's additions (FiniteBits, zeroBits, bitSizeMaybe, `.<<.`, bitDefault, ...) are there (DataBitsModern) |
 | NondecreasingIndentation (GHC: in its Haskell98 language only) | accepted in both modes |
 | an operator in a do block's column closes the block (parse-error(t)) | yes |

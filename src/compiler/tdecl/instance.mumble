@@ -546,6 +546,38 @@
      (~A is a superclass of ~A)."
     super algdata class algdata super class))
 
+;;; GHC's Num has no Eq or Show superclass (base 4.5); ours, shared with
+;;; Haskell 98, does.  In a module that sees base's Prelude
+;;; (modern-module?), an instance Num T whose T has no Eq or Show gets one
+;;; whose methods are errors, so that GHC's programs compile; using it is
+;;; a run-time error where GHC gives a type error.
+
+(define (add-num-superclass-stubs)
+  (when (modern-module?)
+    (dolist (inst (module-instance-defs *module*))
+      (when (and (instance-ok? inst)
+		 (null? (instance-mp-types inst))
+		 (eq? (instance-class inst) (core-symbol "Num")))
+	(dolist (super (list (core-symbol "Eq") (core-symbol "Show")))
+	  (when (eq? (lookup-instance (instance-algdata inst) super) '#f)
+	    (let ((stub (new-instance super (instance-algdata inst)
+				      (instance-tyvars inst))))
+	      (setf (instance-context stub) (instance-context inst))
+	      (setf (instance-mcontext stub) '())
+	      (setf (instance-decls stub)
+		    (list (num-superclass-stub-method
+			   (if (eq? super (core-symbol "Eq")) '|==| '|showsPrec|)
+			   super (instance-algdata inst))))
+	      (setf (instance-ok? stub) '#t)
+	      (push stub (module-instance-defs *module*)))))))))
+
+(define (num-superclass-stub-method name class algdata)
+  (**define name '(_ _)
+	    (**app (**var/def (core-symbol "error"))
+		   (**string (format '#f "No instance for ~A ~A (only Num ~A, which GHC's Num allows)"
+				     (def-name class) (def-name algdata)
+				     (def-name algdata))))))
+
 ;;; Checks performed here:
 ;;;  Instance context must include the following:
 ;;;     Context associated with data type

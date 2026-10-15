@@ -46,6 +46,7 @@
 	 (when (not (eq? inst '#f))
             (push inst (module-instance-defs *module*)))))))
   (add-derived-instances modules)
+  (walk-modules modules (function add-num-superclass-stubs))
   (walk-modules modules
    (lambda ()
      (dolist (inst (module-instance-defs *module*))

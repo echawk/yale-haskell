@@ -136,11 +136,10 @@ Realistic, in rough order of value:
 4. **`foreign export` and `"wrapper"` imports**: done (2026-10-14;
    trampoline pools in `src/ffi/ffi-runtime.lisp`, `doc/FFI.md`).
    Exports are reached through `&name`, not by the C linker.
-5. **GHC departures not yet followed** (`doc/plans/GHC-EXTENSIONS.md`,
-   "Where GHC departs from the Report"): `Num` without `Eq`/`Show`
-   superclasses (the class is shared with --haskell98, so gate it), and
-   `Int` wrapping modulo 2^64 (currently 62-bit fixnum, overflow an
-   error; nofib `sphere` deviates for this).
+5. **GHC departures**: `Num` without `Eq`/`Show` superclasses is
+   followed under `--modern-prelude` (stub instances, 2026-10-14).
+   `Int` stays the 63-bit fixnum, wrapping modulo 2^63 (nofib
+   `sphere` deviates); a 64-bit `Int` was judged not worth its cost.
 6. **Tightening the permissive type checker** (each has a probe in
    extensions.py): escape checks for existential and rank-N type
    variables, and local type refinement in GADT matches (right-hand
