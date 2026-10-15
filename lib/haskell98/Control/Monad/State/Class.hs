@@ -10,6 +10,9 @@ import Control.Monad.Trans.Reader (ReaderT(ReaderT), runReaderT)
 import Control.Monad.Trans.Writer.Lazy (WriterT)
 import Control.Monad.Trans.Maybe (MaybeT)
 import Control.Monad.Trans.Except (ExceptT)
+import qualified Control.Monad.Trans.RWS.Lazy as RWSL
+import qualified Control.Monad.Trans.RWS.Strict as RWSS
+import qualified Control.Monad.Trans.Writer.Strict as WS
 
 class Monad m => MonadState s m | m -> s where
   get   :: m s
@@ -64,3 +67,18 @@ instance (Monad m, MonadState s m) => MonadState s (ExceptT e m) where
 {-# modify :: Inline #-}
 {-# modify' :: Inline #-}
 {-# gets :: Inline #-}
+
+instance (Monoid w, Monad m) => MonadState s (RWSL.RWST r w s m) where
+  get = RWSL.get
+  put = RWSL.put
+  state = RWSL.state
+
+instance (Monoid w, Monad m) => MonadState s (RWSS.RWST r w s m) where
+  get = RWSS.get
+  put = RWSS.put
+  state = RWSS.state
+
+instance (Monoid w, Monad m, MonadState s m) => MonadState s (WS.WriterT w m) where
+  get = lift get
+  put s = lift (put s)
+  state f = lift (state f)

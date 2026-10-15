@@ -439,9 +439,15 @@
 ;;; is converted to a gtype.
 
 (define (generalize-type var)
-  (if (eq? (var-signature var) '#f)
-      (setf (var-type var) (ntype->gtype (var-type var)))
-      (setf (var-type var) (var-signature var)))
+  (cond ((not (eq? (var-signature var) '#f))
+	 (setf (var-type var) (var-signature var)))
+	((gtype? (prune (var-type var)))
+	 ;; RankNTypes: a variable a pattern binding takes from a polytype
+	 ;; field (let R m' = f a, R's field forall b. ...) has that type
+	 ;; already (polytypes.mumble)
+	 (setf (var-type var) (prune (var-type var))))
+	(else
+	 (setf (var-type var) (ntype->gtype (var-type var)))))
   (report-typing var))
       
 ;;; For overloaded types, it is necessary to map the declaration context

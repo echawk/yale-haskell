@@ -12,6 +12,9 @@ import qualified Control.Monad.Trans.State.Lazy as Lazy
 import qualified Control.Monad.Trans.State.Strict as Strict
 import Control.Monad.Trans.Reader (ReaderT(ReaderT), runReaderT)
 import Control.Monad.Trans.Maybe (MaybeT(MaybeT), runMaybeT)
+import qualified Control.Monad.Trans.RWS.Lazy as RWSL
+import qualified Control.Monad.Trans.RWS.Strict as RWSS
+import qualified Control.Monad.Trans.Writer.Strict as WS
 
 class (Monoid w, Monad m) => MonadWriter w m | m -> w where
   writer :: (a, w) -> m a
@@ -60,3 +63,21 @@ instance (Monad m, MonadWriter w m) => MonadWriter w (MaybeT m) where
   pass m = MaybeT (pass (runMaybeT m >>= \v -> return (case v of
                      Nothing -> (Nothing, id)
                      Just (a, f) -> (Just a, f))))
+
+instance (Monoid w, Monad m) => MonadWriter w (RWSL.RWST r w s m) where
+  writer = RWSL.writer
+  tell = RWSL.tell
+  listen = RWSL.listen
+  pass = RWSL.pass
+
+instance (Monoid w, Monad m) => MonadWriter w (RWSS.RWST r w s m) where
+  writer = RWSS.writer
+  tell = RWSS.tell
+  listen = RWSS.listen
+  pass = RWSS.pass
+
+instance (Monoid w, Monad m) => MonadWriter w (WS.WriterT w m) where
+  writer = WS.writer
+  tell = WS.tell
+  listen = WS.listen
+  pass = WS.pass

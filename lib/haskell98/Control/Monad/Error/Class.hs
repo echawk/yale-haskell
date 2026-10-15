@@ -9,6 +9,9 @@ import Control.Monad.Trans.Except (ExceptT)
 import qualified Control.Monad.Trans.State.Lazy as Lazy
 import qualified Control.Monad.Trans.State.Strict as Strict
 import Control.Monad.Trans.Reader (ReaderT(ReaderT), runReaderT)
+import qualified Control.Monad.Trans.RWS.Lazy as RWSL
+import qualified Control.Monad.Trans.RWS.Strict as RWSS
+import qualified Control.Monad.Trans.Writer.Strict as WS
 
 class Monad m => MonadError e m | m -> e where
   throwError :: e -> m a
@@ -39,3 +42,15 @@ instance (Monad m, MonadError e m) => MonadError e (Strict.StateT s m) where
   throwError e = lift (throwError e)
   catchError m h = Strict.StateT (\s -> catchError (Strict.runStateT m s)
                                           (\e -> Strict.runStateT (h e) s))
+
+instance (Monoid w, Monad m, MonadError e m) => MonadError e (RWSL.RWST r w s m) where
+  throwError e = lift (throwError e)
+  catchError m h = RWSL.RWST (\r s -> catchError (RWSL.runRWST m r s) (\e -> RWSL.runRWST (h e) r s))
+
+instance (Monoid w, Monad m, MonadError e m) => MonadError e (RWSS.RWST r w s m) where
+  throwError e = lift (throwError e)
+  catchError m h = RWSS.RWST (\r s -> catchError (RWSS.runRWST m r s) (\e -> RWSS.runRWST (h e) r s))
+
+instance (Monoid w, Monad m, MonadError e m) => MonadError e (WS.WriterT w m) where
+  throwError e = lift (throwError e)
+  catchError m h = WS.WriterT (catchError (WS.runWriterT m) (\e -> WS.runWriterT (h e)))

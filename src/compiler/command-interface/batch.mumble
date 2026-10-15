@@ -33,16 +33,26 @@
 				 ;; an internal error
 				 (lisp:error
 				  (lambda (c)
-				    (declare (ignore c))
 				    (when (env-flag? "YALE_HASKELL_DEBUG")
+				      (lisp:format (debug-stream) "~&~A~%"
+						   (describe-condition c)))
+				    (when (env-flag? "YALE_HASKELL_DEBUG")
+				      ;; plainly printed: a failure in the
+				      ;; pretty printer must not hide the frames
 				      #+sbcl
-				      (lisp:funcall
-				       (lisp:find-symbol "PRINT-BACKTRACE" "SB-DEBUG")
-				       ':count 40 ':stream lisp:*error-output*)))))
+				      (lisp:let ((lisp:*print-pretty* lisp:nil)
+						 (lisp:*print-length* 6)
+						 (lisp:*print-level* 2)
+						 (sb-debug:*debug-print-variable-alist*
+						  '((lisp:*print-level* . 1) (lisp:*print-length* . 3))))
+					(lisp:ignore-errors
+					 (lisp:funcall
+					  (lisp:find-symbol "PRINT-BACKTRACE" "SB-DEBUG")
+					  ':count 40 ':stream (debug-stream))))))))
 	       (if (funcall thunk) 0 1))
 	   (lisp:error (c)
 	     (lisp:force-output)
-	     (lisp:format lisp:*error-output* "~&yale-haskell: ~a~%" c)
+	     (lisp:format lisp:*error-output* "~&yale-haskell: ~a~%" (describe-condition c))
 	     1))))
     (lisp:force-output)
     (lisp:finish-output lisp:*error-output*)
@@ -133,3 +143,22 @@
 			      (lisp:functionp (cdr value)))))))
       (repl-disassemble-var var (symbol->string (def-name var)))
       (lisp:terpri))))
+
+;;; Standard error as a new stream on descriptor 2: *error-output* may be
+;;; the stream whose failure is being reported.
+(define (debug-stream)
+  #+sbcl (sb-sys:make-fd-stream 2 ':output lisp:t ':buffering ':none)
+  #-sbcl lisp:*error-output*)
+
+;;; A condition's report, or, when printing it fails (an internal type
+;;; error whose datum is a compiler structure that cannot be printed),
+;;; its kind and the types involved.
+(define (describe-condition c)
+  (or (lisp:ignore-errors (lisp:format lisp:nil "~A" c))
+      (lisp:ignore-errors
+       (if (lisp:typep c 'lisp:type-error)
+	   (lisp:format lisp:nil "internal type error: a ~S where a ~S was expected"
+			(lisp:type-of (lisp:type-error-datum c))
+			(lisp:type-error-expected-type c))
+	   (lisp:format lisp:nil "internal error: ~S" (lisp:type-of c))))
+      "internal error"))

@@ -11,6 +11,9 @@ import qualified Control.Monad.Trans.State.Strict as Strict
 import Control.Monad.Trans.Writer.Lazy (WriterT(WriterT), runWriterT)
 import Control.Monad.Trans.Maybe (MaybeT(MaybeT), runMaybeT)
 import Control.Monad.Trans.Except (ExceptT(ExceptT), runExceptT)
+import qualified Control.Monad.Trans.RWS.Lazy as RWSL
+import qualified Control.Monad.Trans.RWS.Strict as RWSS
+import qualified Control.Monad.Trans.Writer.Strict as WS
 
 class Monad m => MonadReader r m | m -> r where
   ask    :: m r
@@ -53,4 +56,19 @@ instance (Monad m, MonadReader r m) => MonadReader r (MaybeT m) where
 instance (Monad m, MonadReader r m) => MonadReader r (ExceptT e m) where
   ask = lift ask
   local f m = ExceptT (local f (runExceptT m))
+  reader f = lift (reader f)
+
+instance (Monoid w, Monad m) => MonadReader r (RWSL.RWST r w s m) where
+  ask = RWSL.ask
+  local = RWSL.local
+  reader = RWSL.reader
+
+instance (Monoid w, Monad m) => MonadReader r (RWSS.RWST r w s m) where
+  ask = RWSS.ask
+  local = RWSS.local
+  reader = RWSS.reader
+
+instance (Monoid w, Monad m, MonadReader r m) => MonadReader r (WS.WriterT w m) where
+  ask = lift ask
+  local f m = WS.WriterT (local f (WS.runWriterT m))
   reader f = lift (reader f)
