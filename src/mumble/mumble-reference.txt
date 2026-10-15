@@ -653,6 +653,7 @@ binary-file-type
   the binary-file-type depends on the underlying Lisp system.
 
 (file-exists? filename)
+(file-exists-exactly? filename)   ; and the directory entry has the same case
   Returns true if the file exists.
 
 (file-write-date filename)

@@ -1239,6 +1239,21 @@
 (define-mumble-function mumble::file-exists? (filename)
   (probe-file (expand-filename filename)))
 
+;;; As file-exists?, but on a case-insensitive file system (macOS) the
+;;; directory entry must also match the name's case: foo.hs is not Foo.hs.
+(define-mumble-function mumble::file-exists-exactly? (filename)
+  (let* ((path  (pathname (expand-filename filename)))
+	 (found (probe-file path)))
+    (and found
+	 (let ((name (pathname-name path))
+	       (type (pathname-type path)))
+	   (some (lambda (p)
+		   (and (equal (pathname-name p) name)
+			(equal (pathname-type p) type)))
+		 (directory (make-pathname :name :wild :type type
+					   :defaults found))))
+	 found)))
+
 (define-mumble-function mumble::file-write-date (filename)
   (file-write-date (expand-filename filename)))
 

@@ -467,26 +467,24 @@ Test suite: **103 passed, 45 expected failures** (`make test`); CI in
 
 ### Open bugs (each has a test, most as `.xfail`)
 
-1. No defaulting under an expression signature:
-   `show (2 ^ 2 :: Int)` is "ambiguous" (`default-in-annotation`).
-   Also `round 2.5` (only `RealFrac`) is not defaulted (`default-realfrac`).
-2. `Int` arithmetic wraps silently, and the default is `(Int, Double)`
-   rather than `(Integer, Double)` (`default-integer`).
-3. Monomorphism restriction rule 2: exporting a pattern binding reports
-   "Can't export pattern binding" (`mr-exported`).
-4. Shallow control stack: non-tail recursion over 100 000 elements
-   overflows (`deep-stack`); consider a larger SBCL control stack for
-   the image.
-5. Batch mode: compiler diagnostics go to stdout; after a compile error
-   it continues to "The variable #:|mainNNNN| is unbound"; and
-   `apply-exec` prints an extra newline after every program
-   (`command-interface/incremental-compiler.mumble:147`) — every
-   `.stdout` currently includes it.
-6. Datatype contexts (`data Eq a => Set a`) are not enforced.
-7. `Assoc` and `Bin` are compiler core types, so H98 programs cannot
-   define them (`prelude-names-free`).
-8. A `foo.hs` beside a `Foo.hu` on a case-insensitive file system picks
-   up the wrong unit file.
+Checked against the tree on 2026-10-14: items 1-8 are fixed (no test is
+`.xfail` any more).
+
+1. ~~No defaulting under an expression signature~~ (fixed).
+2. ~~`Int` arithmetic wraps silently; the default is `(Int, Double)`~~
+   (fixed: the default is `(Integer, Double)`; `Int` overflow is an
+   error, GHC-EXTENSIONS.md "Where GHC departs").
+3. ~~MR rule 2 for exported pattern bindings~~ (fixed; `mr-exported`).
+4. ~~Shallow control stack~~ (fixed: 200 000-deep non-tail recursion
+   runs).
+5. ~~Batch mode diagnostics on stdout, unbound main after an error, an
+   extra newline~~ (fixed: stderr, exit 1).
+6. ~~Datatype contexts not enforced~~ (fixed).
+7. ~~`Assoc` and `Bin` are core types~~ (fixed; `prelude-names-free`).
+8. ~~`foo.hs` beside `Foo.hu` on a case-insensitive file system picks up
+   the wrong unit file~~ (fixed 2026-10-14: unit and source lookups
+   match the name's case, `file-exists-exactly?`;
+   tests/haskell98/modules/unitcase.hs).
 9. Possibly flaky: `tests/haskell-1.2/demo/prolog` failed once under
    `-j 8` right after a merge and has not reproduced since.
 

@@ -152,10 +152,9 @@ Realistic, in rough order of value:
    (medium-large), Arrows (rarely used), TemplateHaskell (out of scope
    for this mission — `doc/plans/FUTURE-TARGETS.md` §2 keeps it as
    a design question).
-8. **Known runtime deviations to fix**: datatype contexts
-   (`data Eq a => Set a`) not enforced; `Assoc`/`Bin` still core types
-   (H98 programs can't define them); batch-mode diagnostics go to
-   stdout and a compile error continues to an unbound-main message.
+8. **Known runtime deviations**: datatype contexts, `Assoc`/`Bin` as
+   user names and batch-mode diagnostics (stderr, exit 1) were already
+   fixed when checked on 2026-10-14.
 
 Also read the "Open bugs" list in `doc/REVIVAL-PLAN.md` §7 — some are
 fixed, some are not; check each against the current tree before
@@ -265,7 +264,8 @@ project), and Template Haskell.
 independent, and unblocks real programs):
 A1. Binary I/O (§4.1). A2. `foreign export`/`"wrapper"` (§4.4).
 A3. `process` and `Data.Graph` libraries (§4.3). A4. Batch-mode error
-hygiene + datatype contexts + free `Assoc`/`Bin` (§4.8).
+hygiene + datatype contexts + free `Assoc`/`Bin` (§4.8). (A1-A4: done
+2026-10-14.)
 
 **Phase B — the two big conformance items**:
 B1. Packed Text/ByteString representation (§4.2) — then bring up

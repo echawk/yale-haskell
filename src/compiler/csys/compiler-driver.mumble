@@ -110,7 +110,7 @@
   (if (null? extensions)
       '#f
       (let ((name-1 (add-extension name (car extensions))))
-	(if (file-exists? name-1)
+	(if (file-exists-exactly? name-1)
 	    name-1
 	    (locate-extension name (cdr extensions))))))
 
