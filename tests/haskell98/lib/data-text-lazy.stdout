@@ -1,0 +1,3 @@
+strict a, lazy b
+(5,"he",("hel","lo"),["a","b","c"],"xy")
+([],2,"abab","heo")

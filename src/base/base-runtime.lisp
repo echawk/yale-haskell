@@ -75,11 +75,38 @@
 (cl:defun prim.exc-message (c)
   (cl:typecase c
     (haskell-error-call (haskell-error-call-message c))
+    (haskell-arith-error (cl:svref *arith-messages* (haskell-arith-error-code c)))
     (cl:division-by-zero "divide by zero")
     (cl:t (cl:princ-to-string c))))
 
 (cl:defun prim.make-error-call (msg)
   (cl:make-condition 'haskell-error-call :message msg))
+
+;;; An ArithException thrown by a program (throw Underflow): an
+;;; arithmetic-error, as the host's own (division by zero) are, with
+;;; Control.Exception's constructor number: 0 Overflow, 1 Underflow,
+;;; 2 LossOfPrecision, 3 DivideByZero, 4 Denormal, 5 RatioZeroDenominator.
+(cl:define-condition haskell-arith-error (cl:arithmetic-error)
+  ((code :initarg :code :reader haskell-arith-error-code))
+  (:report (cl:lambda (c s)
+	     (cl:write-string (cl:svref *arith-messages* (haskell-arith-error-code c)) s))))
+
+(cl:defparameter *arith-messages*
+  #("arithmetic overflow" "arithmetic underflow" "loss of precision"
+    "divide by zero" "denormal" "Ratio has zero denominator"))
+
+(cl:defun prim.make-arith-error (code)
+  (cl:make-condition 'haskell-arith-error :code code))
+
+;;; The constructor number of an arithmetic error: the host's division by
+;;; zero is DivideByZero, its overflows Overflow.
+(cl:defun prim.arith-code (c)
+  (cl:typecase c
+    (haskell-arith-error (haskell-arith-error-code c))
+    (cl:division-by-zero 3)
+    (cl:floating-point-overflow 0)
+    (cl:floating-point-underflow 1)
+    (cl:t 3)))
 
 (cl:defun prim.identity (x) x)
 

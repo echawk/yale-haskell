@@ -1,0 +1,2 @@
+(Left divide by zero,Left arithmetic overflow,"Ratio has zero denominator")
+ErrorCall: boom

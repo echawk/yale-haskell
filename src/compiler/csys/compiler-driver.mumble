@@ -99,20 +99,24 @@
 ;;; This take a file name (extension ignored) & searches for a unit file.
 
 (define (locate-existing-cunit name)
-  (locate-extension name (list *unit-file-extension*)))
+  (locate-extension name (list *unit-file-extension*) '#t))
 
 ;;; This take a file name (extension ignored) & searches for a source file.
 
 (define (locate-existing-source-file name)
-  (locate-extension name *source-file-extensions*))
+  (locate-extension name *source-file-extensions* '#f))
 
-(define (locate-extension name extensions)
+;;; A unit file must match the name's case (EXACT?): on a case-insensitive
+;;; file system foo.hs is not to pick up Foo.hu, another module's unit.  A
+;;; source file is the one the file system finds.
+
+(define (locate-extension name extensions exact?)
   (if (null? extensions)
       '#f
       (let ((name-1 (add-extension name (car extensions))))
-	(if (file-exists-exactly? name-1)
+	(if (if exact? (file-exists-exactly? name-1) (file-exists? name-1))
 	    name-1
-	    (locate-extension name (cdr extensions))))))
+	    (locate-extension name (cdr extensions) exact?)))))
 
 
 ;;; This delivers the name of a compilation unit.  The extension of the name

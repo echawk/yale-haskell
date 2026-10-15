@@ -333,7 +333,13 @@
   (let ((name  (cpp-first-name rest)))
     (if (string=? name "")
 	(cpp-error "a name is needed")
-	(lisp:nth-value 1 (lisp:gethash name (dynamic *cpp-macros*))))))
+	(cpp-macro-defined? name))))
+
+;;; A #define'd name, or MIN_VERSION_pkg of a package Cabal would define
+;;; it for (cpp-min-version): prettyprinter checks #ifndef MIN_VERSION_base.
+(define (cpp-macro-defined? name)
+  (or (lisp:nth-value 1 (lisp:gethash name (dynamic *cpp-macros*)))
+      (cpp-version-package name)))
 
 ;;; #define NAME body, or NAME(a, b) body (the parenthesis right after the
 ;;; name).
@@ -651,8 +657,7 @@
 			   end)))
 	  (string-append
 	   (substring s 0 pos)
-	   (if (lisp:nth-value 1 (lisp:gethash name (dynamic *cpp-macros*)))
-	       " 1 " " 0 ")
+	   (if (cpp-macro-defined? name) " 1 " " 0 ")
 	   (cpp-replace-defined (substring s after (string-length s))))))))
 
 ;;; MIN_VERSION_pkg(a,b,c), as Cabal defines it: 1 if the version of pkg
@@ -667,13 +672,19 @@
     ("text" 2 0 2) ("parsec" 3 1 18) ("deepseq" 1 4 8) ("array" 0 5 6)
     ("pretty" 1 1 3) ("time" 1 12 2) ("directory" 1 3 8)
     ("filepath" 1 4 2) ("process" 1 6 17) ("stm" 2 5 1)
-    ("random" 1 2 1) ("QuickCheck" 2 14 3)))
+    ("random" 1 2 1) ("QuickCheck" 2 14 3)
+    ("prettyprinter" 1 7 1) ("prettyprinter_ansi_terminal" 1 1 3)
+    ("ansi_terminal" 1 0 2) ("optparse_applicative" 0 18 1)))
+
+;;; The entry of *cpp-package-versions* for MIN_VERSION_pkg, or #f.
+(define (cpp-version-package name)
+  (and (> (string-length name) 12)
+       (string=? (substring name 0 12) "MIN_VERSION_")
+       (lisp:assoc (substring name 12 (string-length name))
+		   *cpp-package-versions* :test (function string=?))))
 
 (define (cpp-min-version name args)
-  (let ((pkg  (and (> (string-length name) 12)
-		   (string=? (substring name 0 12) "MIN_VERSION_")
-		   (lisp:assoc (substring name 12 (string-length name))
-			       *cpp-package-versions* :test (function string=?)))))
+  (let ((pkg  (cpp-version-package name)))
     (if (and pkg (eqv? (length args) 3))
 	(let ((want  (map (lambda (a)
 			    (or (lisp:parse-integer (lisp:string-trim " 	" a)

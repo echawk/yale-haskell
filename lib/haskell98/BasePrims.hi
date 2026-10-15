@@ -44,6 +44,8 @@ primThrowExc       :: Exc -> a
 primExcKind        :: Exc -> Int
 primExcMessage     :: Exc -> String
 primMakeErrorCall  :: String -> Exc
+primMakeArithError :: Int -> Exc
+primArithCode      :: Exc -> Int
 -- between Exc and the Prelude's IOErrorObj (both conditions); the other
 -- type is left polymorphic, and fixed by Control.Exception
 primExcToObj       :: Exc -> b
@@ -136,6 +138,8 @@ primThrowExc       :: LispName("prim.throw-exc")
 primExcKind        :: LispName("prim.exc-kind")
 primExcMessage     :: LispName("prim.exc-message")
 primMakeErrorCall  :: LispName("prim.make-error-call")
+primMakeArithError :: LispName("prim.make-arith-error")
+primArithCode      :: LispName("prim.arith-code")
 primExcToObj       :: LispName("prim.identity")
 primObjToExc       :: LispName("prim.identity")
 primEvaluate       :: LispName("prim.identity"), Strictness("S,S")

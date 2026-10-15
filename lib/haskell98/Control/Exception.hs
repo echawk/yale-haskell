@@ -9,7 +9,7 @@
 -- ArithException only, and ExitCode is not an exception (exitWith is not
 -- caught).
 module Control.Exception (
-    SomeException(SomeException), IOException, ErrorCall(ErrorCall), ArithException(DivideByZero, Overflow),
+    SomeException(SomeException), IOException, ErrorCall(ErrorCall), ArithException(..),
     Exception(toException, fromException, displayException),
     catch, catches, handle, try, evaluate, throw, throwIO,
     bracket, bracket_, bracketOnError, finally, onException, mask_, uninterruptibleMask_,
@@ -27,8 +27,19 @@ type IOException = IOError
 data ErrorCall = ErrorCall String
   deriving (Eq, Ord)
 
-data ArithException = DivideByZero | Overflow
+data ArithException = Overflow | Underflow | LossOfPrecision | DivideByZero
+                    | Denormal | RatioZeroDenominator
   deriving (Eq, Ord)
+
+-- the constructor's number, as base-runtime.lisp's haskell-arith-error has it
+arithCode :: ArithException -> Int
+arithCode e = case e of
+  Overflow -> 0; Underflow -> 1; LossOfPrecision -> 2; DivideByZero -> 3
+  Denormal -> 4; RatioZeroDenominator -> 5
+
+arithFromCode :: Int -> ArithException
+arithFromCode n = [Overflow, Underflow, LossOfPrecision, DivideByZero,
+                   Denormal, RatioZeroDenominator] !! n
 
 instance Show SomeException where
   showsPrec _ (SomeException e) = showString (primExcMessage e)
@@ -42,8 +53,7 @@ instance Show ErrorCall where
   showsPrec _ (ErrorCall m) = showString m
 
 instance Show ArithException where
-  showsPrec _ DivideByZero = showString "divide by zero"
-  showsPrec _ Overflow     = showString "arithmetic overflow"
+  showsPrec _ e = showString (primExcMessage (primMakeArithError (arithCode e)))
 
 class Show e => Exception e where
   toException      :: e -> SomeException
@@ -69,9 +79,9 @@ instance Exception ErrorCall where
     | otherwise          = Nothing
 
 instance Exception ArithException where
-  toException a = SomeException (primMakeErrorCall (show a))
+  toException a = SomeException (primMakeArithError (arithCode a))
   fromException (SomeException e)
-    | primExcKind e == 2 = Just DivideByZero
+    | primExcKind e == 2 = Just (arithFromCode (primArithCode e))
     | otherwise          = Nothing
 
 catch :: Exception e => IO a -> (e -> IO a) -> IO a

@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Numeric/
+:o= all
+Natural.hs

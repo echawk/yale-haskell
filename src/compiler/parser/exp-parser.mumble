@@ -28,6 +28,10 @@
      (|if| (list (parse-if)))
      (|case| (parse-possible-app (parse-case)))
      (|do| (parse-possible-app (parse-do)))
+     ;; Arrows (GHC): proc pat -> cmd
+     ((no-advance satisfies at-proc?)
+      (advance-token)
+      (list (parse-proc)))
      ;; RecursiveDo (GHC): mdo
      ((no-advance satisfies at-mdo?)
       (advance-token)
@@ -792,3 +796,137 @@
 ;;; the top level.
 (define (record-dot-field name)
   (string->symbol (string-append "%dot." name)))
+;;; Arrows (GHC): proc p -> cmd, translated here into the Arrow class's
+;;; combinators (Paterson's translation, without rec and banana brackets).
+;;; The command is parsed as an expression -- f -< e is then an infix use
+;;; of the operator -<, do and if are as in expressions -- and taken
+;;; apart.  T(p, cmd) is an arrow from the type of p:
+;;;   T(p, f -< e)  = arr (\p -> e) >>> f
+;;;   T(p, f -<< e) = arr (\p -> (f, e)) >>> app
+;;;   T(p, do { p' <- c; ss }) = arr (\x -> (x, x)) >>> first T(p, c)
+;;;                              >>> T((p', p), do { ss })
+;;;   T(p, do { c; ss })       = the same with the pattern _ for p'
+;;;   T(p, do { let ds; ss })  = arr (\x@p -> let ds in (vs, x))
+;;;                              >>> T((vs, p), do { ss })   vs: ds's vars
+;;;   T(p, let ds in c)        = likewise
+;;;   T(p, if e then c1 else c2) = arr (\x@p -> if e then Left x else Right x)
+;;;                              >>> (T(p, c1) ||| T(p, c2))
+;;; The combinators are Control.Arrow's whatever the module imports
+;;; (%arrow.NAME, resolved by prec/scope.mumble).
+
+(define (at-proc?)
+  (and (at-varid-named? "proc")
+       (language-extension? "Arrows")))
+
+(define (parse-proc)
+  (let ((pat (parse-apat)))
+    (require-token -> (signal-missing-token "`->'" "proc expression"))
+    (translate-command pat (parse-exp))))
+
+(define (arrow-ref name)
+  (generated-var-ref (string->symbol (string-append "%arrow." name))))
+
+(define (arrow-con name)
+  (make con-ref (name (string->symbol (add-con-prefix name)))
+	(con *undefined-def*) (infix? '#f)))
+
+(define (arrow-lambda pat body)
+  (make lambda (pats (list (copy-pattern pat '()))) (body body)))
+
+(define (arrow-compose a b)
+  (**app (arrow-ref ">>>") a b))
+
+(define (arrow-arr pat body)
+  (**app (arrow-ref "arr") (arrow-lambda pat body)))
+
+;;; arr (\x -> (x, x)) >>> first A
+(define (arrow-dup-first a)
+  (let ((x (string->symbol (format '#f "proc%~A" (incf *view-pattern-count*)))))
+    (arrow-compose
+     (**app (arrow-ref "arr")
+	    (make lambda (pats (list (make var-pat (var (generated-var-ref x)))))
+		  (body (**tuple (generated-var-ref x) (generated-var-ref x)))))
+     (**app (arrow-ref "first") a))))
+
+;;; \x@p -> BODY-FN(x): the input under a name as well as the pattern
+(define (arrow-arr-as pat body-fn)
+  (let ((x (string->symbol (format '#f "proc%~A" (incf *view-pattern-count*)))))
+    (**app (arrow-ref "arr")
+	   (make lambda
+		 (pats (list (make as-pat (var (generated-var-ref x))
+				   (pattern (copy-pattern pat '())))))
+		 (body (funcall body-fn (generated-var-ref x)))))))
+
+(define (translate-command pat cmd)
+  (cond ((and (is-type? 'pp-exp-list cmd) (arrow-tail-position (pp-exp-list-exps cmd)))
+	 (let* ((exps (pp-exp-list-exps cmd))
+		(i    (arrow-tail-position exps))
+		(op   (var-ref-name (list-ref exps i)))
+		(f    (exp-from-list (lisp:subseq exps 0 i)))
+		(e    (exp-from-list (lisp:nthcdr (+ i 1) exps))))
+	   (if (eq? op '|-<|)
+	       (arrow-compose (arrow-arr pat e) f)
+	       (arrow-compose (arrow-arr pat (**tuple f e)) (arrow-ref "app")))))
+	((is-type? 'do-exp cmd)
+	 (translate-command-stmts pat (do-exp-stmts cmd)))
+	((is-type? 'if cmd)
+	 (arrow-compose
+	  (arrow-arr-as pat (lambda (x)
+			      (make if (test-exp (if-test-exp cmd))
+				    (then-exp (**app (arrow-con "Left") x))
+				    (else-exp (**app (arrow-con "Right") x)))))
+	  (**app (arrow-ref "|||")
+		 (translate-command pat (if-then-exp cmd))
+		 (translate-command pat (if-else-exp cmd)))))
+	((is-type? 'let cmd)
+	 (translate-command-let pat (let-decls cmd)
+				(lambda (p) (translate-command p (let-body cmd)))))
+	(else
+	 (parser-error 'arrow-command
+	   "This command is not supported in proc notation (only -<, -<<, do, let and if)."))))
+
+(define (translate-command-stmts pat stmts)
+  (let ((s (car stmts)))
+    (cond ((null? (cdr stmts))
+	   (if (is-type? 'qual-filter s)
+	       (translate-command pat (qual-filter-exp s))
+	       (parser-error 'arrow-command "The last statement of a command do must be a command.")))
+	  ((is-type? 'qual-generator s)
+	   (arrow-compose
+	    (arrow-dup-first (translate-command pat (qual-generator-exp s)))
+	    (translate-command-stmts (**pcon/tuple (list (qual-generator-pat s) pat))
+				     (cdr stmts))))
+	  ((is-type? 'qual-filter s)
+	   (arrow-compose
+	    (arrow-dup-first (translate-command pat (qual-filter-exp s)))
+	    (translate-command-stmts (**pcon/tuple (list (make wildcard-pat) pat))
+				     (cdr stmts))))
+	  (else
+	   (translate-command-let pat (qual-let-decls s)
+				  (lambda (p) (translate-command-stmts p (cdr stmts))))))))
+
+;;; let ds before REST-FN's command: the variables ds binds join the input
+(define (translate-command-let pat decls rest-fn)
+  (let ((vars (lisp:mapcan (lambda (d)
+			     (if (is-type? 'valdef d)
+				 (map (function var-ref-name)
+				      (collect-pattern-vars (valdef-lhs d)))
+				 '()))
+			   decls)))
+    (arrow-compose
+     (arrow-arr-as pat (lambda (x)
+			 (make let (decls decls)
+			       (body (**tuple (**tuple/l (map (function generated-var-ref) vars))
+					      x)))))
+     (funcall rest-fn
+	      (**pcon/tuple (list (**tuple-pat (map (lambda (v) (make var-pat (var (generated-var-ref v))))
+						    vars))
+				  pat))))))
+
+(define (arrow-tail-position exps)
+  (lisp:position-if (lambda (e) (and (is-type? 'var-ref e)
+				     (memq (var-ref-name e) '(|-<| |-<<|))))
+		    exps))
+
+(define (exp-from-list exps)
+  (if (null? (cdr exps)) (car exps) (make pp-exp-list (exps exps))))

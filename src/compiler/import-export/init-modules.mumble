@@ -92,11 +92,14 @@
 		     '()))
 	       imports))
 
-;;; Under --modern-prelude a module's Prelude is Prelude and PreludeModern
-;;; together, so a name hidden from it need be exported by only one.
+;;; Hiding a name the module does not export: the Report's error, but in a
+;;; module that sees base's Prelude only GHC's warning (-Wdodgy-imports),
+;;; as GHC programs rely on (optparse-applicative hides Data.Semigroup's
+;;; Option, gone since base 4.16).  Also, there a module's Prelude is
+;;; Prelude and PreludeModern together.
 (define (quiet-unused-hiding? module-name)
-  (and (modern-module?)
-       (memq module-name '(|Prelude| |PreludeModern|))))
+  (declare (ignore module-name))
+  (modern-module?))
 
 (define (add-imported-module module . maybe-hiding)
   (setf (module-imports *module*)

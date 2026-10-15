@@ -3,7 +3,8 @@
 module Control.Applicative (
     Applicative(pure, (<*>), (*>), (<*)), Alternative(empty, (<|>), some, many),
     (<$>), (<$), (<**>), liftA, liftA2, liftA3, optional,
-    WrappedMonad(WrapMonad, unwrapMonad)
+    WrappedMonad(WrapMonad, unwrapMonad), Const(Const, getConst)
   ) where
 
 import PreludeModern
+import Data.Functor.Const (Const(Const, getConst))

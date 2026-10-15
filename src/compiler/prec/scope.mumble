@@ -518,6 +518,17 @@
 
 (define-walker-method scope var-ref (object env)
   (when (and (eq? (var-ref-var object) *undefined-def*)
+	     (string-starts? "%arrow." (symbol->string (var-ref-name object))))
+    ;; Arrows' proc notation (parser/exp-parser.mumble): Control.Arrow's
+    (let* ((s  (symbol->string (var-ref-name object)))
+	   (name (string->symbol (substring s 7 (string-length s))))
+	   (m  (table-entry *modules* '|Control.Arrow|))
+	   (def (and m (table-entry (module-symbol-table m) name))))
+      (if (or (eq? def '#f) (not (var? def)))
+	  (phase-error 'proc-needs-arrow
+	    "proc notation needs Control.Arrow (~A); import it or a module that does." name)
+	  (setf (var-ref-var object) def))))
+  (when (and (eq? (var-ref-var object) *undefined-def*)
 	     (string-starts? "%dot." (symbol->string (var-ref-name object))))
     ;; OverloadedRecordDot's field (parser/exp-parser.mumble)
     (let ((field (string->symbol

@@ -11,12 +11,12 @@ nofib suites (`tools/conformance/nofib.py`, with `--suite real
 
 | measure | before this round | now |
 |---|---|---|
-| extension and library probes | 28 of 28 (only what was implemented) | 100 of 104 (2026-10-14; 83 of 87 before the last 17 probes) (59 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt, LambdaPi, Mini-TT and husk-scheme needed) |
+| extension and library probes | 28 of 28 (only what was implemented) | 101 of 104 (2026-10-15; 83 of 87 before the last 17 probes) (59 probes added for GHC2021, the common non-2021 extensions, modern libraries, and what cubicaltt, LambdaPi, Mini-TT and husk-scheme needed) |
 | nofib imaginary + spectral | 68 pass | 69 pass (mandel) |
 | nofib real + gc + shootout | 28 pass, 11 compile errors, 2 wrong, 1 timeout | 40 pass, 2 known (ByteString pointers), no failures |
 
-The four failing probes: GHCIntWraps (a deliberate departure: Int is
-the 63-bit fixnum), QuantifiedConstraints, Arrows, TemplateHaskell.  Typeable is
+The three failing probes: GHCIntWraps (a deliberate departure: Int is
+the 63-bit fixnum), QuantifiedConstraints, TemplateHaskell.  Typeable is
 GHC's: every type constructor is Typeable without an instance (the type
 checker builds the dictionary from the constructor's name and the
 arguments' dictionaries, util/instance-manager.mumble), so typeOf, cast
@@ -25,7 +25,7 @@ and Data.Dynamic work and show types as GHC does.
 Every GHC2021 extension is accepted except where a probe below says
 otherwise, and so are most of the extensions modern code turns on beyond
 GHC2021.  What is left is either large (Template Haskell, the runtime's
-concurrency) or rare (Arrows, QuantifiedConstraints).
+concurrency) or rare (QuantifiedConstraints).
 
 ## How extensions are switched on
 
@@ -108,7 +108,11 @@ instances (OVERLAPPABLE/OVERLAPPING: the most specific matching flexible
 head is used; the pragmas are not needed), and a catch-all instance
 `instance ctx => C a` (2026-10-14: one per class, used at any type no
 other instance of C is for, and at a type variable whose context
-implies ctx; util/instance-manager.mumble's catch-all-instance).
+implies ctx; util/instance-manager.mumble's catch-all-instance),
+Arrows (2026-10-15: `proc` with `-<`, `-<<`, `do` binds, `let` and
+`if`, translated in the parser into Control.Arrow's combinators,
+parser/exp-parser.mumble; not `rec`, `case` commands or banana
+brackets).
 
 Haskell 98 and 2010 points fixed on the way (2026-10-12): a Prelude class
 method hidden by `import Prelude hiding ((*))` can be defined again; an
@@ -176,7 +180,6 @@ be accepted.
 | extension | what it needs | size |
 |---|---|---|
 | QuantifiedConstraints | contexts with `forall` in instance heads; dictionary functions as dictionary fields | medium-large |
-| Arrows (`proc` notation) | the desugaring to `arr`/`>>>`/`first` | medium, rarely used |
 | Real concurrency | a thread-safe runtime: thunk update and the allocation paths under SBCL threads | large |
 | GHC.Generics' `Rep` | type families exist now; the derived `from`/`to` and the representation types | large |
 

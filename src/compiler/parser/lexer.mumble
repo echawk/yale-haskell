@@ -612,8 +612,10 @@
 ;;; M.+, M.:+, and A.B.x.  The token has the type of its last part and the
 ;;; whole qualified name as its text, so the parser needs no new token
 ;;; types and dotted module names (import A.B) come out as one conid.
-;;; M.. is not taken as a qualified `.', so [False..] still works; M..&.
-;;; (more symbol characters) is M's operator .&.
+;;; M.. followed by `)' or a space is M's `.' ((P..), f P.. g), as the
+;;; Report lexes it; otherwise it is M and `..', so [False..] and
+;;; [False..True] still work.  M..&. (more symbol characters) is M's
+;;; operator .&.
 ;;; PREFIX is the characters read so far; *char* is the `.'.
 
 (define (lex-qualified prefix)
@@ -634,7 +636,12 @@
 	   (advance-char)
 	   (let ((sym (scan-list-of (symbol presymbol #\:))))
 	     (emit-token/string 'varsym (append prefix (cons #\. sym)))))
-	 (emit-token/string 'conid prefix)))
+	 (if (memv (peek-char-2) '(#\) #\space #\tab #\newline))
+	     (begin
+	       (advance-char)
+	       (advance-char)
+	       (emit-token/string 'varsym (append prefix (list #\. #\.))))
+	     (emit-token/string 'conid prefix))))
     ((symbol presymbol #\:)
      (advance-char)
      (let ((sym (scan-list-of (symbol presymbol #\:))))
