@@ -1190,14 +1190,37 @@
 
 ;;; A binding that may move inside a lambda (let-hoist-lambda): one doing no
 ;;; work, but not a list producer (build), which would make its list again
-;;; at each call.
+;;; at each call; or a cheap one, as GHC's exprIsCheap: a field selection
+;;; from a variable, a method taken from a dictionary variable, a call of
+;;; error (bottom), a let of such.  ST and IO code is full of these
+;;; around its state lambdas (starray: 1.38 s with only work-free
+;;; bindings moving, 0.25 s before; the memo tables that made the rule
+;;; are calls that build something, which do not move).
 
 (define (hoistable-into-lambda? exp)
-  (and (work-free-value? exp)
-       (not (and (is-type? 'flic-app exp)
-		 (is-type? 'flic-ref (flic-app-fn exp))
-		 (memq (flic-ref-var (flic-app-fn exp))
-		       (list (core-symbol "build") (core-symbol "inlineBuild")))))))
+  (or (and (work-free-value? exp)
+	   (not (and (is-type? 'flic-app exp)
+		     (is-type? 'flic-ref (flic-app-fn exp))
+		     (memq (flic-ref-var (flic-app-fn exp))
+			   (list (core-symbol "build") (core-symbol "inlineBuild"))))))
+      (cheap-to-repeat? exp)))
+
+(define (cheap-to-repeat? exp)
+  (cond ((is-type? 'flic-sel exp)
+	 (is-type? 'flic-ref (flic-sel-exp exp)))
+	((is-type? 'flic-app exp)
+	 (let ((fn (flic-app-fn exp))
+	       (args (flic-app-args exp)))
+	   (and (is-type? 'flic-ref fn)
+		(or (eq? (flic-ref-var fn) (core-symbol "error"))
+		    (and (var-selector-fn? (flic-ref-var fn))
+			 (null? (cdr args))
+			 (is-type? 'flic-ref (car args)))))))
+	((is-type? 'flic-let exp)
+	 (and (every-1 (lambda (v) (hoistable-into-lambda? (var-value v)))
+		       (flic-let-bindings exp))
+	      (hoistable-into-lambda? (flic-let-body exp))))
+	(else '#f)))
 
 (define (optimize-flic-ref-aux object)
   (let ((var     (flic-ref-var object)))

@@ -198,7 +198,12 @@ bench/RESULTS.md entry.
 7. **Float in**, then a conservative **full laziness** (constant
    expressions only), and **CSE**.
 8. **Usage analysis and update avoidance**; **eager selection** of
-   fields of evaluated tuples (the selector-thunk leak).
+   fields of evaluated tuples (the selector-thunk leak); **one-shot
+   state lambdas** (GHC's state hack): mark the lambdas over the IO/ST
+   state token when FLIC is built, so that let-hoist-lambda may move any
+   binding into them (since 2026-10-14 only work-free and cheap ones
+   move, which costs ioref 0.05 -> 0.27 s and ioloop; bench/RESULTS.md,
+   2026-10-15).
 9. **General RULES** as an annotation, with the foldr/build identities
    moved into the Prelude as rules.
 

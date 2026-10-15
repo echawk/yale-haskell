@@ -478,3 +478,32 @@ ioloop (0.212 -> 0.473 s), existential and integrate are slower.  The
 same numbers come from a28af4a, the commit before this round, so the
 slowdown came in between 1640aa7 and a28af4a; it is being bisected
 (next section).
+
+## let-hoist-lambda with cheap bindings (2026-10-15)
+
+Bisecting the slowdown found in the previous section (a worktree per
+commit, starray and ioref timed): both came from ae4da47, which let a
+`let` move inside the lambda after it (let-hoist-lambda) only when its
+bindings do no work, so that happy's memo table (`f g = \n -> lookup n
+table where table = ...`) is not rebuilt per call.  ST and IO code puts
+cheap bindings around its state lambdas (field selections, a method
+taken from a dictionary, `error` calls), which then stayed outside and
+allocated a closure per action.  Such bindings may move again
+(optimize.mumble's cheap-to-repeat?, after GHC's exprIsCheap); calls
+that build something still do not.  happy: 166 of 166 still match.
+
+```
+program        1640aa7   ae4da47   now
+starray          0.211     1.380   0.241   (80 MB; 2,274 MB before)
+ioref            0.041     0.273   0.268
+ioloop               -     0.513   0.464
+```
+
+ioref and ioloop are still slow: what stays outside their state lambdas
+is partial applications of local functions (`mapM_@spec f xs`,
+`go x y`) and method calls, whose arity is not known at that point.
+Moving those safely needs GHC's state hack (a lambda over the IO/ST
+state token is entered once), which needs the state lambdas marked
+when FLIC is built (FLIC's lambda variables carry no types):
+GHC-OPTIMIZATIONS.md section 3, item 7.  With the old unconditional
+hoist ioref is 0.053 s and allocates nothing.
