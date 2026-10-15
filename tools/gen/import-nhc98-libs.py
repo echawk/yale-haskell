@@ -92,7 +92,8 @@ def patch_containers(name, src):
     # top bit, 2^62, is minBound), as GHC's 64-bit Int and Word agree
     if name in ('Data.IntMap', 'Data.IntSet'):
         src = src.replace('natFromInt i = fromIntegral i',
-                          'natFromInt i = fromIntegral i `mod` 9223372036854775808', 1)
+                          'natFromInt i = if i >= 0 then fromIntegral i '
+                          'else fromIntegral i + 9223372036854775808', 1)
     src = add_newer_folds(name, src)
     return CONTAINERS_NOTE % name + src
 
