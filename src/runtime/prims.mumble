@@ -510,16 +510,25 @@
   `(the-integer (min (the-integer ,i1) (the-integer ,i2))))
 
 
+;;; Int arithmetic wraps around the fixnum range (modulo 2^63 on 64-bit
+;;; SBCL), as SBCL's modular arithmetic computes it in one instruction.
+;;; (the fixnum ...) alone left it unspecified: products that overflowed
+;;; were sometimes bignums, and constant ones were compile-time errors.
+
+(define-syntax (int-wrap form)
+  #+sbcl `(sb-c::mask-signed-field ,sb-vm:n-fixnum-bits ,form)
+  #-sbcl `(the-fixnum ,form))
+
 (define-syntax (prim.plus-int i1 i2)
-  `(the-fixnum (+ (the-fixnum ,i1) (the-fixnum ,i2))))
+  `(int-wrap (+ (the-fixnum ,i1) (the-fixnum ,i2))))
 (define-syntax (prim.minus-int i1 i2)
-  `(the-fixnum (- (the-fixnum ,i1) (the-fixnum ,i2))))
+  `(int-wrap (- (the-fixnum ,i1) (the-fixnum ,i2))))
 (define-syntax (prim.mul-int i1 i2)
-  `(the-fixnum (* (the-fixnum ,i1) (the-fixnum ,i2))))
+  `(int-wrap (* (the-fixnum ,i1) (the-fixnum ,i2))))
 (define-syntax (prim.neg-int i)
-  `(the-fixnum (- (the-fixnum ,i))))
+  `(int-wrap (- (the-fixnum ,i))))
 (define-syntax (prim.abs-int i)
-  `(the-fixnum (lisp:abs (the-fixnum ,i))))
+  `(int-wrap (lisp:abs (the-fixnum ,i))))
 
 (define-integrable prim.minint lisp:most-negative-fixnum)
 (define-integrable prim.maxint lisp:most-positive-fixnum)

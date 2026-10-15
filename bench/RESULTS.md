@@ -507,3 +507,36 @@ state token is entered once), which needs the state lambdas marked
 when FLIC is built (FLIC's lambda variables carry no types):
 GHC-OPTIMIZATIONS.md section 3, item 7.  With the old unconditional
 hoist ioref is 0.053 s and allocates nothing.
+
+## Int arithmetic wraps by mask-signed-field (2026-10-15)
+
+`(the fixnum (* a b))` at safety 0 left overflow unspecified: a product
+outside the fixnum range was sometimes a bignum (Data.Hashable's
+combining step then failed in `fromInteger`), and with constant operands
+SBCL's constant folding reported a compile-time error.  `+`, `-`, `*`,
+`negate` and `abs` on Int are now `(sb-c::mask-signed-field 63 ...)`,
+which SBCL compiles to the plain machine operation (one `MUL` on arm64).
+`bench/compare-ghc -n 3` afterwards:
+
+```
+program          Yale    Yale MB  GHC -O0  GHC -O2    ratio  check
+bigint          0.158        558    0.067    0.062     2.6x  ok
+integrate       0.070        186    0.343    0.109     0.6x  ok
+interp          0.087        176    0.256    0.052     1.7x  ok
+ioloop          0.391        876    0.136    0.126     3.1x  ok
+loop            0.202          0   14.437    0.204     1.0x  ok
+nfib            0.570          0    5.536    0.274     2.1x  ok
+queens          0.374        715    1.954    0.150     2.5x  ok
+sieve           0.040        132    0.047    0.017     2.3x  ok
+tree            0.300        584    0.323    0.197     1.5x  ok
+wheel           0.007         13    0.057    0.009     0.8x  ok
+existential     0.072        190    0.063    0.022     3.3x  ok
+foldable        0.573       1199    0.580    0.231     2.5x  ok
+ioref           0.265        560    0.476    0.014    18.7x  ok
+mapcount        0.821       1542    0.365    0.293     2.8x  ok
+starray         0.225         80    2.804    0.051     4.4x  ok
+statemonad      0.103        341    0.634    0.022     4.6x  ok
+textproc        0.430        432    0.153    0.100     4.3x  ok
+```
+
+The Int-heavy programs (loop, nfib, sieve, queens) are unchanged.
