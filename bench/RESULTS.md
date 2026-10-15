@@ -584,3 +584,26 @@ copies the ~50 MB that survives each 214 MB nursery at roughly 0.75
 GB/s.  A 400 MB nursery (`YALE_HASKELL_NURSERY_MB=400`) cuts LambdaPi's
 GC to 1.1 s and its run to 2.5 s, but raises peak RSS from 1.7 to
 2.2 GB; generation 1's settings change nothing.
+
+## Case of known constructor through let and seq (2026-10-15)
+
+State's `step`, inlined, built pairs only to take them apart: `let p =
+(seed s, s) in seq p (... fst p ...)`, `seq (s, s) e`, and `let p = (let
+s' = ... in seq s' ((), s')) in seq p ...`.  Three rewrites in
+optimize.mumble: `seq` of a constructor with no strict fields is its
+second argument (`seq-constructor`); a let-bound constructor's fields
+that are calls get variables of their own when the body selects from it,
+so the selection folds (`let-name-constructor-fields`); a binding
+demanded at once (`let v = e in seq v b`) has a `let` or `seq` around its
+value moved outside it (`let-float-strict-let`, `let-float-strict-seq`).
+`bench/compare-ghc -n 3`:
+
+```
+program        before   MB     after    MB     ratio
+statemonad      0.101   332    0.028   140     4.5x -> 1.3x
+```
+
+The other programs are unchanged.  make test 277; nofib
+imaginary/spectral 69 pass, real/gc/shootout 36 pass (12 SKIP);
+extensions 101/104; happy 166/166; optparse 100/100; darcs, husk,
+LambdaPi (3.22 s), Mini-TT (3.00 s) and cubicaltt (42/42, 98.6 s) match.

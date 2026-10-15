@@ -96,7 +96,7 @@ Revealed* (doc/optimizer/optimizer.dvi), describes it.
 | `INLINABLE` | Keep the unfolding for specialization without forcing inlining | **have** (2026-10-11), automatic: interfaces keep the value of every overloaded function up to 400 FLIC nodes (`specializable-value?`), like `-fexpose-all-unfoldings` limited to overloaded code | interface dump; see SPECIALIZE.md |
 | Phase control (`INLINE [1]`, rule phases) | Order inlining relative to rewrite rules | **partial**: foldr and build inline at fixed iterations (`*optimize-foldr-iteration*`, `*optimize-build-iteration*`) | optimize |
 | Beta reduction | `(\x -> e) a` becomes `let x = a in e` | **have**: `app-lambda-to-let` | optimize |
-| Case of known constructor | `case C a of C x -> e` becomes `e[a/x]` | **have**: `sel-fold-app`, `sel-fold-var`, `is-constructor-fold`, and `con-number-fold` | optimize |
+| Case of known constructor | `case C a of C x -> e` becomes `e[a/x]` | **have**: `sel-fold-app`, `sel-fold-var`, `is-constructor-fold`, and `con-number-fold`.  Since 2026-10-15 also for a let-bound constructor whose fields are calls (`let-name-constructor-fields` gives each such field a variable when the body selects from it), `seq` of a constructor with no strict fields (`seq-constructor`), and a binding demanded at once whose value is a `let` or a `seq` (`let-float-strict-let`, `let-float-strict-seq`, which move them outside it).  State's pairs then vanish: statemonad 0.10 s / 332 MB -> 0.023 s / 140 MB | optimize |
 | Case of case | Push an outer case into the branches of an inner one, with join points for the outer branches | **partial** (2026-10-11): `let v = if c then K… else … in if is-constructor/K v …` with a body of at most 60 nodes copies the body into both branches (`let-case-of-case`), so the test and the selections fold where the branch is a known constructor.  It turns a derived `traverse` in `Maybe` into GHC's code (no partial application of the constructor).  No join points, so larger bodies are left alone; `case-block` tests are not handled.  `YALE_HASKELL_NO_CASE_OF_CASE=1` turns it off | optimize: `optimize-flic-let-rewrite` |
 | Binder swap, case merging (`-fcase-merge`), case folding (`-fcase-folding`) | Clean up nested cases on the same scrutinee | **partial**: redundant and duplicate test removal in `case-block` | optimize |
 | Let floating (local) | Move `let` out of applications and into `case` branches | **have** (outward): `app-hoist-let`, `case-block-hoist-let`, `let-hoist-lambda`, `foldr-hoist-let` | optimize |
@@ -189,6 +189,9 @@ bench/RESULTS.md entry.
 4. **Worker/wrapper with CPR and unboxed returns** (CL `values`):
    EVAL-APPLY-GRIN.md §5.4 items 3–4.  Expected: State's `(a, s)` pairs
    (statemonad allocates 418 MB), `quotRem`, and `divMod` loops.
+   (2026-10-15: State's pairs inside an inlined `step` went with case
+   of known constructor instead, statemonad 4.5x -> 1.2x; what is left
+   for CPR is pairs returned across a call that is not inlined.)
 5. **Case of case** in FLIC (partial, 2026-10-11: `let-case-of-case`
    for an `if` over known constructors and a small body): cheap, and it
    compounds with inlining (`maybe`, `either`, `uncurry`, and `when`

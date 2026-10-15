@@ -1,0 +1,4 @@
+lazy fields: not evaluated
+strict field: evaluated
+(16,6)
+(55,11)

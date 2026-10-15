@@ -268,6 +268,10 @@
 			(cons bindings (dynamic *local-bindings*))
 			(dynamic *local-bindings*))))
       (optimize-flic-let-bindings bindings recursive? toplevel?)
+      (when (and (not recursive?) (not toplevel?))
+	(setf bindings
+	      (name-selected-constructor-fields bindings (flic-let-body object)))
+	(setf (flic-let-bindings object) bindings))
       (dynamic-let ((*local-bindings*
 		      (if (and (not recursive?) (not toplevel?))
 			  (cons bindings (dynamic *local-bindings*))
@@ -399,6 +403,33 @@
 	   (setf (flic-let-body object) inner-body)
 	   body))
 	((and (not recursive?)
+	      (strict-last-binding-floatable? bindings (flic-let-body object)))
+	 ;; let v = (let bs in e) in seq v b  =>  let bs; v = e in seq v b
+	 ;; let v = seq x e in seq v b        =>  seq x (let v = e in seq v b)
+	 ;; v is evaluated first, so this changes neither what is evaluated
+	 ;; nor in what order; what v's value hid (a pair built after a
+	 ;; seq, State's step) is then in reach of seq-constructor and the
+	 ;; selector folds.
+	 (let* ((v     (car (last bindings)))
+		(val   (var-value v))
+		(outer (butlast bindings)))
+	   (if (is-type? 'flic-let val)
+	       (begin
+		 (record-hack 'let-float-strict-let)
+		 (setf (flic-let-bindings object)
+		       (append outer (flic-let-bindings val) (list v)))
+		 (setf (var-value v) (flic-let-body val))
+		 object)
+	       (let ((args  (flic-app-args val)))
+		 (record-hack 'let-float-strict-seq)
+		 (setf (var-value v) (cadr args))
+		 (setf (flic-let-bindings object) (list v))
+		 (let ((seq  (make-flic-app (flic-app-fn val)
+					    (list (car args) object) '#t)))
+		   (if (null? outer)
+		       seq
+		       (make-flic-let outer seq '#f)))))))
+	((and (not recursive?)
 	      (case-of-case-let? bindings (flic-let-body object)))
 	 ;; let v = if c then K1 ... else K2 ... in if is-constructor/K v ...
 	 (record-hack 'let-case-of-case)
@@ -480,6 +511,14 @@
 		;; the arguments are invariant.
 		(incf (var-fn-referenced var))
 		(note-invariant-args new-args (flic-lambda-vars val)))
+	       ((and (eqv? n 2)
+		     (seq-var? var)
+		     (evaluated-constructor? (car new-args)))
+		;; seq (C e1 .. en) e  =>  e: building C evaluates nothing
+		;; (State's seq of a pair it has just built)
+		(record-hack 'seq-constructor)
+		(setf new-fn (cadr new-args))
+		(setf new-args '()))
 	       ((and (eqv? n 2)
 		     (seq-var? var)
 		     (is-type? 'flic-ref (car new-args))
@@ -1893,6 +1932,80 @@
 	     (eqv? (length args) (con-arity (flic-pack-con fn))))
 	(flic-pack-con fn)
 	'#f)))
+
+;;; let v = C e1 .. en in ... sel/C/i v ...: each ei that is not a
+;;; variable or a constant gets a variable of its own, bound before v, so
+;;; that the selection folds to it (optimize-flic-sel-aux); when every use
+;;; of v is folded away, v and the constructor go.  State's
+;;; let p = (f s, s) in ... fst p ... is the case.  Only when the body
+;;; selects from v: a field named for nothing would be inlined back.
+
+(define (name-selected-constructor-fields bindings body)
+  (let ((new  '()))
+    (dolist (v bindings)
+      (let ((val  (var-value v)))
+	(when (and (is-type? 'flic-app val)
+		   (is-constructor-app-prim? val)
+		   (lisp:some (lambda (a) (not (trivial-field? a)))
+			      (flic-app-args val))
+		   (flic-find (lambda (e)
+				(and (is-type? 'flic-sel e)
+				     (is-type? 'flic-ref (flic-sel-exp e))
+				     (eq? (flic-ref-var (flic-sel-exp e)) v)))
+			      body))
+	  (record-hack 'let-name-constructor-fields)
+	  (setf (flic-app-args val)
+		(map (lambda (a)
+		       (if (trivial-field? a)
+			   a
+			   (let ((tv  (init-flic-var (create-temp-var 'field) a '#f)))
+			     ;; its reference here, counted as the
+			     ;; bindings' references were
+			     (setf (var-referenced tv) 1)
+			     (setf (var-fn-referenced tv) 0)
+			     (push tv new)
+			     (make-flic-ref tv))))
+		     (flic-app-args val))))
+	(push v new)))
+    (reverse new)))
+
+;;; The last binding v of a non-recursive let whose body is seq v ...,
+;;; and v's value a non-recursive let or a seq.
+(define (strict-last-binding-floatable? bindings body)
+  (and (pair? bindings)
+       (seq-app? body)
+       (let ((first  (car (flic-app-args body)))
+	     (v      (car (last bindings))))
+	 (and (is-type? 'flic-ref first)
+	      (eq? (flic-ref-var first) v)
+	      (let ((val  (var-value v)))
+		(or (and (is-type? 'flic-let val)
+			 (not (flic-let-recursive? val)))
+		    (seq-app? val)))))))
+
+(define (trivial-field? exp)
+  (or (is-type? 'flic-ref exp)
+      (is-type? 'flic-const exp)
+      (is-type? 'flic-pack exp)))
+
+;;; Is EXP already in WHNF with nothing to evaluate: a constructor with no
+;;; strict fields applied to anything, a nullary constructor, a constant,
+;;; a lambda, or a variable bound to one of these.
+
+(define (evaluated-constructor? exp)
+  (or (evaluated-constructor-1? exp)
+      (and (is-type? 'flic-ref exp)
+	   (let ((val  (var-value (flic-ref-var exp))))
+	     (and val (evaluated-constructor-1? val))))))
+
+(define (evaluated-constructor-1? exp)
+  (or (is-type? 'flic-pack exp)
+      (is-type? 'flic-const exp)
+      (is-type? 'flic-lambda exp)
+      (and (is-type? 'flic-app exp)
+	   (let ((con  (is-constructor-app-prim? exp)))
+	     (and con
+		  (not (memq '#t (con-slot-strict? con))))))))
 
 (define (is-bound-to-constructor-app? var)
   (let ((val  (var-value var)))
