@@ -63,10 +63,23 @@
     (dolist (dir (lisp:funcall (lisp:find-symbol "SUBDIRECTORIES" "UIOP")
 			       (absolute-filename root)))
       (let ((name  (car (lisp:last (lisp:pathname-directory dir)))))
-	(when (and (string-starts? prefix name) (not (string=? name build)))
+	(when (or (and (string-starts? prefix name) (not (string=? name build)))
+		  (old-format-cache-name? prefix name))
 	  (lisp:ignore-errors
 	   (lisp:funcall (lisp:find-symbol "DELETE-DIRECTORY-TREE" "UIOP")
 			 dir ':validate '#t)))))))
+
+;;; A cache of this Lisp and dialect named before the place was in the
+;;; key: "sbcl-haskell98-<date>".
+(define (old-format-cache-name? prefix name)
+  (let* ((p     (lisp:position #\- prefix :end (1- (string-length prefix))
+			      :from-end '#t))
+	 (base  (and p (substring prefix 0 (1+ p)))))
+    (and base
+	 (string-starts? base name)
+	 (> (string-length name) (string-length base))
+	 (lisp:every (function lisp:digit-char-p)
+		     (substring name (string-length base) (string-length name))))))
 
 (define (unit-cache-root)
   (let ((dir   (getenv "YALE_HASKELL_CACHE_DIR"))
@@ -87,8 +100,11 @@
       dir
       (string-append dir "/")))
 
-;;; "sbcl-haskell98-<date>", from $PRELUDEBIN (build/<lisp>/<dialect>/
-;;; prelude) and the write date of the executable beside it.
+;;; "sbcl-haskell98-<place>-<date>", from $PRELUDEBIN (build/<lisp>/
+;;; <dialect>/prelude), a hash of where that build directory is, and the
+;;; write date of the executable beside it.  The place keeps two checkouts
+;;; (a worktree) from taking each other's caches for old builds of their
+;;; own and removing them, even while the other's programs use them.
 
 (define (unit-cache-build-key)
   (let ((pbin  (getenv "PRELUDEBIN")))
@@ -99,8 +115,17 @@
 		(exe    (string-append build "yale-haskell"))
 		(parts  (last-path-components build 2)))
 	   (and (file-exists? exe)
-		(format '#f "~A-~A-~A" (car parts) (cadr parts)
-			(file-write-date exe)))))))
+		(format '#f "~A-~A-~(~36R~)-~A" (car parts) (cadr parts)
+			(string-hash-32 build) (file-write-date exe)))))))
+
+;;; FNV-1a over the characters' codes: the same in every Lisp and session.
+(define (string-hash-32 s)
+  (let ((h  2166136261))
+    (dotimes (i (string-length s))
+      (setf h (lisp:logand (* (lisp:logxor h (char->integer (string-ref s i)))
+			      16777619)
+			   4294967295)))
+    h))
 
 ;;; The last N components of directory name DIR (ending in /).
 

@@ -630,3 +630,30 @@ Tried and dropped: making each string literal once at load time
 allocation and no time, since most literals are `"..." ++ rest`, which
 is converted per call (GHC's unpackAppendCString# is too).  make test
 277; darcs, husk and optparse match.
+
+## Reading Ints without span; length in constant stack (2026-10-16)
+
+ioloop's profile was `read` on each line: PreludeNumeric's decimal fast
+path took the digits with `span` (a pair and a copy of the digits per
+number).  It now accumulates the value as it reads.  `length` was
+`foldr (\x n -> 1 + n) 0`, a stack frame per element: a fused
+`length (filter even [1 .. 20000000])` ran out of the 512 MB control
+stack.  It is now a foldr passing the count along, as GHC's is, which
+still fuses (that program: no allocation, 0.008 s).  A program that does
+run out of stack now ends as GHC's does ("stack overflow", exit status
+2; heap exhaustion: exit status 251) instead of with a Lisp backtrace.
+`bench/compare-ghc -n 3`:
+
+```
+program        before   MB     after    MB     ratio
+ioloop          0.400   876    0.286   619     3.3x -> 2.2x
+```
+
+make test 280; nofib imaginary/spectral 69 pass, real/gc/shootout
+(--try-all) 40 pass; extensions 101/104; happy 166/166.
+
+Also: the unit cache's directory name now includes a hash of the build
+directory's place.  A second checkout (a git worktree) built later took
+the first one's cache for an old build of its own and removed it while
+nofib was running in the first, failing 12 programs with missing
+`-tmp` fasls.

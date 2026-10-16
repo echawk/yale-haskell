@@ -92,7 +92,10 @@ genericLength l         = foldr (\ x n -> 1 + n) 0 l
 
 
 length			:: [a] -> Int
-length l		= foldr (\ x n -> 1 + n) 0 l
+-- a foldr that still fuses with build, passing the count along as GHC's
+-- does: as foldr (\x n -> 1 + n) 0 it took a stack frame per element,
+-- and a list of ten million ran out of stack
+length l		= foldr (\ x k n -> n `seq` k (n + 1)) id l 0
 --length []               = 0
 --length (x:xs)           = 1 + length xs
 {-# length :: Inline #-}

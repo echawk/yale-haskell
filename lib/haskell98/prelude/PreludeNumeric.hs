@@ -161,15 +161,18 @@ readSignedDec r =
                              (ds,t) | numberEnds t ->
                                         [(sign (foldl (\n d -> n * b + fromIntegral (digitToInt d)) 0 ds), t)]
                              _ -> []
-    fast sign s = case span isDigit s of
-                    (ds,t) | numberEnds t -> [(sign (decValue 0 ds), t)]
-                           | otherwise    -> readSigned readDec r
+    -- the digits' value accumulated as they are read (no span: its
+    -- pair and the copied digits were most of ioloop's reading)
+    fast sign s = decValue sign 0 s
     numberEnds ('.':c:_) = not (isDigit c)
     numberEnds (e:_)     = e /= 'e' && e /= 'E'
     numberEnds []        = True
-    decValue n []        = n
-    decValue n (d:ds)    = let n' = n * 10 + fromIntegral (ord d - ord '0')
-                           in n' `seq` decValue n' ds
+    decValue sign n (d:ds)
+      | isDigit d = let n' = n * 10 + fromIntegral (ord d - ord '0')
+                    in n' `seq` decValue sign n' ds
+    decValue sign n t
+      | numberEnds t = [(sign n, t)]
+      | otherwise    = readSigned readDec r
 
 -- readInt reads a string of digits using an arbitrary base.  
 -- Leading minus signs must be handled elsewhere.

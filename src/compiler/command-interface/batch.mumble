@@ -50,6 +50,16 @@
 					  (lisp:find-symbol "PRINT-BACKTRACE" "SB-DEBUG")
 					  ':count 40 ':stream (debug-stream))))))))
 	       (if (funcall thunk) 0 1))
+	   ;; not errors: GHC's messages and exit statuses
+	   #+sbcl
+	   (sb-kernel::control-stack-exhausted ()
+	     (lisp:force-output)
+	     (lisp:format lisp:*error-output* "~&yale-haskell: stack overflow~%")
+	     2)
+	   (lisp:storage-condition ()
+	     (lisp:force-output)
+	     (lisp:format lisp:*error-output* "~&yale-haskell: out of memory~%")
+	     251)
 	   (lisp:error (c)
 	     (lisp:force-output)
 	     (lisp:format lisp:*error-output* "~&yale-haskell: ~a~%" (describe-condition c))
