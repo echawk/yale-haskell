@@ -717,3 +717,33 @@ tagged vector, since SBCL/arm64 allocates every vector through
 ALLOCATE-VECTOR-ON-HEAP (7% of mapcount's profile).  20M allocations of
 six slots take 0.09-0.13 s as vectors and 0.13 s as structs: the call is
 where the allocation is paid, not an extra cost.
+
+## Mumble's CL synonyms compile as the CL functions (2026-10-16)
+
+`define-mumble-synonym` (src/mumble/cl-support.lisp) made `mumble::vector`
+and 60-odd others share the CL function's definition, but a call
+compiled as a full call of the synonym, so the host's transforms never
+applied: every constructor of two or more fields (`make-tagged-data`
+expands to `(vector tag ...)`) was a full call of VECTOR through its
+&rest list (7.8% of mapcount's profile).  A compiler macro now rewrites
+a call to the CL function, as the Lucid branch did with
+`def-compiler-macro`; the stream functions, which mumble also applies to
+its own pretty-printer streams, keep their calls.  Interleaved A/B, best
+of 5 (the machine was loaded by other jobs):
+
+```
+program        before   after
+mapcount        1.006   0.945   -6.1%
+textproc        0.325   0.301   -7.4%
+interp          0.121   0.115   -5.0%
+tree            0.352   0.343   -2.6%
+nfib            0.662   0.648   -2.1%
+foldable        0.457   0.454   -0.7%
+bigint          0.181   0.183   +1.1%
+```
+
+LambdaPi's compile time is unchanged (3.9-4.5 s either way).  make test
+283; nofib 69 + 40; extensions 101/104; happy 166/166; optparse
+100/100; darcs, husk, typecheckers, cubicaltt match.  ECL: see
+doc/plans/PORTABILITY.md (its build had been broken since 59a1ecb and
+is fixed here).

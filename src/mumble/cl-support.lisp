@@ -80,6 +80,13 @@
 ;;; is a synonym for some Common Lisp function.  Try to do some stuff
 ;;; to make the function compile inline.
 
+;;; Mumble also applies these to its own pretty-printer streams (xp in
+;;; pprint.mumble), which the CL functions' declared types do not allow.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter *synonyms-kept-as-calls*
+    '(close write-char terpri fresh-line finish-output force-output
+      clear-output input-stream-p output-stream-p)))
+
 (defmacro define-mumble-synonym (name cl-name)
   `(progn
      (eval-when (:compile-toplevel :load-toplevel :execute) (export (list ',name) "MUMBLE"))
@@ -87,9 +94,18 @@
      ;; resolved (by calling sys::resolve) before being copied.
      #+abcl (sys::resolve ',cl-name)
      (setf (symbol-function ',name) (symbol-function ',cl-name))
+     ;; A call compiles as a call of the CL function itself, so that the
+     ;; host's transforms and inline expansions apply: without this,
+     ;; (vector tag a b) in generated code (make-tagged-data) was a full
+     ;; call of VECTOR through its &rest list, which SBCL compiles as an
+     ;; inline allocation when it sees CL:VECTOR.
 #+lcl
      (lcl:def-compiler-macro ,name (&rest args)
        (cons ',cl-name args))
+#-lcl
+     ,@(unless (member cl-name *synonyms-kept-as-calls*)
+	 `((define-compiler-macro ,name (&rest args)
+	     (cons ',cl-name args))))
      ',name))
 
 

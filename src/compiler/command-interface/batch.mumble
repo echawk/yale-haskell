@@ -56,6 +56,9 @@
 	     (lisp:force-output)
 	     (lisp:format lisp:*error-output* "~&yale-haskell: stack overflow~%")
 	     2)
+	   ;; (only SBCL's: ECL's stack overflow is a storage condition it
+	   ;; recovers from by growing the stack)
+	   #+sbcl
 	   (lisp:storage-condition ()
 	     (lisp:force-output)
 	     (lisp:format lisp:*error-output* "~&yale-haskell: out of memory~%")

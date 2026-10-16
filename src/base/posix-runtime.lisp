@@ -10,14 +10,26 @@
 
 #+sbcl (cl:require :sb-posix)
 
+;;; Elsewhere a stand-in SB-POSIX package exporting the names used here,
+;;; so that this file reads (ECL failed on it since 59a1ecb); the bodies
+;;; that call them are never run there.
+#-sbcl
+(cl:eval-when (:compile-toplevel :load-toplevel :execute)
+  (cl:unless (cl:find-package "SB-POSIX")
+    (cl:make-package "SB-POSIX" :use '()))
+  (cl:export (cl:mapcar (cl:lambda (n) (cl:intern n "SB-POSIX"))
+			'("CHMOD" "CLOSE" "DUP" "DUP2" "F-GETFD" "F-GETFL" "F-SETFD" "F-SETFL" "FCNTL" "FSTAT" "GETPID" "KILL" "LINK" "LSTAT" "O-APPEND" "O-CREAT" "O-EXCL" "O-NOCTTY" "O-NONBLOCK" "O-RDONLY" "O-RDWR" "O-SYNC" "O-TRUNC" "O-WRONLY" "OPEN" "S-IFDIR" "S-IFIFO" "S-IFLNK" "S-IFMT" "S-IFREG" "STAT" "STAT-ATIME" "STAT-MODE" "STAT-MTIME" "STAT-SIZE" "SYMLINK" "SYSCALL-ERRNO" "SYSCALL-ERROR" "UTIMES"))
+	     "SB-POSIX"))
+
 (cl:defmacro with-posix-errors ((location cl:&optional path) cl:&body body)
   #+sbcl
   `(cl:handler-case (cl:progn ,@body)
      (sb-posix:syscall-error (c)
        (raise-errno-error (sb-posix:syscall-errno c) ,location ,path)))
   #-sbcl
-  `(cl:progn ,(cl:first body)
-	     (raise-io-error 'other ,location "not supported on this Lisp" ,path)))
+  (cl:progn
+    body
+    `(raise-io-error 'other ,location "not supported on this Lisp" ,path)))
 
 ;;; File status: an sb-posix stat object, read by the accessors below.
 

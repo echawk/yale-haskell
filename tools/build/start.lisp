@@ -19,6 +19,12 @@
   (setf *default-pathname-defaults* cwd)
   #+ecl (ext:chdir cwd))
 
+;; Quiet loads while the program runs too: a cached unit's load would
+;; otherwise print ";;; Loading ..." on the program's standard output
+;; (the build turns *load-verbose* on, src/mumble/cl-init.lisp).
+(setf *load-verbose* nil
+      *compile-verbose* nil)
+
 (funcall (find-symbol "MAIN" "YALE-HASKELL-CLI")
          ;; the arguments after --, which the launcher passes
          (rest (member "--" #+ecl ext:*command-args*

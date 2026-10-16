@@ -4,6 +4,35 @@ Mumble is about 2,700 lines of CL macros and packages
 (src/mumble/cl-*.lisp); the compiler is ordinary code on top.  Porting
 is mostly a matter of finding the SBCL-specific bits.
 
+## ECL check of 2026-10-16 (partial)
+
+The ECL build had been broken since 59a1ecb (System.Posix): its
+`src/base/posix-runtime.lisp` names `sb-posix:` symbols the reader
+cannot read elsewhere.  It now defines a stand-in SB-POSIX package
+exporting those names on other Lisps (their bodies never run there).
+Two more fixes for ECL: `tools/build/start.lisp` turns `*load-verbose*`
+off before running the program (a cached unit's load printed `;;;
+Loading ...` on standard output, failing 165 tests), and batch mode
+handles storage conditions only on SBCL (ECL's stack overflow is one it
+recovers from by growing the stack).
+
+The last full ECL run, before the storage-condition fix: 253 of 283.  Of
+its 30 failures, deep-recursion, tail-calls, length-long,
+sum-product-double and cputime pass after the fix (checked one by one;
+the full rerun was stopped, as it took the machine's CPUs).  Still
+failing on ECL:
+- SBCL-only by design: ffi/callbacks, ffi/callback-types (CFFI
+  callbacks), language/int-wrap and from-integral-wrap
+  (`mask-signed-field`), system/process, system/stack-overflow
+  (segfaults, exit 139, instead of reporting);
+- timeouts at 120 s (ECL compiles slowly): ffi/foreign-2010,
+  ffi/marshalling, language/arrows, rank-n, specialize, lib/base-refs,
+  containers, data-graph, intmap-negative;
+- not yet looked at: show-integral, arith-exception, base-fold,
+  base-mods, data-bytestring, hashmap, scientific, repl/session,
+  pattern-signatures, system/directory (exit 1; its fixed /tmp
+  directory also collides with a concurrent SBCL run).
+
 ## Status (2026-10-09)
 
 | Lisp | Builds | Tests | Startup |
