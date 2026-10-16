@@ -403,32 +403,46 @@
 (define-integrable *haskell-string-chunk* 32)
 
 (define (haskell-string-from string start size tail)
-  (declare (type string string) (type fixnum start size))
+  (declare (type fixnum start size))
   (let* ((end   (min size (+ start *haskell-string-chunk*)))
 	 (rest  (if (eqv? end size)
 		    tail
 		    (make-thunk
 		     (lambda () (haskell-string-from string end size tail))))))
     (declare (type fixnum end))
-    (do ((i  (1- end) (1- i))
-	 (l  rest (cons (char->integer (string-ref string i)) l)))
-	((< i start) l)
-      (declare (type fixnum i)))))
+    ;; one loop per string representation: a generic string access
+    ;; goes through the array header for every character
+    (lisp:macrolet ((chunk (type)
+		      `(let ((s  string))
+			 (declare (type ,type s))
+			 (do ((i  (1- end) (1- i))
+			      (l  rest (cons (char->integer (lisp:schar s i)) l)))
+			     ((< i start) l)
+			   (declare (type fixnum i))))))
+      (lisp:typecase string
+	((lisp:simple-array lisp:character (lisp:*))
+	 (chunk (lisp:simple-array lisp:character (lisp:*))))
+	(lisp:simple-base-string (chunk lisp:simple-base-string))
+	(lisp:t
+	 (do ((i  (1- end) (1- i))
+	      (l  rest (cons (char->integer (string-ref string i)) l)))
+	     ((< i start) l)
+	   (declare (type fixnum i))))))))
 
 
 (define (haskell-string->string s)
   (let ((length  0))
     (declare (type fixnum length))
-    (do ((s s (force (cdr s))))
+    (do ((s s (force-inline (cdr s))))
 	((null? s))
 	(setf length (+ length 1)))
     (let ((result  (make-string length)))
-      (declare (type string result))
+      (declare (type (lisp:simple-array lisp:character (lisp:*)) result))
       (do ((s s (unbox (cdr s)))
 	   (i 0 (+ i 1)))
 	  ((null? s))
 	  (declare (type fixnum i))
-	  (setf (string-ref result i) (integer->char (force (car s)))))
+	  (setf (lisp:schar result i) (integer->char (force-inline (car s)))))
       result)))
 
 

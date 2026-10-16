@@ -123,9 +123,30 @@
 	    (b (cl:max a (cl:min end n))))
     (cl:if (cl:and (cl:= a 0) (cl:= b n)) s (cl:subseq s a b))))
 
+;;; The position of NEEDLE in HAY at or after START, or nil: CL's search
+;;; on strings is generic (an element access through the array header
+;;; per comparison, a third of textproc's searching time).
+(cl:declaim (cl:inline text-find))
+(cl:defun text-find (needle hay start)
+  (with-text-speed
+    (cl:let* ((needle needle) (hay hay) (start start)
+	      (m (cl:length needle))
+	      (last (cl:- (cl:length hay) m)))
+      (cl:declare (text needle hay) (cl:fixnum start m last))
+      (cl:cond ((cl:> start last) cl:nil)
+	       ((cl:= m 0) start)
+	       (cl:t
+		(cl:let ((c0 (cl:schar needle 0)))
+		  (cl:loop for i of-type cl:fixnum from start to last
+			   when (cl:and (cl:char= (cl:schar hay i) c0)
+					(cl:loop for j of-type cl:fixnum from 1 below m
+						 always (cl:char= (cl:schar hay (cl:+ i j))
+								  (cl:schar needle j))))
+			     return i)))))))
+
 ;;; Searching: the position of NEEDLE in HAY at or after START, or -1.
 (cl:defun prim.text-search (needle hay start)
-  (cl:or (cl:search (cl:the text needle) (cl:the text hay) :start2 start) -1))
+  (cl:or (text-find needle hay start) -1))
 
 (cl:defun prim.text-is-prefix (a b)
   (cl:let ((la (cl:length a)))
@@ -136,19 +157,19 @@
     (cl:and (cl:<= la lb) (cl:string= a b :start2 (cl:- lb la)))))
 
 (cl:defun prim.text-is-infix (a b)
-  (cl:if (cl:search (cl:the text a) (cl:the text b)) cl:t cl:nil))
+  (cl:if (text-find a b 0) cl:t cl:nil))
 
 ;;; Non-overlapping occurrences of NEEDLE (not empty)
 (cl:defun prim.text-count (needle hay)
   (cl:let ((n (cl:length needle)))
-    (cl:loop for i = (cl:search needle hay) then (cl:search needle hay :start2 (cl:+ i n))
+    (cl:loop for i = (text-find needle hay 0) then (text-find needle hay (cl:+ i n))
 	     while i count cl:t)))
 
 (cl:defun prim.text-replace (needle rep hay)
   (cl:let ((n (cl:length needle))
 	   (parts '())
 	   (start 0))
-    (cl:loop for i = (cl:search needle hay :start2 start)
+    (cl:loop for i = (text-find needle hay start)
 	     while i
 	     do (cl:push (cl:subseq hay start i) parts)
 		(cl:push rep parts)
@@ -163,7 +184,7 @@
   (cl:let ((n (cl:length sep))
 	   (parts '())
 	   (start 0))
-    (cl:loop for i = (cl:search sep s :start2 start)
+    (cl:loop for i = (text-find sep s start)
 	     while i
 	     do (cl:push (cl:subseq s start i) parts)
 		(cl:setf start (cl:+ i n)))
@@ -224,10 +245,14 @@
 	       (cl:code-char (force (apply-1 f (cl:char-code (cl:schar s i)))))))))
 
 (cl:defun prim.text-filter (p s)
-  (cl:let ((out (cl:make-string-output-stream)))
-    (cl:loop for c across (cl:the text s)
-	     when (call-pred p c) do (cl:write-char c out))
-    (text-from-string (cl:get-output-stream-string out))))
+  (cl:let* ((s s) (n (cl:length s)) (out (new-text n)) (k 0))
+    (cl:declare (text s out) (cl:fixnum n k))
+    (cl:loop for i of-type cl:fixnum from 0 below n
+	     do (cl:let ((c (cl:schar s i)))
+		  (cl:when (call-pred p c)
+		    (cl:setf (cl:schar out k) c)
+		    (cl:incf k))))
+    (cl:if (cl:= k n) out (cl:subseq out 0 k))))
 
 ;;; The length of the longest prefix whose characters satisfy P, and of
 ;;; the longest such suffix.

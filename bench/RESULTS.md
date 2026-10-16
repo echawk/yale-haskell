@@ -607,3 +607,26 @@ The other programs are unchanged.  make test 277; nofib
 imaginary/spectral 69 pass, real/gc/shootout 36 pass (12 SKIP);
 extensions 101/104; happy 166/166; optparse 100/100; darcs, husk,
 LambdaPi (3.22 s), Mini-TT (3.00 s) and cubicaltt (42/42, 98.6 s) match.
+
+## Text search, filter and string conversion loops (2026-10-15)
+
+textproc's profile: CL `search` on strings is generic (an element access
+through the array header per comparison), `T.filter` built a string
+output stream per call, and the Lisp string <-> Haskell list conversions
+(`haskell-string-from`, `haskell-string->string`) accessed characters
+generically and called `force` out of line.  Now a `schar` loop at speed
+3 (`text-find` in text-runtime.lisp, used by search, isInfixOf, count,
+replace and splitOn), a filter into a preallocated text, and conversion
+loops specialised to the string's representation with `force-inline`.
+`bench/compare-ghc -n 3`:
+
+```
+program        before   MB     after    MB     ratio
+textproc        0.426   432    0.263   430     4.2x -> 2.5x
+```
+
+Tried and dropped: making each string literal once at load time
+(`load-time-value`, as GHC floats literals to CAFs): 15 MB less
+allocation and no time, since most literals are `"..." ++ rest`, which
+is converted per call (GHC's unpackAppendCString# is too).  make test
+277; darcs, husk and optparse match.
