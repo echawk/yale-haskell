@@ -334,6 +334,9 @@
 			 (is-type? 'flic-lambda val)
 			 (or (is-foldr-or-build-app? (flic-lambda-body val))))
 		(setf (var-inline-value var) (copy-flic-top val)))
+	      ;; An alias of an Inline function is Inline too.
+	      (when (top-level-alias-of-inline? var val)
+		(setf (var-force-inline? var) '#t))
 	      ;; Then walk value normally.
 	      (let ((new-val  (optimize val)))
 		(setf (var-value var) new-val)
@@ -346,6 +349,22 @@
 				 toplevel?))))))
 	  ))))
 
+
+;;; VAL, the value of top-level VAR, is a top-level function marked
+;;; Inline: a one-method class's dictionary is its method
+;;; (dict-Functor-Maybe = i-Functor-Maybe-fmap), which is inlined into
+;;; it, after which the dictionary was neither simple nor saved for other
+;;; modules, so a specialised traverse in Maybe called it with a partial
+;;; application of (:) (foldable).
+
+(define (top-level-alias-of-inline? var val)
+  (and (var-toplevel? var)
+       (not (var-force-inline? var))
+       (is-type? 'flic-ref val)
+       (let ((w  (flic-ref-var val)))
+	 (and (not (eq? w var))
+	      (var-toplevel? w)
+	      (var-force-inline? w)))))
 
 (define (is-foldr-or-build-app? exp)
   (typecase exp

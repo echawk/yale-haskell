@@ -657,3 +657,24 @@ directory's place.  A second checkout (a git worktree) built later took
 the first one's cache for an old build of its own and removed it while
 nofib was running in the first, failing 12 programs with missing
 `-tmp` fasls.
+
+## One-method dictionaries inline as their method (2026-10-16)
+
+A one-method class's dictionary is its method (a 1-tuple):
+`dict-Functor-Maybe = i-Functor-Maybe-fmap`.  The method, marked
+Inline, was inlined into the dictionary, which was then neither simple
+nor saved in the interface; a specialised derived `traverse` in Maybe
+called it with a partial application of `(:)` per element (foldable's
+`MAKE-PAP`).  A top-level alias of an Inline function is now Inline
+itself (`top-level-alias-of-inline?`), and the traverse becomes GHC's
+code.  `bench/compare-ghc -n 3` (machine loaded; GHC's own times were
+up by a third, so the ratio is the measure):
+
+```
+program        before   MB     after    MB     ratio
+foldable        0.588  1199    0.546  1046     2.8x -> 1.9x
+```
+
+make test 280; nofib 69 + 40; extensions 101/104; happy 166/166;
+optparse 100/100; darcs, husk, LambdaPi, Mini-TT, cubicaltt (42/42)
+match.
