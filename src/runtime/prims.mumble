@@ -469,8 +469,20 @@
 (define (prim.encode-float m e)
   (lisp:scale-float (lisp:coerce m 'lisp:single-float) (the-fixnum e)))
 
-(define (prim.encode-double m e)
+(define (encode-double m e)
   (lisp:scale-float (lisp:coerce m 'lisp:double-float) (the-fixnum e)))
+
+;;; fromIntegral :: Int -> Double is primEncodeDouble (primIntToInteger
+;;; i) 0: with exponent 0 a fixnum mantissa converts in one instruction
+;;; instead of a call doing a generic coerce and scale-float.
+(define-syntax (prim.encode-double m e)
+  (if (eqv? e 0)
+      (let ((temp  (gensym)))
+	`(let ((,temp ,m))
+	   (if (lisp:typep ,temp 'lisp:fixnum)
+	       (lisp:coerce (the-fixnum ,temp) 'lisp:double-float)
+	       (encode-double ,temp 0))))
+      `(encode-double ,m ,e)))
 
 
 ;;; Integral

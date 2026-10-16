@@ -449,6 +449,16 @@
 		       seq
 		       (make-flic-let outer seq '#f)))))))
 	((and (not recursive?)
+	      (dynamic *float-into-if?*)
+	      (float-into-if? bindings (flic-let-body object)))
+	 ;; let v = e in if c then a else b, v not in c  =>
+	 ;; if c then (let v = e in a) else (let v' = e' in b)
+	 ;; Only one branch runs, so e is not computed twice; a branch that
+	 ;; uses v once in tail position then calls e directly instead of
+	 ;; building its thunk (queens: the rest of a comprehension's list).
+	 (record-hack 'let-float-into-if)
+	 (do-float-into-if object bindings))
+	((and (not recursive?)
 	      (case-of-case-let? bindings (flic-let-body object)))
 	 ;; let v = if c then K1 ... else K2 ... in if is-constructor/K v ...
 	 (record-hack 'let-case-of-case)
@@ -2001,6 +2011,54 @@
 		(or (and (is-type? 'flic-let val)
 			 (not (flic-let-recursive? val)))
 		    (seq-app? val)))))))
+
+;;; Float-in of a let into the branches of the if that is its body (GHC's
+;;; FloatIn, here with copying: an if has two branches and the binding is
+;;; small).  The last binding moves, when the test does not use it and
+;;; its value is a call of at most *float-into-if-max-size* nodes.
+
+(define *float-into-if?* '#t)
+(define *float-into-if-max-size* 12)
+
+(define (float-into-if? bindings body)
+  (and (pair? bindings)
+       (is-type? 'flic-if body)
+       (let* ((v    (car (last bindings)))
+	      (val  (var-value v)))
+	 (and (is-type? 'flic-app val)
+	      (not (is-type? 'flic-pack (flic-app-fn val)))
+	      (<= (flic-size val *float-into-if-max-size*)
+		  *float-into-if-max-size*)
+	      (not (flic-references? (flic-if-test-exp body) v))
+	      (or (flic-references? (flic-if-then-exp body) v)
+		  (flic-references? (flic-if-else-exp body) v))))))
+
+(define (flic-references? exp v)
+  (flic-find (lambda (e) (and (is-type? 'flic-ref e) (eq? (flic-ref-var e) v)))
+	     exp))
+
+(define (do-float-into-if object bindings)
+  (let* ((v      (car (last bindings)))
+	 (outer  (butlast bindings))
+	 (if-exp (flic-let-body object))
+	 (then   (flic-if-then-exp if-exp))
+	 (else   (flic-if-else-exp if-exp))
+	 (in-then? (flic-references? then v))
+	 (in-else? (flic-references? else v)))
+    (setf (flic-if-then-exp if-exp)
+	  (if in-then?
+	      (if in-else?
+		  (copy-flic-top (make-flic-let (list v) then '#f))
+		  (make-flic-let (list v) then '#f))
+	      then))
+    (when in-else?
+      (setf (flic-if-else-exp if-exp) (make-flic-let (list v) else '#f)))
+    (if (null? outer)
+	if-exp
+	(begin
+	  (setf (flic-let-bindings object) outer)
+	  (setf (flic-let-body object) if-exp)
+	  object))))
 
 (define (trivial-field? exp)
   (or (is-type? 'flic-ref exp)

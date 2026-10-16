@@ -124,7 +124,10 @@
 	   (every-1 (function grin-lit?) (grin-call-args node))
 	   (every-1 (lambda (a) (integer? (grin-lit-value a))) (grin-call-args node)))
       (let ((value  (lisp:ignore-errors
-		     (lisp:funcall (lisp:symbol-function (grin-call-fn node))
+		     ;; prim.encode-double is a macro over encode-double
+		     (lisp:funcall (if (eq? (grin-call-fn node) 'prim.encode-double)
+				       (function encode-double)
+				       (lisp:symbol-function (grin-call-fn node)))
 				   (grin-lit-value (car (grin-call-args node)))
 				   (grin-lit-value (cadr (grin-call-args node)))))))
 	(if (float? value)

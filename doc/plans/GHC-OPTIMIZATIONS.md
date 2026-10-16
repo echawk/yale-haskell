@@ -116,7 +116,7 @@ Revealed* (doc/optimizer/optimizer.dvi), describes it.
 |---|---|---|---|
 | **Specialise** (`-fspecialise`, `-fcross-module-specialise`, `SPECIALISE`) | Copy an overloaded function for the dictionaries it is called with, recursion included | **have** (2026-10-11): automatic, within and across modules, with a memo table closing over recursion; no `SPECIALISE` pragma.  mapcount 3.6× → 2.2×, statemonad 6.3× → 4.1× | inside optimize: `try-to-specialize`; **doc/plans/SPECIALIZE.md** |
 | Full laziness / float out (`-ffull-laziness`) | Float `let`s out of lambdas so they are computed once (to the top level as CAFs) | **partial**: structured constants (`let-hoist-structured-constant`, `app-hoist-structured-constant`) are floated to the top level.  General float-out is missing.  It can cost space (GHC turns it off with `-fno-full-laziness` for that reason), so float only cheap or constant expressions first | optimize (a separate walk after the first iterations), before strictness |
-| Float in (`-ffloat-in`) | Move a `let` into the only branch that uses it, so it is not allocated on the other paths | **missing**.  Box analysis then sees the binding as strict in that branch more often | optimize, a walk before strictness |
+| Float in (`-ffloat-in`) | Move a `let` into the only branch that uses it, so it is not allocated on the other paths | **partial** (2026-10-16): `let-float-into-if` moves a non-recursive let whose value is a call of at most 12 nodes into the branches of the `if` that is its body, when the test does not use it, copying it when both branches do (only one runs).  A branch using it once in tail position then calls it directly instead of building a thunk: queens 715 -> 123 MB (GHC 116 MB), 2.6x -> 0.8x.  `case-block` branches and larger bindings are not handled | optimize: `optimize-flic-let-rewrite` |
 | Static argument transformation (`-fstatic-argument-transformation`) | A recursive function's unchanging argument becomes a free variable of a local loop | **have** (Yale did this in 1993): invariant-argument removal (`let-hoist-invariant-args`, `note-invariant-args`), the `dropWhile isSpace` example in Loosemore's note | optimize |
 | Liberate case (`-fliberate-case`) | Unroll a recursive function once so that a case on a free variable happens outside the loop | **missing** | optimize |
 | SpecConstr (`-fspec-constr`, `-O2`) | Specialise a recursive function for the constructor shapes of its arguments at its recursive calls (no allocation of the `Just`/tuple each iteration) | **missing**.  The candidates are queens (a thunk and a cons per element) and accumulators in tuples | after strictness (it needs to know the argument is evaluated), or in optimize with its own shape analysis; a later step than SPECIALIZE, sharing its copying machinery |
@@ -198,7 +198,7 @@ bench/RESULTS.md entry.
    over a comparison).  Join points would let it handle larger bodies.
 6. **SpecConstr** after Specialise, sharing its copy-and-memo
    machinery: queens and list-comprehension generators.
-7. **Float in**, then a conservative **full laziness** (constant
+7. **Float in** (started 2026-10-16: into `if` branches, above), then a conservative **full laziness** (constant
    expressions only), and **CSE**.
 8. **Usage analysis and update avoidance**; **eager selection** of
    fields of evaluated tuples (the selector-thunk leak).  **One-shot

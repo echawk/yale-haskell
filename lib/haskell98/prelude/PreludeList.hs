@@ -408,8 +408,11 @@ notElem	x y		=  not (x `elem` y)
 
 -- sum and product compute the sum or product of a finite list of numbers.
 sum, product		:: (Num a) => [a] -> a
-sum			=  foldl (+) 0	
-product			=  foldl (*) 1
+-- foldrs passing a strict accumulator along, as length: they fuse with
+-- a build producer (a comprehension, map, [a .. b]), where foldl does
+-- not, and do not build a chain of (+) thunks; GHC's are strict too
+sum l			=  foldr (\ x k n -> n `seq` k (n + x)) id l 0
+product l		=  foldr (\ x k n -> n `seq` k (n * x)) id l 1
 {-# sum :: Inline #-}
 {-# product :: Inline #-}
 

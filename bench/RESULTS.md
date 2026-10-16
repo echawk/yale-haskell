@@ -678,3 +678,42 @@ foldable        0.588  1199    0.546  1046     2.8x -> 1.9x
 make test 280; nofib 69 + 40; extensions 101/104; happy 166/166;
 optparse 100/100; darcs, husk, LambdaPi, Mini-TT, cubicaltt (42/42)
 match.
+
+## Float-in to if branches, fusing sum/product, int-to-double (2026-10-16)
+
+- `let-float-into-if` (optimize.mumble): `let v = e in if c then a else
+  b`, `v` not in `c` and `e` a call of at most 12 nodes, moves `v` into
+  the branches (copied when both use it; one runs).  queens' generator
+  built a thunk for the rest of the list for every candidate; the
+  rejected ones now call it directly.
+- `sum` and `product` are foldrs passing a strict accumulator, as
+  `length`: they fuse with a producer (existential's `sum [area s |
+  AnyShape s <- shapes]` no longer builds its list) and are strict, as
+  GHC's are.
+- `prim.encode-double` with exponent 0 (`fromIntegral :: Int ->
+  Double`) converts a fixnum in one instruction instead of a call doing
+  a generic coerce and scale-float.
+- `floatToDigits` had two slips from the Report: the boundary case for
+  a power of two with a non-negative exponent used `b` where GHC uses
+  `b^e`, and the 3/10 estimate of the decimal exponent could be one too
+  high below 1, giving a leading zero digit.  `show` on 185 Doubles and
+  Floats across the range now matches GHC (35 differed).
+
+`bench/compare-ghc -n 5` (machine loaded by other jobs; ratios):
+
+```
+program        before   MB     after    MB     ratio
+queens          0.427   715    0.146   123     2.6x -> 0.8x  (GHC 116 MB)
+existential     0.085   190    0.029    85     3.1x -> 1.0x
+foldable        0.546  1046    0.484   969     1.9x -> 1.5x
+ioloop          0.269   619    0.294   597     2.2x -> 1.7x
+```
+
+make test 283; nofib 69 + 40; extensions 101/104; happy 166/166;
+optparse 100/100; darcs, husk, LambdaPi, Mini-TT and cubicaltt match.
+
+Measured and not built: one struct per constructor arity instead of a
+tagged vector, since SBCL/arm64 allocates every vector through
+ALLOCATE-VECTOR-ON-HEAP (7% of mapcount's profile).  20M allocations of
+six slots take 0.09-0.13 s as vectors and 0.13 s as structs: the call is
+where the allocation is paid, not an extra cost.

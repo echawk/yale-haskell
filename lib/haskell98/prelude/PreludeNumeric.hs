@@ -317,8 +317,11 @@ floatToDigits base x =
         (r, s, mUp, mDn) =
            if e >= 0 then
                let be = b^e in
+               -- the Report has b for the last component, which gives
+               -- digits that are not the shortest (show (2^70 :: Double):
+               -- 1.1805916207174114e21 for GHC's ...113e21); GHC's be
                if f == b^(p-1) then
-                   (f*be*b*2, 2*b, be*b, b)
+                   (f*be*b*2, 2*b, be*b, be)
                else
                    (f*be*2, 2, be, be)
            else
@@ -329,11 +332,14 @@ floatToDigits base x =
         k = 
             let k0 =
                     if b==2 && base==10 then
-                        -- logBase 10 2 is slightly bigger than 3/10 so
-                        -- the following will err on the low side.  Ignoring
-                        -- the fraction will make it err even more.
-                        -- Haskell promises that p-1 <= logBase b f < p.
-                        (p - 1 + e0) * 3 `div` 10
+                        -- The Report's (p - 1 + e0) * 3 `div` 10 can be
+                        -- one too high for x below 1 (2^^(-990) showed as
+                        -- 0.9556619453472961e-298), and fixup only raises
+                        -- it.  GHC's base uses 8651/28738, just under
+                        -- logBase 10 2, which stays low enough (GHC.Float).
+                        let lx = p - 1 + e0
+                            k1 = (lx * 8651) `quot` 28738
+                        in  if lx >= 0 then k1 + 1 else k1
                     else
                         ceiling ((log (fromInteger (f+1)) + 
                                  fromIntegral e * log (fromInteger b)) / 
