@@ -1,0 +1,5 @@
+(Compose [Just 2,Nothing,Just 4],4,2)
+Just (Compose [Just 1,Nothing,Just 3])
+(True,Compose [Just ('a','b')])
+(Pair ["1","2"] (Just "3"),6)
+(InL (Just 'x'),InR "bc")

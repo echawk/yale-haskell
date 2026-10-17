@@ -19,6 +19,14 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.10.0 (2026-10-17)
+
+- Foldable has base's `fold` and `foldMap'` methods (Data.Foldable
+  exports them; the Prelude does not, as base's does not).  An instance
+  defining `fold` (tagged) was an error.
+- New modules: Data.Functor.Compose, Data.Functor.Product,
+  Data.Functor.Sum, Control.Monad.ST.Lazy.Unsafe.
+
 ## 3.9.0 (2026-10-17)
 
 - New modules: Data.Bifoldable1, Data.Functor.Contravariant,

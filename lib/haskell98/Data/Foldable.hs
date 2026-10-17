@@ -1,8 +1,9 @@
 -- Data.Foldable (base): the class is PreludeModern's, where (under
 -- --modern-prelude) it also replaces the Prelude's list functions.
 module Data.Foldable (
-    Foldable(foldMap, foldr, foldl, foldr', foldl', foldr1, foldl1, toList,
-             null, length, elem, maximum, minimum, sum, product),
+    Foldable(fold, foldMap, foldMap', foldr, foldl, foldr', foldl', foldr1,
+             foldl1, toList, null, length, elem, maximum, minimum, sum,
+             product),
     foldrM, foldlM, traverse_, for_, sequenceA_, asum, mapM_, forM_,
     sequence_, msum, concat, concatMap, and, or, any, all, maximumBy,
     minimumBy, notElem, find

@@ -163,6 +163,7 @@
 	       '(|<**>| |liftA| |liftA3| |optional|
 		 ;; Data.Foldable's
 		 |toList| |foldl'| |foldr'| |find| |maximumBy| |minimumBy|
+		 |fold| |foldMap'|
 		 ;; Data.Semigroup's
 		 |sconcat| |stimes|))))))
 

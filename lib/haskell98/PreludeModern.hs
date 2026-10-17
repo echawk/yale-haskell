@@ -18,7 +18,7 @@ module PreludeModern (
     MonadFail(fail), (<$>), (<$), (<**>), liftA, liftA3, optional,
     Semigroup((<>), sconcat, stimes), Monoid(mempty, mappend, mconcat),
     NonEmpty((:|)),
-    Foldable(foldMap, foldr, foldl, foldr', foldl', foldr1, foldl1, toList,
+    Foldable(fold, foldMap, foldMap', foldr, foldl, foldr', foldl', foldr1, foldl1, toList,
              null, length, elem, maximum, minimum, sum, product),
     Traversable(traverse, sequenceA, mapM, sequence),
     mapM_, sequence_, concat, concatMap, and, or, any, all, notElem,
@@ -258,7 +258,9 @@ instance Functor ((,) a) where
 infix 4 `elem`, `notElem`
 
 class Foldable t where
+  fold    :: Monoid m => t m -> m
   foldMap :: Monoid m => (a -> m) -> t a -> m
+  foldMap' :: Monoid m => (a -> m) -> t a -> m
   foldr   :: (a -> b -> b) -> b -> t a -> b
   foldl   :: (b -> a -> b) -> b -> t a -> b
   foldr'  :: (a -> b -> b) -> b -> t a -> b
@@ -275,7 +277,9 @@ class Foldable t where
   product :: Num a => t a -> a
 
   -- foldMap or foldr is defined; the rest go through the list
+  fold = foldMap id
   foldMap f = foldr (\x m -> f x `mappend` m) mempty
+  foldMap' f = foldl' (\acc a -> acc `mappend` f a) mempty
   foldr f z t = appEndoF (foldMap (\x -> EndoF (f x)) t) z
   foldl f z t = L.foldl f z (toList t)
   foldr' f z t = L.foldr f z (toList t)
