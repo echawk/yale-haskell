@@ -81,6 +81,10 @@
 ;;; Runs THUNK, catching compile aborts, Haskell runtime errors, Lisp
 ;;; errors and ^C so that the loop continues.
 
+;;; True while repl-protect handles ^C: src/cli/cli.lisp, which receives
+;;; the interrupt in another thread, signals it here only then.
+(define *repl-interruptible?* '#f)
+
 (define (repl-protect thunk)
   (let/cc k
     (setf *abort-command* (lambda () (funcall k 'error)))
@@ -89,7 +93,8 @@
     (setf *in-error-handler?* '#f)
     (lisp:handler-case
 	(lisp:handler-bind ((lisp:warning (function lisp:muffle-warning)))
-	  (funcall thunk))
+	  (dynamic-let ((*repl-interruptible?* '#t))
+	    (funcall thunk)))
       #+sbcl
       (sb-sys:interactive-interrupt ()
 	(repl-say "~&Interrupted.~%"))

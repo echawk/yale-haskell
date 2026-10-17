@@ -203,6 +203,62 @@
 	(write-code?         '#t)
 	(write-interface?    '#t)))
 
+;;; Concurrent compilations of one unit (make test -j, parallel harness
+;;; runs) wrote its files (code, interface, imports) each by an atomic
+;;; rename, but a reader could take one compilation's interface with the
+;;; other's code: the two number their generated constants differently,
+;;; and a program faulted (happy's showVersion, 2026-10-16).  A writer
+;;; now holds <code file>.lock, made by exclusive create, while it
+;;; writes; another process meanwhile compiles the unit in core without
+;;; writing, and does not read a unit whose lock exists.  A lock older
+;;; than *unit-lock-stale-seconds* is a crashed writer's, and is removed.
+
+(define *unit-lock-stale-seconds* 600)
+
+(define *unit-in-core-cflags*
+  (make cflags
+	(load-code?          '#t)
+	(compile-code?       '#t)
+	(write-code?         '#f)
+	(write-interface?    '#f)))
+
+(define (unit-lock-file c)
+  (string-append (ucache-cfile c) ".lock"))
+
+(define (unit-locked? c)
+  (and (unit-in-cache? c)
+       (let ((lock  (unit-lock-file c)))
+	 (and (file-exists? lock)
+	      (if (> (- (current-date) (or (lisp:ignore-errors (file-write-date lock)) 0))
+		     *unit-lock-stale-seconds*)
+		  (begin (lisp:ignore-errors (lisp:delete-file lock)) '#f)
+		  '#t)))))
+
+;;; The lock's name, or '#f when another process holds it.
+(define (acquire-unit-lock c)
+  (let ((lock  (unit-lock-file c)))
+    (unit-locked? c)			; clears a stale one
+    (lisp:ensure-directories-exist lock)
+    (let ((s  (lisp:ignore-errors
+	       (lisp:open lock ':direction ':output ':if-exists '#f
+			  ':if-does-not-exist ':create))))
+      (if s
+	  (begin (lisp:close s) lock)
+	  '#f))))
+
+;;; Compiles unit C (compiler-driver.mumble), holding its lock when its
+;;; files go in the cache.
+(define (compile-unit-locked c cflags compile)
+  (if (and (unit-in-cache? c)
+	   (or (cflags-write-code? cflags) (cflags-write-interface? cflags)))
+      (let ((lock  (acquire-unit-lock c)))
+	(if lock
+	    (lisp:unwind-protect
+		(funcall compile c cflags)
+	      (lisp:ignore-errors (lisp:delete-file lock)))
+	    (funcall compile c *unit-in-core-cflags*)))
+      (funcall compile c cflags)))
+
 (define (unit-cflags c cflags)
   (if (and (cflags-load-code? cflags)
 	   (not (cflags-write-code? cflags))

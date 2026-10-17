@@ -22,6 +22,10 @@ LISP     ?= sbcl
 SBCL     ?= sbcl
 HEAP_MB  ?= 4096
 STACK_MB ?= 512
+# The saved executable's main thread: its stack is all resident on macOS,
+# so it is small; the compiler and programs run in a thread with
+# $YALE_HASKELL_STACK_MB (default 512) MB of stack (src/cli/cli.lisp).
+IMAGE_STACK_MB ?= 8
 DIALECTS ?= haskell-1.2 haskell98
 
 Y2       := $(CURDIR)
@@ -104,7 +108,9 @@ $(BUILD)/%/.prelude-stamp: $(BUILD)/.compiler-stamp $$(wildcard lib/%/prelude/*)
 ifeq ($(LISP),sbcl)
 $(BUILD)/%/yale-haskell: $(BUILD)/%/.prelude-stamp yale-haskell.asd mumble.asd
 	$(call step,$*-image,env $(call dialect_env,$*) YALE_HASKELL_DIALECT=$* \
-	  YALE_HASKELL_EXECUTABLE=$(Y2)/$@ $(RUN_LISP) tools/build/image.lisp)
+	  YALE_HASKELL_EXECUTABLE=$(Y2)/$@ $(SBCL) --dynamic-space-size $(HEAP_MB) \
+	  --control-stack-size $(IMAGE_STACK_MB) --non-interactive --no-userinit \
+	  --load tools/build/image.lisp)
 else
 $(BUILD)/%/yale-haskell: $(BUILD)/%/.prelude-stamp
 	$(call step,$*-image,env $(call dialect_env,$*) $(RUN_LISP) tools/build/launcher.lisp $(ARGS_SEP) $(Y2)/$@)

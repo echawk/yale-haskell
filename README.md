@@ -70,8 +70,14 @@ Compiled modules are cached in `~/.cache/yale-haskell/` (or
 reuse it until its sources change; the interactive system caches only
 library modules.  `YALE_HASKELL_CACHE=0` turns the cache off and
 `YALE_HASKELL_CACHE=library` limits it to library modules.  A new build
-starts a new cache; old ones can be deleted.  See
+starts a new cache and removes those of the same checkout's older
+builds.  See
 `src/compiler/csys/unit-cache.mumble`.
+
+Programs run with a 512 MB control stack, used only as far as they
+recurse; `YALE_HASKELL_STACK_MB` sets another size.  A program that
+runs out of stack prints `stack overflow` and exits with status 2, as
+GHC's does.
 
 Programs use Haskell 1.2 conventions: `main` is a `Dialogue`, e.g.
 

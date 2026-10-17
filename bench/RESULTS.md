@@ -747,3 +747,39 @@ LambdaPi's compile time is unchanged (3.9-4.5 s either way).  make test
 100/100; darcs, husk, typecheckers, cubicaltt match.  ECL: see
 doc/plans/PORTABILITY.md (its build had been broken since 59a1ecb and
 is fixed here).
+
+## Startup memory: the program's stack in its own thread (2026-10-16)
+
+Every run, hello world and `--help` included, peaked at 620-640 MB RSS
+(plain SBCL: 42 MB).  `vmmap` showed 512 MB of it resident in four
+128 MB regions outside the heap: the main thread's control stack
+(the Makefile's STACK_MB, saved in the image), which SBCL on macOS
+makes resident at startup (`sbcl --control-stack-size 512` alone peaks
+at 578 MB).  A thread's stack is resident only as far as it is used
+(a 512 MB thread: 44 MB shallow, 140 MB at 3M frames).  The image's
+main thread now has 8 MB (IMAGE_STACK_MB), and the CLI runs the
+compiler and the program in a thread with $YALE_HASKELL_STACK_MB
+(default 512) MB (src/cli/cli.lisp); C-c is passed to it (the
+interactive system abandons the command; otherwise the program ends
+with status 130).
+
+```
+                        before     after
+hello world, peak RSS   620 MB     100 MB
+hello world, real time  0.06-0.08  0.02-0.03 s
+```
+
+Run times are unchanged (LambdaPi 3.20 s, Mini-TT 3.07 s; cubicaltt
+42/42).  Also: a unit-cache write lock (unit-cache.mumble).  The first
+harness run after this change had happy at 10 of 166 with a memory
+fault in a cached unit; it did not recur, from an empty cache or
+otherwise.  The likeliest cause is concurrent compilations of one unit
+(make test -j had just run) leaving one compilation's interface beside
+another's code, so a writer now holds a lock and others compile in core
+meanwhile; 8 parallel compiles x 5 rounds from an empty cache: all
+correct.  make test 283; nofib 69 + 40; extensions 101/104; happy
+166/166; optparse 100/100; xmonad 107/107; darcs, husk match.
+
+Also measured and dropped: Inline annotations on fst, snd, maybe,
+either, (.), flip and the like (snd stayed a call in LambdaPi): no
+change outside noise (-1% to +2%).

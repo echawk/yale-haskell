@@ -397,9 +397,9 @@
 	  (load-compilation-unit filename cflags))))
     ;; a unit in the cache (unit-cache.mumble) writes its files
     (let ((cflags  (unit-cflags c cflags)))
-      (if (unit-valid? c cflags)
+      (if (and (not (unit-locked? c)) (unit-valid? c cflags))
 	  (load-compiled-unit c (cflags-load-code? cflags))
-	  (locally-compile c cflags))))
+	  (compile-unit-locked c cflags (function locally-compile)))))
   (setf (ucache-status c) 'loaded)
   ;; Hack, hack.  When loading the prelude, make sure magic symbol
   ;; table stuff is initialized.

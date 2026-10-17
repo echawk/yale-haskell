@@ -204,6 +204,66 @@
   (setf *package* (find-package "MUMBLE-USER"))
   (setf *readtable* (symbol-value (find-symbol "*MUMBLE-READTABLE*"
                                                "MUMBLE-IMPLEMENTATION")))
-  (clingon:run (command) (split-program-args argv))
+  (let ((args (split-program-args argv)))
+    #+sbcl (run-with-program-stack (lambda () (clingon:run (command) args)))
+    #-sbcl (clingon:run (command) args))
   ;; the executable's entry point (uiop:restore-image): true is status 0
   t)
+
+;;; The compiler and the program run in a thread of their own, whose
+;;; control stack is $YALE_HASKELL_STACK_MB (default 512) MB: lazy
+;;; programs recurse deeply.  The main thread's stack is small (the
+;;; Makefile's IMAGE_STACK_MB), because SBCL on macOS makes the main
+;;; thread's whole stack resident at startup: with 512 MB there, every
+;;; run, hello world included, took 620 MB.  A thread's stack is
+;;; resident only as far as it is used.  An interrupt (C-c), which SBCL
+;;; delivers to the main thread, is passed on to the worker: the
+;;; interactive system handles it; elsewhere it ends the program (130).
+
+#+sbcl
+(defun program-stack-bytes ()
+  (let* ((env (uiop:getenv "YALE_HASKELL_STACK_MB"))
+         (mb (or (and env (ignore-errors (parse-integer env))) 512)))
+    (* (max mb 2) 1048576)))
+
+#+sbcl
+(defun interruptible-p ()
+  (let ((sym (find-symbol "*REPL-INTERRUPTIBLE?*" "MUMBLE-USER")))
+    (and sym (boundp sym) (symbol-value sym))))
+
+#+sbcl
+(defun run-with-program-stack (fn)
+  (setf (sb-alien:extern-alien "thread_control_stack_size" sb-alien:unsigned)
+        (program-stack-bytes))
+  (let* ((package *package*)
+         (readtable *readtable*)
+         (main sb-thread:*current-thread*)
+         (worker (sb-thread:make-thread
+                  (lambda ()
+                    (let ((*package* package) (*readtable* readtable))
+                      (funcall fn)))
+                  :name "yale-haskell")))
+    ;; after passing an interrupt on, back to waiting (SBCL's SIGINT
+    ;; handler offers no restart to return to)
+    (loop
+      (block interrupted
+        (handler-bind ((sb-sys:interactive-interrupt
+                         (lambda (c)
+                           (declare (ignore c))
+                           (sb-thread:interrupt-thread
+                            worker
+                            (lambda ()
+                              (if (interruptible-p)
+                                  ;; the interactive system's command
+                                  ;; is abandoned
+                                  (signal (make-condition 'sb-sys:interactive-interrupt))
+                                  ;; otherwise the program ends, from the
+                                  ;; main thread: unwinding the worker from
+                                  ;; inside its interrupt (clingon's handler
+                                  ;; exits) faulted
+                                  (progn
+                                    (ignore-errors (finish-output))
+                                    (sb-thread:interrupt-thread
+                                     main (lambda () (sb-ext:exit :code 130 :abort t)))))))
+                           (return-from interrupted))))
+          (return (sb-thread:join-thread worker :default nil)))))))
