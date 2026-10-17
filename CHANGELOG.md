@@ -19,6 +19,18 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.1.0 (2026-10-17)
+
+- Module search path: `-i DIR` (repeatable) and `$YALE_HASKELL_PATH`.
+- Installed packages: `--package-db DIR` (and `$YALE_HASKELL_PACKAGE_DB`)
+  names directories of packages (`NAME-VERSION/src`, `include`,
+  `yale-package`); a package's modules are found, compiled with its own
+  default extensions, cpp-options and include-dirs, and its version
+  answers `MIN_VERSION_name` (src/compiler/csys/packages.mumble).
+- `--numeric-version`.
+- The typed core (`--emit typed`), from before the version was
+  declared, is in this release too.
+
 ## 3.0.0 (2026-10-17)
 
 The revival of Y2.0.5 (1994) as a Haskell 98 / Haskell 2010 compiler on

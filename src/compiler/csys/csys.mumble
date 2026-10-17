@@ -8,8 +8,11 @@
   (unit unit-cache
     (require cache-structs)
     (source-filename "unit-cache.mumble"))
+  (unit packages
+    (require unit-cache)
+    (source-filename "packages.mumble"))
   (unit compiler-driver
-    (require cache-structs unit-cache)
+    (require cache-structs unit-cache packages)
     (source-filename "compiler-driver.mumble"))
   (unit dump-params
     (require cache-structs)

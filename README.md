@@ -76,6 +76,15 @@ starts a new cache and removes those of the same checkout's older
 builds.  See
 `src/compiler/csys/unit-cache.mumble`.
 
+Modules are looked for next to the importing file, then in the `-i DIR`
+directories (and `$YALE_HASKELL_PATH`, colon-separated), then in
+installed packages: `--package-db DIR` (or `$YALE_HASKELL_PACKAGE_DB`)
+names a directory of packages, each `NAME-VERSION/` with its modules in
+`src/`, its include files in `include/`, and a `yale-package` file of
+`name:`, `version:`, `extensions:`, `cpp-options:` and `include-dirs:`
+lines that apply to its own modules (MicroCabal's Yale backend,
+`tools/microcabal/`, writes them).
+
 Programs run with a 512 MB control stack, used only as far as they
 recurse; `YALE_HASKELL_STACK_MB` sets another size.  A program that
 runs out of stack prints `stack overflow` and exits with status 2, as

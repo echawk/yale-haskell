@@ -57,6 +57,13 @@
    (clingon:make-option :string :long-name "grin-optimizations" :short-name #\g
                         :key :grin-optimizations :persistent t
                         :description "GRIN optimizations, comma-separated: names (exactly these), +name, -name, all, none; of fold,speculate,inline-eval,self-local,rep-types,ftype")
+   (clingon:make-option :list :long-name "search-dir" :short-name #\i
+                        :key :search-dir :persistent t
+                        :description "a directory to look for imported modules in (repeatable; also $YALE_HASKELL_PATH)")
+   (clingon:make-option :list :long-name "package-db" :key :package-db :persistent t
+                        :description "a directory of installed packages (repeatable; also $YALE_HASKELL_PACKAGE_DB)")
+   (clingon:make-option :flag :long-name "numeric-version" :key :numeric-version :persistent t
+                        :description "print the version number and exit")
    (clingon:make-option :list :long-name "foreign-library" :short-name #\l
                         :key :foreign-library :persistent t
                         :description "load a C shared library for foreign imports (repeatable)")
@@ -68,7 +75,8 @@
 ;;; off the command line.
 (defparameter *value-options*
   '("-b" "--backend" "-p" "--printers" "-e" "--eval" "-g" "--grin-optimizations"
-    "-l" "--foreign-library" "-D" "--define" "-I" "--include-dir" "--optimizers" "--emit" "-o" "--output"))
+    "-l" "--foreign-library" "-D" "--define" "-I" "--include-dir" "--optimizers" "--emit" "-o" "--output"
+    "-i" "--search-dir" "--package-db"))
 
 (defparameter *sub-commands* '("repl" "run" "compile" "help"))
 
@@ -113,6 +121,18 @@
                                                    (uiop:ensure-directory-pathname d)
                                                    (uiop:getcwd))))
                           (clingon:getopt* cmd :include-dir))))
+    (when (clingon:getopt* cmd :numeric-version)
+      (format t "~a~%" (mumble-value "*HASKELL-COMPILER-VERSION*"))
+      (uiop:quit 0))
+    (flet ((dirs (key)
+             (mapcar (lambda (d) (namestring (merge-pathnames
+                                              (uiop:ensure-directory-pathname d)
+                                              (uiop:getcwd))))
+                     (clingon:getopt* cmd key))))
+      (when (clingon:getopt* cmd :search-dir)
+        (mumble-set "*MODULE-SEARCH-PATH*" (dirs :search-dir)))
+      (when (clingon:getopt* cmd :package-db)
+        (mumble-set "*PACKAGE-DBS*" (dirs :package-db))))
     (when (clingon:getopt* cmd :no-optimize)
       (mumble-set "*OPTIMIZERS*" '()))
     (let ((opts (clingon:getopt* cmd :optimizers)))

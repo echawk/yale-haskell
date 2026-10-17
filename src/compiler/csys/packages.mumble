@@ -1,0 +1,117 @@
+;;; packages.mumble -- module search path and installed packages
+;;;
+;;; A module that is not next to the importing file is looked for in the
+;;; search path: the -i directories (and $YALE_HASKELL_PATH, colon-
+;;; separated), then the installed packages' source roots, then the
+;;; library ($HASKELL_LIBRARY).
+;;;
+;;; An installed package (MicroCabal's Yale backend writes them,
+;;; tools/microcabal/) is a directory in a package database, a directory
+;;; given with --package-db (or $YALE_HASKELL_PACKAGE_DB):
+;;;
+;;;   NAME-VERSION/src/          the package's modules, by module path
+;;;   NAME-VERSION/include/      its include-dirs, for CPP
+;;;   NAME-VERSION/yale-package  "key: value" lines: name, version,
+;;;                              extensions, cpp-options, include-dirs
+;;;
+;;; A package's settings apply to its own modules only, as Cabal applies a
+;;; package's default-extensions and cpp-options to it: the extensions are
+;;; on in each of its files, its -D options replace the program's, and its
+;;; include directories are searched.  Every installed package's version
+;;; answers MIN_VERSION_name(a,b,c) (cpp.mumble).
+
+(define *module-search-path* '())     ; directories, each ending in /
+(define *package-dbs* '())            ; package database directories
+(define *packages* '#f)               ; the packages found, once read
+
+(define-struct package
+  (slots
+   (name (type string))
+   (version (type list))              ; integers
+   (src (type string))                ; its source root, ending in /
+   (root (type string))               ; its directory, ending in /
+   (extensions (type list))           ; strings
+   (cpp-options (type list))          ; strings, -DNAME[=VALUE] and others
+   (include-dirs (type list))))       ; absolute, ending in /
+
+(define (installed-packages)
+  (when (not *packages*)
+    (setf *packages* '())
+    (dolist (db (append *package-dbs*
+			(env-path-list "YALE_HASKELL_PACKAGE_DB")))
+      (dolist (dir (lisp:funcall (lisp:find-symbol "SUBDIRECTORIES" "UIOP")
+				 (absolute-filename (directory-name db))))
+	(let* ((root  (lisp:namestring dir))
+	       (desc  (string-append root "yale-package")))
+	  (when (file-exists? desc)
+	    (push (read-package-description root desc) *packages*)))))
+    (setf *packages* (reverse *packages*)))
+  *packages*)
+
+(define (env-path-list var)
+  (let ((v  (getenv var)))
+    (if (and v (not (string=? v "")))
+	(lisp:remove "" (split-string-at v #\:) :test (function string=?))
+	'())))
+
+(define (split-string-at s ch)
+  (let ((p  (lisp:position ch s)))
+    (if p
+	(cons (substring s 0 p) (split-string-at (substring s (1+ p) (string-length s)) ch))
+	(list s))))
+
+(define (read-package-description root desc)
+  (let ((fields  '()))
+    (call-with-input-file desc
+      (lambda (port)
+	(do ((line (read-line port) (read-line port)))
+	    ((eof-object? line))
+	  (let ((colon  (lisp:position #\: line)))
+	    (when colon
+	      (push (cons (lisp:string-trim " " (substring line 0 colon))
+			  (lisp:remove "" (split-string-at
+					   (lisp:string-trim " " (substring line (1+ colon)
+										(string-length line)))
+					   #\space)
+				       :test (function string=?)))
+		    fields))))))
+    (let ((get  (lambda (k) (cdr (or (lisp:assoc k fields :test (function string=?))
+				     (cons k '()))))))
+      (make package
+	    (name (or (car (funcall get "name")) ""))
+	    (version (map (lambda (n) (or (lisp:parse-integer n :junk-allowed '#t) 0))
+			  (split-string-at (or (car (funcall get "version")) "0") #\.)))
+	    (src (string-append root "src/"))
+	    (root root)
+	    (extensions (funcall get "extensions"))
+	    (cpp-options (funcall get "cpp-options"))
+	    (include-dirs (map (lambda (d) (directory-name (string-append root d)))
+			       (funcall get "include-dirs")))))))
+
+;;; The directories searched after the importing file's own.
+(define (module-search-path)
+  (append (map (function directory-name)
+	       (append *module-search-path* (env-path-list "YALE_HASKELL_PATH")))
+	  (map (function package-src) (installed-packages))))
+
+;;; The installed package FILENAME belongs to, or #f.
+(define (package-of-file filename)
+  (and (not (null? (installed-packages)))
+       (let ((abs  (absolute-filename filename)))
+	 (lisp:find-if (lambda (p) (string-starts? (package-root p) abs))
+		       (installed-packages)))))
+
+;;; MIN_VERSION_name for each installed package (cpp.mumble): the name
+;;; with - as _, as Cabal spells it.
+(define (installed-package-versions)
+  (map (lambda (p)
+	 (cons (lisp:substitute #\_ #\- (package-name p)) (package-version p)))
+       (installed-packages)))
+
+;;; A package file's -D options ("NAME" or "NAME=VALUE", as for -D).
+(define (package-cpp-defines p)
+  (let ((defs  '()))
+    (dolist (o (package-cpp-options p))
+      (when (string-starts? "-D" o)
+	(push (substring o 2 (string-length o)) defs)))
+    (reverse defs)))

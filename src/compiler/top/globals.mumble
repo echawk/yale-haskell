@@ -4,7 +4,7 @@
 
 (define *prelude-unit-filename* "$PRELUDE/Prelude.hu")
 
-(define *haskell-compiler-version* "3.0.0")   ; semantic versioning: CHANGELOG.md
+(define *haskell-compiler-version* "3.1.0")   ; semantic versioning: CHANGELOG.md
 (define *haskell-compiler-update* "")
 
 

@@ -43,6 +43,8 @@
 
 (define (cpp-file? filename)
   (or (dynamic *cpp?*)
+      (let ((p  (package-of-file filename)))
+	(and p (mem-string "CPP" (package-extensions p))))
       (call-with-input-file filename
 	(lambda (port)
 	  (let ((head  (lisp:with-output-to-string (out)
@@ -99,11 +101,19 @@
     ;; -D is for the program's files, not the libraries (as GHC's -D is
     ;; for the package being compiled): -D__GLASGOW_HASKELL__ must not
     ;; switch Data.Set to its GHC code
-    (when (not (library-source-file? filename))
-      (dolist (d (dynamic *cpp-defines*))
-	(cpp-define-string d)))
+    (cpp-define-file-macros filename)
     (lisp:with-output-to-string (out)
       (cpp-process filename text out 0))))
+
+;;; The -D macros for FILENAME: the program's, or an installed package's
+;;; own cpp-options for its modules (csys/packages.mumble); none for the
+;;; library.
+(define (cpp-define-file-macros filename)
+  (let ((p  (package-of-file filename)))
+    (cond (p (dolist (d (package-cpp-defines p)) (cpp-define-string d)))
+	  ((not (library-source-file? filename))
+	   (dolist (d (dynamic *cpp-defines*))
+	     (cpp-define-string d))))))
 
 ;;; The files FILE includes (for the unit cache: a change to one makes
 ;;; the unit stale), or '() if FILE does not use CPP.
@@ -119,9 +129,7 @@
 			(*error-output-port* (lisp:make-broadcast-stream))
 			(*abort-compilation* (lambda () (funcall stop '#f))))
 	    (cpp-define-string "__YALE_HASKELL__=1")
-	    (when (not (library-source-file? filename))
-	      (dolist (d (dynamic *cpp-defines*))
-		(cpp-define-string d)))
+	    (cpp-define-file-macros filename)
 	    (cpp-process filename (read-file-text filename)
 			 (lisp:make-broadcast-stream) 0)))
 	(dynamic *cpp-includes*))
@@ -388,7 +396,10 @@
 			       (list (filename-place (dynamic *cpp-file*)))
 			       '())
 			   (map (function cpp-directory-name)
-				(dynamic *cpp-include-dirs*))))
+				(dynamic *cpp-include-dirs*))
+			   ;; an installed package's include-dirs
+			   (let ((p  (package-of-file (dynamic *cpp-file*))))
+			     (if p (package-include-dirs p) '()))))
 	   (found  (block search
 		     (dolist (d dirs)
 		       (let ((f  (string-append d name)))
@@ -680,8 +691,10 @@
 (define (cpp-version-package name)
   (and (> (string-length name) 12)
        (string=? (substring name 0 12) "MIN_VERSION_")
-       (lisp:assoc (substring name 12 (string-length name))
-		   *cpp-package-versions* :test (function string=?))))
+       (let ((pkg  (substring name 12 (string-length name))))
+	 ;; an installed package's own version first
+	 (or (lisp:assoc pkg (installed-package-versions) :test (function string=?))
+	     (lisp:assoc pkg *cpp-package-versions* :test (function string=?))))))
 
 (define (cpp-min-version name args)
   (let ((pkg  (cpp-version-package name)))

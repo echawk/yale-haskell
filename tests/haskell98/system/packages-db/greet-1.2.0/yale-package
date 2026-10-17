@@ -1,0 +1,5 @@
+name: greet
+version: 1.2.0
+extensions: CPP LambdaCase
+cpp-options: -DPKGTAG="tagged"
+include-dirs: include
