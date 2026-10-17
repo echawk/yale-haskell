@@ -19,6 +19,14 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.1.1 (2026-10-17)
+
+- `--help`, `--version` and `--numeric-version` crashed after printing
+  (a memory fault, status 1) with a program stack of 64 MB or more, the
+  default 512 included: an exit from the worker thread now flushes the
+  output and exits at once (src/cli/cli.lisp).  `make test` checks the
+  three options' exit status.
+
 ## 3.1.0 (2026-10-17)
 
 - Module search path: `-i DIR` (repeatable) and `$YALE_HASKELL_PATH`.

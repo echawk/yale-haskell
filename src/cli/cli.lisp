@@ -251,10 +251,25 @@
   (let ((sym (find-symbol "*REPL-INTERRUPTIBLE?*" "MUMBLE-USER")))
     (and sym (boundp sym) (symbol-value sym))))
 
+;;; uiop:quit in the worker (clingon's --help and --version, our own
+;;; option errors) flushes the output and exits at once: SBCL's orderly
+;;; exit from a thread other than the main one unwinds it and has the
+;;; main thread exit, and with a stack of 64 MB or more that faulted.
+#+sbcl
+(defun quit-from-worker (quit code &rest args)
+  (if (eq sb-thread:*current-thread* (sb-thread:main-thread))
+      (apply quit code args)
+      (progn
+        (ignore-errors (finish-output *standard-output*))
+        (ignore-errors (finish-output *error-output*))
+        (sb-ext:exit :code code :abort t))))
+
 #+sbcl
 (defun run-with-program-stack (fn)
   (setf (sb-alien:extern-alien "thread_control_stack_size" sb-alien:unsigned)
         (program-stack-bytes))
+  (unless (sb-int:encapsulated-p 'uiop:quit 'quit-from-worker)
+    (sb-int:encapsulate 'uiop:quit 'quit-from-worker #'quit-from-worker))
   (let* ((package *package*)
          (readtable *readtable*)
          (main sb-thread:*current-thread*)

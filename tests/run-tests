@@ -147,6 +147,19 @@ else
   while read -r i hs; do report "$i" "$hs"; done < "$RT_TMP/list"
 fi
 
+# The options that exit from the worker thread (src/cli/cli.lisp) must
+# exit cleanly: status 0 and nothing on stderr.
+for opt in --help --version --numeric-version; do
+  if bin/yale-haskell $opt > "$RT_TMP/cli.out" 2> "$RT_TMP/cli.err" &&
+     [ -s "$RT_TMP/cli.out" ] && [ ! -s "$RT_TMP/cli.err" ]; then
+    echo pass >> "$RT_TMP/summary"
+    [ "$RT_VERBOSE" = 1 ] && echo "pass  yale-haskell $opt"
+  else
+    echo FAIL >> "$RT_TMP/summary"
+    echo "FAIL  yale-haskell $opt"; head -5 "$RT_TMP/cli.err"
+  fi
+done
+
 count() { grep -c "^$1\$" "$RT_TMP/summary"; }
 pass=$(count pass) fail=$(count FAIL) xfail=$(count xfail) xpass=$(count XPASS)
 echo "$pass passed, $fail failed, $xfail expected failures, $xpass unexpected passes"
