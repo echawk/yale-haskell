@@ -19,6 +19,12 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.13.0 (2026-10-17)
+
+- `deriving Generic1` makes the instance for the type constructor
+  (`Generic1 (T a)` for `T a b`), as GHC; it was for the whole type.
+- Data.Monoid's Alt and Ap; Control.Monad.Zip.
+
 ## 3.12.0 (2026-10-17)
 
 - `yale-haskell build` failed about one time in five with a memory

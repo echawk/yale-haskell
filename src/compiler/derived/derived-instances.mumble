@@ -111,7 +111,13 @@
 (define (add-special-derived-instance alg class strategy)
   (if (lookup-instance alg class)
       (signal-instance-exists alg class)
-      (let ((inst  (new-instance class alg (algdata-tyvars alg)))
+      (let ((inst  (new-instance class alg
+				 ;; Generic1 is for a type constructor: the
+				 ;; instance for T a b is Generic1 (T a)
+				 (if (and (eq? (def-name class) '|Generic1|)
+					  (not (null? (algdata-tyvars alg))))
+				     (lisp:butlast (algdata-tyvars alg))
+				     (algdata-tyvars alg))))
 	    (via   (cond ((eq? strategy 'anyclass) '#f)
 			 ((eq? strategy 'newtype)
 			  (car (con-types (car (algdata-constrs alg)))))
