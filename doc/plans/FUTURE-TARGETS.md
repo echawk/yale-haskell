@@ -57,6 +57,7 @@ Ordered roughly by expected payoff.
   TH program shares the compiler's image). This is a large project;
   keep it as a design question until the smaller gaps close (the
   current mission brief, `claude-prompt.md`, puts it out of scope).
+  The design is now written up in TEMPLATE-HASKELL.md.
 
 ## 3. JHC — John Meacham's whole-program Haskell compiler
 

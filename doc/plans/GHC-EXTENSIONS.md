@@ -188,7 +188,8 @@ be accepted.
 - **TemplateHaskell / QuasiQuotes**: compile-time evaluation of Haskell
   producing syntax trees.  In principle possible (the compiler is in
   Lisp and can run compiled code), but it needs the whole TH AST library
-  and a staging story; out of scope.
+  and a staging story; out of scope for now.  TEMPLATE-HASKELL.md has
+  the design and milestones.
 - **GHC's runtime features**: `+RTS` options, profiling, the GHC event
   log, `GHC.Stats`, sparks (`par` is ignored), weak pointers with
   finalizers' timing, stable names.
