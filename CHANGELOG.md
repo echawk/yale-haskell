@@ -19,6 +19,15 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.11.0 (2026-10-17)
+
+- Complex as in base: no datatype context, and `mkPolar` and `cis` need
+  only Floating, `conjugate` Num, `realPart` and `imagPart` nothing
+  (colour's `okLCh :: Floating a => ...` was "too general").
+- A multi-parameter superclass (`class HasSetter t b => HasUpdate t a
+  b`) crashed the compiler; it is accepted and dropped (multi-parameter
+  classes have no superclasses here).
+
 ## 3.10.0 (2026-10-17)
 
 - Foldable has base's `fold` and `foldMap'` methods (Data.Foldable

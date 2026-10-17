@@ -371,7 +371,11 @@
 
 (define (parse-class-decl)
  (save-parser-context
-  (let ((supers (parse-optional-context)))
+  ;; a multi-parameter superclass (class HasSetter t b => HasUpdate t a b)
+  ;; is dropped: a multi-parameter class has no superclasses here, so its
+  ;; methods' users must give that constraint themselves
+  (let ((supers (mlet (((single _) (split-contexts (parse-optional-context))))
+		  single)))
     (token-case
      (tycon
       (let* ((class (class->ast))

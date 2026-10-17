@@ -7,7 +7,9 @@ module PreludeComplex where
 
 infix  6  :+
 
-data  (RealFloat a)     => Complex a = a {-#STRICT#-} :+ a {-#STRICT #-}
+-- As base: no datatype context (the Report has RealFloat a), and
+-- conjugate, mkPolar and cis need only Num and Floating.
+data  Complex a = a {-#STRICT#-} :+ a {-#STRICT #-}
                                deriving (Eq, Show, Read)
 
 instance  (RealFloat a) => Num (Complex a)  where
@@ -70,17 +72,17 @@ instance  (RealFloat a) => Floating (Complex a)	where
     atanh z        =  log ((1+z) / sqrt (1-z*z))
 
 
-realPart, imagPart :: (RealFloat a) => Complex a -> a
+realPart, imagPart :: Complex a -> a
 realPart (x:+y)	 =  x
 imagPart (x:+y)	 =  y
 
-conjugate	 :: (RealFloat a) => Complex a -> Complex a
+conjugate	 :: (Num a) => Complex a -> Complex a
 conjugate (x:+y) =  x :+ (-y)
 
-mkPolar		 :: (RealFloat a) => a -> a -> Complex a
+mkPolar		 :: (Floating a) => a -> a -> Complex a
 mkPolar r theta	 =  r * cos theta :+ r * sin theta
 
-cis		 :: (RealFloat a) => a -> Complex a
+cis		 :: (Floating a) => a -> Complex a
 cis theta	 =  cos theta :+ sin theta
 
 polar		 :: (RealFloat a) => Complex a -> (a,a)
