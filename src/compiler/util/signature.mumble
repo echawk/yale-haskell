@@ -8,6 +8,7 @@
 ;;; The list of variables used in the signature is returned.
 
 (define (resolve-signature signature)
+  (float-synonym-foralls signature)
   (expand-constraint-synonyms signature)
   (reduce-flexible-contexts signature)
   (add-mp-superclass-contexts signature)
@@ -24,6 +25,88 @@
 	      (push v tyvars)))))
       (resolve-signature-aux tyvars context)
       tyvars)))
+
+;;; RankNTypes: a signature whose type is a synonym for a polytype,
+;;;   type Lens s t a b = forall f. Functor f => (a -> f b) -> s -> f t
+;;;   _1 :: Lens (a, c) (b, c) a b
+;;; (or ends in one: Int -> Lens' s a) means the polytype with the
+;;; synonym's arguments: its forall's variables (renamed apart) and
+;;; context join the signature's, at the top (microlens).
+
+(define (float-synonym-foralls signature)
+  (mlet (((type contexts) (float-foralls (signature-type signature) 8)))
+    (when (not (null? contexts))
+      (setf (signature-type signature) type)
+      (setf (signature-context signature)
+	    (append (signature-context signature) contexts)))))
+
+;;; The type with a polytype synonym at the top, or in the result of an
+;;; arrow, replaced by the polytype's body; and the contexts lifted.
+(define (float-foralls type depth)
+  (let ((poly (and (> depth 0) (polytype-synonym-expansion type 8))))
+    (cond (poly
+	   (mlet (((body cs) (float-foralls (forall-type-type poly) (1- depth))))
+	     (values body (append (forall-type-context poly) cs))))
+	  ((and (tycon? type)
+		(eq? (resolve-tycon-def type) (core-symbol "Arrow"))
+		(eqv? (length (tycon-args type)) 2))
+	   (mlet (((res cs) (float-foralls (cadr (tycon-args type)) depth)))
+	     (if (null? cs)
+		 (values type '())
+		 (values (make tycon (name (tycon-name type)) (def (tycon-def type))
+			       (args (list (car (tycon-args type)) res)))
+			 cs))))
+	  (else (values type '())))))
+
+(define (resolve-tycon-def type)
+  (let ((def (tycon-def type)))
+    (if (eq? def *undefined-def*)
+	(resolve-toplevel-name (tycon-name type))
+	def)))
+
+;;; A forall-type, its variables renamed apart, if TYPE is an application
+;;; of a type synonym (perhaps through other synonyms) for a polytype.
+(define (polytype-synonym-expansion type depth)
+  (and (tycon? type) (> depth 0)
+       (let ((def (resolve-tycon-def type)))
+	 (and (synonym? def)
+	      (not (synonym-family? def))
+	      (synonym-body def)
+	      (eqv? (length (synonym-args def)) (length (tycon-args type)))
+	      (let ((body (synonym-body def)))
+		(cond ((forall-type? body)
+		       (instantiate-synonym-body (rename-forall-apart body)
+						 (synonym-args def) (tycon-args type)))
+		      ((tycon? body)
+		       (let ((b (instantiate-synonym-body body (synonym-args def)
+							  (tycon-args type))))
+			 (polytype-synonym-expansion b (1- depth))))
+		      (else '#f)))))))
+
+(define (instantiate-synonym-body body params args)
+  (let ((fresh (map (lambda (p) (declare (ignore p)) (gentyvar "sa")) params)))
+    ;; through fresh names, so that an argument naming a parameter is safe
+    (let ((b body))
+      (dolist2 (p params) (f fresh)
+	(setf b (substitute-tyvar b p (**tyvar f))))
+      (dolist2 (f fresh) (a args)
+	(setf b (substitute-tyvar b f a)))
+      b)))
+
+(define (rename-forall-apart poly)
+  (let ((body (forall-type-type poly))
+	(contexts (forall-type-context poly))
+	(new-vars '()))
+    (dolist (v (forall-type-tyvars poly))
+      (let ((n (gentyvar (symbol->string v))))
+	(push n new-vars)
+	(setf body (substitute-tyvar body v (**tyvar n)))
+	(setf contexts (map (lambda (c)
+			      (if (eq? (context-tyvar c) v)
+				  (**context (context-class c) n)
+				  c))
+			    contexts))))
+    (make forall-type (tyvars (reverse new-vars)) (context contexts) (type body))))
 
 ;;; FlexibleContexts (GHC): C t for a one-parameter class C and a type t
 ;;; that is not a type variable (parsed as a multi-parameter constraint
@@ -230,6 +313,13 @@
 	   (make tycon (name name) (def def)
 		       (args (map (lambda (x) (substitute-tyvar x tyvar new))
 				  args)))))
+	((forall-type? type)
+	 ;; the forall's own variables are not substituted
+	 (if (memq tyvar (forall-type-tyvars type))
+	     type
+	     (make forall-type (tyvars (forall-type-tyvars type))
+		   (context (forall-type-context type))
+		   (type (substitute-tyvar (forall-type-type type) tyvar new)))))
 	(else
 	 (**signature (signature-context type)
 		      (substitute-tyvar (signature-type type) tyvar new)))))

@@ -19,6 +19,18 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.7.0 (2026-10-17)
+
+- An export list may name an entity by a qualified name (`module M
+  (C.choice) where import qualified A as C`); it is exported under its
+  own name, as Haskell 98 5.2 says.  It was not exported.
+- Type synonyms for polytypes (`type Lens s t a b = forall f. Functor f
+  => ...`) in signatures: the forall and its context are lifted to the
+  signature (it crashed the type checker).
+- New modules: Data.Bifoldable, Data.Bitraversable, Data.Functor.Constant
+  and Control.Applicative.Lift (transformers), Foreign.C.ConstPtr,
+  GHC.List, GHC.Arr, Control.Monad.ST.Unsafe, Data.ByteString.Short.
+
 ## 3.6.0 (2026-10-17)
 
 From the Hackage survey (doc/plans/MICROCABAL.md):

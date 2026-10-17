@@ -134,8 +134,12 @@
 ;;; It may return 'error, 'not-found, or a group.
 
 (define (locate-entity entity)
-  (let* ((name (entity-name entity))
-	 (def (resolve-toplevel-name name)))
+  (let* ((qname (entity-name entity))
+	 (def (resolve-toplevel-name qname))
+	 ;; module A (C.choice) where import qualified B as C: exported
+	 ;; under its own name, choice (Haskell 98 5.2)
+	 (name (mlet (((base _) (split-qualified-name qname)))
+		 (or base qname))))
     (cond ((eq? def '#f)
 	   'not-found)
 	  ((is-type? 'entity-var entity)
