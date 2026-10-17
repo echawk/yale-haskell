@@ -3,6 +3,7 @@ module PreludeTuple where
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
 import PreludeTuplePrims
+import PreludeCore (ReadPrec(MkReadPrec))
 
 -- This module contains support routines which handle tuple instances.
 -- These are based on a implementation level data type which represents
@@ -134,6 +135,13 @@ tupleInRange dicts (low,high) n = tupleInRange' 0 where
 inRange' x = inRange x
 
 -- Show and Read functions
+
+-- base's ReadPrec methods of Read (PreludeCore), through the ReadS ones
+tupleReadPrec :: TupleDicts -> ReadPrec Tuple
+tupleReadPrec dicts = MkReadPrec (tupleReadsPrec dicts)
+
+tupleReadListPrec :: TupleDicts -> ReadPrec [Tuple]
+tupleReadListPrec dicts = MkReadPrec (\_ -> tupleReadList dicts)
 
 tupleReadsPrec :: TupleDicts -> Int -> ReadS Tuple
 

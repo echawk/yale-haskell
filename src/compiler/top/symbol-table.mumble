@@ -536,12 +536,19 @@
 ;;; A name the implicitly imported Prelude exports, or #f.
 
 (define (prelude-symbol-entry name)
-  (and (not (and (memq name *not-in-2010-prelude*)
+  (and (not (memq name *hidden-prelude-names*))
+       (not (and (memq name *not-in-2010-prelude*)
 		 (or (dynamic *compiling-package?*)
 		     (and (haskell2010?) (not (module-library? *module*))))))
        (not (and (memq name *foldable-prelude-names*)
 		 (foldable-prelude-module?)))
        (table-entry *prelude-symbol-table* name)))
+
+;;; Names the prelude modules define for the library but the Prelude
+;;; does not give programs: base's Read methods over ReadPrec (Text.Read
+;;; exports them).
+(define *hidden-prelude-names*
+  '(|readPrec| |readListPrec| |ReadPrec| |;MkReadPrec|))
 
 ;;; Prelude.x when the Prelude is imported implicitly: its names are not
 ;;; in the module's symbol table (they are looked up in the prelude

@@ -19,7 +19,8 @@ module PreludeCore (
     Ix(range, index, inRange, rangeSize),
     Enum(succ, pred, toEnum, fromEnum,
 	 enumFrom, enumFromThen, enumFromTo, enumFromThenTo),
-    Show(showsPrec, show, showList), Read(readsPrec, readList),
+    Show(showsPrec, show, showList),
+    Read(readsPrec, readList, readPrec, readListPrec), ReadPrec(MkReadPrec),
     ReadS(..), ShowS(..),
 --  List type: [_]((:), [])
 --  Tuple types: (_,_), (_,_,_), etc.
@@ -291,9 +292,22 @@ class  Show a  where
 		  where showl []     = showChar ']'
 			showl (x:xs) = showChar ',' . shows x . showl xs
 
+-- base's ReadPrec methods too, over Yale Haskell's ReadPrec (a reader
+-- given the precedence; Text.ParserCombinators.ReadPrec has its
+-- operations).  An instance defines readsPrec or readPrec.  The Haskell
+-- 98 Prelude does not export them (symbol-table.mumble's
+-- *hidden-prelude-names*); Text.Read does.
+newtype ReadPrec a = MkReadPrec (Int -> ReadS a)
+
 class  Read a  where
     readsPrec :: Int -> ReadS a
     readList  :: ReadS [a]
+    readPrec  :: ReadPrec a
+    readListPrec :: ReadPrec [a]
+
+    readsPrec n = case readPrec of MkReadPrec f -> f n
+    readPrec = MkReadPrec readsPrec
+    readListPrec = MkReadPrec (\_ -> readList)
 
     readList    = readParen False (\r -> [pr | ("[",s)	<- lex r,
 					       pr	<- readl s])

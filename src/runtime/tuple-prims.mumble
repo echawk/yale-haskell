@@ -172,6 +172,16 @@
 
 (define prim.tupleReadDict
  (make-vfun (lambda dicts
-   (create-dict dicts
-    (|PreludeTuple:tupleReadsPrec| |PreludeTuple:tupleReadList|)
-    ()))))
+   (tupleReadDict/l dicts))))
+
+;;; Haskell 98's Read also has base's readPrec and readListPrec
+;;; (PreludeCore); Haskell 1.2's two methods.
+(define (tupleReadDict/l d)
+  (if (feature? 'show-method)
+      (create-dict d
+       (|PreludeTuple:tupleReadsPrec| |PreludeTuple:tupleReadList|
+	|PreludeTuple:tupleReadPrec| |PreludeTuple:tupleReadListPrec|)
+       ())
+      (create-dict d
+       (|PreludeTuple:tupleReadsPrec| |PreludeTuple:tupleReadList|)
+       ())))

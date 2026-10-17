@@ -161,11 +161,18 @@
 		  (signal-wrong-definition
 		    "type constructor" name *module-name*))))
 	  ((is-type? 'entity-abbreviated entity)
-	   (cond ((algdata? def)
+	   (cond ((and (algdata? def) (not (eq? name qname)))
+		  ;; Q.T(..): the constructors and fields in scope as Q.C
+		  (require-complete-algdata
+		   (gather-qualified-group name def qname
+		     (append (algdata-constrs def) (algdata-field-vars def)))))
+		 ((algdata? def)
 		  (require-complete-algdata
 		   (gather-algdata-group name def)))
 		 ((synonym? def)
 		  (make-group name def))
+		 ((and (class? def) (not (eq? name qname)))
+		  (gather-qualified-group name def qname (class-method-vars def)))
 		 ((class? def)
 		  (gather-class-group name def))
 		 (else
@@ -200,6 +207,25 @@
   (if (hidden-constructors? group)
       'not-found
       group))
+
+;;; The group of a type or class exported by a qualified name (Q.T(..)):
+;;; its members in scope by the same qualifier (Q.C), by their own names.
+(define (gather-qualified-group name def qname members)
+  (let* ((s (symbol->string qname))
+	 (dot (lisp:position #\. s :from-end '#t))
+	 (qual (substring s 0 (1+ dot)))
+	 (res '()))
+    (dolist (m members)
+      (let* ((mname (symbol->string (def-name m)))
+	     (con? (and (> (string-length mname) 0)
+			(char=? (string-ref mname 0) #\;)))
+	     (q (string->symbol
+		 (if con?
+		     (string-append ";" qual (substring mname 1 (string-length mname)))
+		     (string-append qual mname)))))
+	(when (eq? (table-entry *symbol-table* q) m)
+	  (push (tuple (def-name m) m) res))))
+    (cons (tuple name def) (reverse res))))
 
 ;;; Returns the group restricted to NAMES (Haskell 98 partial exports).
 

@@ -19,6 +19,19 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.15.0 (2026-10-17)
+
+- Read has base's `readPrec` and `readListPrec` methods: an instance
+  defines `readsPrec` or `readPrec`.  ReadPrec is a reader given the
+  precedence (Int -> ReadS a, PreludeCore); Text.ParserCombinators
+  .ReadPrec's operations are over it.  The Haskell 98 Prelude does not
+  export these names (a program may still define its own).  Text.Read
+  exports them with `Lexeme(..)`, `lexP`, `parens`,
+  `readListPrecDefault`; new modules GHC.Read (`paren`, `list`,
+  `expectP`, `choose`, `readField`, ...) and Text.Read.Lex.
+- `Q.T(..)` in an export list (T imported qualified as Q) exports the
+  constructors in scope as Q.C; it was reported as not exported.
+
 ## 3.14.0 (2026-10-17)
 
 - base's Functor, Applicative, Monad, Foldable and Traversable

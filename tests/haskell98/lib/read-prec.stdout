@@ -1,0 +1,5 @@
+CI "hello"
+(Blue,[Red,Green])
+(P 3 (-4),Nothing,[P 1 2,P 3 4])
+Just (Just (P 5 6))
+(Left "Prelude.read: no parse",[(7," rest")])
