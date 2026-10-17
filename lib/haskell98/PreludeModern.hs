@@ -14,8 +14,8 @@
 --     src/compiler/top/symbol-table.mumble).  toList, foldl' and foldr'
 --     are Data.Foldable's, not the Prelude's (*not-in-ghc-prelude*).
 module PreludeModern (
-    Applicative(pure, (<*>), (*>), (<*)), Alternative(empty, (<|>), some, many),
-    MonadFail(fail), (<$>), (<$), (<**>), liftA, liftA2, liftA3, optional,
+    Applicative(pure, (<*>), (*>), (<*), liftA2), Alternative(empty, (<|>), some, many),
+    MonadFail(fail), (<$>), (<$), (<**>), liftA, liftA3, optional,
     Semigroup((<>), sconcat, stimes), Monoid(mempty, mappend, mconcat),
     NonEmpty((:|)),
     Foldable(foldMap, foldr, foldl, foldr', foldl', foldr1, foldl1, toList,
@@ -40,20 +40,21 @@ infixl 4 <*>, <*, *>, <**>, <$>, <$
 infixl 3 <|>
 infixr 6 <>
 
+-- As base: an instance defines pure and (<*>) or liftA2.
 class Functor f => Applicative f where
-  pure  :: a -> f a
-  (<*>) :: f (a -> b) -> f a -> f b
-  (*>)  :: f a -> f b -> f b
-  (<*)  :: f a -> f b -> f a
+  pure   :: a -> f a
+  (<*>)  :: f (a -> b) -> f a -> f b
+  (*>)   :: f a -> f b -> f b
+  (<*)   :: f a -> f b -> f a
+  liftA2 :: (a -> b -> c) -> f a -> f b -> f c
 
+  f <*> a = liftA2 id f a
   a *> b = (id <$ a) <*> b
   a <* b = liftA2 const a b
+  liftA2 f a b = fmap f a <*> b
 
 liftA :: Applicative f => (a -> b) -> f a -> f b
 liftA f a = pure f <*> a
-
-liftA2 :: Applicative f => (a -> b -> c) -> f a -> f b -> f c
-liftA2 f a b = fmap f a <*> b
 
 liftA3 :: Applicative f => (a -> b -> c -> d) -> f a -> f b -> f c -> f d
 liftA3 f a b c = fmap f a <*> b <*> c

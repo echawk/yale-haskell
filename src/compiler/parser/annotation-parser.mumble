@@ -64,6 +64,14 @@
 
 (define (parse-inline-pragma)
   (advance-token)
+  ;; GHC's phase control, INLINE [1] f, INLINE [~1] f, and INLINE
+  ;; CONLIKE f, are ignored: there is one inliner
+  (when (eq-token? '\[)
+    (do () ((or (eq-token? '\]) (eq-token? 'end-annotation) (eq-token? 'eof)))
+      (advance-token))
+    (when (eq-token? '\]) (advance-token)))
+  (when (and (eq? *token* 'conid) (string=? (car *token-args*) "CONLIKE"))
+    (advance-token))
   (let ((names (parse-inline-names)))
     (make annotation-decl
 	  (names names)

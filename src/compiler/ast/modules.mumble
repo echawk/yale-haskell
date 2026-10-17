@@ -74,7 +74,8 @@
     ;; After a module is dumped, these are all empty.
 
     ;; <exports>, list of exported names
-    (exports (type (list entity)) (default '()))
+    ;; 'none for module M () where, until init-modules
+    (exports (type (or (list entity) symbol)) (default '()))
     ;; <impdecls>, local import decls
     (imports (type (list import-decl)) (default '()))
     ;; <fixdecls>, local fixity decls

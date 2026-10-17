@@ -280,15 +280,37 @@
 	(let ((multi2 '()))
 	  (dolist (c multi)
 	    (let ((syn (constraint-synonym (class-ref-name (mp-context-class c)))))
+	      (cond
+	       ;; C with no arguments naming a synonym of (): no constraint
+	       ((and (null? (mp-context-types c))
+		     (trivial-constraint? (class-ref-name (mp-context-class c)) 10))
+		(setf changed '#t))
+	       (else
 	      (if syn
 		  (begin
 		    (setf changed '#t)
 		    (mlet (((s m) (instantiate-constraint-synonym syn (mp-context-types c))))
 		      (setf single (append single s))
 		      (setf multi2 (append multi2 m))))
-		  (setf multi2 (append multi2 (list c))))))
+		  (setf multi2 (append multi2 (list c))))))))
 	  (setf (signature-context signature) single)
 	  (setf (signature-mcontext signature) multi2))))))
+
+;;; A nullary synonym of the unit type, directly or through others:
+;;; GHC.Stack's HasCallStack, safe's  type Partial = HasCallStack.  As a
+;;; constraint it is the empty one (GHC's (() :: Constraint)).
+(define (trivial-constraint? name depth)
+  (trivial-constraint-def? (resolve-toplevel-name name) depth))
+
+(define (trivial-constraint-def? def depth)
+  (and (synonym? def) (> depth 0)
+       (null? (synonym-args def))
+       (let ((body (synonym-body def)))
+	 (and (tycon? body)
+	      (null? (tycon-args body))
+	      (let ((d (tycon-def body)))
+		(or (eq? d (core-symbol "UnitType"))
+		    (trivial-constraint-def? d (1- depth))))))))
 
 (define (constraint-synonym name)
   (let ((def (resolve-toplevel-name name)))

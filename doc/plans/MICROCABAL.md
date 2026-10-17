@@ -253,3 +253,21 @@ examples/ (44 identical outputs, the same 2 errors).  It needed:
 hscolour does not get that far: MicroCabal itself (built by GHC as well)
 rejects its cabal file's empty `Default-Extensions:` field.
 
+### Second survey (2026-10-17, 3.6.0): 6 of 43 build
+
+split, safe, base-orphans, splitmix, assoc and call-stack build.  Each
+of the others stops later than before; most now at a missing module:
+
+| Gap | Packages stopped by it |
+|---|---|
+| Data.Bifoldable (and Bitraversable) | tagged, so comonad, bifunctors, distributive, profunctors, free, semigroupoids, either, lens |
+| Data.ByteString.Short | these, strict |
+| Control.Applicative.Lift (transformers) | transformers-base, mmorph |
+| Text.Read's readPrec (ReadPrec) | megaparsec, case-insensitive |
+| GHC.List, GHC.Arr, GHC.IO, Control.Monad.ST.Unsafe, Foreign.C.ConstPtr, Data.Hashable.Lifted, System.Clock (clock is C) | indexed-traversable, utility-ht, attoparsec, aeson, data-default, data-fix, extra |
+| an exported qualified name (`C.choice` in Control.Monad.Combinators) | parser-combinators |
+| a rank-N type synonym (`type Traversal s t a b = forall f. ...`) crashes | microlens |
+| "Execution of a form compiled with errors" (generated Lisp) | StateVar, contravariant |
+| the kind `TYPE` | primitive, vector |
+| `E.Handler` from a qualified import; `forkOSWithUnmask`; integer-gmp; a signature too general (colour; prettyprinter's `Doc ann` with Void) | HUnit, base-compat, integer-logarithms, colour, prettyprinter, optparse-applicative |
+

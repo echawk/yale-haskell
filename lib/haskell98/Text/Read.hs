@@ -1,7 +1,8 @@
 -- Text.Read (base), for Yale Haskell's Haskell 98 dialect: the Haskell 98
--- reading functions and readMaybe/readEither.  The Read class itself is
--- the Prelude's.
-module Text.Read (reads, read, readParen, lex, readMaybe, readEither) where
+-- reading functions and readMaybe/readEither, and the Prelude's Read class
+-- (its Haskell 98 methods; base's readPrec and readListPrec are not there).
+module Text.Read (Read(readsPrec, readList), ReadS, reads, read, readParen,
+                  lex, readMaybe, readEither) where
 
 readEither :: Read a => String -> Either String a
 readEither s =

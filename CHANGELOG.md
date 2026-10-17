@@ -19,6 +19,27 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.6.0 (2026-10-17)
+
+From the Hackage survey (doc/plans/MICROCABAL.md):
+
+- `module M () where`: an empty export list exports only instances (it
+  did not parse).
+- `{-# INLINE [0] f #-}`, `[~1]` and `CONLIKE`: GHC's phase control is
+  accepted and ignored.
+- Nullary constraints: `HasCallStack =>`, and any synonym of `()` used
+  as a constraint (`type Partial = HasCallStack`), mean no constraint.
+- Equality constraints in signatures, `(a ~ b, C a) => ...`: a type
+  variable equal to a type is replaced by it (an equality between two
+  other types is dropped).  In an instance context too: `instance a ~ Char =>
+  IsString (W [a])` is the instance for `W [Char]`.
+- New modules: GHC.Stack (empty call stacks), Data.Functor.Classes
+  (Eq1, Ord1, Show1, Read1 and the binary classes, with base's ReadS
+  methods).
+- `liftA2` is an Applicative method, as in base (an instance may define
+  it instead of `<*>`); Bifunctor instances for Const and 3- and 4-tuples;
+  Text.Read exports Read; Data.Coerce exports Coercible.
+
 ## 3.5.0 (2026-10-17)
 
 - `yale-haskell build FILE [-o EXE]`: a standalone executable (the image

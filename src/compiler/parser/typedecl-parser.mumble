@@ -459,14 +459,22 @@
 
 (define (parse-instance-decl interface?)
  (save-parser-context
-  (mlet (((contexts mcontexts) (split-contexts (parse-optional-context)))
+  (mlet (((assertions equalities) (split-equalities (parse-optional-context)))
+	 ((contexts mcontexts) (split-contexts assertions))
 	 (decls '()))
     (token-case
      (tycon
       (let* ((class (class->ast))
 	     ;; one atype, or several for a multi-parameter class
 	     (types (if (haskell98?) (parse-atype-list) (list (parse-type))))
-	     (simple (if (null? (cdr types)) (car types) '#f)))
+	     (simple '#f))
+	;; equality constraints (instance a ~ Char => IsString [a])
+	(when (and (not (null? equalities)) (not (null? types)))
+	  (mlet (((c m ts) (apply-equalities/instance equalities contexts mcontexts types)))
+	    (setf contexts c)
+	    (setf mcontexts m)
+	    (setf types ts)))
+	(setf simple (if (null? (cdr types)) (car types) '#f))
 	(when (null? types)
 	  (signal-missing-token "<type>" "instance declaration"))
 	(when (not interface?)

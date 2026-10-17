@@ -75,7 +75,11 @@
 
 (define (parse-exports)
   (token-case
-   (\( (parse-export-list))
+   ;; module M () where: nothing but instances; '() is no export list
+   ;; (everything), so it is 'none until init-modules.mumble
+   (\( (if (eq-token? '\))
+	    (begin (advance-token) 'none)
+	    (parse-export-list)))
    (else '())))
 
 (define (parse-export-list)

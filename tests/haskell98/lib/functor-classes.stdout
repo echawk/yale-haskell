@@ -1,0 +1,5 @@
+Fix (Cons 1 (Fix (Cons 2 (Fix Nil))))
+(True,False,LT)
+("(Just 3)","Identity 'x'")
+Just 5
+("Left 3",True)

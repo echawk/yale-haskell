@@ -241,12 +241,16 @@
     (else (eq-token? '=>))))
 
 (define (parse-context)
- (let ((contexts (token-case
-	           (tycon
-		    (list (parse-single-context)))
-		   (\( (parse-contexts))
-		   (else
-		    (signal-invalid-syntax "a context")))))
+ (let ((contexts (cond
+		  ((equality-assertion-ahead?)
+		   (list (parse-equality-assertion)))
+		  (else
+		   (token-case
+		    (tycon
+		     (list (parse-single-context)))
+		    (\( (parse-contexts))
+		    (else
+		     (signal-invalid-syntax "a context")))))))
    (require-token => (signal-missing-token "`=>'" "context"))
    contexts))
 
@@ -263,7 +267,9 @@
 		;; to constraints on type variables by resolve-signature
 		((pair? types)
 		 (**mp-context class types))
-		(else (signal-missing-token "<tyvar>" "class assertion"))))
+		;; a nullary constraint (HasCallStack, a synonym of ()):
+		;; expand-constraint-synonyms (util/signature.mumble)
+		(else (**mp-context class '()))))
 	(token-case
 	  (tyvar
 	   (let ((tyvar (token->symbol)))
@@ -282,12 +288,21 @@
   (let ((single '())
 	(multi '()))
     (dolist (c contexts)
-      (if (mp-context? c) (push c multi) (push c single)))
+      ;; an equality (a ~ t) outside a signature is not kept
+      (cond ((equality-assertion? c) '#f)
+	    ((mp-context? c) (push c multi))
+	    (else (push c single))))
     (values (nreverse single) (nreverse multi))))
 
 (define (parse-contexts)
   (token-case
     (\) '())
+    ((no-advance satisfies equality-assertion-ahead?)
+     (let ((context (parse-equality-assertion)))
+       (token-case
+	(\, (cons context (parse-contexts)))
+	(\) (list context))
+	(else (signal-missing-token "`)' or `,'" "context")))))
     (tycon (let ((context (parse-single-context)))
 	      (token-case
 		(\, (cons context (parse-contexts)))
@@ -326,10 +341,97 @@
 
 (define (parse-signature-1)
   (let ((foralls (skip-explicit-forall)))
-    (mlet (((contexts mcontexts) (split-contexts (parse-optional-context)))
+    (mlet (((assertions equalities) (split-equalities (parse-optional-context)))
+	   ((contexts mcontexts) (split-contexts assertions))
 	   (type (parse-type)))
-      (make signature (context contexts) (type type) (mcontext mcontexts)
-	              (foralls foralls)))))
+      (apply-equalities
+       equalities
+       (make signature (context contexts) (type type) (mcontext mcontexts)
+	     (foralls foralls))))))
+
+;;; Equality constraints (GHC's ~, with GADTs or TypeFamilies):
+;;; (a ~ b, C t a) => t -> (a -> b).  In a signature, a ~ t with a a type
+;;; variable means a is t, so it is substituted into the type and the
+;;; other assertions; an equality between two other types (F a ~ Int) is
+;;; dropped, and the type checker does not see it.
+
+(define (equality-assertion-ahead?)
+  (and (haskell98?)
+       (let ((saved (save-scanner-state)))
+	 (let ((res (scan-for-tilde 0)))
+	   (restore-excursion saved)
+	   res))))
+
+;;; Is there a ~ before the end of this assertion (a , ) or => outside
+;;; brackets)?
+(define (scan-for-tilde depth)
+  (cond ((tilde-here?)
+	 (eqv? depth 0))
+	(else
+	 (token-case
+	  ((\( \[) (scan-for-tilde (1+ depth)))
+	  ((\) \]) (and (> depth 0) (scan-for-tilde (1- depth))))
+	  (\, (and (> depth 0) (scan-for-tilde depth)))
+	  ((=> -> = \| \; \} |where| \:\: <- eof) '#f)
+	  (else (advance-token) (scan-for-tilde depth))))))
+
+(define (tilde-here?)
+  (or (eq? *token* '\~)
+      (and (eq? *token* 'varsym) (string=? (car *token-args*) "~"))))
+
+(define (parse-equality-assertion)
+  (let ((left (parse-btype)))
+    (if (tilde-here?)
+	(advance-token)
+	(signal-missing-token "`~'" "equality constraint"))
+    (list 'equality left (parse-btype))))
+
+(define (equality-assertion? c)
+  (and (pair? c) (eq? (car c) 'equality)))
+
+(define (split-equalities contexts)
+  (values (lisp:remove-if (function equality-assertion?) contexts)
+	  (lisp:remove-if-not (function equality-assertion?) contexts)))
+
+(define (apply-equalities equalities sig)
+  (dolist (e equalities)
+    (let ((left (cadr e)) (right (caddr e)))
+      (cond ((tyvar? left)
+	     (substitute-signature sig (tyvar-name left) right))
+	    ((tyvar? right)
+	     (substitute-signature sig (tyvar-name right) left)))))
+  sig)
+
+;;; The same for an instance (instance ann ~ Void => Pretty (Doc ann) is
+;;; Pretty (Doc Void)): returns its contexts, multi-parameter contexts and
+;;; head types with the equalities substituted.
+(define (apply-equalities/instance equalities contexts mcontexts types)
+  (let ((sig (make signature (context contexts) (mcontext mcontexts)
+		   (type (**tycon/def (tuple-tycon (max 2 (length types)))
+				      (if (null? (cdr types))
+					  (list (car types) (car types))
+					  types)))
+		   (foralls '()))))
+    (apply-equalities equalities sig)
+    (let ((new (tycon-args (signature-type sig))))
+      (values (signature-context sig) (signature-mcontext sig)
+	      (if (null? (cdr types)) (list (car new)) new)))))
+
+(define (substitute-signature sig name type)
+  (let ((single '())
+	(multi (map (lambda (c)
+		      (**mp-context (mp-context-class c)
+				    (map (lambda (t) (substitute-tyvar t name type))
+					 (mp-context-types c))))
+		    (signature-mcontext sig))))
+    (dolist (c (signature-context sig))
+      (if (eq? (context-tyvar c) name)
+	  ;; C a with a := t: C t, reduced later (FlexibleContexts)
+	  (push (**mp-context (context-class c) (list type)) multi)
+	  (push c single)))
+    (setf (signature-context sig) (reverse single))
+    (setf (signature-mcontext sig) multi)
+    (setf (signature-type sig) (substitute-tyvar (signature-type sig) name type))))
 
 ;;; forall a b . t (GHC's ExplicitForAll): the quantifier is implicit
 ;;; anyway.  In Haskell 98 forall is an ordinary name, but it cannot

@@ -1,6 +1,8 @@
 -- Data.Bifunctor (base)
 module Data.Bifunctor (Bifunctor(bimap, first, second)) where
 
+import Data.Functor.Const (Const(Const))
+
 class Bifunctor p where
   bimap  :: (a -> b) -> (c -> d) -> p a c -> p b d
   first  :: (a -> b) -> p a c -> p b c
@@ -12,6 +14,15 @@ class Bifunctor p where
 
 instance Bifunctor (,) where
   bimap f g (a, b) = (f a, g b)
+
+instance Bifunctor ((,,) x) where
+  bimap f g (x, a, b) = (x, f a, g b)
+
+instance Bifunctor ((,,,) x y) where
+  bimap f g (x, y, a, b) = (x, y, f a, g b)
+
+instance Bifunctor Const where
+  bimap f _ (Const a) = Const (f a)
 
 instance Bifunctor Either where
   bimap f _ (Left a)  = Left (f a)
