@@ -19,6 +19,12 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.9.0 (2026-10-17)
+
+- New modules: Data.Bifoldable1, Data.Functor.Contravariant,
+  Control.Monad.Trans.Select; Control.Concurrent's forkOSWithUnmask and
+  forkOnWithUnmask, and rank-2 forkIOWithUnmask.
+
 ## 3.8.0 (2026-10-17)
 
 - Layout (Haskell 98 report 10.3): a declaration block (`where`, `let`,

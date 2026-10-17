@@ -271,3 +271,26 @@ of the others stops later than before; most now at a missing module:
 | the kind `TYPE` | primitive, vector |
 | `E.Handler` from a qualified import; `forkOSWithUnmask`; integer-gmp; a signature too general (colour; prettyprinter's `Doc ann` with Void) | HUnit, base-compat, integer-logarithms, colour, prettyprinter, optparse-applicative |
 
+### Third and fourth surveys (2026-10-17, 3.7.0 and 3.8.0): 9, then 11 of 43
+
+Built: split, safe, base-orphans, splitmix, assoc, parser-combinators,
+utility-ht, call-stack, HUnit, prettyprinter, optparse-applicative.
+3.7.0 and 3.8.0 fixed what the second survey found (qualified names in
+export lists, polytype synonyms, the empty layout block, extensible
+exceptions, explicit Prelude import lists, eight modules); 3.9.0 adds
+the small modules the fourth found (Data.Bifoldable1 for tagged and the
+eight packages above it, Data.Functor.Contravariant, Control.Monad.Trans
+.Select).  What is left is larger:
+
+| Gap | Packages |
+|---|---|
+| ReadPrec as a method of Read (readPrec in instances) | megaparsec, case-insensitive |
+| GHC.Generics' Rep and the representation types | data-default, indexed-traversable |
+| GHC.IO's IO constructor (State# RealWorld) | async, attoparsec |
+| the kind TYPE, unboxed primitives | primitive, vector |
+| Template Haskell (Language.Haskell.TH.Syntax) | exceptions, so aeson |
+| `__GLASGOW_HASKELL__` checks (`YALE_CPP_OPTIONS` works around) | dlist |
+| binary's Builder needs Data.ByteString.Builder.Prim | these, strict |
+| C libraries (clock), boot packages (integer-gmp), Data.Hashable.Lifted | extra, integer-logarithms, data-fix |
+| type checking: a signature too general (colour, microlens) | colour, microlens |
+

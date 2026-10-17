@@ -6,6 +6,7 @@
 -- thread that waits for another one fails with "blocked indefinitely".
 module Control.Concurrent (
     ThreadId, myThreadId, forkIO, forkFinally, forkIOWithUnmask, forkOS,
+    forkOSWithUnmask, forkOnWithUnmask,
     forkOn, killThread, throwTo, yield, threadDelay, getNumCapabilities,
     setNumCapabilities, rtsSupportsBoundThreads, isCurrentThreadBound,
     threadCapability, mkWeakThreadId,
@@ -43,8 +44,14 @@ forkIO act = do
 forkFinally :: IO a -> (Either SomeException a -> IO ()) -> IO ThreadId
 forkFinally act fin = forkIO (try act >>= fin)
 
-forkIOWithUnmask :: ((IO a -> IO a) -> IO ()) -> IO ThreadId
+forkIOWithUnmask :: ((forall a . IO a -> IO a) -> IO ()) -> IO ThreadId
 forkIOWithUnmask f = forkIO (f id)
+
+forkOSWithUnmask :: ((forall a . IO a -> IO a) -> IO ()) -> IO ThreadId
+forkOSWithUnmask f = forkIO (f id)
+
+forkOnWithUnmask :: Int -> ((forall a . IO a -> IO a) -> IO ()) -> IO ThreadId
+forkOnWithUnmask _ f = forkIO (f id)
 
 forkOS :: IO () -> IO ThreadId
 forkOS = forkIO
