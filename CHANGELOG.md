@@ -19,6 +19,25 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.3.0 (2026-10-17)
+
+- DataKinds type-level lists: `'[]`, `'[a]`, `[a, b]`, `t ': ts` (and
+  `t : ts`), as the empty types PromotedNil and PromotedCons
+  (parser/type-parser.mumble).
+- Kind-annotated class parameters after the first,
+  `class C (n :: Nat) (ts :: [Type]) r`.
+- ScopedTypeVariables in multi-parameter instances: the head's type
+  variables scope over the methods, also when named like the class's
+  (class variables are now substituted simultaneously).
+- AllowAmbiguousTypes: a method whose type mentions none of the class's
+  variables (`name :: String` in `class Name a b`), chosen by type
+  applications; a type variable only a constraint mentions is shared by
+  the binding's body, its signature check and its dictionary, and an
+  instance's dictionary binds it from the instance head.
+- hlist.hs (heterogeneous lists with GADTs, DataKinds, a closed type
+  family, fundeps and type applications) runs: tests/haskell98/language/
+  hlist.hs.
+
 ## 3.2.0 (2026-10-17)
 
 - MicroCabal backend (tools/microcabal/): `tools/microcabal/mcabal

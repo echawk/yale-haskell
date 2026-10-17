@@ -23,6 +23,15 @@
 ;;; operators are not used), binding tighter than ->.
 
 (define (parse-type-operators left)
+  (if (promoted-cons-here?)
+      ;; DataKinds: t ': ts (or t : ts), right associative
+      (begin
+	(advance-token)
+	(**tycon/def (core-symbol "PromotedCons")
+		     (list left (parse-type-operators (parse-btype)))))
+      (parse-type-operators-1 left)))
+
+(define (parse-type-operators-1 left)
   (if (type-operator-here?)
       (let* ((name (type-operator-name))
 	     (right (parse-btype)))
@@ -45,8 +54,34 @@
 
 (define (type-operator-here?)
   (and (memq *token* '(consym varsym))
-       (not (mem-string (car *token-args*) '("." "!" "~" "*")))
+       (not (mem-string (car *token-args*) '("." "!" "~" "*" ":")))
        (language-extension? "TypeOperators")))
+
+;;; DataKinds (GHC): type-level lists.  '[] and '[t1, ..., tn], or
+;;; [t1, t2, ...] with two or more elements, and t ': ts are built from
+;;; the empty types PromotedNil and PromotedCons (PreludeCore): kinds are
+;;; not checked, so a promoted list is any type made of these.
+
+(define (promoted-cons-here?)
+  (and (eq? *token* 'consym)
+       (string=? (car *token-args*) ":")
+       (language-extension? "DataKinds")))
+
+(define (promoted-list types)
+  (if (null? types)
+      (**tycon/def (core-symbol "PromotedNil") '())
+      (**tycon/def (core-symbol "PromotedCons")
+		   (list (car types) (promoted-list (cdr types))))))
+
+;;; The types of a promoted list after its [, through the ].
+(define (parse-promoted-list-elements)
+  (token-case
+   (\] '())
+   (else (let ((type (parse-type)))
+	   (token-case
+	    (\, (cons type (parse-promoted-list-elements)))
+	    (\] (list type))
+	    (else (signal-missing-token "`]' or `,'" "type-level list")))))))
 
 (define (parse-btype)
   (token-case
@@ -110,8 +145,14 @@
 	  (\] (**tycon/def (core-symbol "List") '()))
 	  (else
 	   (let ((type (parse-type)))
-	     (require-token \] (signal-missing-token "`]'" "type expression"))
-	     (**tycon/def (core-symbol "List") (list type))))))
+	     (token-case
+	      (\] (**tycon/def (core-symbol "List") (list type)))
+	      ;; DataKinds: [t1, t2, ...] is a type-level list
+	      (\, (promoted-list (cons type (parse-promoted-list-elements))))
+	      (else (signal-missing-token "`]'" "type expression")))))))
+    (promoted-tick
+     (require-token \[ (signal-missing-token "`['" "type-level list"))
+     (promoted-list (parse-promoted-list-elements)))
     (else
      (signal-invalid-syntax "an atype"))))
 

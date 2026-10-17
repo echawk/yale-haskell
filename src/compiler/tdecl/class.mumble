@@ -161,7 +161,12 @@
 	  ((is-type? 'signdecl decl)
 	   (let* ((signature (signdecl-signature decl))
 		  (vars (resolve-signature signature)))
-	     (when (not (some (lambda (v) (memq v vars)) class-tyvars))
+	     ;; AllowAmbiguousTypes (GHC): a method may mention none of the
+	     ;; class's variables (name :: String in class Name a b); its
+	     ;; type has them in its context, and a type application picks
+	     ;; the instance (name @Int @Bool)
+	     (when (and (not (some (lambda (v) (memq v vars)) class-tyvars))
+			(not (module-extension? "AllowAmbiguousTypes")))
 	       (signal-class-sig-ignores-type signature))
 	     ;; Note: signature does not include defined class yet
 	     (dolist (context (signature-context signature))

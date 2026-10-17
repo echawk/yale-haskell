@@ -249,6 +249,9 @@
     (#\' (if (promotion-tick?)
 	     ;; DataKinds (GHC): 'Z in a type is the promoted Z
 	     (begin (advance-char)
+		    ;; '[ starts a promoted list, which [ alone may not
+		    (when (char=? *char* #\[)
+		      (emit-token 'promoted-tick))
 		    (lex-one-token)
 		    (let ((tok  (car *tokens*)))
 		      (when (eq? (car tok) 'conid)
@@ -825,7 +828,9 @@
 
 ;;; DataKinds: a ' before a constructor, [ or ( that is not a character
 ;;; literal ('Z', '[') promotes it; the tick is dropped (module-parser
-;;; .mumble declares the promoted constructors as types).
+;;; .mumble declares the promoted constructors as types), except before
+;;; [, where a promoted-tick token tells '[a] (a one-element type-level
+;;; list) from [a] (the list type; type-parser.mumble).
 
 (define *promoted-names* '())   ; names written 'C (strings)
 

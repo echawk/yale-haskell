@@ -239,8 +239,17 @@
 (define (expand-mp-instance-decls inst)
   (with-slots instance (class dictionary decls) inst
     ;; uniquify the instance's tyvars, as for one-parameter instances
-    (let ((new-tyvars (map (lambda (tyvar) (tuple tyvar (gentyvar "tv")))
-			   (instance-tyvars inst))))
+    ;; (and, the same way, keep under ScopedTypeVariables those no method
+    ;; signature uses, so that they scope over the methods)
+    (let* ((taken (class-method-tyvar-names class))
+	   (new-tyvars (map (lambda (tyvar)
+			      (tuple tyvar
+				     (if (and (or (module-extension? "ScopedTypeVariables")
+						  (instance-scoped-tyvars? inst))
+					      (not (memq tyvar taken)))
+					 tyvar
+					 (gentyvar "tv"))))
+			    (instance-tyvars inst))))
       (setf (instance-tyvars inst) (map (function tuple-2-2) new-tyvars))
       (setf (instance-mp-types inst)
 	    (map (lambda (ty) (rename-ast-tyvars ty new-tyvars))
@@ -305,8 +314,17 @@
   (let ((class (instance-class inst)))
     (if (null? (instance-mp-types inst))
 	(substitute-tyvar type (class-tyvar class) (make-instance-type inst))
-	(substitute-class-tyvars-1 type (class-tyvars class)
-				   (instance-mp-types inst)))))
+	;; simultaneously: an instance type may mention a name that is
+	;; also a class variable (instance C (S l) (a, b) r for class
+	;; C n l r), so the class variables are first renamed apart
+	(let ((fresh (map (lambda (tv)
+			    (declare (ignore tv))
+			    (make tyvar (name (gentyvar "cv"))))
+			  (class-tyvars class))))
+	  (substitute-class-tyvars-1
+	   (substitute-class-tyvars-1 type (class-tyvars class) fresh)
+	   (map (function tyvar-name) fresh)
+	   (instance-mp-types inst))))))
 
 (define (substitute-class-tyvars-1 type tyvars types)
   (if (null? tyvars)
@@ -675,4 +693,7 @@
 	  (push n names))
 	(dolist (c (signature-context sig))
 	  (push (context-tyvar c) names))))
-    (lisp:remove (class-tyvar class) names)))
+    ;; the class's variables are substituted away; a method's own are not
+    (lisp:set-difference names (if (null? (class-tyvars class))
+				   (list (class-tyvar class))
+				   (class-tyvars class)))))

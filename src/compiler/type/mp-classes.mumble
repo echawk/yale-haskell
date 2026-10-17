@@ -444,7 +444,38 @@
   (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls)))
     (if (eq? decl '#f)
 	'#f
-	(find-mp-param-1 (valdef-mp-dict-params decl) class types))))
+	(or (find-mp-param-1 (valdef-mp-dict-params decl) class types)
+	    (find-only-mp-param (valdef-mp-dict-params decl) class types)))))
+
+;;; AllowAmbiguousTypes: a type variable only a constraint mentions (n in
+;;; get :: Get n l r => l -> r) is not determined by the types, so a
+;;; wanted constraint can have a new variable where the given has the
+;;; binding's own (an instance's dictionary using its method).  When one
+;;; parameter of the class agrees at every position where the wanted
+;;; types are not a bare type variable, it is the one: unified with it.
+
+(define (find-only-mp-param params class types)
+  (let ((candidates
+	 (lisp:remove-if-not
+	  (lambda (param)
+	    (and (eq? (mp-param-class param) class)
+		 (every (lambda (pt wt)
+			  (let ((wt (prune wt)))
+			    (or (and (ntyvar? wt) (not (ntyvar-read-only? wt)))
+				(mp-type-equal? pt wt))))
+			(mp-param-types param) types)))
+	  params)))
+    (and (not (null? candidates))
+	 (null? (cdr candidates))
+	 (find-mp-param-1/unify (car candidates) class types))))
+
+(define (find-mp-param-1/unify param class types)
+  (dolist2 (t1 (mp-param-types param)) (t2 types)
+    (type-unify t1 t2
+      (type-error "The constraint ~A does not match the given ~A."
+		  (**mp-context (**class/def class) types)
+		  (**mp-context (**class/def class) (mp-param-types param)))))
+  param)
 
 (define (find-enclosing-decl edecls decls)
   (cond ((null? edecls) '#f)
@@ -500,6 +531,10 @@
 	  (type-unify dict-type expected
 	    (type-error "Internal error: dictionary type of ~A ~A."
 			(instance-class inst) (instance-mp-types inst)))
+	  ;; the head's matched types, by name: a variable of the instance
+	  ;; that no method type mentions (n in Get ('S n) l r with
+	  ;; get :: l -> r) is bound only this way
+	  (bind-dictionary-tyvars-by-name dict-var tyvars bindings)
 	  (setf code (insert-mp-placeholders
 		      (insert-dict-placeholders (**var/def dict-var) tyvars
 						(placeholder-overloaded-var p))
@@ -507,6 +542,15 @@
 	  (setf new-placeholders (dynamic *placeholders*)))))
     (setf (placeholder-exp p) (mp-dict-use p code))
     (process-placeholders new-placeholders deferred decls)))
+
+(define (bind-dictionary-tyvars-by-name dict-var tyvars bindings)
+  (let ((sig (var-signature dict-var)))
+    (when (and sig (gtype? sig)
+	       (eqv? (length (gtype-tyvar-names sig)) (length tyvars)))
+      (dolist2 (name (gtype-tyvar-names sig)) (tv tyvars)
+	(let ((b (assq name bindings)))
+	  (when b
+	    (type-unify tv (tuple-2-2 b) '#f)))))))
 
 (define (signal-unresolved-mp-constraint p)
   (phase-error 'unresolved-mp-constraint

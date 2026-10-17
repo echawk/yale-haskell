@@ -396,6 +396,10 @@
       (setf (ntyvar-read-only? tyvar) '#t))
     (type-unify (remove-recursive-type (var-type var)) sig-type
 	     (signature-mismatch var))
+    ;; ScopedTypeVariables: the body's scoped variables are the
+    ;; signature's, those its type does not mention too
+    (link-scoped-instance-tyvars var sig-vars
+				 (lambda () (signature-mismatch var)))
     (dolist (tyvar sig-vars)
       (setf (ntyvar-read-only? tyvar) '#f))
     sig-vars))
@@ -480,6 +484,9 @@
 	  (else
 	   (mlet (((ntype tyvars givens) (instantiate-gtype/mp sig)))
 	     (unify ntype (var-type var))
+	     ;; ScopedTypeVariables: those only the context mentions too
+	     (link-scoped-instance-tyvars var tyvars (lambda () '#f))
+	     (forget-scoped-instance-tyvars var)
 	     ;; a type variable only in the signature's multi-parameter
 	     ;; constraints (t in (Show t, Stream s m t) => s -> m String)
 	     ;; reaches the body's through the functional dependencies

@@ -53,6 +53,9 @@ data Bin = MkBin
 data List a = a : (List a) | Nil deriving (Eq, Ord)
 data Arrow a b = MkArrow a b
 data UnitType = UnitConstructor deriving (Eq, Ord, Ix, Enum, Binary)
+-- DataKinds' type-level lists (parser/type-parser.mumble); never values
+data PromotedNil = PromotedNilC
+data PromotedCons a b = PromotedConsC a b
 
 -- Equality and Ordered classes
 

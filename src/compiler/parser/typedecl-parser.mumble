@@ -386,7 +386,7 @@
 			(signal-missing-token "`::'" "kind signature"))
 		      (skip-kind)))
 		 ;; a multi-parameter class: C a b [| a -> b]
-		 (more-vars (parse-more-context-tyvars))
+		 (more-vars (parse-more-class-tyvars))
 		 (fundeps (if (and (not (null? more-vars)) (eq-token? '\|))
 			      (begin (advance-token) (parse-fundeps))
 			      '()))
@@ -400,6 +400,19 @@
 	 (else
 	  (signal-missing-token "<tyvar>" "class declaration")))))
      (else (signal-missing-token "<tycon>" "class declaration"))))))
+
+;;; A class's further parameters, each a tyvar or (tyvar :: kind).
+(define (parse-more-class-tyvars)
+  (cond ((eq-token? 'varid)
+	 (let ((tyvar (token->symbol)))
+	   (cons tyvar (parse-more-class-tyvars))))
+	((and (eq-token? '\() (eq? (peek-1-type) 'varid))
+	 (advance-token)
+	 (let ((tyvar (token->symbol)))
+	   (require-token \:\: (signal-missing-token "`::'" "kind signature"))
+	   (skip-kind)
+	   (cons tyvar (parse-more-class-tyvars))))
+	(else '())))
 
 ;;; Class bodies cannot hold annotations (later phases expect only
 ;;; signatures and valdefs there), but H98 allows {-# INLINE m #-} on a

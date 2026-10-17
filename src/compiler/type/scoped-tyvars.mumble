@@ -22,13 +22,38 @@
 
 (define (scoped-signature-instance g)
   (if (or (null? (gtype-scoped g)) (null? (gtype-tyvar-names g)))
-      (values '#f '())
+      (values '#f '() '())
       (mlet (((type tyvars) (instantiate-gtype/newvars g)))
 	(let ((alist '()))
 	  (dolist2 (name (gtype-tyvar-names g)) (tv tyvars)
 	    (when (memq name (gtype-scoped g))
 	      (push (tuple name tv) alist)))
-	  (values type alist)))))
+	  (values type alist tyvars)))))
+
+;;; The type variables of each binding's scoped instance, (var . tyvars).
+;;; A scoped name that only the signature's context mentions (n in an
+;;; instance method get :: l -> r of class Get n l r, AllowAmbiguousTypes)
+;;; is not tied to the signature by unifying the types, so the signature
+;;; check and the generalization (type-decl.mumble's check-var-signature
+;;; and generalize-overloaded-type) unify these with their own instances'
+;;; variables; the generalization drops the entry.
+(define *scoped-instance-tyvars* '())
+
+(define (scoped-instance-tyvars var)
+  (let ((entry (assq var *scoped-instance-tyvars*)))
+    (if entry (cdr entry) '())))
+
+(define (forget-scoped-instance-tyvars var)
+  (setf *scoped-instance-tyvars*
+	(lisp:remove var *scoped-instance-tyvars* :key (function car))))
+
+;;; Unify the scoped instance's variables with TYVARS, another instance's
+;;; of the same signature.
+(define (link-scoped-instance-tyvars var tyvars on-error)
+  (let ((scoped (scoped-instance-tyvars var)))
+    (when (eqv? (length scoped) (length tyvars))
+      (dolist2 (s scoped) (tyvar tyvars)
+	(type-unify s tyvar (funcall on-error))))))
 
 ;;; Whether a signature mentions a scoped name.
 
@@ -68,8 +93,9 @@
 		 (type-unify ty (instantiate-gtype/scoped sig) '#f)
 		 (setf (var-signature v) '#f))
 		(else
-		 (mlet (((inst alist) (scoped-signature-instance sig)))
+		 (mlet (((inst alist tyvars) (scoped-signature-instance sig)))
 		   (when inst
+		     (push (cons v tyvars) *scoped-instance-tyvars*)
 		     (type-unify ty inst '#f)
 		     (setf added (append alist added)))))))))
     added))

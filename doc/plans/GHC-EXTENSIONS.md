@@ -147,7 +147,12 @@ be accepted.
   not assumed to be.
 - **DataKinds**: promoted constructors are empty types; kinds are not
   checked.  With GADTs and TypeFamilies, length-indexed vectors and
-  type-level arithmetic work.
+  type-level arithmetic work; so do type-level lists (`'[]`, `'[a, b]`,
+  `t ': ts`, built from PromotedNil and PromotedCons) and the HList
+  idiom: a class over a promoted Nat and a list, selected by type
+  applications (tests/haskell98/language/hlist.hs).
+- **AllowAmbiguousTypes**: a class method need not mention the class's
+  variables; type applications choose the instance.
 - **coerce** (Data.Coerce) has type `a -> b`: no Coercible check.
 - **IsString [a]** is an instance for every element type (base's
   `a ~ Char`).

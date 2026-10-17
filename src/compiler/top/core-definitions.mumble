@@ -134,7 +134,9 @@
      "Request"
      "Response"
      "UnitType"
-     "TupleDicts")
+     "TupleDicts"
+     "PromotedNil"
+     "PromotedCons")
   (constructors 
      "MkFloat"
      "MkDouble"
