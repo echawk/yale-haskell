@@ -159,7 +159,26 @@ Revealed* (doc/optimizer/optimizer.dvi), describes it.
 ## 3. What to build, in order
 
 Ordered by what the bench programs and nofib profiles show, cheapest
-first within the same value.  Each item should get a switch
+first within the same value.
+
+**Status note (2026-10-16).**  Before building items 3-5, their scope
+was counted with tracing over LambdaPi, cubicaltt, happy, the bench
+programs and all of nofib (bench/RESULTS.md, 2026-10-16): case-of-case
+was declined for size 15 times in all of nofib (bodies of 64 nodes
+against the 60 limit), so join points have almost nothing to unlock;
+same-module calls of product-returning functions are dictionary
+constructors and cold library code (mapAccumL, Data.Map's
+deleteFindMin/Max, splitAt), the exception being `fromInteger` on
+Rational (numeric literals in Rational code); and the absent-argument
+count was mostly dictionaries passed to class defaults, on reference
+counts that look stale for imported functions.  These counts are
+static, not profiles, so they would not show a hot spot outside this
+corpus, but no profile here points at these passes.  They are left as
+future work, to take up when a program shows them (a tuple-accumulator
+loop, a Rational-heavy program).  What the profiles do show is GC on
+LambdaPi-style programs (about half their time: live thunks and
+evaluated-thunk indirections; section 2.5), which is the better next
+target: update avoidance, eager selection, and the nursery default.  Each item should get a switch
 (`*grin-optimizations*` style, or a name in `*optimizers*`) and a
 bench/RESULTS.md entry.
 
