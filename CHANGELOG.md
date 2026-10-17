@@ -19,6 +19,26 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.12.0 (2026-10-17)
+
+- `yale-haskell build` failed about one time in five with a memory
+  fault while saving (SBCL on macOS, after a thread with a large stack).
+  It now compiles in one process and saves in a second that never has
+  one (src/cli/cli.lisp).
+- Two modules imported qualified under one name that both export x:
+  only a use of the qualified x is an error (Haskell 98 5.5.2); the
+  imports were rejected.
+- `(:*:)(..)` and other operator type constructors in import and export
+  lists.
+- GHC.Generics has the representation types (U1, Par1, K1, M1, :+:,
+  :*:, :.:, ...) and Rep; derived Generic instances are still empty.
+- Data.Functor.Reverse.
+- MicroCabal backend: `tools/microcabal/patches/NAME.patch` is applied
+  to a package's staged sources (tagged's Proxy comes only from a
+  GHC-only import).  Defining `__GLASGOW_HASKELL__` for every package
+  was measured and builds fewer packages (11 against 13 of 43), so it
+  stays off.
+
 ## 3.11.0 (2026-10-17)
 
 - Complex as in base: no datatype context, and `mkPolar` and `cis` need

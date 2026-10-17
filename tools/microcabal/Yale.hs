@@ -120,6 +120,7 @@ stagePackage env db name vers flds = do
   forM_ incDirs $ \ d -> do
     mkdir env (pdir </> "include" </> d)
     copyTree env d (pdir </> "include" </> d)
+  applyPatch env name (pdir </> "src")
   writeFile (pdir </> "yale-package") $ unlines
     [ "name: " ++ name
     , "version: " ++ showVersion vers
@@ -127,6 +128,22 @@ stagePackage env db name vers flds = do
     , "cpp-options: " ++ unwords (cppOpts ++ extraCpp)
     , "include-dirs: " ++ unwords [ "include" </> d | d <- incDirs ] ]
   return pdir
+
+-- $YALE_MCABAL_PATCHES/NAME.patch (tools/microcabal/patches, which the
+-- mcabal script names), if there is one: a patch to the package's staged
+-- sources (paths relative to src/, the module tree), for code that only
+-- GHC was meant to compile.
+applyPatch :: Env -> String -> FilePath -> IO ()
+applyPatch env name src = do
+  mdir <- lookupEnv "YALE_MCABAL_PATCHES"
+  case mdir of
+    Nothing -> return ()
+    Just dir -> do
+      let file = dir </> name ++ ".patch"
+      b <- doesFileExist file
+      when b $ do
+        message env 0 $ "Patching " ++ name ++ " with " ++ file
+        cmd env $ "patch -s -p1 -d " ++ src ++ " < " ++ file
 
 -- Copy the directory tree d into dir, without the build directory (a
 -- source directory is often the package's own, which holds it).

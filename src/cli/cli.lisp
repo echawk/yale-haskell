@@ -255,9 +255,11 @@
   (let ((args (split-program-args argv)))
     #+sbcl (run-with-program-stack (lambda () (clingon:run (command) args)))
     #-sbcl (clingon:run (command) args))
-  ;; yale-haskell build: the program is loaded; saved from this thread
+  ;; yale-haskell build: the program is compiled and loaded
   #+sbcl (when (mumble-value "*EXECUTABLE-TO-SAVE*")
-           (save-executable))
+           (if (save-pass-p)
+               (save-executable)
+               (rerun-to-save argv)))
   ;; the executable's entry point (uiop:restore-image): true is status 0
   t)
 
@@ -281,6 +283,24 @@
 (defun interruptible-p ()
   (let ((sym (find-symbol "*REPL-INTERRUPTIBLE?*" "MUMBLE-USER")))
     (and sym (boundp sym) (symbol-value sym))))
+
+;;; yale-haskell build runs in two processes.  The first compiles the
+;;; program in the worker thread (filling the unit cache), then runs this
+;;; executable again with $YALE_HASKELL_SAVE_PASS set; that one loads the
+;;; compiled units in the main thread and saves.  SBCL on macOS faulted
+;;; now and then saving an image in a process that had had a thread with
+;;; a large stack (64 MB or more), as it did exiting from one.
+
+#+sbcl
+(defun save-pass-p ()
+  (let ((v (uiop:getenv "YALE_HASKELL_SAVE_PASS")))
+    (and v (string= v "1"))))
+
+#+sbcl
+(defun rerun-to-save (argv)
+  (setenv "YALE_HASKELL_SAVE_PASS" "1")
+  (setenv "YALE_HASKELL_DIALECT" *image-dialect*)
+  (exec (executable-path) argv))
 
 ;;; The standalone executable (yale-haskell build): this image, the
 ;;; program loaded, saved with its runtime options so that every
@@ -315,10 +335,14 @@
 #+sbcl
 (defun quit-from-worker (quit code &rest args)
   (cond
+    ;; the save pass runs the command in the main thread (save-pass-p)
+    ((and (eq sb-thread:*current-thread* (sb-thread:main-thread))
+          (eql code 0) (save-pass-p) (mumble-value "*EXECUTABLE-TO-SAVE*"))
+     (throw 'save-pass nil))
     ((eq sb-thread:*current-thread* (sb-thread:main-thread))
      (apply quit code args))
     ;; clingon's exit after the build command's handler: the worker
-    ;; ends, and the main thread saves the executable (main)
+    ;; ends, and the main thread goes on to save the executable (main)
     ((and (eql code 0) (mumble-value "*EXECUTABLE-TO-SAVE*"))
      (sb-thread:abort-thread))
     (t
@@ -328,10 +352,14 @@
 
 #+sbcl
 (defun run-with-program-stack (fn)
-  (setf (sb-alien:extern-alien "thread_control_stack_size" sb-alien:unsigned)
-        (program-stack-bytes))
   (unless (sb-int:encapsulated-p 'uiop:quit 'quit-from-worker)
     (sb-int:encapsulate 'uiop:quit 'quit-from-worker #'quit-from-worker))
+  ;; build's save pass: no worker thread (rerun-to-save)
+  (when (save-pass-p)
+    (catch 'save-pass (funcall fn))
+    (return-from run-with-program-stack nil))
+  (setf (sb-alien:extern-alien "thread_control_stack_size" sb-alien:unsigned)
+        (program-stack-bytes))
   (let* ((package *package*)
          (readtable *readtable*)
          (main sb-thread:*current-thread*)

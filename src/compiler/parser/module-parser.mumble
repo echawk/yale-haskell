@@ -575,8 +575,24 @@
 	  (modid (make entity-module (name (token->symbol))))
 	  (else (signal-missing-token "<modid>" "module export")))
 	 (signal-invalid-syntax "an entity")))
-    (tycon
+    ;; TypeOperators: (:*:)(..), a type or class named by an operator
+    ((no-advance satisfies operator-tycon-entity?)
+     (advance-token)
      (let ((name (token->symbol)))
+       (advance-token)
+       (parse-entity-tycon-rest name context)))
+    (tycon
+     (parse-entity-tycon-rest (token->symbol) context))
+    (else (signal-invalid-syntax "an entity"))))
+
+(define (operator-tycon-entity?)
+  (and (eq-token? '\()
+       (eq? (peek-1-type) 'consym)
+       (eq? (peek-2-type) '\))))
+
+;;; After a type or class name in an import or export list: (..), (a, b)
+;;; or nothing.
+(define (parse-entity-tycon-rest name context)
        (token-case
 	(\( (token-case
 	     (\.\. (require-token
@@ -591,8 +607,7 @@
 		  (make entity-module (name name))
 		  (signal-invalid-syntax "an entity")))
 	(else
-	 (make entity-con (name name))))))
-    (else (signal-invalid-syntax "an entity"))))
+	 (make entity-con (name name)))))
 
 (define (parse-entity-class class-name)
   (let ((vars (parse-var-list)))

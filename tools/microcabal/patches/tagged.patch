@@ -1,0 +1,12 @@
+tagged: Proxy comes only from the GHC-only Data.Data import.
+--- a/Data/Tagged.hs
++++ b/Data/Tagged.hs
+@@ -61,6 +61,8 @@
+ #endif
+ #ifdef __GLASGOW_HASKELL__
+ import Data.Data
++#else
++import Data.Proxy (Proxy(..))
+ #endif
+ import Data.Ix (Ix(..))
+ import Data.Semigroup (Semigroup(..))

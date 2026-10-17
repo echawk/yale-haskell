@@ -197,6 +197,15 @@
   (let ((old (table-entry *symbol-table* qname)))
     (cond ((or (eq? old '#f) (eq? old def))
 	   (setf (table-entry *symbol-table* qname) def))
+	  ((haskell98?)
+	   ;; two modules imported as the same name (import qualified A as L;
+	   ;; import qualified B as L) with an x each: only a use of L.x is
+	   ;; an error (5.5.2), as for unqualified names
+	   (mlet (((base _) (split-qualified-name qname)))
+	     (note-name-clash qname
+	       (lisp:format lisp:nil "~A.~A or ~A.~A"
+			    (def-module old) (clash-display-name (or base qname))
+			    (def-module def) (clash-display-name (or base qname))))))
 	  (else
 	   (signal-multiple-import qname *module-name*)))))
 
