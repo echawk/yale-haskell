@@ -1,9 +1,11 @@
 # Yale Haskell
 
 Yale Haskell is a Haskell compiler written at Yale in the early 1990s by
-the Yale Haskell Group.  This is Y2.0.5 (1994), which implements
-**Haskell 1.2**, revived to build on a modern Common Lisp.  The long-term
-goal is Haskell 98; see [doc/REVIVAL-PLAN.md](doc/REVIVAL-PLAN.md).
+the Yale Haskell Group.  Its last release, Y2.0.5 (1994), implemented
+**Haskell 1.2**; this is its revival on a modern Common Lisp, version
+**3.0.0**, which compiles Haskell 98 and Haskell 2010 with a large set
+of GHC extensions and the commonly used libraries (CHANGELOG.md lists
+the versions; doc/REVIVAL-PLAN.md the history).
 
 The compiler is written in [*mumble*](src/mumble/README.md), a small
 Scheme-flavoured Lisp dialect implemented on top of Common Lisp; despite
