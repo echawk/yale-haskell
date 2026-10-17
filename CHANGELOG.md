@@ -9,6 +9,11 @@ Yale Haskell follows [semantic versioning](https://semver.org/):
   compatible with what came before;
 - **patch**: a bug fix or conformance fix with no new feature.
 
+**4.0.0 is reserved** for the release in which no mumble code is left
+(doc/plans/MUMBLE-TO-CL.md).  Until then the major version stays 3: a
+change that would otherwise be major goes out as a minor version, marked
+**breaking** in its entry here.
+
 The version is `*haskell-compiler-version*` in
 `src/compiler/top/globals.mumble` and `:version` in `yale-haskell.asd`;
 both change together, with an entry here.  The version is part of every
