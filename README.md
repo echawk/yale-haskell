@@ -41,6 +41,13 @@ bin/yale-haskell --help                         # options: --backend, --printers
 bin/yale-haskell --haskell98 compile prog.hs --emit lisp -o prog.lisp   # compile only
 ```
 
+`--ghc2021` and `--ghc2024` compile in GHC's languages of those names:
+their extensions are on in every module, with GHC base's Prelude
+(`--modern-prelude`); `-X NAME` (or `-XNAME`) turns on one more
+extension, `-X NoNAME` turns one off, as for GHC.  A
+`{-# LANGUAGE GHC2021 #-}` pragma, or a package's `default-language`,
+does the same for one module.
+
 Files with `{-# LANGUAGE CPP #-}` go through a built-in C preprocessor
 (`#include`, `#define`, `#if`); `--cpp` applies it to every file, and
 `-D NAME[=VALUE]` and `-I DIR` work as for cpp.

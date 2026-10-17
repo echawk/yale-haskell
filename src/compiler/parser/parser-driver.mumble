@@ -71,10 +71,12 @@
   (when (not (file-exists? filename))
     (signal-file-not-found filename))
   (setf *standalone-derivings* '())
-  ;; an installed package's default-extensions (csys/packages.mumble)
-  (setf *language-extensions*
-	(let ((p  (package-of-file filename)))
-	  (if p (lisp:copy-list (package-extensions p)) '())))
+  ;; an installed package's default-language and default-extensions
+  ;; (csys/packages.mumble), or the command line's
+  (setf *language-extensions* '())
+  (add-language-extensions
+   (let ((p  (package-of-file filename)))
+     (if p (package-extensions p) *default-language-extensions*)))
   (setf *promoted-names* '())
   (dynamic-let ((*current-file* filename))
     (let ((mods '()))

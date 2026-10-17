@@ -39,6 +39,12 @@
                         :description "Haskell 2010 mode: the 2010 Prelude (no catch)")
    (clingon:make-option :flag :long-name "modern-prelude" :key :modern-prelude :persistent t
                         :description "GHC base's Prelude names too (Applicative, MonadFail, Semigroup, ...); implies --haskell2010")
+   (clingon:make-option :flag :long-name "ghc2021" :key :ghc2021 :persistent t
+                        :description "GHC2021, GHC's default language: its extensions in every module, and --modern-prelude")
+   (clingon:make-option :flag :long-name "ghc2024" :key :ghc2024 :persistent t
+                        :description "GHC2024: GHC2021 and DataKinds, GADTs, LambdaCase, ...; implies --modern-prelude")
+   (clingon:make-option :list :long-name "extension" :short-name #\X :key :extension :persistent t
+                        :description "turn on an extension in every module, as -XName does for GHC (repeatable; NoName turns one off)")
    (clingon:make-option :flag :long-name "no-optimize" :short-name #\O
                       :key :no-optimize :persistent t
                       :description "turn off the FLIC optimizer")
@@ -76,7 +82,7 @@
 (defparameter *value-options*
   '("-b" "--backend" "-p" "--printers" "-e" "--eval" "-g" "--grin-optimizations"
     "-l" "--foreign-library" "-D" "--define" "-I" "--include-dir" "--optimizers" "--emit" "-o" "--output"
-    "-i" "--search-dir" "--package-db"))
+    "-i" "--search-dir" "--package-db" "-X" "--extension"))
 
 (defparameter *sub-commands* '("repl" "run" "compile" "help"))
 
@@ -109,8 +115,17 @@
                                (intern "=" "MUMBLE-USER"))))
     (when (clingon:getopt* cmd :haskell2010)
       (mumble-set "*HASKELL2010?*" t))
-    (when (clingon:getopt* cmd :modern-prelude)
+    (when (or (clingon:getopt* cmd :modern-prelude)
+              (clingon:getopt* cmd :ghc2021)
+              (clingon:getopt* cmd :ghc2024))
       (mumble-set "*MODERN-PRELUDE?*" t))
+    ;; the language standard's extensions, then -X's, in every module
+    ;; that is not an installed package's (src/compiler/parser/lexer.mumble)
+    (mumble-set "*DEFAULT-LANGUAGE-EXTENSIONS*"
+                (append (cond ((clingon:getopt* cmd :ghc2024) (list "GHC2024"))
+                              ((clingon:getopt* cmd :ghc2021) (list "GHC2021"))
+                              (t '()))
+                        (clingon:getopt* cmd :extension)))
     (when (clingon:getopt* cmd :cpp)
       (mumble-set "*CPP?*" t))
     (when (clingon:getopt* cmd :define)

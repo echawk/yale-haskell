@@ -332,6 +332,73 @@
 (define (language-extension? name)
   (mem-string name (dynamic *language-extensions*)))
 
+;;; Turn on the extensions NAMES (a LANGUAGE pragma's, -X's, a package's):
+;;; a language name (GHC2021, GHC2024, Haskell2010, Haskell98) stands for
+;;; its extensions and is kept too; NoE turns E off.
+
+(define (add-language-extensions names)
+  (dolist (name names)
+    (let ((off  (no-extension-name name)))
+      (if off
+	  (setf (dynamic *language-extensions*)
+		(lisp:remove off (dynamic *language-extensions*)
+			     :test (function string=?)))
+	  (begin
+	    (add-language-extensions (language-standard-extensions name))
+	    (push name (dynamic *language-extensions*)))))))
+
+;;; E for NoE (but not for NondecreasingIndentation).
+(define (no-extension-name name)
+  (and (> (string-length name) 2)
+       (string-starts? "No" name)
+       (char-upper-case? (string-ref name 2))
+       (substring name 2 (string-length name))))
+
+;;; The extensions of a language standard, as GHC's users guide lists them
+;;; (control.html); '() for another name.  Yale Haskell has no
+;;; DatatypeContexts or CUSKs switch, and turns on some of these always.
+
+(define *haskell2010-extensions*
+  '("ImplicitPrelude" "StarIsType" "MonomorphismRestriction"
+    "TraditionalRecordSyntax" "EmptyDataDecls" "ForeignFunctionInterface"
+    "PatternGuards" "DoAndIfThenElse" "FieldSelectors" "RelaxedPolyRec"))
+
+(define *ghc2021-extensions*
+  '("BangPatterns" "BinaryLiterals" "ConstrainedClassMethods"
+    "ConstraintKinds" "DeriveDataTypeable" "DeriveFoldable" "DeriveFunctor"
+    "DeriveGeneric" "DeriveLift" "DeriveTraversable" "DoAndIfThenElse"
+    "EmptyCase" "EmptyDataDecls" "EmptyDataDeriving"
+    "ExistentialQuantification" "ExplicitForAll" "FieldSelectors"
+    "FlexibleContexts" "FlexibleInstances" "ForeignFunctionInterface"
+    "GADTSyntax" "GeneralisedNewtypeDeriving" "GeneralizedNewtypeDeriving"
+    "HexFloatLiterals" "ImplicitPrelude" "ImportQualifiedPost" "InstanceSigs"
+    "KindSignatures" "MonomorphismRestriction" "MultiParamTypeClasses"
+    "NamedFieldPuns" "NamedWildCards" "NumericUnderscores" "PatternGuards"
+    "PolyKinds" "PostfixOperators" "RankNTypes" "RelaxedPolyRec"
+    "ScopedTypeVariables" "StandaloneDeriving" "StandaloneKindSignatures"
+    "StarIsType" "TraditionalRecordSyntax" "TupleSections"
+    "TypeApplications" "TypeOperators" "TypeSynonymInstances"))
+
+(define *ghc2024-extensions*
+  '("DataKinds" "DerivingStrategies" "DisambiguateRecordFields"
+    "ExplicitNamespaces" "GADTs" "MonoLocalBinds" "LambdaCase"
+    "RoleAnnotations"))
+
+(define (language-standard-extensions name)
+  (cond ((string=? name "GHC2024")
+	 (append *ghc2021-extensions* *ghc2024-extensions*))
+	((string=? name "GHC2021") *ghc2021-extensions*)
+	((string=? name "Haskell2010") *haskell2010-extensions*)
+	((string=? name "Haskell98")
+	 '("ImplicitPrelude" "StarIsType" "MonomorphismRestriction"
+	   "TraditionalRecordSyntax" "FieldSelectors" "NPlusKPatterns"
+	   "NondecreasingIndentation"))
+	(else '())))
+
+;;; The extensions every module starts with that is not an installed
+;;; package's: --ghc2021, --ghc2024, -X (src/cli/cli.lisp).
+(define *default-language-extensions* '())
+
 (define (lex-language-pragma)
   (let ((chars '()))
     (do ()
@@ -340,8 +407,7 @@
 		  (char=? (peek-char-2) #\}))))
       (push *char* chars)
       (advance-char))
-    (dolist (name (split-extension-names (list->string (reverse chars))))
-      (push name (dynamic *language-extensions*)))
+    (add-language-extensions (split-extension-names (list->string (reverse chars))))
     (skip-pragma *current-line*)))
 
 ;;; {-# OPTIONS -XMagicHash -XBangPatterns -cpp #-} (and OPTIONS_GHC), the
@@ -358,7 +424,7 @@
       (advance-char))
     (dolist (flag (split-extension-names (list->string (reverse chars))))
       (when (and (> (string-length flag) 2) (string-starts? "-X" flag))
-	(push (substring flag 2 (string-length flag)) (dynamic *language-extensions*))))
+	(add-language-extensions (list (substring flag 2 (string-length flag))))))
     (skip-pragma *current-line*)))
 
 (define (split-extension-names text)

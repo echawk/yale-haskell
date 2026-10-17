@@ -19,6 +19,15 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.4.0 (2026-10-17)
+
+- `--ghc2021` and `--ghc2024`: GHC's language standards, their
+  extensions on in every module, with `--modern-prelude`.  `-X NAME`
+  (`--extension`) turns on an extension in every module.
+- A language name in a LANGUAGE pragma or a package's default-language
+  (GHC2021, GHC2024, Haskell2010, Haskell98) stands for its extensions,
+  and `NoNAME` turns an extension off.
+
 ## 3.3.0 (2026-10-17)
 
 - DataKinds type-level lists: `'[]`, `'[a]`, `[a, b]`, `t ': ts` (and

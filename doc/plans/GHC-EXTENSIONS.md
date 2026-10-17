@@ -40,6 +40,12 @@ was an error before) are accepted always.  Extensions that add implicit
 imports (OverloadedStrings: Data.String; OverloadedLists: GHC.IsList;
 RecursiveDo: Control.Monad.Fix) add them for the dependency scan too.
 
+A language standard (GHC2021, GHC2024, Haskell2010, Haskell98) in a
+pragma, in a package's default-language, or as `--ghc2021` /
+`--ghc2024` on the command line stands for its extensions (lexer
+.mumble's `language-standard-extensions`, after GHC's users guide);
+`-X NAME` adds one for every module, and `NoNAME` removes one.
+
 ## Where GHC departs from the Report
 
 GHC's users guide lists where GHC itself differs from Haskell 98 and

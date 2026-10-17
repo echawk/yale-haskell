@@ -27,7 +27,11 @@ line, or replaces this process with the executable that should run them."
   (let* ((root (or (root-from-executable) *build-root*))
          (flag (dialect-flag (first argv)))
          (argv (if flag (rest argv) argv))
-         (dialect (or flag (nonempty (uiop:getenv "YALE_HASKELL_DIALECT"))
+         ;; GHC's languages are Haskell 98's dialect (the flag stays)
+         (dialect (or flag
+                      (and (member (first argv) '("--ghc2021" "--ghc2024") :test #'equal)
+                           "haskell98")
+                      (nonempty (uiop:getenv "YALE_HASKELL_DIALECT"))
                       *image-dialect*))
          (lisp (or (nonempty (uiop:getenv "YALE_HASKELL_LISP")) "sbcl")))
     (unless (and (string= dialect *image-dialect*) (string= lisp "sbcl"))
