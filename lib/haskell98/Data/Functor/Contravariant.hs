@@ -8,6 +8,7 @@ module Data.Functor.Contravariant (
 
 import PreludeModern
 import Data.Functor.Const (Const(Const))
+import Data.Proxy (Proxy(Proxy))
 
 infixl 4 >$, >$<, >$$<, $<
 
@@ -84,3 +85,6 @@ instance Monoid a => Monoid (Op a b) where
 
 instance Contravariant (Const a) where
   contramap _ (Const a) = Const a
+
+instance Contravariant Proxy where
+  contramap _ _ = Proxy

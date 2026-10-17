@@ -19,6 +19,12 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.14.0 (2026-10-17)
+
+- base's Functor, Applicative, Monad, Foldable and Traversable
+  instances for Complex (with `--modern-prelude`), and Contravariant
+  Proxy.
+
 ## 3.13.0 (2026-10-17)
 
 - `deriving Generic1` makes the instance for the type constructor

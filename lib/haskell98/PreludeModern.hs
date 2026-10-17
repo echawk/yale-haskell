@@ -30,6 +30,7 @@ import Data.Word (Word)   -- GHC's Prelude exports Word
 
 import PreludeIO (catch)
 import Monad (MonadPlus(mzero, mplus))
+import Complex (Complex((:+)))
 import Prelude hiding (foldr, foldl, foldr1, foldl1, null, length, elem,
                        maximum, minimum, sum, product, mapM, sequence,
                        mapM_, sequence_, concat, concatMap, and, or, any,
@@ -461,3 +462,23 @@ maximumBy cmp t = L.foldl1 (\x y -> case cmp x y of { GT -> x; _ -> y }) (toList
 
 minimumBy :: Foldable t => (a -> a -> Ordering) -> t a -> a
 minimumBy cmp t = L.foldl1 (\x y -> case cmp x y of { GT -> y; _ -> x }) (toList t)
+
+-- base's instances for Complex (Data.Complex)
+instance Functor Complex where
+  fmap f (a :+ b) = f a :+ f b
+
+instance Applicative Complex where
+  pure a = a :+ a
+  (f :+ g) <*> (a :+ b) = f a :+ g b
+
+instance Monad Complex where
+  return = pure
+  (a :+ b) >>= f = realPartC (f a) :+ imagPartC (f b)
+    where realPartC (x :+ _) = x
+          imagPartC (_ :+ y) = y
+
+instance Foldable Complex where
+  foldr f z (a :+ b) = f a (f b z)
+
+instance Traversable Complex where
+  traverse f (a :+ b) = liftA2 (:+) (f a) (f b)
