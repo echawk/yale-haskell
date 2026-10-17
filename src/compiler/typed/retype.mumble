@@ -1,0 +1,512 @@
+;;; retype.mumble -- a type for every expression of cfn's output
+;;;
+;;; cfn's output (cfn/README) is a small language with dictionaries
+;;; explicit.  Its expressions are typed again here, by unification
+;;; over that language: every let-bound variable already has its type
+;;; (var-type, a gtype), so no generalization is needed; a use of a
+;;; variable instantiates its type with fresh type variables; lambdas
+;;; get fresh variables for their parameters.  A dictionary's type is an
+;;; ntycon whose tycon is the class (`Eq a', which the type printers
+;;; print as such), and a variable with a context takes one dictionary
+;;; per class per type variable, in order (dictionary.mumble's
+;;; dictionary-conversion/definition), before its other arguments.
+;;;
+;;; The compiler's own types are never changed: a type is copied into
+;;; the core's variables first (core-import), so binding a variable here
+;;; cannot reach var-type.  The result goes in each expression's
+;;; core-type slot.  The types the type checker inferred
+;;; (exp-inferred-type) are compared with them, as a check of both.
+
+;;; A variable of the core's own (core-fresh): bound only here.
+(define (core-fresh) (**ntyvar))
+
+;;; Unbound type checker variables met in imported types, each copied
+;;; to one core variable, so that a variable shared between an inner
+;;; binding's type and the outer binding's body stays shared.
+(define *core-tyvar-copies* '#f)
+
+;;; Counters for the report (typed-report).
+(define *core-unknowns* '())   ; names of variables with no type found
+(define *core-mismatches* 0)
+(define *core-failures* '())   ; (node-kind . count) where unification failed
+
+;;; Copy TYPE into the core: unbound ntyvars to their copies, gtyvar n to
+;;; (vector-ref GVARS n), a nested polytype to a fresh instance.
+
+(define (core-import type gvars)
+  (let ((type  (prune type)))
+    (cond ((ntyvar? type)
+	   (or (table-entry *core-tyvar-copies* type)
+	       (setf (table-entry *core-tyvar-copies* type) (core-fresh))))
+	  ((gtyvar? type)
+	   (let ((n  (gtyvar-varnum type)))
+	     (if (and gvars (>= n 0) (< n (vector-length gvars)))
+		 (vector-ref gvars n)
+		 (core-fresh))))
+	  ((ntycon? type)
+	   (**ntycon (ntycon-tycon type)
+		     (map (lambda (a) (core-import a gvars)) (ntycon-args type))))
+	  ((ntyapp? type)
+	   (**ntyapp (core-import (ntyapp-fun type) gvars)
+		     (map (lambda (a) (core-import a gvars)) (ntyapp-args type))))
+	  ((gtype? type)
+	   ;; a polytype inside a type (RankNTypes): an instance of it
+	   (core-import (gtype-type type) '#f))
+	  ((recursive-type? type)
+	   (core-import (recursive-type-type type) gvars))
+	  (else (core-fresh)))))
+
+;;; The core type of a value of gtype G, instantiated: its dictionaries
+;;; (one per class per type variable, then one per multi-parameter
+;;; constraint), then its type.
+
+(define (core-instantiate g)
+  (core-instantiate-1 g '#f '#f))
+
+;;; MP-FIRST?: a method of a multi-parameter class, whose own class's
+;;; dictionary comes first, then the others (type-vars.mumble's
+;;; type-check-var-ref).  NO-CONTEXT?: a constructor, which takes no
+;;; dictionaries for a datatype context.
+(define (core-instantiate-1 g mp-first? no-context?)
+  (let* ((context  (gtype-context g))
+	 (gvars    (lisp:make-array (length context)))
+	 (dicts    '()))
+    (dotimes (i (length context)) (setf (vector-ref gvars i) (core-fresh)))
+    (dotimes (i (length context))
+      (dolist (class (list-ref context i))
+	(push (**ntycon class (list (vector-ref gvars i))) dicts)))
+    (let* ((mps  (map (lambda (mp)
+			(**ntycon (car mp)
+				  (map (lambda (ty) (core-import ty gvars)) (cdr mp))))
+		      (gtype-mcontext g)))
+	   (all  (if (and mp-first? (not (null? mps)))
+		     (cons (car mps) (append (reverse dicts) (cdr mps)))
+		     (append (reverse dicts) mps))))
+      (**arrow/l-2 (if no-context? '() all)
+		   (core-import (gtype-type g) gvars)))))
+
+;;; Unification over core types: '#t, or '#f when they do not unify.
+
+(define (core-unify a b)
+  (let ((a  (prune a))
+	(b  (prune b)))
+    (cond ((eq? a b) '#t)
+	  ((ntyvar? a) (or (core-bind a b) (core-unify-newtype a b)))
+	  ((ntyvar? b) (or (core-bind b a) (core-unify-newtype a b)))
+	  ((or (core-enum-vs-int? a b) (core-enum-vs-int? b a))
+	   ;; an enumeration's constructors are its Int tags (derived Enum
+	   ;; works on them directly)
+	   '#t)
+	  ((or (core-dict-vs-tuple? a b) (core-dict-vs-tuple? b a))
+	   ;; the representation boundary: a dictionary is a tuple of its
+	   ;; methods and superclass dictionaries where it is built and
+	   ;; where a superclass is taken from it (generated code)
+	   '#t)
+	  ((and (ntycon? a) (ntycon? b))
+	   (if (eq? (ntycon-tycon a) (ntycon-tycon b))
+	       (core-unify-list (ntycon-args a) (ntycon-args b))
+	       (let ((a1  (expand-ntype-synonym a))
+		     (b1  (expand-ntype-synonym b)))
+		 (if (not (and (eq? a1 a) (eq? b1 b)))
+		     (core-unify a1 b1)
+		     ;; cfn erases a newtype's constructor: a value of the
+		     ;; newtype is its field
+		     (core-unify-newtype a b)))))
+	  ((and (ntyapp? a) (ntyapp? b))
+	   (core-unify-app (ntyapp-fun a) (ntyapp-args a) b))
+	  ((ntyapp? a) (or (core-unify-app-con a b) (core-unify-newtype a b)))
+	  ((ntyapp? b) (or (core-unify-app-con b a) (core-unify-newtype a b)))
+	  ((or (ntycon? a) (ntycon? b))
+	   (core-unify-newtype a b))
+	  ((and (gtyvar? a) (gtyvar? b))
+	   (eqv? (gtyvar-varnum a) (gtyvar-varnum b)))
+	  (else '#f))))
+
+;;; A and B differ at the top; a newtype on either side is its field.
+(define (core-unify-newtype a b)
+  (let ((fa  (and (ntycon? a) (core-newtype-field a))))
+    (if fa
+	(core-unify fa b)
+	(let ((fb  (and (ntycon? b) (core-newtype-field b))))
+	  (and fb (core-unify a fb))))))
+
+;;; The field type of TY when it is a newtype, at its arguments; else #f.
+(define (core-newtype-field ty)
+  (let ((tc  (ntycon-tycon ty)))
+    (and (algdata? tc)
+	 (algdata-newtype? tc)
+	 (not (null? (algdata-constrs tc)))
+	 (mlet (((args result) (core-con-parts (car (algdata-constrs tc)))))
+	   (and (= (length args) 1)
+		(core-unify-list (ntycon-args (prune result)) (ntycon-args ty))
+		(car args))))))
+
+(define (core-enum-vs-int? a b)
+  (and (ntycon? a) (ntycon? b)
+       (let ((tc  (ntycon-tycon a)))
+	 (and (algdata? tc) (algdata-enum? tc)))
+       (eq? (ntycon-tycon b) (core-symbol "Int"))))
+
+(define (core-dict-vs-tuple? a b)
+  (and (ntycon? a) (class? (ntycon-tycon a))
+       (ntycon? b)
+       (let ((tc  (ntycon-tycon b)))
+	 (and (algdata? tc) (algdata-tuple? tc)))))
+
+(define (core-bind v ty)
+  (if (core-occurs? v ty)
+      '#f
+      (begin (setf (ntyvar-value v) ty) '#t)))
+
+(define (core-occurs? v ty)
+  (let ((ty  (prune ty)))
+    (cond ((eq? v ty) '#t)
+	  ((ntycon? ty) (lisp:some (lambda (x) (core-occurs? v x)) (ntycon-args ty)))
+	  ((ntyapp? ty)
+	   (or (core-occurs? v (ntyapp-fun ty))
+	       (lisp:some (lambda (x) (core-occurs? v x)) (ntyapp-args ty))))
+	  (else '#f))))
+
+(define (core-unify-list as bs)
+  (cond ((and (null? as) (null? bs)) '#t)
+	((or (null? as) (null? bs)) '#f)
+	(else (and (core-unify (car as) (car bs))
+		   (core-unify-list (cdr as) (cdr bs))))))
+
+;;; f x1 .. xn against g y1 .. ym (applications headed by variables)
+(define (core-unify-app f xs b)
+  (let ((ys  (ntyapp-args b))
+	(g   (ntyapp-fun b)))
+    (let ((n  (length xs)) (m  (length ys)))
+      (cond ((= n m) (and (core-unify f g) (core-unify-list xs ys)))
+	    ((< n m)
+	     (and (core-unify f (**ntyapp g (lisp:subseq ys 0 (- m n))))
+		  (core-unify-list xs (lisp:nthcdr (- m n) ys))))
+	    (else
+	     (and (core-unify (**ntyapp f (lisp:subseq xs 0 (- n m))) g)
+		  (core-unify-list (lisp:nthcdr (- n m) xs) ys)))))))
+
+;;; m a1 .. an against T b1 .. bk: m is T applied to the first k-n
+(define (core-unify-app-con app con)
+  (let* ((con   (expand-ntype-synonym con))
+	 (xs    (ntyapp-args app))
+	 (ys    (if (ntycon? con) (ntycon-args con) '()))
+	 (n     (length xs))
+	 (k     (length ys)))
+    (and (ntycon? con)
+	 (<= n k)
+	 (core-unify (ntyapp-fun app)
+		     (**ntycon (ntycon-tycon con) (lisp:subseq ys 0 (- k n))))
+	 (core-unify-list xs (lisp:nthcdr (- k n) ys)))))
+
+;;; Unify, counting a failure under KIND (a node that did not type).
+(define *core-node* '#f)    ; the expression being typed, for messages
+
+(define (core-unify! a b kind)
+  (when (not (core-unify a b))
+    (when (env-flag? "YALE_HASKELL_TYPED_DEBUG")
+      (lisp:format lisp:*error-output* "~&~a: ~a  vs  ~a~%  in ~a~%"
+		   kind (prune a) (prune b) *core-node*))
+    (let ((entry  (assq kind *core-failures*)))
+      (if entry
+	  (incf (cdr entry))
+	  (push (cons kind 1) *core-failures*))))
+  a)
+
+;;;=====================================================================
+;;; Variables' types
+;;;=====================================================================
+
+;;; Types of variables bound in the core without a var-type (lambda
+;;; parameters, cfn's temporaries): var -> core type.
+(define *core-var-types* '#f)
+;;; case-block names -> the block's type
+(define *core-blocks* '())
+
+;;; Dictionary variables and method selectors: var -> gtype-like
+;;; description, built once per run from the classes in *modules*.
+(define *core-special-vars* '#f)
+
+(define (core-var-type var)
+  (let ((local  (table-entry *core-var-types* var)))
+    (cond (local local)
+	  ((core-special-var-type var))
+	  ((let ((g  (or (var-type var) (var-signature var))))
+	     (and g
+		  (if (gtype? g)
+		      (core-instantiate g)
+		      (core-import g '#f)))))
+	  (else
+	   (push (def-name var) *core-unknowns*)
+	   (core-fresh)))))
+
+;;; A method selector sel-C/m: the method's type, whose context has the
+;;; class first.  An instance's dictionary: its context's dictionaries,
+;;; then the class at the instance type.
+
+(define (core-special-var-type var)
+  (when (not *core-special-vars*)
+    (setf *core-special-vars* (make-table))
+    (table-for-each
+     ;; the classes in scope in each module (an interface's module has no
+     ;; class-defs list; its symbol table has them)
+     (lambda (name mod)
+       (declare (ignore name))
+       (table-for-each
+	(lambda (sym def)
+	  (declare (ignore sym))
+	  (when (class? def)
+	    (dolist (s (class-selectors def))
+	      (setf (table-entry *core-special-vars* (tuple-2-2 s))
+		    (lisp:list 'method (tuple-2-1 s) def)))
+	    (dolist (inst (class-instances def))
+	      (setf (table-entry *core-special-vars* (instance-dictionary inst))
+		    (lisp:list 'instance inst)))))
+	(module-symbol-table mod)))
+     *modules*))
+  (let ((entry  (table-entry *core-special-vars* var)))
+    (cond ((not entry) '#f)
+	  ((eq? (car entry) 'method)
+	   ;; sel-C/m, or sel-C/S.m for a method of a superclass S: the
+	   ;; method's type, whose first dictionary is the method's class,
+	   ;; taking C's dictionary instead
+	   (let ((g  (var-type (cadr entry))))
+	     (and g (core-selector-type
+		     (core-instantiate-1 g (mp-class? (caddr entry)) '#f)
+		     (caddr entry)))))
+	  (else (core-instance-dictionary-type (cadr entry))))))
+
+(define (core-selector-type method-type class)
+  (let ((ty  (prune method-type)))
+    (if (and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "Arrow")))
+	(let ((dict  (prune (car (ntycon-args ty)))))
+	  (**arrow (if (and (ntycon? dict) (class? (ntycon-tycon dict)))
+		       (**ntycon class (ntycon-args dict))
+		       dict)
+		   (cadr (ntycon-args ty))))
+	ty)))
+
+(define (core-instance-dictionary-type inst)
+  (let ((alg  (instance-algdata inst)))
+    (and alg
+	 (let* ((gcontext  (instance-gcontext inst))
+		(n         (length (instance-tyvars inst)))
+		(gvars     (lisp:make-array n))
+		(dicts     '()))
+	   (dotimes (i n) (setf (vector-ref gvars i) (core-fresh)))
+	   (dotimes (i (min n (length gcontext)))
+	     (dolist (class (list-ref gcontext i))
+	       (push (**ntycon class (list (vector-ref gvars i))) dicts)))
+	   (**arrow/l-2 (reverse dicts)
+			(**ntycon (instance-class inst)
+				  (list (**ntycon alg (lisp:coerce gvars 'lisp:list)))))))))
+
+(define (core-con-type con)
+  (let ((g  (con-signature con)))
+    (if (gtype? g)
+	;; a datatype context is not passed; an existential constructor's
+	;; dictionaries are its first fields
+	(core-instantiate-1 g '#f (null? (con-existential con)))
+	(core-import g '#f))))
+
+;;; The argument types and result of a constructor, instantiated.
+(define (core-con-parts con)
+  (core-con-parts-1 (core-con-type con) '()))
+
+(define (core-con-parts-1 ty args)
+  (let ((ty  (prune ty)))
+    (if (and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "Arrow")))
+	(core-con-parts-1 (cadr (ntycon-args ty)) (cons (car (ntycon-args ty)) args))
+	(values (reverse args) ty))))
+
+;;;=====================================================================
+;;; The walk
+;;;=====================================================================
+
+(define (core-bool) (**ntycon (core-symbol "Bool") '()))
+
+(define (retype-binder! var)
+  ;; a binder's type: its var-type when it has one, else a variable
+  (when (not (or (var-type var) (var-signature var)))
+    (setf (table-entry *core-var-types* var) (core-fresh))))
+
+(define (retype-decls decls)
+  (dolist (d decls)
+    (cond ((is-type? 'valdef d)
+	   (retype-binder! (var-ref-var (var-pat-var (valdef-lhs d)))))
+	  ((is-type? 'recursive-decl-group d)
+	   (dolist (d1 (recursive-decl-group-decls d))
+	     (retype-binder! (var-ref-var (var-pat-var (valdef-lhs d1))))))))
+  (dolist (d decls)
+    (cond ((is-type? 'valdef d) (retype-valdef d))
+	  ((is-type? 'recursive-decl-group d)
+	   (dolist (d1 (recursive-decl-group-decls d)) (retype-valdef d1))))))
+
+(define (retype-valdef d)
+  (let* ((var  (var-ref-var (var-pat-var (valdef-lhs d))))
+	 (rhs  (single-definition-rhs d)))
+    (setf *core-node* var)
+    (if (core-special-var-type var)
+	;; A dictionary's and a method selector's own definitions are where
+	;; a dictionary is its representation, a tuple of its methods and
+	;; superclass dictionaries (tdecl/class.mumble's
+	;; create-selector-code, instance dictionaries).  Their var-type
+	;; describes that tuple only roughly (a method's own dictionaries
+	;; are left out), so their bodies are typed but not checked against
+	;; it; everywhere else they are `C t' (core-special-var-type).
+	;; The type checker's types there are the representation's too,
+	;; so they are not compared (typed-report).
+	(dynamic-let ((*core-in-boundary* '#t)) (retype rhs))
+	(core-unify! (core-var-type var) (retype rhs) 'binding))))
+
+(define *core-in-boundary* '#f)
+(define *core-boundary-nodes* '#f)
+
+(define (retype x)
+  (when (dynamic *core-in-boundary*)
+    (setf (table-entry *core-boundary-nodes* x) '#t))
+  (let ((type  (dynamic-let ((*core-node* x)) (retype-1 x))))
+    (setf (exp-core-type x) type)
+    type))
+
+(define (retype-1 x)
+  (cond ((is-type? 'var-ref x) (core-var-type (var-ref-var x)))
+	((is-type? 'con-ref x) (core-con-type (con-ref-con x)))
+	((is-type? 'app x)
+	 (let ((f  (retype (app-fn x)))
+	       (a  (retype (app-arg x)))
+	       (r  (core-fresh)))
+	   (core-unify! f (**arrow a r) 'app)
+	   r))
+	((is-type? 'lambda x)
+	 (let ((params  (map (lambda (p)
+			       (let ((ty  (core-fresh)))
+				 (when (is-type? 'var-pat p)
+				   (setf (table-entry *core-var-types*
+						      (var-ref-var (var-pat-var p)))
+					 ty))
+				 ty))
+			     (lambda-pats x))))
+	   (**arrow/l-2 params (retype (lambda-body x)))))
+	((is-type? 'let x)
+	 (retype-decls (let-decls x))
+	 (retype (let-body x)))
+	((is-type? 'if x)
+	 (core-unify! (retype (if-test-exp x)) (core-bool) 'if-test)
+	 (let ((then  (retype (if-then-exp x))))
+	   (core-unify! then (retype (if-else-exp x)) 'if-branches)
+	   then))
+	((is-type? 'case-block x)
+	 (let ((b  (core-fresh)))
+	   (dynamic-let ((*core-blocks* (cons (cons (case-block-block-name x) b)
+					      (dynamic *core-blocks*))))
+	     (dolist (e (case-block-exps x)) (retype e)))
+	   b))
+	((is-type? 'return-from x)
+	 (let ((entry  (assq (return-from-block-name x) (dynamic *core-blocks*)))
+	       (t1     (retype (return-from-exp x))))
+	   (when entry (core-unify! (cdr entry) t1 'return-from))
+	   (core-fresh)))
+	((is-type? 'and-exp x)
+	 (dolist (e (and-exp-exps x))
+	   (core-unify! (retype e) (core-bool) 'and))
+	 (core-bool))
+	((is-type? 'sel x)
+	 (mlet (((args result) (core-con-parts (sel-constructor x))))
+	   (core-unify! (retype (sel-value x)) result 'sel)
+	   (if (< (sel-slot x) (length args))
+	       (list-ref args (sel-slot x))
+	       (core-fresh))))
+	((is-type? 'is-constructor x)
+	 (mlet (((args result) (core-con-parts (is-constructor-constructor x))))
+	   args
+	   (core-unify! (retype (is-constructor-value x)) result 'is-constructor)
+	   (core-bool)))
+	((is-type? 'con-number x)
+	 (retype (con-number-value x))
+	 (**ntycon (core-symbol "Int") '()))
+	((is-type? 'char-const x) (**ntycon (core-symbol "Char") '()))
+	((is-type? 'string-const x)
+	 (**list-of (**ntycon (core-symbol "Char") '())))
+	((is-type? 'integer-const x)
+	 (if (exp-inferred-type x)
+	     (core-import (exp-inferred-type x) '#f)
+	     (**ntycon (core-symbol "Integer") '())))
+	((is-type? 'float-const x)
+	 (if (exp-inferred-type x)
+	     (core-import (exp-inferred-type x) '#f)
+	     (core-fresh)))
+	((is-type? 'cast x) (retype (cast-exp x)) (core-fresh))
+	(else
+	 (push (td-name (struct-type-descriptor x)) *core-unknowns*)
+	 (core-fresh))))
+
+;;;=====================================================================
+;;; Entry point and report
+;;;=====================================================================
+
+(define (retype-core big-let)
+  (setf *core-tyvar-copies* (make-table))
+  (setf *core-boundary-nodes* (make-table))
+  (setf *core-var-types* (make-table))
+  (setf *core-special-vars* '#f)
+  (setf *core-unknowns* '())
+  (setf *core-mismatches* 0)
+  (setf *core-failures* '())
+  (when (is-type? 'let big-let)
+    (retype-decls (let-decls big-let)))
+  big-let)
+
+;;; After retype-core: how many expressions have a type, how many agree
+;;; with the type checker's, what did not type.
+(define (typed-report big-let)
+  (let ((total 0) (typed 0) (compared 0) (agree 0))
+    (for-each-core-exp
+     (lambda (e)
+       (incf total)
+       (when (exp-core-type e)
+	 (incf typed)
+	 (when (and (exp-inferred-type e)
+		    (not (table-entry *core-boundary-nodes* e)))
+	   (incf compared)
+	   (if (core-unify (exp-core-type e)
+			   (core-import (exp-inferred-type e) '#f))
+	       (incf agree)
+	       (begin
+		 (incf *core-mismatches*)
+		 (when (and (env-flag? "YALE_HASKELL_TYPED_DEBUG")
+			    (< *core-mismatches* 25))
+		   (lisp:format lisp:*error-output*
+				"~&MISMATCH ~a: core ~a, inferred ~a~%"
+				e (prune (exp-core-type e))
+				(prune (exp-inferred-type e)))))))))
+     big-let)
+    (lisp:format lisp:*error-output*
+		 "~&typed core: ~d expressions, ~d typed; ~d with an inferred type, ~d agree~%"
+		 total typed compared agree)
+    (when (not (null? *core-failures*))
+      (lisp:format lisp:*error-output* "~&  did not unify: ~s~%" *core-failures*))
+    (when (not (null? *core-unknowns*))
+      (let ((counts '()))
+	(dolist (n *core-unknowns*)
+	  (let ((e (assq n counts)))
+	    (if e (incf (cdr e)) (push (cons n 1) counts))))
+	(lisp:format lisp:*error-output* "~&  no type for: ~s~%"
+		     (lisp:subseq (lisp:sort counts (function lisp:>) :key (function cdr))
+				  0 (min 15 (length counts))))))))
+
+
+;;; The typed phase's printer: each top-level binding with its type in
+;;; the core, then the coverage line.
+(define (print-typed-core big-let)
+  (when (is-type? 'let big-let)
+    (dolist (d (let-decls big-let))
+      (dolist (v (if (is-type? 'recursive-decl-group d)
+		     (recursive-decl-group-decls d)
+		     (list d)))
+	(when (is-type? 'valdef v)
+	  (let ((rhs  (single-definition-rhs v)))
+	    (format '#t "~a :: ~a~%"
+		    (def-name (var-ref-var (var-pat-var (valdef-lhs v))))
+		    (if (exp-core-type rhs) (prune (exp-core-type rhs)) "?")))))))
+  (typed-report big-let))

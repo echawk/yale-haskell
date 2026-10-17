@@ -17,7 +17,11 @@
 
 (define (dispatch-type-check exp)
  (remember-context exp
-  (call-walker type exp)))
+  (mlet (((obj type) (call-walker type exp)))
+    ;; kept for the typed core (src/compiler/typed/)
+    (when (and type (is-type? 'exp obj))
+      (setf (exp-inferred-type obj) type))
+    (values obj type))))
 
 (define (do-type-check/list exps)
   (if (null? exps)

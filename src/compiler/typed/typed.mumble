@@ -1,0 +1,17 @@
+;;; typed.mumble -- module definition for the typed core
+;;;
+;;; The typed core is cfn's output (src/compiler/cfn/README) with a
+;;; Haskell type on every expression: the types the type checker
+;;; inferred (exp-inferred-type, recorded by dispatch-type-check), and
+;;; for the nodes cfn and dictionary conversion create, types computed
+;;; from their parts (retype.mumble).  See doc/plans/LIQUID-HASKELL.md
+;;; section 2.1.
+
+(define-compilation-unit typed
+  (source-filename "$Y2/src/compiler/typed/")
+  (require ast haskell-utils)
+  (unit walk
+	(source-filename "walk.mumble"))
+  (unit retype
+	(source-filename "retype.mumble")
+	(require walk)))

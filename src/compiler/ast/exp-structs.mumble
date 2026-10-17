@@ -18,7 +18,14 @@
 ;;;
 
 (define-struct exp
-  (include ast-node))
+  (include ast-node)
+  (slots
+   ;; the type the type checker inferred for this expression (an ntype,
+   ;; whose type variables are resolved by pruning), or '#f; read by the
+   ;; typed core (src/compiler/typed/)
+   (inferred-type (type t) (default '#f))
+   ;; its type in the typed core, computed after cfn (typed/retype.mumble)
+   (core-type (type t) (default '#f))))
 
 
 ;;; <lambda-exp> -> \ <apat> ... <apat> -> <exp>

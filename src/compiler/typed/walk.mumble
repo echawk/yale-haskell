@@ -1,0 +1,61 @@
+;;; walk.mumble -- walking the typed core
+;;;
+;;; for-each-core-exp calls FN on every expression of cfn's output, its
+;;; subexpressions before it.  The node types are those cfn produces
+;;; (cfn/README) plus the ones dictionary conversion and the backend
+;;; placeholders leave.
+
+(define (for-each-core-exp fn x)
+  (cond ((null? x) '#f)
+	((pair? x) (dolist (e x) (for-each-core-exp fn e)))
+	((is-type? 'valdef x)
+	 (for-each-core-exp fn (single-definition-rhs x)))
+	((is-type? 'recursive-decl-group x)
+	 (for-each-core-exp fn (recursive-decl-group-decls x)))
+	((is-type? 'lambda x) (for-each-core-exp fn (lambda-body x)) (funcall fn x))
+	((is-type? 'let x)
+	 (for-each-core-exp fn (let-decls x))
+	 (for-each-core-exp fn (let-body x))
+	 (funcall fn x))
+	((is-type? 'if x)
+	 (for-each-core-exp fn (if-test-exp x))
+	 (for-each-core-exp fn (if-then-exp x))
+	 (for-each-core-exp fn (if-else-exp x))
+	 (funcall fn x))
+	((is-type? 'case-block x)
+	 (for-each-core-exp fn (case-block-exps x)) (funcall fn x))
+	((is-type? 'return-from x)
+	 (for-each-core-exp fn (return-from-exp x)) (funcall fn x))
+	((is-type? 'and-exp x)
+	 (for-each-core-exp fn (and-exp-exps x)) (funcall fn x))
+	((is-type? 'app x)
+	 (for-each-core-exp fn (app-fn x))
+	 (for-each-core-exp fn (app-arg x))
+	 (funcall fn x))
+	((is-type? 'sel x) (for-each-core-exp fn (sel-value x)) (funcall fn x))
+	((is-type? 'is-constructor x)
+	 (for-each-core-exp fn (is-constructor-value x)) (funcall fn x))
+	((is-type? 'con-number x)
+	 (for-each-core-exp fn (con-number-value x)) (funcall fn x))
+	((is-type? 'cast x) (for-each-core-exp fn (cast-exp x)) (funcall fn x))
+	((is-type? 'exp x) (funcall fn x))
+	(else '#f)))
+
+;;; YALE_HASKELL_TYPED_CENSUS=1: after cfn, how many expressions of each
+;;; kind carry an inferred type.
+
+(define (typed-census big-let)
+  (let ((table  (make-table)))
+    (for-each-core-exp
+     (lambda (e)
+       (let* ((name   (td-name (struct-type-descriptor e)))
+	      (entry  (or (table-entry table name)
+			  (setf (table-entry table name) (lisp:list 0 0)))))
+	 (incf (car entry))
+	 (when (exp-inferred-type e) (incf (cadr entry)))))
+     big-let)
+    (let ((rows '()))
+      (table-for-each (lambda (k v) (push (cons k v) rows)) table)
+      (dolist (r (lisp:sort rows (function lisp:>) :key (function cadr)))
+	(lisp:format lisp:*error-output* "~&census ~20a ~8d ~8d typed~%"
+		     (car r) (cadr r) (caddr r))))))

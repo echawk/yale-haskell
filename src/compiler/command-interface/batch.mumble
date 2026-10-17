@@ -86,6 +86,8 @@
 ;;;
 ;;;   scope depend cfn depend2 flic optimize strictness grin codegen
 ;;;          the compiler's printers for those passes (as -p shows them)
+;;;   typed  each top-level binding's type in the typed core (typed/),
+;;;          and how many expressions typed
 ;;;   lisp   the unit's generated Lisp, as one file of top-level forms
 ;;;   asm    SBCL's disassembly of the unit's top-level functions
 ;;;
@@ -94,7 +96,7 @@
 ;;; or '#f for stdout.
 
 (define *emit-stages*
-  '(scope depend cfn depend2 flic optimize strictness grin codegen
+  '(scope depend cfn typed depend2 flic optimize strictness grin codegen
     codegen-flic lisp asm))
 
 (define (emit-run file stage-names output)

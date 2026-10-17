@@ -18,7 +18,7 @@ these are what comes after M11.
 | [CUBICALTT.md](CUBICALTT.md) | cubicaltt, a cubical type theory proof checker, as the program that tests the GHC features together; what it needed, its speed against GHC, and the library and optimization targets that follow | cubicaltt 42/42, LambdaPi and Mini-TT match GHC |
 | [MUMBLE-TO-CL.md](MUMBLE-TO-CL.md) | Moving the compiler from mumble to plain Common Lisp, piece by piece | planned |
 | [TEMPLATE-HASKELL.md](TEMPLATE-HASKELL.md) | Template Haskell and QuasiQuotes: the design (from the TH papers and GHC's guide), where it goes in Yale's pipeline, files to change, pain points, milestones | design (2026-10-16) |
-| [LIQUID-HASKELL.md](LIQUID-HASKELL.md) | Refinement types in LiquidHaskell's style: a typed core after cfn, `{-@ @-}` specifications, constraint generation, Z3 and a fixpoint solver, milestones and pain points | design (2026-10-16) |
+| [LIQUID-HASKELL.md](LIQUID-HASKELL.md) | Refinement types in LiquidHaskell's style: a typed core after cfn, `{-@ @-}` specifications, constraint generation, Z3 and a fixpoint solver, milestones and pain points | milestone 1, the typed core, done (2026-10-17); rest design |
 | [FUTURE-TARGETS.md](FUTURE-TARGETS.md) | Further real-world targets to try compiling (inline-java, Template Haskell, JHC, rusholme, Helium, UHC, NHC98) | proposed (2026-10-14) |
 
 Suggested order: MicroCabal (it doubles as the gap list for real

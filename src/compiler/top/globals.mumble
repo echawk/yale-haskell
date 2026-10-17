@@ -33,7 +33,7 @@
 (define *all-printers*
   '(phase-time time compiling loading reading extension
     parse import type-decl scope depend
-    type cfn depend2
+    type cfn typed depend2
     flic optimize optimize-extra strictness grin codegen codegen-flic
     dumper dump-stat))
 

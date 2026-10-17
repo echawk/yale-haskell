@@ -1,6 +1,7 @@
 # Plan: refinement types in the style of LiquidHaskell
 
-Status: design only (2026-10-16).  Nothing here is implemented.
+Status: milestone 1 (the typed core) done, 2026-10-17; the rest is
+design only.
 
 The aim is a refinement type checker inside Yale Haskell that accepts
 LiquidHaskell's specification language (`{-@ ... @-}` comments), checks
@@ -73,6 +74,54 @@ change it, and fails the compilation (or warns, per a flag) when a
 constraint is unsafe.  The rest of the pipeline is unchanged.
 
 ### 2.1 The typed core (the gate for everything else)
+
+**Done (2026-10-17), differently from the steps below.**
+- **What was built:**
+  - Every expression keeps the type inference gave it
+    (`exp-inferred-type`, recorded in one place, `dispatch-type-check`).
+  - A typed phase after cfn (`src/compiler/typed/retype.mumble`) types
+    cfn's output again by unification over that small language.  The
+    let-bound variables' `var-type`s are known, so no generalization
+    is needed, and the compiler's own types are copied, never bound.
+  - It runs only for `--emit typed` (which prints each top-level
+    binding's type) or `YALE_HASKELL_TYPED_CENSUS=1` (its coverage
+    report), and changes nothing.
+  - `tools/typed-core.py` measures it over the test programs.
+- **How dictionaries are typed:**
+  - A dictionary's type is `C t`, an ntycon whose tycon is the class.
+  - Variables take one dictionary per class per type variable, then the
+    multi-parameter ones; a method of a multi-parameter class takes its
+    own class's first.
+  - A method selector `sel-C/S.m` takes `C`'s dictionary in the
+    method's place.
+  - Constructors take none for a datatype context, but an existential
+    constructor's dictionaries are its fields.
+- **Representation boundaries.** Three places in generated code treat
+  a value as its representation, and the unifier accepts them:
+  - a dictionary's own definition is a tuple of its methods (typed, not
+    checked against its rough `var-type`);
+  - a newtype is its field (cfn erases the constructor);
+  - an enumeration is its `Int` tag (derived `Enum`).
+- **Result over the test programs:** 99.68% of 273,544 expressions get
+  a type, and 99.93% of the 118,216 that inference also typed agree.
+  - The failures are in GADTs, rank-N contexts and type families, which
+    the type checker itself only approximates (GHC-EXTENSIONS.md) and
+    which section 7 says the checker should skip.
+  - The other residue is the record selector of a newtype over a monad
+    transformer, where `m x ~ WriterT w m' a` reads both as an
+    instance and as the erased field.
+  - Over LambdaPi, cubicaltt and happy with all their libraries,
+    99.8% of expressions get a type.
+- **For optimization it does not reach far yet.** The optimizer's hot
+  loops (the `iterate'` and `foldr'` of fusion, and other inlined
+  Prelude code) are made after this phase, from interface code that
+  carries no types.  A type-directed declaration pass (unboxed `Double`
+  parameters across calls) would need types kept on FLIC variables
+  through `copy-flic` and the interfaces (`dump-flic`).  For `Int`
+  nothing is lost today: the primitives already expand to `(the fixnum
+  ...)`, and SBCL infers through `let`.
+
+The plan as first written:
 
 1. **Record instantiations during type checking.** At each `var-ref`
    and `con-ref`, store the type the variable is used at (the

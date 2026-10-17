@@ -75,6 +75,9 @@
 	    (cond ((not (void? big-let))
 		   (haskell-type-check big-let mods)
 		   (setf big-let (haskell-cfn big-let))
+		   (when (or (memq 'typed (dynamic *printers*))
+			     (env-flag? "YALE_HASKELL_TYPED_CENSUS"))
+		     (haskell-typed big-let))
 		   (setf big-let (haskell-dependency-reanalysis big-let))
 		   (setf big-let (haskell-ast-to-flic big-let))
 		   (setf big-let (haskell-optimize big-let))
@@ -167,6 +170,22 @@
     (cfn-ast big-let)
     (function pprint*)))
 
+
+(predefine (retype-core x))           ; in typed/retype.mumble
+(predefine (print-typed-core x))
+(predefine (typed-report x))
+;;; The typed core (typed/): a type on every expression of cfn's output.
+;;; Run only when asked for (--emit typed, or YALE_HASKELL_TYPED_CENSUS=1
+;;; for its coverage report alone); it changes nothing.
+
+(define (haskell-typed big-let)
+  (phase-body typed
+    (begin
+      (retype-core big-let)
+      (when (env-flag? "YALE_HASKELL_TYPED_CENSUS")
+	(typed-report big-let))
+      big-let)
+    (function print-typed-core)))
 
 (predefine (analyze-dependency-top x))  ; in depend/dependency-analysis.mumble
 
