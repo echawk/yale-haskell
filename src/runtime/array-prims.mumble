@@ -4,16 +4,43 @@
 ;;; date   :  14 May 1993
 
 
+;;; An array's vector is a simple vector, or, for an unboxed array of
+;;; Bool made by newArray (prim.new-unboxed-mut-arr in base-runtime.lisp)
+;;; and frozen, a bit vector: one bit per element where a simple vector
+;;; takes a word (starray's 10^7 Bools: 80 MB -> 1.25 MB, as GHC packs
+;;; them).  Access tests which, one header check.
+
 ;;; Vector reference, returning unboxed value
 
 (define-syntax (prim.vector-sel vec i)
-  `(vector-ref ,vec ,i))
+  (let ((v (gensym)) (j (gensym)))
+    `(let ((,v ,vec) (,j ,i))
+       (if (lisp:simple-bit-vector-p ,v)
+	   (lisp:eql (lisp:sbit ,v ,j) 1)
+	   (vector-ref ,v ,j)))))
 
 
 ;;; Destructive vector update.  All arguments are unboxed.
 
 (define-syntax (prim.vector-update vec i newval)
-  `(setf (vector-ref ,vec ,i) ,newval))
+  (let ((v (gensym)) (j (gensym)) (x (gensym)))
+    `(let ((,v ,vec) (,j ,i) (,x ,newval))
+       (if (lisp:simple-bit-vector-p ,v)
+	   (setf (lisp:sbit ,v ,j) (bool-bit ,x))
+	   (setf (vector-ref ,v ,j) ,x))
+       ,x)))
+
+;;; A Bool's bit; any other value cannot go in a bit vector.
+(define-syntax (bool-bit x)
+  (let ((v (gensym)))
+    `(let ((,v ,x))
+       (cond ((eq? ,v '#t) 1)
+	     ((eq? ,v '#f) 0)
+	     (else (unboxed-element-error))))))
+
+(define (unboxed-element-error)
+  (haskell-runtime-error
+   "an unboxed array made with a Bool element was given another value"))
 
 
 ;;; Make a vector whose elements are initialized to val (which is boxed).
@@ -25,7 +52,7 @@
 ;;; Copy an existing vector.
 
 (define-syntax (prim.copy-vector vec)
-  `(vector-copy ,vec))
+  `(lisp:copy-seq ,vec))
 
 
 ;;; Explicit force operation
@@ -64,6 +91,6 @@
 		  (eq? (car leave-this) 'prim.returnio))
 	     leave-this)
 	    (else
-	     `(force ,leave-this)))))
+	     `(force-inline ,leave-this)))))
 
 

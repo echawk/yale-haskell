@@ -783,3 +783,43 @@ correct.  make test 283; nofib 69 + 40; extensions 101/104; happy
 Also measured and dropped: Inline annotations on fst, snd, maybe,
 either, (.), flip and the like (snd stayed a call in LambdaPi): no
 change outside noise (-1% to +2%).
+
+## Bit-packed unboxed Bool arrays; force inline in IO binds (2026-10-16)
+
+An unboxed array (STUArray, IOUArray) whose newArray value is a Bool is
+now a bit vector, one bit per element, as GHC's are; frozen, it is the
+Array's vector, so `UArray` stays `Array`.  The array primitives test
+which representation they have (one header check); boxed arrays are
+unchanged, and only a newArray given a Bool makes bits.  Also
+`prim.getres` (the result of every IO/ST bind) and strict1's general
+case called the out-of-line `force`; they use `force-inline`, and
+`insert-unit-value` is integrable.  `bench/compare-ghc -n 3` (the
+machine's load rose between the runs, so ratios):
+
+```
+program        before   MB     after    MB     ratio
+starray         0.209    80    0.217     1     4.2x -> 3.5x
+ioref           0.048     0    0.035     0     2.9x -> 2.0x
+mapcount        0.815  1542    0.828  1542     2.4x -> 2.1x
+foldable        0.404   969    0.426   969     1.7x -> 1.5x
+textproc        0.259   417    0.243   417     2.1x -> 1.9x
+```
+
+make test 284; nofib 69 + 40; extensions 101/104; happy 166/166;
+optparse 100/100; xmonad 107/107; darcs, husk, typecheckers, cubicaltt
+match.
+
+### What the next Phase C passes would find (counted 2026-10-16)
+
+Compiled with tracing: LambdaPi, cubicaltt, happy and the bench
+programs, with every library module they use.
+- Case-of-case join points: `let-case-of-case` declined for size 7
+  times in all of it (bodies of 64-104 nodes against its 60).
+- Absence: 715 calls pass a non-trivial argument a same-module callee
+  never uses, almost all dictionaries to class defaults and selectors
+  (default-compare, sel-Functor/fmap, default-showList) in code that
+  runs rarely.
+- CPR: same-module calls of functions returning a single-constructor
+  product are dictionary constructors (1,000+ of 1,129) and a few cold
+  library functions (mapAccumL 11, Data.Map's deleteFindMin/Max 7 each,
+  splitAt 2); none on a hot path of these programs.

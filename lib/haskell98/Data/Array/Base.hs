@@ -4,7 +4,9 @@
 -- The unboxed mutable types (STUArray, IOUArray) are element-strict
 -- versions of the boxed ones: a value is evaluated when it is written, as
 -- GHC's unboxed arrays hold evaluated values (a loop that accumulates in
--- one does not build thunks).  UArray is Array.  runSTArray's type is the
+-- one does not build thunks).  An unboxed array of Bool made by newArray
+-- is a bit vector, one bit per element (primNewUMutArr; frozen, the
+-- Array's vector is that bit vector).  UArray is Array.  runSTArray's type is the
 -- Haskell 98 one (see Control.Monad.ST's runST).
 module Data.Array.Base (
     MArray(getBounds, newArray, newArray_, unsafeNewArray_, unsafeRead, unsafeWrite),
@@ -74,7 +76,7 @@ instance MArray (STUArray s) e (ST s) where
   arrIO _ = unsafeIOToST
   getBounds (STUArray b _ _) = return b
   newArray b x = x `seq` unsafeIOToST (let n = rangeSize b in
-                                       primNewMutArr n x >>= \v -> return (STUArray b n v))
+                                       primNewUMutArr n x >>= \v -> return (STUArray b n v))
   newArray_ b = unsafeIOToST (let n = rangeSize b in
                               primNewMutArr n arrEleBottom >>= \v -> return (STUArray b n v))
   unsafeNewArray_ b = newArray_ b
@@ -90,7 +92,7 @@ instance MArray IOUArray e IO where
   arrIO _ = id
   getBounds (IOUArray b _ _) = return b
   newArray b x = x `seq` (let n = rangeSize b in
-                          primNewMutArr n x >>= \v -> return (IOUArray b n v))
+                          primNewUMutArr n x >>= \v -> return (IOUArray b n v))
   newArray_ b = let n = rangeSize b in
                 primNewMutArr n arrEleBottom >>= \v -> return (IOUArray b n v)
   unsafeNewArray_ b = newArray_ b

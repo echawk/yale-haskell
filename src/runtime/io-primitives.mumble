@@ -176,7 +176,7 @@
   'state)
 
 (define-integrable (prim.getres x)
-  (force x))
+  (force-inline x))
 
 
 

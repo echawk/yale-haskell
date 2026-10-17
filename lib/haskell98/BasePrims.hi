@@ -25,6 +25,7 @@ primRefEq          :: Ref a -> Ref a -> Bool
 data MutArr a
 
 primNewMutArr      :: Int -> a -> IO (MutArr a)
+primNewUMutArr     :: Int -> a -> IO (MutArr a)
 primReadMutArr     :: MutArr a -> Int -> IO a
 primWriteMutArr    :: MutArr a -> Int -> a -> IO ()
 primMutArrEq       :: MutArr a -> MutArr a -> Bool
@@ -124,6 +125,7 @@ primReadRef        :: LispName("prim.read-ref")
 primWriteRef       :: LispName("prim.write-ref"), Strictness("S,N,S")
 primRefEq          :: LispName("prim.ref-eq")
 primNewMutArr      :: LispName("prim.new-mut-arr"), Strictness("S,N,S")
+primNewUMutArr     :: LispName("prim.new-unboxed-mut-arr"), Strictness("S,S,S")
 primReadMutArr     :: LispName("prim.read-mut-arr")
 primWriteMutArr    :: LispName("prim.write-mut-arr"), Strictness("S,S,N,S")
 primMutArrEq       :: LispName("prim.ref-eq")

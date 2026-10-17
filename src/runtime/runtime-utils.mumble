@@ -453,7 +453,7 @@
 
 ;;; This explicates the value returned by a proc (the IO () type).
 
-(define (insert-unit-value x)
+(define-integrable (insert-unit-value x)
   (declare (ignore x))
   0)
 

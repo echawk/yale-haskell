@@ -12,11 +12,26 @@
 
 (cl:defun prim.ref-eq (a b) (cl:eq a b))
 
-;;; Mutable arrays (Data.Array.Base): simple vectors of unevaluated values.
+;;; Mutable arrays (Data.Array.Base): simple vectors of unevaluated values,
+;;; or, for an unboxed (element-strict) array whose newArray value is a
+;;; Bool, a bit vector (see prim.vector-sel in array-prims.mumble).  Of
+;;; the element types GHC's unboxed arrays allow, only Bool is a Lisp
+;;; boolean; a value of another type written into a bit vector is an error.
 
 (cl:defun prim.new-mut-arr (n x) (cl:make-array n :initial-element x))
-(cl:defun prim.read-mut-arr (a i) (cl:svref a i))
-(cl:defun prim.write-mut-arr (a i x) (cl:setf (cl:svref a i) x) 0)
+(cl:defun prim.new-unboxed-mut-arr (n x)
+  (cl:if (cl:or (cl:eq x cl:t) (cl:null x))
+	 (cl:make-array n :element-type 'cl:bit :initial-element (cl:if x 1 0))
+	 (cl:make-array n :initial-element x)))
+(cl:defun prim.read-mut-arr (a i)
+  (cl:if (cl:simple-bit-vector-p a)
+	 (cl:eql (cl:sbit a i) 1)
+	 (cl:svref a i)))
+(cl:defun prim.write-mut-arr (a i x)
+  (cl:if (cl:simple-bit-vector-p a)
+	 (cl:setf (cl:sbit a i) (bool-bit x))
+	 (cl:setf (cl:svref a i) x))
+  0)
 
 ;;; Between mutable arrays and the Prelude's Array, MkArray bounds vector
 ;;; (a cons: a two-field constructor; src/runtime/runtime-utils.mumble's
