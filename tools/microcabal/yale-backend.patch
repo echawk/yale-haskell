@@ -1,0 +1,37 @@
+--- a/MicroCabal/Main.hs
++++ b/MicroCabal/Main.hs
+@@ -10,6 +10,7 @@
+ import Text.Read
+ import MicroCabal.Backend.GHC
+ import MicroCabal.Backend.MHS
++import MicroCabal.Backend.Yale
+ import MicroCabal.Cabal
+ import MicroCabal.Env
+ import MicroCabal.Glob
+@@ -51,7 +52,7 @@
+       env = Env{ instDir = cdir, distDir = "dist-mcabal", pkgPath = Nothing, verbose = 0, depth = 0, eflags = [],
+                  backend = error "backend undefined", recursive = False, targets = [TgtLib, TgtFor, TgtExe],
+                  gitRepo = Nothing, gitRef = Nothing, dryRun = False, useNightly = True, subDir = Nothing, compOptions = [] }
+-  be <- mhsBackend env
++  be <- yaleBackend env
+   return env{ backend = be }
+ 
+ decodeCommonArgs :: Env -> IO (Env, [String])
+@@ -65,6 +66,7 @@
+       loop e (('-':'a':s)    : as) = loop e{ pkgPath = Just $ maybe s (++ (':' : s)) (pkgPath e) } as
+       loop e ("--ghc"        : as) = do be <- ghcBackend env; loop e{ backend = be } as
+       loop e ("--mhs"        : as) = do be <- mhsBackend env; loop e{ backend = be } as
++      loop e ("--yale"       : as) = do be <- yaleBackend env; loop e{ backend = be } as
+       loop e ("--dry-run"    : as) = loop e{ dryRun = True } as
+       loop e ("--nightly"    : as) = loop e{ useNightly = True } as
+       loop e ("--no-nightly" : as) = loop e{ useNightly = False } as
+@@ -519,7 +521,8 @@
+   \  -q                            be quiet\n\
+   \  -r                            do recursive installs for missing packages\n\
+   \  --ghc                         compile using ghc\n\
+-  \  --mhs                         compile using mhs (default)\n\
++  \  --mhs                         compile using mhs\n\
++  \  --yale                        compile using yale-haskell, $YALE (default)\n\
+   \  --git=URL                     fetch from the Git repo instead of hackage\n\
+   \  --dry-run                     do NOT execute the commands, just print\n\
+   \  --no-nightly                  use latest versioned snapshot from stackage instead of nightly\n\

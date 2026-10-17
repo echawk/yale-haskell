@@ -176,3 +176,59 @@ base.cabal, Hugs's Cabal.cabal and nhc98's 15 library packages.
 2. A saved executable for mcabal. The unit cache already removes most
    of the startup time.
 3. Step 5.
+
+## Step 5 — the Yale backend (2026-10-17, 3.2.0)
+
+`tools/microcabal/` holds the backend and how it is put into MicroCabal
+without editing the clone:
+
+- `Yale.hs` is `MicroCabal.Backend.Yale`; `yale-backend.patch` makes
+  MicroCabal.Main offer it as `--yale`, the default;
+- `setup.sh` copies `ref/MicroCabal/src` to `build/microcabal/src` and
+  applies both, and `mcabal` runs that copy (re-running setup.sh when a
+  source is newer): `tools/microcabal/mcabal install PKG`.
+
+A package is installed as its sources, in the package database
+`$CABALDIR/yale-VERSION/packages` that `--package-db` reads
+(src/compiler/csys/packages.mumble): `NAME-VERSION/src` (every
+hs-source-dirs tree and the Paths_ module), `include/`, and
+`yale-package` (default-language and default-extensions, cpp-options,
+include-dirs).  Building compiles a module that imports every exposed
+and other module; installing copies the directory and compiles again
+there, so the unit cache holds the installed paths.  An executable is a
+script running its main module with yale-haskell.
+
+- The packages Yale's library provides count as installed: base,
+  containers, text, bytestring, mtl, transformers, parsec, ... (the
+  list is `builtinPackages`), and template-haskell, which packages
+  depend on for code only GHC compiles.
+- Modules with `{-# LANGUAGE TemplateHaskell #-}` or QuasiQuotes are
+  installed but not compiled (tagged exposes Data.Proxy.TH beside
+  modules that need no TH).
+- `impl(ghc ...)` conditions are false (the compiler is `yale`), and
+  `__GLASGOW_HASKELL__` is not defined, as before.
+
+`tools/microcabal/hackage-survey.sh` installs a list of 43 popular
+libraries with `-r` (into `build/mcabal` unless `$CABALDIR` is set) and
+prints the first error of each.
+
+### First survey (2026-10-17): 2 of 43 build
+
+split and splitmix build, install and run (`Data.List.Split` from a
+program with `--package-db`).  The rest stop at the first of these;
+fixing one usually moves several packages to their next error:
+
+| Gap | Packages stopped by it |
+|---|---|
+| `module M () where`: an empty export list does not parse | base-orphans (so semigroupoids, profunctors), transformers-compat (transformers-base, mmorph) |
+| `instance Bifunctor Const` missing | assoc (strict, either, bifunctors, lens) |
+| Template Haskell in an exposed module (now skipped, see above) | tagged (comonad, distributive, free) |
+| nullary constraint `Partial =>`; `a ~ b` with others; `(MonadThrow m, ...)` forms in contexts | safe, StateVar (contravariant), exceptions (aeson) |
+| `Text.Read` does not export `Read`; `Data.Coerce` does not export `Coercible` | megaparsec, case-insensitive, indexed-traversable |
+| modules: GHC.Stack, Data.Functor.Classes, Data.ByteString.Short, GHC.Arr, GHC.IO, Foreign.C.ConstPtr | call-stack (HUnit), data-fix, these, utility-ht, attoparsec, data-default |
+| `liftA2` is not an Applicative method | parser-combinators |
+| `{-# INLINE [0] f #-}` phase control | microlens |
+| `#error` unless `__GLASGOW_HASKELL__` | dlist |
+| a GHC boot package not on Stackage's list (integer-gmp); C headers (MachDeps.h) | integer-logarithms, primitive (vector) |
+| others: a GADT-style record parse (prettyprinter, optparse-applicative), an existential with `deriving` after `#if` (async), a too-general signature (colour), base-compat's forkOSWithUnmask, ansi-wl-pprint | one each |
+

@@ -19,6 +19,16 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.2.0 (2026-10-17)
+
+- MicroCabal backend (tools/microcabal/): `tools/microcabal/mcabal
+  install PKG` fetches a Hackage package (Stackage's versions) and
+  installs it, with `-r` its dependencies, into a package database that
+  `--package-db` reads.  The backend and its patch to MicroCabal live
+  here; the clone in ref/MicroCabal is not changed.
+  `tools/microcabal/hackage-survey.sh` tries 43 popular libraries: 2
+  build so far, and doc/plans/MICROCABAL.md lists what stops the rest.
+
 ## 3.1.1 (2026-10-17)
 
 - `--help`, `--version` and `--numeric-version` crashed after printing
