@@ -19,6 +19,27 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.8.0 (2026-10-17)
+
+- Layout (Haskell 98 report 10.3): a declaration block (`where`, `let`,
+  a class or instance body) whose first token is not indented past the
+  enclosing block is empty.  `instance C T where` followed by a
+  top-level declaration took that declaration as a method.
+- Exceptions of a program's own types: `instance Exception T` with the
+  default methods, thrown and caught by type (Exception has base's
+  Typeable superclass, and the value travels as a Dynamic).
+  `Handler` and `catches`, `catchJust`, `handleJust`, `tryJust`,
+  `AsyncException`, `AssertionFailed`, rank-2 `mask`.  A superclass
+  dictionary of a built-in Typeable instance was the bare builder.
+- With `--modern-prelude`, `import Prelude (x, y)` limits base's Prelude
+  names (PreludeModern) to the list too, and may name them (`Monoid`,
+  `<>`); a module could not define its own `<>`.
+- An instance whose equality constraints make its head non-linear
+  (`instance (a ~ b) => Each (a, b) ...`) is accepted; an equality in a
+  signature with other constraints crashed the compiler.
+- New modules: Data.Foldable1, Control.Monad.Trans.Identity,
+  Control.Monad.Trans.Accum.
+
 ## 3.7.0 (2026-10-17)
 
 - An export list may name an entity by a qualified name (`module M

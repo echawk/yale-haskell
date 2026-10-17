@@ -3,22 +3,27 @@
 -- an IOError, an ErrorCall (error, a failed pattern match) or an
 -- ArithException (division by zero).  catch and try catch all three,
 -- including runtime errors raised by pure code evaluated inside the
--- action.  There is no extensible hierarchy (no existential types; the
--- SomeException constructor holds the host's condition, which Show shows):
--- Exception has instances for SomeException, IOException, ErrorCall and
--- ArithException only, and ExitCode is not an exception (exitWith is not
--- caught).
+-- action.  The SomeException constructor holds the host's condition,
+-- which Show shows.  A program's own exception types (instance Exception
+-- T, with the default methods) are thrown as a condition holding the
+-- value as a Dynamic (Typeable is built in), so catch, try and catches
+-- find them by type, as in base.  ExitCode is not an exception (exitWith
+-- is not caught).
 module Control.Exception (
     SomeException(SomeException), IOException, ErrorCall(ErrorCall), ArithException(..),
+    AsyncException(..), AssertionFailed(AssertionFailed),
     Exception(toException, fromException, displayException),
-    catch, catches, handle, try, evaluate, throw, throwIO,
-    bracket, bracket_, bracketOnError, finally, onException, mask_, uninterruptibleMask_,
-    assert
+    Handler(Handler), catches, catchJust, handleJust, tryJust,
+    catch, handle, try, evaluate, throw, throwIO,
+    bracket, bracket_, bracketOnError, finally, onException,
+    mask, mask_, uninterruptibleMask, uninterruptibleMask_, assert
   ) where
 
 import Prelude hiding (catch)
 import PreludeIO (IOError(..))
 import BasePrims
+import Data.Typeable (Typeable)
+import Data.Dynamic (toDyn, fromDynamic)
 
 data SomeException = SomeException Exc
 
@@ -55,11 +60,15 @@ instance Show ErrorCall where
 instance Show ArithException where
   showsPrec _ e = showString (primExcMessage (primMakeArithError (arithCode e)))
 
-class Show e => Exception e where
+class (Typeable e, Show e) => Exception e where
   toException      :: e -> SomeException
   fromException    :: SomeException -> Maybe e
   displayException :: e -> String
 
+  toException e = SomeException (primMakeUserExc (show e) (toDyn e))
+  fromException (SomeException x)
+    | primExcKind x == 3 = fromDynamic (primExcValue x)
+    | otherwise          = Nothing
   displayException = show
 
 instance Exception SomeException where
@@ -90,8 +99,47 @@ catch action handler =
                                Just x  -> handler x
                                Nothing -> primThrowExc e)
 
-catches :: IO a -> [IO a -> IO a] -> IO a
-catches action handlers = foldr (\h a -> h a) action handlers
+-- A handler for one exception type, for catches.
+data Handler a = forall e . Exception e => Handler (e -> IO a)
+
+-- The first handler whose type the exception has.
+catches :: IO a -> [Handler a] -> IO a
+catches action handlers = action `catch` \e -> pick handlers e
+  where pick [] e = throwIO (e :: SomeException)
+        pick (Handler h : hs) e = case fromException e of
+                                    Just x  -> h x
+                                    Nothing -> pick hs e
+
+catchJust :: Exception e => (e -> Maybe b) -> IO a -> (b -> IO a) -> IO a
+catchJust p a handler = a `catch` \e -> case p e of
+                                          Nothing -> throwIO e
+                                          Just b  -> handler b
+
+handleJust :: Exception e => (e -> Maybe b) -> (b -> IO a) -> IO a -> IO a
+handleJust p handler a = catchJust p a handler
+
+tryJust :: Exception e => (e -> Maybe b) -> IO a -> IO (Either b a)
+tryJust p a = catchJust p (fmap Right a) (return . Left)
+
+-- Asynchronous exceptions are never raised (one thread), but programs
+-- name and catch them.
+data AsyncException = StackOverflow | HeapOverflow | ThreadKilled | UserInterrupt
+  deriving (Eq, Ord)
+
+instance Show AsyncException where
+  showsPrec _ StackOverflow = showString "stack overflow"
+  showsPrec _ HeapOverflow = showString "heap overflow"
+  showsPrec _ ThreadKilled = showString "thread killed"
+  showsPrec _ UserInterrupt = showString "user interrupt"
+
+instance Exception AsyncException
+
+newtype AssertionFailed = AssertionFailed String
+
+instance Show AssertionFailed where
+  showsPrec _ (AssertionFailed s) = showString s
+
+instance Exception AssertionFailed
 
 handle :: Exception e => (e -> IO a) -> IO a -> IO a
 handle = flip catch
@@ -134,6 +182,12 @@ finally a sequel = do
   return r
 
 -- no asynchronous exceptions: masking does nothing
+mask :: ((forall c . IO c -> IO c) -> IO b) -> IO b
+mask f = f id
+
+uninterruptibleMask :: ((forall c . IO c -> IO c) -> IO b) -> IO b
+uninterruptibleMask f = f id
+
 mask_ :: IO a -> IO a
 mask_ = id
 

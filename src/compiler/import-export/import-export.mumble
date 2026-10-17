@@ -90,11 +90,23 @@
 
 (define (import-named-entities mod specs renamings import-decl)
   (dolist (entity specs)
-    (let ((group (locate-entity/export-table entity mod '#t)))
-      (when (not (eq? group 'error))
+    (let ((group (locate-entity/export-table
+		  entity mod (not (from-modern-prelude? mod entity)))))
+      (when (not (memq group '(error not-found)))
 	(setf group (rename-group group renamings))
 	(import-group group mod))))
   (find-unused-renamings renamings import-decl))
+
+;;; import Prelude (Monoid, (<>)) with --modern-prelude: names base's
+;;; Prelude has that the Haskell 98 one does not come from PreludeModern
+;;; (init-modules.mumble imports them from there by the same list).
+(define (from-modern-prelude? mod entity)
+  (and (eq? (module-name mod) '|Prelude|)
+       (modern-module?)
+       (let ((modern (table-entry *modules* '|PreludeModern|)))
+	 (and modern
+	      (not (eq? (locate-entity/export-table entity modern '#f)
+			'not-found))))))
 
 ;;; This takes a module and processes the import declarations, moving as
 ;;; many entities from the freshly exported components of other modules into

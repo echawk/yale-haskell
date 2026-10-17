@@ -421,7 +421,7 @@
   (let ((single '())
 	(multi (map (lambda (c)
 		      (**mp-context (mp-context-class c)
-				    (map (lambda (t) (substitute-tyvar t name type))
+				    (map (lambda (ty) (substitute-tyvar ty name type))
 					 (mp-context-types c))))
 		    (signature-mcontext sig))))
     (dolist (c (signature-context sig))

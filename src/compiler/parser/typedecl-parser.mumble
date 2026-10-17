@@ -488,15 +488,20 @@
 	   (when (some (lambda (d) (is-type? 'fixity-decl d)) decls)
 	     (signal-fixity-in-instance)
 	     (setf decls (remove-fixity-decls decls))))
-	(if simple
-	    ;; FlexibleInstances (GHC): any arguments (tdecl/instance.mumble)
-	    ;; and a catch-all instance C a (UndecidableInstances)
-	    (if (and (haskell98?) (or (tycon? simple) (tyvar? simple)))
-		'#t
-		(check-simple simple '#f "instance declaration"))
-	    (dolist (ty types)
-	      (when (not (tyvar? ty))
-		(check-simple ty '#f "instance declaration"))))
+	(cond ((not (null? equalities))
+	       ;; a head an equality made non-linear (instance (a ~ b) =>
+	       ;; Each (a, b) ...: (b, b)) is not checked
+	       '#t)
+	      (simple
+	       ;; FlexibleInstances (GHC): any arguments (tdecl/instance.mumble)
+	       ;; and a catch-all instance C a (UndecidableInstances)
+	       (if (and (haskell98?) (or (tycon? simple) (tyvar? simple)))
+		   '#t
+		   (check-simple simple '#f "instance declaration")))
+	      (else
+	       (dolist (ty types)
+		 (when (not (tyvar? ty))
+		   (check-simple ty '#f "instance declaration")))))
 	(make instance-decl (context contexts) (class class)
 	                    (simple (or simple (car types))) (decls decls)
 			    (types (if simple '() types))

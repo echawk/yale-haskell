@@ -1,0 +1,6 @@
+Left (MyErr "boom" 3)
+Left divide by zero
+other Other
+outer: MyErr "x" 1
+0
+masked

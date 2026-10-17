@@ -425,7 +425,8 @@
   (let ((inst (lookup-instance algdata class)))
     (if (eq? inst '#f)
 	(**abort "Missing super class")
-	(**var/def (instance-dictionary inst)))))
+	;; (a Typeable superclass's dictionary is made from the type's name)
+	(dict-ref-code inst))))
 					 
 (define (process-instance-decl decl new-instance-vars methods-used)
   (if (valdef? decl)

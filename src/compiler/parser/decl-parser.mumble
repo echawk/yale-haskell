@@ -212,7 +212,20 @@
    (else '())))
 
 (define (parse-decl-list)
-  (start-layout (function parse-decl-list-1)))
+  (if (empty-layout-block?)
+      '()
+      (start-layout (function parse-decl-list-1))))
+
+;;; Haskell 98 (report 10.3): a block opened by layout whose first token
+;;; is not indented more than the enclosing block is empty, as in
+;;;   instance C T where
+;;;   f :: Int     -- f is the next top-level declaration
+;;; (async's instance whose methods CPP removed).
+(define (empty-layout-block?)
+  (and (haskell98?)
+       (not (eq-token? '\{))
+       (not (null? *layout-stack*))
+       (<= *current-col* (layout-col (car *layout-stack*)))))
 
 (define (parse-decl-list-1 in-layout?)
   (token-case

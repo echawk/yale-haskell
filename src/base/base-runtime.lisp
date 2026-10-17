@@ -80,12 +80,27 @@
 
 (cl:defun prim.throw-exc (c) (cl:error c))
 
-;;; 0 an IOError, 1 an ErrorCall, 2 an arithmetic error
+;;; 0 an IOError, 1 an ErrorCall, 2 an arithmetic error, 3 an exception
+;;; of a program's own type
 (cl:defun prim.exc-kind (c)
   (cl:typecase c
     (haskell-io-error 0)
+    (haskell-user-exception 3)
     (haskell-error-call 1)
     (cl:t 2)))
+
+;;; An exception of a type a program defines (instance Exception T): the
+;;; value, as a Data.Dynamic Dynamic, for fromException, and its shown text
+;;; as the message.  It is an error call, so that uncaught it is reported
+;;; as error's message is, and catch-any catches it.
+(cl:define-condition haskell-user-exception (haskell-error-call)
+  ((value :initarg :value :reader haskell-user-exception-value)))
+
+(cl:defun prim.make-user-exc (msg value)
+  (cl:make-condition 'haskell-user-exception :message msg :value value))
+
+(cl:defun prim.exc-value (c)
+  (haskell-user-exception-value c))
 
 (cl:defun prim.exc-message (c)
   (cl:typecase c
