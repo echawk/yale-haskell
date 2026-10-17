@@ -2,6 +2,8 @@
 ;;;
 ;;;   yale-haskell FILE ARGS...              batch-run: compile, run Main.main
 ;;;   yale-haskell compile FILE --emit S..   emit-run: compile, write stages
+;;;   yale-haskell build FILE [-o EXE]       batch-build: compile, and save
+;;;                                          an executable running Main.main
 
 ;;; Batch mode: the program's output is the only thing on stdout;
 ;;; compiler diagnostics go to stderr, and a compile error or a runtime
@@ -51,25 +53,43 @@
 					  ':count 40 ':stream (debug-stream))))))))
 	       (if (funcall thunk) 0 1))
 	   ;; not errors: GHC's messages and exit statuses
+	   ;; the reader of stdout went away (prog | head): quietly, as a
+	   ;; program SIGPIPE ends (128 + 13)
+	   #+sbcl
+	   (sb-int:broken-pipe ()
+	     141)
 	   #+sbcl
 	   (sb-kernel::control-stack-exhausted ()
-	     (lisp:force-output)
+	     (flush-standard-output)
 	     (lisp:format lisp:*error-output* "~&yale-haskell: stack overflow~%")
 	     2)
 	   ;; (only SBCL's: ECL's stack overflow is a storage condition it
 	   ;; recovers from by growing the stack)
 	   #+sbcl
 	   (lisp:storage-condition ()
-	     (lisp:force-output)
+	     (flush-standard-output)
 	     (lisp:format lisp:*error-output* "~&yale-haskell: out of memory~%")
 	     251)
 	   (lisp:error (c)
-	     (lisp:force-output)
+	     (flush-standard-output)
 	     (lisp:format lisp:*error-output* "~&yale-haskell: ~a~%" (describe-condition c))
 	     1))))
-    (lisp:force-output)
-    (lisp:finish-output lisp:*error-output*)
+    (setf status (finish-batch-output status))
     (exit status)))
+
+;;; Flush the program's output; a reader that went away is ignored here.
+(define (flush-standard-output)
+  (lisp:handler-case (lisp:force-output)
+    (lisp:stream-error () '#f)))
+
+;;; Flush the output; a reader that went away makes the status 141.
+(define (finish-batch-output status)
+  (lisp:handler-case
+      (begin
+	(lisp:force-output)
+	(lisp:finish-output lisp:*error-output*)
+	status)
+    (lisp:stream-error () (if (eqv? status 0) 141 status))))
 
 (define (batch-run file args)
   ;; getArgs, getProgName and exitWith (src/runtime/system-prims.mumble)
@@ -81,6 +101,45 @@
   (setup-unit-cache-for 'all)
   (exit-with-batch-status (lambda () (run-program file))))
 
+
+;;; A standalone executable, as ghc FILE makes one.  The program is
+;;; compiled and loaded here, in the compiler's thread; SBCL saves an image
+;;; only from its one remaining thread, so *executable-to-save* asks the
+;;; main thread to (src/cli/cli.lisp's save-executable) once this returns.
+;;; The executable is this image with the program loaded: it starts in
+;;; run-saved-executable, which runs Main.main as batch-run does.
+
+(define *executable-to-save* '#f)   ; (tuple output-file main-var)
+
+(define (batch-build file output)
+  (setup-batch-mode)
+  (setup-unit-cache-for 'all)
+  (let ((main-var '#f))
+    (lisp:handler-bind ((lisp:warning (lambda (c) (lisp:muffle-warning c))))
+      (when (compile/load file)
+	(let ((main-mod (table-entry *modules* '|Main|)))
+	  (setf main-var (and main-mod
+			      (table-entry (module-symbol-table main-mod) '|main|))))))
+    (cond ((not main-var)
+	   (when (table-entry *modules* '|Main|)
+	     (lisp:format lisp:*error-output* "yale-haskell: Main.main is missing~%"))
+	   (lisp:finish-output lisp:*error-output*)
+	   (exit 1))
+	  (else
+	   (setf *executable-to-save*
+		 (tuple (or output (lisp:pathname-name (lisp:pathname file)))
+			main-var))))))
+
+;;; The saved executable's start: NAME is its argv[0], ARGS the rest.
+(define (run-saved-executable name args)
+  (let ((main-var  (tuple-2-2 *executable-to-save*)))
+    (setf *executable-to-save* '#f)
+    (set-haskell-program-args name args)
+    (setup-batch-mode)
+    (init-standard-handle-buffering)
+    (init-gc-parameters)
+    (exit-with-batch-status
+     (lambda () (apply-exec main-var) '#t))))
 
 ;;; Emitting the compiler's intermediate forms.  STAGES are names (strings):
 ;;;

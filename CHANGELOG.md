@@ -19,6 +19,32 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## 3.5.0 (2026-10-17)
+
+- `yale-haskell build FILE [-o EXE]`: a standalone executable (the image
+  with the program loaded, saved by SBCL) that runs Main.main with all
+  its arguments.  MicroCabal's Yale backend builds packages' executables
+  with it: alex 3.5.4.2 builds from Hackage and generates the same
+  scanners as a GHC-built alex on its 46 test grammars.
+- A program whose stdout reader goes away (`prog | head`) fails with an
+  IOError `<stdout>: hPutChar: failed (Broken pipe)`, status 1, as GHC's
+  does, instead of a Lisp message; a broken pipe at the final flush
+  exits 141 quietly.
+- `import M (pattern C)` for a data constructor C (GHC); `import
+  GHC.Exts (Int(I#))`: GHC.Exts exports Int, Word, Char, Double, Float,
+  and a boxing constructor in an import list is accepted.
+- DatatypeContexts, part of GHC's Haskell2010 and Haskell98 languages:
+  a datatype context is accepted when it is on.
+- `#include "MachDeps.h"` and `"ghcconfig.h"` find stand-ins for GHC's
+  headers in `$HASKELL_LIBRARY/include`.
+- A local binding without a signature whose class constraints are on an
+  undecided type family application (`Ord (Item l)` under
+  OverloadedLists) is not generalized over its type variables; it
+  failed with an internal error ("Type checker screwed a method
+  placeholder").
+- MicroCabal backend: `$YALE_CPP_OPTIONS` adds CPP options to every
+  package (`-D__GLASGOW_HASKELL__=906` for code that insists on GHC).
+
 ## 3.4.0 (2026-10-17)
 
 - `--ghc2021` and `--ghc2024`: GHC's language standards, their

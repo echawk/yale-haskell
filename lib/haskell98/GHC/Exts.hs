@@ -5,6 +5,7 @@
 -- and the primops are the ordinary operations.  A comparison primop
 -- returns 1 or 0, as GHC's do, for isTrue#.
 module GHC.Exts (
+    Int, Word, Char, Double, Float,
     Int#, Word#, Double#, Float#, Char#, Addr#, Int8#, Int16#, Int32#,
     Int64#, Word8#, Word16#, Word32#, Word64#,
     addrLit#, indexInt8OffAddr#, indexInt16OffAddr#, indexInt32OffAddr#,

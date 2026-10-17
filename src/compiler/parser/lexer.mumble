@@ -355,13 +355,14 @@
        (substring name 2 (string-length name))))
 
 ;;; The extensions of a language standard, as GHC's users guide lists them
-;;; (control.html); '() for another name.  Yale Haskell has no
-;;; DatatypeContexts or CUSKs switch, and turns on some of these always.
+;;; (control.html); '() for another name.  Yale Haskell has no CUSKs
+;;; switch, and turns on some of these always.
 
 (define *haskell2010-extensions*
   '("ImplicitPrelude" "StarIsType" "MonomorphismRestriction"
     "TraditionalRecordSyntax" "EmptyDataDecls" "ForeignFunctionInterface"
-    "PatternGuards" "DoAndIfThenElse" "FieldSelectors" "RelaxedPolyRec"))
+    "PatternGuards" "DoAndIfThenElse" "FieldSelectors" "RelaxedPolyRec"
+    "DatatypeContexts"))
 
 (define *ghc2021-extensions*
   '("BangPatterns" "BinaryLiterals" "ConstrainedClassMethods"
@@ -392,7 +393,7 @@
 	((string=? name "Haskell98")
 	 '("ImplicitPrelude" "StarIsType" "MonomorphismRestriction"
 	   "TraditionalRecordSyntax" "FieldSelectors" "NPlusKPatterns"
-	   "NondecreasingIndentation"))
+	   "NondecreasingIndentation" "DatatypeContexts"))
 	(else '())))
 
 ;;; The extensions every module starts with that is not an installed

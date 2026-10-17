@@ -160,6 +160,23 @@ for opt in --help --version --numeric-version; do
   fi
 done
 
+# yale-haskell build: a standalone executable gets every argument and
+# gives the program's exit status.
+cat > "$RT_TMP/Exe.hs" <<'EOF'
+import System.Environment
+import System.Exit
+main = do { n <- getProgName; as <- getArgs; putStrLn (n ++ show as); exitWith (ExitFailure 4) }
+EOF
+if bin/yale-haskell --haskell98 build "$RT_TMP/Exe.hs" -o "$RT_TMP/exe" > "$RT_TMP/cli.err" 2>&1 &&
+   out=$("$RT_TMP/exe" --help -x 2>&1); st=$?; [ "$st" = 4 ] && [ "$out" = 'exe["--help","-x"]' ]; then
+  echo pass >> "$RT_TMP/summary"
+  [ "$RT_VERBOSE" = 1 ] && echo "pass  yale-haskell build"
+else
+  echo FAIL >> "$RT_TMP/summary"
+  echo "FAIL  yale-haskell build: ${out:-}"; head -5 "$RT_TMP/cli.err"
+fi
+rm -f "$RT_TMP/exe"
+
 count() { grep -c "^$1\$" "$RT_TMP/summary"; }
 pass=$(count pass) fail=$(count FAIL) xfail=$(count xfail) xpass=$(count XPASS)
 echo "$pass passed, $fail failed, $xfail expected failures, $xpass unexpected passes"

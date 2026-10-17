@@ -98,7 +98,7 @@ line, or replaces this process with the executable that should run them."
         for a in argv
         do (cond (skip (setf skip nil))
                  ((string= a "repl") (return t))
-                 ((member a '("-e" "--eval" "--help" "--version" "--numeric-version" "run" "compile")
+                 ((member a '("-e" "--eval" "--help" "--version" "--numeric-version" "run" "compile" "build")
                           :test #'string=)
                   (return nil))
                  ((member a *value-options* :test #'string=) (setf skip t))

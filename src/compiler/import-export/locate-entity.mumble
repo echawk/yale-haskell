@@ -5,6 +5,25 @@
 ;;; 'not-found.  When force-error? is true, signal an error when
 ;;; the module is not found & return 'error.
 
+;;; `pattern C' (pattern%C) naming a data constructor, not a synonym (GHC:
+;;; import Data.List.NonEmpty (pattern (:|))): a group of the constructor.
+
+(define (pattern-constructor-group name mod)
+  (let ((s  (symbol->string name)))
+    (and (string-starts? "pattern%" s)
+	 (let ((con   (string->symbol
+		       (add-con-prefix (substring s 8 (string-length s)))))
+	       (found '#f))
+	   (table-for-each
+	    (lambda (key group)
+	      (declare (ignore key))
+	      (when (not found)
+		(dolist (n-d (cdr group))
+		  (when (and (eq? (tuple-2-1 n-d) con) (con? (tuple-2-2 n-d)))
+		    (setf found (list n-d))))))
+	    (module-export-table mod))
+	   found))))
+
 ;;; A class method or record field named by itself (import M (method)):
 ;;; a group of just that member, from the class's or type's export group.
 
@@ -24,7 +43,8 @@
   (let* ((name (entity-name entity))
 	 (group (or (table-entry (module-export-table mod) name)
 		    (and (is-type? 'entity-var entity)
-			 (group-member-group name mod)))))
+			 (or (group-member-group name mod)
+			     (pattern-constructor-group name mod))))))
     (if (eq? group '#f)
 	(if (not force-error?)
 	    'not-found
@@ -90,6 +110,9 @@
 ;;; group restricted to the names listed.
 
 (define (match-constituents group names entity what)
+  ;; MagicHash: Int(I#) names the boxing constructor, which is the
+  ;; identity (parser/exp-parser.mumble), not a constituent
+  (setf names (lisp:remove-if (lambda (n) (memq n *magic-hash-boxes*)) names))
   (check-duplicates names entity)
   (when (not (haskell98?))
     (dolist (n-d (cdr group))

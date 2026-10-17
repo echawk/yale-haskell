@@ -399,7 +399,13 @@
 				(dynamic *cpp-include-dirs*))
 			   ;; an installed package's include-dirs
 			   (let ((p  (package-of-file (dynamic *cpp-file*))))
-			     (if p (package-include-dirs p) '()))))
+			     (if p (package-include-dirs p) '()))
+			   ;; stand-ins for headers GHC installs (MachDeps.h,
+			   ;; ghcconfig.h): $HASKELL_LIBRARY/include
+			   (let ((lib  (getenv "HASKELL_LIBRARY")))
+			     (if lib
+				 (list (string-append (cpp-directory-name lib) "include/"))
+				 '()))))
 	   (found  (block search
 		     (dolist (d dirs)
 		       (let ((f  (string-append d name)))

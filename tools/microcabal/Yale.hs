@@ -17,9 +17,9 @@
 -- Building a library stages that directory under dist-mcabal/yale and
 -- compiles a module importing every exposed module against it; installing
 -- copies it into the database and compiles once more there, which fills
--- the unit cache for the installed paths.  An executable is a script that
--- runs its main module with yale-haskell, its sources installed as a
--- package of their own (so its extensions and cpp-options apply).
+-- the unit cache for the installed paths.  An executable is built with
+-- `yale-haskell build` (a standalone executable), its sources staged as a
+-- package of their own so that its extensions and cpp-options apply.
 module MicroCabal.Backend.Yale(yaleBackend) where
 import Control.Monad
 import Data.List
@@ -111,6 +111,9 @@ stagePackage env db name vers flds = do
       exts    = getFieldStrings flds defExts "extensions"
       lang    = maybeToList (getFieldStringM flds "default-language")
       cppOpts = getFieldStrings flds []    "cpp-options"
+  -- $YALE_CPP_OPTIONS: more for every package (-D__GLASGOW_HASKELL__=906
+  -- for code that only GHC is expected to compile)
+  extraCpp <- maybe [] words <$> lookupEnv "YALE_CPP_OPTIONS"
   rmrf env pdir
   mkdir env (pdir </> "src")
   forM_ (srcDirs ++ [pathModuleDir env]) $ \ d -> copyTree env d (pdir </> "src")
@@ -121,7 +124,7 @@ stagePackage env db name vers flds = do
     [ "name: " ++ name
     , "version: " ++ showVersion vers
     , "extensions: " ++ unwords (lang ++ exts)
-    , "cpp-options: " ++ unwords cppOpts
+    , "cpp-options: " ++ unwords (cppOpts ++ extraCpp)
     , "include-dirs: " ++ unwords [ "include" </> d | d <- incDirs ] ]
   return pdir
 
@@ -212,13 +215,9 @@ yaleBuildExe env (Section _ _ glob) (Section _ name flds) = do
   _ <- findMainDir srcDirs mainIs
   pdir <- stagePackage env (stageDB env) (name ++ "-exe") vers flds
   mkdir env (distDir env </> binYale)
-  cwd <- getCurrentDirectory
-  let absDir d = if "/" `isPrefixOf` d then d else cwd </> d
-      mainFile = absDir pdir </> "src" </> mainIs
-  writeScript env bin [absDir (stageDB env), yaleDB env] mainFile
   message env 0 $ "Building executable " ++ bin ++ " with yale"
-  -- compile it now, which reports errors and fills the unit cache
-  cmd env $ yaleArgs env [stageDB env, yaleDB env] ++ " compile " ++ mainFile
+  cmd env $ yaleArgs env [stageDB env, yaleDB env] ++ " build " ++
+            pdir </> "src" </> mainIs ++ " -o " ++ bin
   return bin
 
 findMainDir :: [FilePath] -> FilePath -> IO FilePath
@@ -227,23 +226,8 @@ findMainDir (d:ds) fn = do
   b <- doesFileExist (d </> fn)
   if b then return d else findMainDir ds fn
 
--- A script running the main module of FILE with the databases DBS.
-writeScript :: Env -> FilePath -> [FilePath] -> FilePath -> IO ()
-writeScript env bin dbs file = do
-  writeFile bin $ unlines
-    [ "#!/bin/sh"
-    , "exec " ++ yaleArgs env dbs ++ " " ++ file ++ " \"$@\"" ]
-  cmd env $ "chmod +x " ++ bin
-
 yaleInstallExe :: Env -> Section -> Section -> IO ()
-yaleInstallExe env (Section _ _ glob) (Section _ name flds) = do
-  let vers = getVersion glob "version"
-      namever = name ++ "-exe-" ++ showVersion vers
-      exeDB = instDir env </> compiler (backend env) </> "executables"
-      binDir = instDir env </> "bin"
-      mainIs = getFieldString flds "main-is"
-  mkdir env exeDB
+yaleInstallExe env _ (Section _ name _) = do
+  let binDir = instDir env </> "bin"
   mkdir env binDir
-  rmrf env (exeDB </> namever)
-  cmd env $ "cp -R " ++ stageDB env </> namever ++ " " ++ exeDB </> namever
-  writeScript env (binDir </> name) [exeDB, yaleDB env] (exeDB </> namever </> "src" </> mainIs)
+  cpr env (distDir env </> binYale </> name) (binDir </> name)

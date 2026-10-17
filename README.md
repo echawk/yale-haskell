@@ -52,6 +52,16 @@ Files with `{-# LANGUAGE CPP #-}` go through a built-in C preprocessor
 (`#include`, `#define`, `#if`); `--cpp` applies it to every file, and
 `-D NAME[=VALUE]` and `-I DIR` work as for cpp.
 
+`build FILE [-o EXE]` makes a standalone executable, as `ghc FILE`
+does: the image with the program compiled and loaded, which runs
+`Main.main` with every argument its own (`--help` included) and needs
+neither the source tree nor the environment.  Executables are large
+(about 65 MB: the whole Lisp image) and start in about 0.05 s.
+
+```sh
+bin/yale-haskell --haskell98 build prog.hs -o prog && ./prog a b
+```
+
 `compile FILE --emit STAGES` writes compiler stages for the program's own
 modules instead of running it, to `-o FILE` or stdout.  STAGES is a
 comma-separated list:

@@ -102,6 +102,11 @@
        (lisp:end-of-file (,c)
 	 (declare (ignore ,c))
 	 (raise-io-error 'eof ,location "" ,filename))
+       ;; the reader of a pipe went away: as GHC says it, not the stream
+       #+sbcl
+       (sb-int:broken-pipe (,c)
+	 (declare (ignore ,c))
+	 (raise-io-error 'other ,location "Broken pipe" ,filename))
        (lisp:file-error (,c)
 	 (raise-io-error (guess-file-error-kind ,filename) ,location
 			 (lisp:princ-to-string ,c) ,filename))

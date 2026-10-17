@@ -124,6 +124,7 @@
        (setf (dynamic *non-generic-tyvars*) old-ng)
        (setf (dynamic *given-mp-constraints*) '())
        (let ((sig-contexts (check-user-signatures all-vars)))
+	 (restrict-stuck-family-tyvars all-vars)
 	 (improve-mp-placeholders/given (dynamic *placeholders*)
 					(dynamic *given-mp-constraints*))
 
@@ -259,6 +260,7 @@
 	    (type-mismatch decl "main must have an IO type" lhs-type io))))
       (setf (dynamic *given-mp-constraints*) '())
       (check-user-signatures all-vars)
+      (restrict-stuck-family-tyvars all-vars)
       ;; multi-parameter constraints (mp-classes.mumble): improve by
       ;; functional dependencies, then those to generalize over, when
       ;; there is no signature to give them
@@ -356,6 +358,27 @@
 
 
 ;;; These functions are part of the generalization process.
+
+;;; TypeFamilies: a class constraint on a family application not decided
+;;; yet (Ord (Item l) in go oc | oc <= 127 = [oc] under OverloadedLists)
+;;; is not a context a type scheme can hold, so a binding without a
+;;; signature is not generalized over the application's type variables:
+;;; they stay the enclosing binding's, whose use decides the application
+;;; and so the constraint (its placeholder is passed out to it).
+
+(define (restrict-stuck-family-tyvars vars)
+  (when (not (some (function var-signature) vars))
+    (let ((tyvars '()))
+      (dolist (p (dynamic *placeholders*))
+	(when (not (mp-placeholder? p))
+	  (let ((type (prune (placeholder-tyvar p))))
+	    (when (and (ntycon? type) (family-app? (expand-ntype-synonym type)))
+	      (dolist (v (collect-tyvars type))
+		(when (not (memq v tyvars))
+		  (push v tyvars)))))))
+      (when (not (null? tyvars))
+	(setf (dynamic *non-generic-tyvars*)
+	      (append tyvars (dynamic *non-generic-tyvars*)))))))
 
 ;;; This function processes user signature declarations for the set of
 ;;; variables defined in a declaration.  Since unification of one signature

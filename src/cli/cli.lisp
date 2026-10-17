@@ -84,7 +84,7 @@
     "-l" "--foreign-library" "-D" "--define" "-I" "--include-dir" "--optimizers" "--emit" "-o" "--output"
     "-i" "--search-dir" "--package-db" "-X" "--extension"))
 
-(defparameter *sub-commands* '("repl" "run" "compile" "help"))
+(defparameter *sub-commands* '("repl" "run" "compile" "build" "help"))
 
 ;;; yale-haskell [opts] FILE ARGS...: everything after FILE belongs to the
 ;;; program, so it is passed after "--" (clingon would parse "-x" as ours).
@@ -195,6 +195,16 @@
     (mumble-call "EMIT-RUN" (first args) (emit-stages cmd)
                  (clingon:getopt* cmd :output))))
 
+;;; yale-haskell build FILE [-o EXE]: a standalone executable running
+;;; Main.main (batch.mumble's batch-build; main saves it).
+(defun build-handler (cmd)
+  (apply-options cmd)
+  (let ((args (clingon:command-arguments cmd)))
+    (unless (= (length args) 1)
+      (format *error-output* "yale-haskell build: one FILE expected~%")
+      (uiop:quit 64))
+    (mumble-call "BATCH-BUILD" (first args) (clingon:getopt* cmd :output))))
+
 (defun run-handler (cmd)
   (apply-options cmd)
   (let ((args (clingon:command-arguments cmd)))
@@ -225,6 +235,9 @@
          (clingon:make-command :name "compile" :usage "FILE [--emit STAGES] [-o OUT]"
                                :description "compile FILE without running it; --emit writes compiler stages"
                                :handler #'compile-handler)
+         (clingon:make-command :name "build" :usage "FILE [-o EXE]"
+                               :description "compile FILE into a standalone executable (default: FILE's name)"
+                               :handler #'build-handler)
          (clingon:make-command :name "run" :usage "FILE [ARGS...]"
                                :description "compile FILE and run Main.main"
                                :handler #'run-handler))))
@@ -242,6 +255,9 @@
   (let ((args (split-program-args argv)))
     #+sbcl (run-with-program-stack (lambda () (clingon:run (command) args)))
     #-sbcl (clingon:run (command) args))
+  ;; yale-haskell build: the program is loaded; saved from this thread
+  #+sbcl (when (mumble-value "*EXECUTABLE-TO-SAVE*")
+           (save-executable))
   ;; the executable's entry point (uiop:restore-image): true is status 0
   t)
 
@@ -266,18 +282,49 @@
   (let ((sym (find-symbol "*REPL-INTERRUPTIBLE?*" "MUMBLE-USER")))
     (and sym (boundp sym) (symbol-value sym))))
 
+;;; The standalone executable (yale-haskell build): this image, the
+;;; program loaded, saved with its runtime options so that every
+;;; argument is the program's (SBCL's runtime would read --help and
+;;; others), starting in saved-program-main.
+
+#+sbcl
+(defun save-executable ()
+  (let* ((request (mumble-value "*EXECUTABLE-TO-SAVE*"))
+         (output (namestring (merge-pathnames (car request) (uiop:getcwd)))))
+    (finish-output *standard-output*)
+    (finish-output *error-output*)
+    (sb-ext:save-lisp-and-die output :executable t :save-runtime-options t
+                                     :toplevel #'saved-program-main)))
+
+#+sbcl
+(defun saved-program-main ()
+  (setf *package* (find-package "MUMBLE-USER"))
+  (setf *readtable* (symbol-value (find-symbol "*MUMBLE-READTABLE*"
+                                               "MUMBLE-IMPLEMENTATION")))
+  (let ((argv sb-ext:*posix-argv*))
+    (run-with-program-stack
+     (lambda ()
+       (mumble-call "RUN-SAVED-EXECUTABLE"
+                    (file-namestring (first argv)) (rest argv)))))
+  (sb-ext:exit :code 0))
+
 ;;; uiop:quit in the worker (clingon's --help and --version, our own
 ;;; option errors) flushes the output and exits at once: SBCL's orderly
 ;;; exit from a thread other than the main one unwinds it and has the
 ;;; main thread exit, and with a stack of 64 MB or more that faulted.
 #+sbcl
 (defun quit-from-worker (quit code &rest args)
-  (if (eq sb-thread:*current-thread* (sb-thread:main-thread))
-      (apply quit code args)
-      (progn
-        (ignore-errors (finish-output *standard-output*))
-        (ignore-errors (finish-output *error-output*))
-        (sb-ext:exit :code code :abort t))))
+  (cond
+    ((eq sb-thread:*current-thread* (sb-thread:main-thread))
+     (apply quit code args))
+    ;; clingon's exit after the build command's handler: the worker
+    ;; ends, and the main thread saves the executable (main)
+    ((and (eql code 0) (mumble-value "*EXECUTABLE-TO-SAVE*"))
+     (sb-thread:abort-thread))
+    (t
+     (ignore-errors (finish-output *standard-output*))
+     (ignore-errors (finish-output *error-output*))
+     (sb-ext:exit :code code :abort t))))
 
 #+sbcl
 (defun run-with-program-stack (fn)

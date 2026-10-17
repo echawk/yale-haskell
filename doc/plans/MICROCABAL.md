@@ -232,3 +232,24 @@ fixing one usually moves several packages to their next error:
 | a GHC boot package not on Stackage's list (integer-gmp); C headers (MachDeps.h) | integer-logarithms, primitive (vector) |
 | others: a GADT-style record parse (prettyprinter, optparse-applicative), an existential with `deriving` after `#if` (async), a too-general signature (colour), base-compat's forkOSWithUnmask, ansi-wl-pprint | one each |
 
+### Executables (2026-10-17, 3.5.0)
+
+The backend builds an executable with `yale-haskell build`, a
+standalone executable, and installs it in `$CABALDIR/bin`.  alex
+3.5.4.2 (`mcabal -r install alex`) builds and generates the same
+scanners as a GHC-built alex on all 46 grammars of its tests/ and
+examples/ (44 identical outputs, the same 2 errors).  It needed:
+
+- `$YALE_CPP_OPTIONS=-D__GLASGOW_HASKELL__=906`: Happy's generated
+  parser in alex has `#error This code isn't being built with GHC`.
+  Yale Haskell does not define `__GLASGOW_HASKELL__` by default (so that
+  libraries choose their portable code); the variable adds options to
+  every package the backend stages;
+- `import Data.List.NonEmpty (pattern (:|))`, `import GHC.Exts
+  (Int(I#), ...)`, `#include "ghcconfig.h"`, DatatypeContexts with
+  `default-language: Haskell2010`, and OverloadedLists in a local
+  binding (all fixed in 3.5.0).
+
+hscolour does not get that far: MicroCabal itself (built by GHC as well)
+rejects its cabal file's empty `Default-Extensions:` field.
+

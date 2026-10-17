@@ -65,8 +65,10 @@
 	   (dolist (tyvar tyvars)
 	      (when (not (memq tyvar tyvars-referenced))
 		 (signal-unreferenced-tyvar-arg tyvar))))
-	;; Haskell 2010 removed datatype contexts
-	(when (and (haskell2010?) (not (dynamic *compiling-library?*))
+	;; Haskell 2010 removed datatype contexts; GHC's DatatypeContexts
+	;; (part of its Haskell2010 and Haskell98 languages) keeps them
+	(when (and (haskell2010?) (not (module-extension? "DatatypeContexts"))
+		   (not (dynamic *compiling-library?*))
 		   (not (null? context)))
 	  (signal-datatype-context-removed))
 	(resolve-signature-aux tyvars context)
