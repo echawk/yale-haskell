@@ -72,6 +72,8 @@ compiled interface, so a new version recompiles cached units.
   the whole modern API of Data.Map, IntMap, Set, IntSet, Sequence (with
   its pattern synonyms), Tree and Graph, the Merge modules and
   Data.Containers.ListUtils.  mapcount runs at 1.7x GHC -O2 (was 2.1x).
+- Array has base's Foldable and Traversable instances, and, as in base,
+  no datatype context (the Report's has `Ix a`).
 - The real containers 0.8.1 compiles and runs unchanged (with
   DEFINE_PATTERN_SYNONYMS), which brought these fixes:
   - `module Prelude` in an export list re-exports base's Prelude with

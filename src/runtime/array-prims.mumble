@@ -43,6 +43,11 @@
    "an unboxed array made with a Bool element was given another value"))
 
 
+;;; The number of elements (a simple vector's or a bit vector's).
+
+(define-syntax (prim.vector-length vec)
+  `(lisp:length ,vec))
+
 ;;; Make a vector whose elements are initialized to val (which is boxed).
 
 (define-syntax (prim.make-vector size val)

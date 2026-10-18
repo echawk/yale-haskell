@@ -4,7 +4,7 @@
 
 module  PreludeArray ( Array, Assoc((:=)), array, listArray, (!), bounds,
 		     indices, elems, assocs, accumArray, (//), accum, amap,
-		     ixmap
+		     ixmap, arrayElems, arrayLength
 		   ) where
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
@@ -22,7 +22,9 @@ infixl 9  //
 infix  1  :=
 
 data  Assoc a b =  a := b  deriving (Eq, Ord, Ix, Show, Read)
-data  (Ix a)    => Array a b = MkArray (a,a) {-#STRICT#-}
+-- As base: no datatype context (the Report has Ix a), so that Foldable
+-- (Array i) needs no Ix i (PreludeModern)
+data  Array a b = MkArray (a,a) {-#STRICT#-}
                                        (Vector (Box b)) {-#STRICT#-}
 				       deriving ()
 
@@ -122,6 +124,16 @@ elems a@(MkArray b@(bmin, bmax) v) =
 	  -- to be strict.
           in strict1 size (g 0))
 {-# elems :: Inline #-}
+
+-- The elements and their number without Ix (base's Foldable (Array i),
+-- PreludeModern): an array's vector holds exactly its elements.
+arrayLength :: Array a b -> Int
+arrayLength (MkArray _ v) = primVectorLength v
+
+arrayElems :: Array a b -> [b]
+arrayElems (MkArray _ v) = go 0
+  where n = primVectorLength v
+        go j = if j == n then [] else unBox (primVectorSel v j) : go (j + 1)
 
 assocs a@(MkArray b@(bmin, bmax) v) =
   build (\ c n ->

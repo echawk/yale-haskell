@@ -32,6 +32,8 @@ import PreludeIO (catch)
 import Monad (MonadPlus(mzero, mplus))
 import PreludeCore (Functor((<$)))
 import Complex (Complex((:+)))
+import Array (Array, Ix, elems, bounds, listArray)
+import PreludeArray (arrayElems, arrayLength)
 import Prelude hiding (foldr, foldl, foldr1, foldl1, null, length, elem,
                        maximum, minimum, sum, product, mapM, sequence,
                        mapM_, sequence_, concat, concatMap, and, or, any,
@@ -480,3 +482,13 @@ instance Foldable Complex where
 
 instance Traversable Complex where
   traverse f (a :+ b) = liftA2 (:+) (f a) (f b)
+
+-- base's Foldable and Traversable for Array
+instance Foldable (Array i) where
+  foldr f z a = L.foldr f z (arrayElems a)
+  length = arrayLength
+  null a = arrayLength a == 0
+  toList = arrayElems
+
+instance Ix i => Traversable (Array i) where
+  traverse f a = fmap (listArray (bounds a)) (traverse f (elems a))

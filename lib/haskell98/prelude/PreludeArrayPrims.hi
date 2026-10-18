@@ -19,6 +19,7 @@ primVectorSel :: Vector a -> Int -> a
 primVectorUpdate :: Vector a -> Int -> a -> a
 primMakeVector :: Int -> a -> Vector a
 primCopyVector :: Vector a -> Vector a
+primVectorLength :: Vector a -> Int
 
 -- These functions are used for explicit sequencing of destructive ops
 
@@ -35,6 +36,7 @@ primVectorSel ::  LispName("prim.vector-sel"), Complexity(1)
 primVectorUpdate :: LispName("prim.vector-update"), Complexity(1)
 primMakeVector :: LispName("prim.make-vector"), Complexity(4)
 primCopyVector :: LispName("prim.copy-vector"), Complexity(5)
+primVectorLength :: LispName("prim.vector-length"), Complexity(1)
 strict1 :: Strictness("S,N"),
 	   LispName("prim.strict1")
 primForce :: LispName("prim.force")
