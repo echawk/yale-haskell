@@ -328,7 +328,7 @@
 		 (phase-error 'not-a-family
 		   "~A is not a type family; it has no instances." (tycon-name lhs)))
 		(else
-		 (dolist (a (tycon-args lhs)) (resolve-type a))
+		 (dolist (a (tycon-args lhs)) (resolve-type-1 a (quote ()) (quote #t)))
 		 (resolve-type-1 rhs (quote ()) (quote #t))   ; may be a partial application (= Maybe)
 		 (add-family-equation def (tycon-args lhs) rhs)
 		 (push (tuple def (tuple (tycon-args lhs) rhs)) added))))))

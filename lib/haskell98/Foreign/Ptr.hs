@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving, DerivingStrategies #-}
 -- Foreign.Ptr: the Haskell 2010 library module (Report 2010, chapter 31),
 -- for Yale Haskell's Haskell 98 dialect.  Ptr and FunPtr are CFFI
 -- foreign pointers (ForeignPrims.hi, src/ffi/ffi-runtime.lisp).
@@ -7,12 +8,13 @@ module Foreign.Ptr (
     Ptr, nullPtr, castPtr, plusPtr, alignPtr, minusPtr,
     FunPtr, nullFunPtr, castFunPtr, castFunPtrToPtr, castPtrToFunPtr,
     freeHaskellFunPtr,
-    IntPtr, ptrToIntPtr, intPtrToPtr, WordPtr, ptrToWordPtr, wordPtrToPtr
+    IntPtr(IntPtr), ptrToIntPtr, intPtrToPtr, WordPtr(WordPtr), ptrToWordPtr, wordPtrToPtr
   ) where
 
 import ForeignPrims
 import Data.Int (Int64)
 import Data.Word (Word64)
+import Data.Bits (Bits, FiniteBits)
 
 nullPtr :: Ptr a
 nullPtr = primNullPtr
@@ -81,8 +83,11 @@ showAddress n = "0x" ++ pad (hex n "")
 -- Integral types holding a pointer.  As Foreign.C.Types does for the C
 -- types, these are synonyms for the types of the same representation
 -- (on a 64-bit system), which have the instances the Report requires.
-type IntPtr  = Int64
-type WordPtr = Word64
+-- newtypes, as in base (a program may give instances for IntPtr and Int64)
+newtype IntPtr  = IntPtr Int64
+  deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Show, Read)
+newtype WordPtr = WordPtr Word64
+  deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Show, Read)
 
 ptrToIntPtr :: Ptr a -> IntPtr
 ptrToIntPtr p = fromInteger (primPtrToInteger p)

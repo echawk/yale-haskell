@@ -49,7 +49,10 @@ compiled interface, so a new version recompiles cached units.
   (`Size (Rep a) =>`) is kept and answers uses at that type; `h b` and
   an over-applied family application that does not reduce (`Rep1 g a`)
   unify as applications (`h` is `Rep1 g`); a family's arity is its
-  declared one, not that of its first use.
+  declared one (not that of its first use, nor counting the arrows of
+  its result kind); an equation's left-hand side may name a type
+  constructor unapplied (`type R1 Box = Par`).
+- Foreign.Ptr's IntPtr and WordPtr are newtypes, as in base.
 - Foreign.C.Types' types are newtypes, as in the Report and base (they
   were synonyms of the Data.Int and Data.Word types), so a program may
   give instances for CInt and Int32 both; CBool, CUSeconds and

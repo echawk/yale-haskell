@@ -308,11 +308,16 @@
 
 ;;; The reduced type, or 'stuck.
 (define (family-arity family)
-  ;; (an associated family's arity is its equations')
-  (let ((eqs (synonym-equations family)))
+  ;; its declared parameters: the parser adds one, k%N, for each arrow of
+  ;; a result kind (type Rep1 f :: Type -> Type), which an equation may
+  ;; or may not match (parser/typedecl-parser.mumble)
+  (let ((eqs (synonym-equations family))
+	(declared (lisp:count-if-not
+		   (lambda (v) (string-starts? "k%" (symbol->string v)))
+		   (synonym-args family))))
     (if (null? eqs)
-	(length (synonym-args family))
-	(length (tuple-2-1 (car eqs))))))
+	declared
+	(min declared (length (tuple-2-1 (car eqs)))))))
 
 ;;; A family application with more arguments than the family has, which
 ;;; does not reduce yet: Rep1 g a.  Its extra arguments are an ordinary
