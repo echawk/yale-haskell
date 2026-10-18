@@ -8,7 +8,15 @@
 	     (context (mlet (((single _) (split-contexts (parse-optional-context))))
 			single)))
 	(make forall-type (tyvars tyvars) (context context) (type (parse-type))))
-      (parse-type-1)))
+      (if (and (haskell98?) (has-optional-context?))
+	  ;; C a => t without a forall, in an argument or field (GHC):
+	  ;; gcastWith :: (a :~: b) -> ((a ~ b) => r) -> r
+	  (let ((context (mlet (((single _) (split-contexts (parse-context))))
+			   single)))
+	    (if (null? context)
+		(parse-type)
+		(make forall-type (tyvars '()) (context context) (type (parse-type)))))
+	  (parse-type-1))))
 
 (define (parse-type-1)
   (let ((type (parse-type-operators (parse-btype))))
@@ -150,6 +158,11 @@
 	      ;; DataKinds: [t1, t2, ...] is a type-level list
 	      (\, (promoted-list (cons type (parse-promoted-list-elements))))
 	      (else (signal-missing-token "`]'" "type expression")))))))
+    ;; TemplateHaskell lexes DataKinds' tick as a name quote (lexer.mumble)
+    (name-quote
+     (token-case
+      (\[ (promoted-list (parse-promoted-list-elements)))
+      (else (parse-atype))))
     (promoted-tick
      (require-token \[ (signal-missing-token "`['" "type-level list"))
      (promoted-list (parse-promoted-list-elements)))

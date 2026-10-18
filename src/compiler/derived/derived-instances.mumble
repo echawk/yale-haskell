@@ -69,6 +69,15 @@
 				 (core-symbol "Show")
 				 (core-symbol "Text"))
 			     '#t)))
+	       ;; GeneralizedNewtypeDeriving: Enum of a newtype comes through
+	       ;; its field type, as GHC derives it (bifunctors' Biap); stock
+	       ;; Bounded and Ix of a one-constructor type agree with it
+	       ((and (eq? class (core-symbol "Enum"))
+		     (haskell98?)
+		     (algdata-newtype? alg)
+		     (or (module-extension? "GeneralizedNewtypeDeriving")
+			 (module-extension? "GeneralisedNewtypeDeriving")))
+		(add-newtype-derived-instance alg class))
 	       ((eq? class (core-symbol "Ix"))
 		(if (or (algdata-enum? alg)
 			(algdata-tuple? alg))
@@ -298,6 +307,20 @@
 		      (augment-context (instance-context inst) class
 				       (tyvar-name type)))
 		'#t)))
+	((and (tyapp? type) (haskell98?))
+	 ;; a context on an application of a type variable (newtype Biap
+	 ;; bi a b = Biap (bi a b) deriving Eq: Eq (bi a b)), as GHC infers
+	 ;; it: a flexible context of the instance
+	 (when (not (lisp:some
+		     (lambda (mc)
+		       (and (eq? (class-ref-class (mp-context-class mc)) class)
+			    (ast-types-equal? (car (mp-context-types mc)) type)))
+		     (instance-mcontext inst)))
+	   (setf *di-context-changed* '#t)
+	   (setf (instance-mcontext inst)
+		 (append (instance-mcontext inst)
+			 (list (**mp-context (**class/def class) (list type))))))
+	 '#t)
 	((tyapp? type)
 	 ;; Needs a context on an application of a type variable.
 	 (signal-cannot-derive-instance

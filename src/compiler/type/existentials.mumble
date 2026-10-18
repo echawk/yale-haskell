@@ -88,6 +88,80 @@
 
 (define (gadt-coerce-rhs-list rhs-list)
   (dolist (g rhs-list)
-    (setf (guarded-rhs-rhs g)
-	  (**app (**var/def (prelude-prim-def '|primUnsafeCoerce|))
-		 (guarded-rhs-rhs g)))))
+    (let ((c (make cast (exp (guarded-rhs-rhs g)))))
+      (push c (dynamic *gadt-casts*))
+      (setf (guarded-rhs-rhs g) c))))
+
+;;; A coerced right-hand side's type and the clause's (the cast's), and
+;;; the declaration: (cast decl inner outer).  When the declaration's
+;;; signature is checked, each pair that can be unified without binding
+;;; the signature's variables is (gadt-soft-unify): the coercion is for
+;;; the GADT's type refinement (eval (IntE n) = n, at Expr a -> a), but a
+;;; right-hand side that needs none gets its type from the signature as
+;;; GHC's does, so that its constraints are not ambiguous
+;;; (transformers-compat: gread (NonV4Read1Args rp rl) = coerceRec1 ...
+;;; liftReadsPrec ..., whose Read1 f is the instance's).
+(define *gadt-casts* '())
+(define *gadt-cast-types* '())
+
+(define (record-gadt-cast object inner outer)
+  (when (memq object (dynamic *gadt-casts*))
+    (push (list object (car (dynamic *enclosing-decls*)) inner outer)
+	  (dynamic *gadt-cast-types*))))
+
+(define (gadt-soft-unify var)
+  (let ((keep '()))
+    (dolist (entry (dynamic *gadt-cast-types*))
+      (let ((decl (cadr entry)))
+	(if (and (valdef? decl)
+		 (memq var (map (function var-ref-var)
+				(collect-pattern-vars (valdef-lhs decl)))))
+	    (let ((inner (caddr entry))
+		  (outer (cadddr entry)))
+	      (when (could-unify? inner outer 32)
+		(type-unify inner outer '#f)))
+	    (push entry keep))))
+    (setf (dynamic *gadt-cast-types*) (reverse keep))))
+
+;;; Whether the types unify, binding no read-only (a signature's)
+;;; variable to anything but a free variable.  No side effects: the
+;;; tentative bindings of free variables are kept in an alist, so that
+;;; Refl :: c :~: c does not unify with b :~: a.
+(define (could-unify? t1 t2 depth)
+  (not (eq? (could-unify-1 t1 t2 depth '()) 'fail)))
+
+(define (could-unify-1 t1 t2 depth env)
+  (let ((t1 (could-unify-resolve (prune t1) env))
+	(t2 (could-unify-resolve (prune t2) env)))
+    (cond ((eq? env 'fail) 'fail)
+	  ((<= depth 0) 'fail)
+	  ((eq? t1 t2) env)
+	  ((and (ntyvar? t1) (not (ntyvar-read-only? t1)))
+	   (if (occurs-in-type t1 t2) 'fail (cons (cons t1 t2) env)))
+	  ((and (ntyvar? t2) (not (ntyvar-read-only? t2)))
+	   (if (occurs-in-type t2 t1) 'fail (cons (cons t2 t1) env)))
+	  ((or (ntyvar? t1) (ntyvar? t2)) 'fail)
+	  ((and (ntycon? t1) (ntycon? t2))
+	   (if (and (eq? (ntycon-tycon t1) (ntycon-tycon t2))
+		    (not (family-app? t1))
+		    (eqv? (length (ntycon-args t1)) (length (ntycon-args t2))))
+	       (could-unify-list (ntycon-args t1) (ntycon-args t2) depth env)
+	       'fail))
+	  ((and (ntyapp? t1) (ntyapp? t2)
+		(eqv? (length (ntyapp-args t1)) (length (ntyapp-args t2))))
+	   (could-unify-list (cons (ntyapp-fun t1) (ntyapp-args t1))
+			     (cons (ntyapp-fun t2) (ntyapp-args t2)) depth env))
+	  (else 'fail))))
+
+(define (could-unify-list l1 l2 depth env)
+  (if (or (null? l1) (eq? env 'fail))
+      env
+      (could-unify-list (cdr l1) (cdr l2) depth
+			(could-unify-1 (car l1) (car l2) (1- depth) env))))
+
+;;; A variable's tentative binding, followed.
+(define (could-unify-resolve type env)
+  (if (and (ntyvar? type) (pair? env))
+      (let ((b (assq type env)))
+	(if b (could-unify-resolve (prune (cdr b)) env) type))
+      type))

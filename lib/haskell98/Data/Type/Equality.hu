@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Type/
+:o= all
+:package
+Equality.hs

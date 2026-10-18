@@ -62,13 +62,48 @@
   ;; any types (FlexibleInstances: FoldableWithIndex [Int] Tree)
   (flexible-head-tyvars types '()))
 
-;;; Two instance heads that overlap: the same type constructor (or a
-;;; tyvar) in each position.
+;;; Two instance heads that overlap: in each position, types that could
+;;; be the same: a tyvar, or the same type constructor with arguments that
+;;; could be the same, synonyms expanded (GRead1 v (D1 d f) and
+;;; GRead1 v (C1 c f), D1 = M1 D and C1 = M1 C, do not overlap).
 (define (same-instance-heads? types1 types2)
-  (every (lambda (t1 t2)
-	   (or (tyvar? t1) (tyvar? t2)
-	       (eq? (tycon-def t1) (tycon-def t2))))
+  (every (lambda (t1 t2) (instance-types-may-overlap? t1 t2 8))
 	 types1 types2))
+
+(define (instance-types-may-overlap? t1 t2 depth)
+  (let ((t1 (expand-head-synonym t1 depth))
+	(t2 (expand-head-synonym t2 depth)))
+    (cond ((or (<= depth 0) (tyvar? t1) (tyvar? t2)) '#t)
+	  ((and (tycon? t1) (tycon? t2))
+	   (and (eq? (tycon-def t1) (tycon-def t2))
+		(or (not (eqv? (length (tycon-args t1)) (length (tycon-args t2))))
+		    (every (lambda (a1 a2) (instance-types-may-overlap? a1 a2 (1- depth)))
+			   (tycon-args t1) (tycon-args t2)))))
+	  (else '#t))))
+
+;;; A synonym's application expanded (with more arguments than the
+;;; synonym takes: type D1 = M1 D, D1 d f), else the type.
+(define (expand-head-synonym type depth)
+  (if (and (> depth 0)
+	   (tycon? type)
+	   (synonym? (tycon-def type))
+	   (synonym-body (tycon-def type))
+	   (not (synonym-family? (tycon-def type)))
+	   (>= (length (tycon-args type)) (length (synonym-args (tycon-def type)))))
+      (let* ((def   (tycon-def type))
+	     (n     (length (synonym-args def)))
+	     (body  (copy-synonym-body
+		     (synonym-body def)
+		     (map (function tuple) (synonym-args def)
+			  (list-head (tycon-args type) n))))
+	     (extra (list-tail (tycon-args type) n)))
+	(expand-head-synonym
+	 (if (and (tycon? body) (not (null? extra)))
+	     (make tycon (def (tycon-def body)) (name (tycon-name body))
+		   (args (append (tycon-args body) extra)))
+	     body)
+	 (1- depth)))
+      type))
 
 (define (signal-mp-instance-arity class n)
   (phase-error 'mp-instance-arity
@@ -279,9 +314,12 @@
 	  (add-new-module-signature definition-var signature)))
       (setf (instance-methods inst) new-instance-vars)
       (add-new-module-def dictionary
-	(**tuple/l (map (lambda (m-v)
-			  (dict-method-ref (tuple-2-1 m-v) (tuple-2-2 m-v) inst))
-			new-instance-vars)))
+	(if (null? new-instance-vars)
+	    ;; a class without methods: [] (generate-mp-dictionary-type)
+	    (**null)
+	    (**tuple/l (map (lambda (m-v)
+			      (dict-method-ref (tuple-2-1 m-v) (tuple-2-2 m-v) inst))
+			    new-instance-vars))))
       (add-new-module-signature dictionary (generate-dictionary-signature inst))
       (setf (instance-decls inst) '()))))
 
@@ -554,8 +592,17 @@
     (setf (signature-mcontext sig) (instance-mcontext inst))
     sig))
 
-;;; The tuple of a multi-parameter instance's method types.
+;;; The tuple of a multi-parameter instance's method types.  A class
+;;; without methods (mtl's MonadRWS) has [(t1, ..., tn)], the instance's
+;;; types, so that the instance's context is on type variables of the
+;;; dictionary's type; its value is [].
 (define (generate-mp-dictionary-type inst)
+  (if (null? (class-method-vars (instance-class inst)))
+      (**tycon/def (core-symbol "List")
+		   (list (**tuple-type/l (instance-mp-types inst))))
+      (generate-mp-dictionary-type-1 inst)))
+
+(define (generate-mp-dictionary-type-1 inst)
   (**tuple-type/l
    (map (lambda (method-var)
 	  (substitute-class-tyvars

@@ -246,7 +246,21 @@
 			    (memq (car num) '(integer float)))
 		   (setf (cadr num) (- (cadr num)))
 		   (setf *tokens* (cons num (cddr *tokens*))))))))
-    (#\' (if (promotion-tick?)
+    (#\' (if (name-quote-here?)
+	     ;; TemplateHaskell: 'f, 'C, '(:) and ''T are names (Name values);
+	     ;; in a type, the parser reads the tick as DataKinds' promotion
+	     (begin
+	       (advance-char)
+	       (if (char=? *char* #\')
+		   (begin (advance-char) (emit-token 'type-name-quote))
+		   (begin
+		     (emit-token 'name-quote)
+		     (when (char-upper-case? *char*)
+		       (lex-one-token)
+		       (let ((tok  (car *tokens*)))
+			 (when (eq? (car tok) 'conid)
+			   (push (cadr tok) *promoted-names*)))))))
+	 (if (promotion-tick?)
 	     ;; DataKinds (GHC): 'Z in a type is the promoted Z
 	     (begin (advance-char)
 		    ;; '[ starts a promoted list, which [ alone may not
@@ -256,7 +270,7 @@
 		    (let ((tok  (car *tokens*)))
 		      (when (eq? (car tok) 'conid)
 			(push (cadr tok) *promoted-names*))))
-	     (lex-char)))
+	     (lex-char))))
     (#\" (lex-string)
 	 ;; MagicHash: "..."# is an Addr# literal, (GHC.Exts.addrLit# "...")
 	 (when (and (char=? *char* #\#) (language-extension? "MagicHash"))
@@ -900,6 +914,21 @@
 ;;; list) from [a] (the list type; type-parser.mumble).
 
 (define *promoted-names* '())   ; names written 'C (strings)
+
+;;; TemplateHaskell (or TemplateHaskellQuotes): a ' that is not a character
+;;; literal ('x', '\n') begins a quoted name: 'f, 'Just, '(:), '[], or
+;;; ''T for a type.
+
+(define (name-quote-here?)
+  (and (or (language-extension? "TemplateHaskell")
+	   (language-extension? "TemplateHaskellQuotes"))
+       (cond ((char=? *peek-char* #\')
+	      (not (char=? (peek-char-2) #\')))
+	     ((char=? *peek-char* #\\) '#f)
+	     (else
+	      (and (not (char=? (peek-char-2) #\'))
+		   (or (char-alphabetic? *peek-char*)
+		       (memv *peek-char* '(#\_ #\( #\[))))))))
 
 (define (promotion-tick?)
   (and (language-extension? "DataKinds")

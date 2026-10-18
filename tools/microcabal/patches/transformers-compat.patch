@@ -1,0 +1,31 @@
+transformers-compat: on a compiler that is not GHC, the code for a current GHC
+(isTrue# and comparison primops are GHC.Exts's, returning Int#; Show as GHC 8's).
+--- a/Data/Functor/Classes/Generic/Internal.hs	2026-10-18 14:10:24
++++ b/Data/Functor/Classes/Generic/Internal.hs	2026-10-18 14:10:24
+@@ -153,7 +153,7 @@
+ defaultOptions :: Options
+ defaultOptions = Options
+   {
+-#if __GLASGOW_HASKELL__ >= 800
++#if !defined(__GLASGOW_HASKELL__) || __GLASGOW_HASKELL__ >= 800
+   ghc8ShowBehavior = True
+ #else
+   ghc8ShowBehavior = False
+@@ -561,7 +561,7 @@
+ compareUWord :: UWord p -> UWord q -> Ordering
+ compareUWord (UWord w1) (UWord w2) = primCompare (eqWord# w1 w2) (leWord# w1 w2)
+ 
+-# if __GLASGOW_HASKELL__ >= 708
++# if !defined(__GLASGOW_HASKELL__) || __GLASGOW_HASKELL__ >= 708
+ primCompare :: Int# -> Int# -> Ordering
+ # else
+ primCompare :: Bool -> Bool -> Ordering
+@@ -1369,7 +1369,7 @@
+ instance IsNullaryCon UWord where
+     isNullaryCon _ = False
+ 
+-# if __GLASGOW_HASKELL__ < 708
++# if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 708
+ isTrue# :: Bool -> Bool
+ isTrue# = id
+ # endif

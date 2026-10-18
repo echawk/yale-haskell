@@ -151,12 +151,53 @@
 	    (append (signature-context signature) added))
       (setf (signature-mcontext signature) (reverse keep)))))
 
+;;; A multi-parameter class's multi-parameter superclasses (MonadReader r m
+;;; of MonadRWS r w s m; class-mp-mp-supers) hold wherever it does: they
+;;; join the multi-parameter context, transitively, so that the function
+;;; gets their dictionaries too.
+
+(define (add-mp-mp-superclass-contexts signature)
+  (let ((work (signature-mcontext signature))
+	(n 0))
+    (do () ((or (null? work) (> n 64)))
+      (let* ((c (car work))
+	     (class (class-ref-class (mp-context-class c))))
+	(setf work (cdr work))
+	(incf n)
+	(when (class? class)
+	  (dolist (s (class-mp-mp-supers class))
+	    (let ((types (map (lambda (p) (list-ref (mp-context-types c) p))
+			      (tuple-2-2 s))))
+	      (when (not (lisp:some
+			  (lambda (c2)
+			    (and (eq? (class-ref-class (mp-context-class c2)) (tuple-2-1 s))
+				 (every (function ast-types-equal?)
+					(mp-context-types c2) types)))
+			  (signature-mcontext signature)))
+		(let ((new (**mp-context (**class/def (tuple-2-1 s)) types)))
+		  (setf (signature-mcontext signature)
+			(append (signature-mcontext signature) (list new)))
+		  (setf work (append work (list new))))))))))))
+
+(define (ast-types-equal? t1 t2)
+  (cond ((and (tyvar? t1) (tyvar? t2)) (eq? (tyvar-name t1) (tyvar-name t2)))
+	((and (tycon? t1) (tycon? t2))
+	 (and (eq? (tycon-name t1) (tycon-name t2))
+	      (eqv? (length (tycon-args t1)) (length (tycon-args t2)))
+	      (every (function ast-types-equal?) (tycon-args t1) (tycon-args t2))))
+	((and (tyapp? t1) (tyapp? t2))
+	 (and (ast-types-equal? (tyapp-fun t1) (tyapp-fun t2))
+	      (eqv? (length (tyapp-args t1)) (length (tyapp-args t2)))
+	      (every (function ast-types-equal?) (tyapp-args t1) (tyapp-args t2))))
+	(else '#f)))
+
 ;;; A multi-parameter class's superclasses (class-mp-supers) hold
 ;;; wherever it does: MonadReader r m adds Monad m to the context, so
 ;;; that the function gets the superclass's dictionary too (rather than
 ;;; selecting it from the class's).
 
 (define (add-mp-superclass-contexts signature)
+  (add-mp-mp-superclass-contexts signature)
   (dolist (c (signature-mcontext signature))
     (let ((class (class-ref-class (mp-context-class c))))
       (when (class? class)

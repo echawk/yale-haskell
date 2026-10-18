@@ -343,7 +343,9 @@
 ;;; This is similar to typing lambda.
 
 (define-type-checker single-fun-def
- (dynamic-let ((*gadt-match* '#f))
+ (dynamic-let ((*gadt-match* '#f)
+	       ;; pattern signatures bind type variables for this clause
+	       (*scoped-tyvars* (dynamic *scoped-tyvars*)))
   (fresh-monomorphic-types (length (single-fun-def-args object)) tyvars
     (type-check/list single-fun-def args arg-types
       (unify-list tyvars arg-types)
@@ -423,6 +425,8 @@
     ;; signature's, those its type does not mention too
     (link-scoped-instance-tyvars var sig-vars
 				 (lambda () (signature-mismatch var)))
+    ;; GADTs: right-hand sides that need no refinement (existentials.mumble)
+    (gadt-soft-unify var)
     (dolist (tyvar sig-vars)
       (setf (ntyvar-read-only? tyvar) '#f))
     sig-vars))

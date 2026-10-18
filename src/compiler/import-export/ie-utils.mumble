@@ -119,6 +119,13 @@
 		      (let ((b (resolve-toplevel-name (pattern-builder-name op))))
 			(and b (eq? *module-name* (def-module b)))))
 		 (setf (table-entry *fixity-table* op) fixity))
+		((and (eq? def '#f)
+		      ;; a type operator's (infix 4 :~:): types' fixities are
+		      ;; not used (parser/type-parser.mumble)
+		      (let ((tdef (resolve-toplevel-name (remove-con-prefix/symbol op))))
+			(and tdef (or (algdata? tdef) (synonym? tdef) (class? tdef))
+			     (eq? *module-name* (def-module tdef)))))
+		 '#f)
 		((or (eq? def '#f) (not (eq? *module-name* (def-module def))))
 		 ;;; ***This is WRONG!  Inner fixities may be found.
 		 (signal-non-local-fixity op))

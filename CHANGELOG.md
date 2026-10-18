@@ -21,6 +21,37 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- Template Haskell: quoted names ('f, 'C, '(:), ''T, ''(~)) under
+  TemplateHaskell or TemplateHaskellQuotes; in a type the tick is still
+  DataKinds' promotion.  th-abstraction builds.
+- Multi-parameter superclasses (class (MonadReader r m, ...) =>
+  MonadRWS r w s m) hold wherever the class does; a class without
+  methods may have instances with contexts.  mtl's MonadRWS.
+- Fixes for constraints on applications of type variables: two given
+  constraints of one class (Show (f a), Show (g a)) each give their own
+  dictionary (one was used for both); a subclass given (GOrd (f p))
+  gives its superclasses; deriving infers such a context (Eq (f a)) as
+  GHC does.
+- A GADT match whose right-hand side needs no type refinement gets its
+  type from the signature, so its constraints are not ambiguous.
+- A pattern signature binds its type variables not in scope over the
+  clause; GeneralizedNewtypeDeriving derives Enum through the field.
+- Instances of a multi-parameter class overlap only when their types can
+  be the same (synonyms expanded): GRead1 v (D1 d f) and GRead1 v (C1 c f).
+- GADT constructors may have an operator's application as their result
+  (Refl :: a :~: a); a context without forall in an argument
+  ((a ~ b) => r); a fixity declaration for a type operator.
+- A data family's constructors may be exported with it (F(C, ...)).
+- Libraries: Data.Type.Equality; Control.Monad.Signatures and the
+  transformers' liftCatch, liftCallCC, liftListen, liftPass; mtl's
+  Control.Monad.RWS.Class; GHC.Generics' URec types and metadata classes
+  (Datatype, Constructor, Selector, Fixity, ...); GHC.Exts' comparison
+  primops and coerce; Bifunctor, Bifoldable, Bitraversable for tuples up
+  to 7.  MIN_VERSION_template_haskell is 2.24, containers' 0.8.1.
+- mcabal: a package's module that Yale Haskell's library has is not
+  staged (a compatibility package's backport would hide the library's);
+  a patch for transformers-compat.  transformers-compat and exceptions
+  build.
 - Template Haskell, milestone 1 (doc/plans/TEMPLATE-HASKELL.md): the
   library.  Language.Haskell.TH and its Syntax, Lib, Lib.Internal, Ppr,
   PprLib, Quote and LanguageExtensions modules are template-haskell

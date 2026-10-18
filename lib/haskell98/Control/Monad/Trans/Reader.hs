@@ -1,9 +1,11 @@
 -- Control.Monad.Trans.Reader (transformers)
 module Control.Monad.Trans.Reader (
     ReaderT(ReaderT, runReaderT), Reader, runReader, mapReaderT, withReaderT,
-    reader, ask, local, asks
+    reader, ask, local, asks,
+    liftCallCC, liftCatch
   ) where
 
+import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
 import Control.Monad.Trans.Class
@@ -62,3 +64,11 @@ local f m = ReaderT (\r -> runReaderT m (f r))
 
 asks :: Monad m => (r -> a) -> ReaderT r m a
 asks f = ReaderT (\r -> return (f r))
+
+-- Lifting other operations through ReaderT (transformers)
+liftCallCC :: CallCC m a b -> CallCC (ReaderT r m) a b
+liftCallCC callCC f = ReaderT $ \r -> callCC $ \c ->
+  runReaderT (f (ReaderT . const . c)) r
+
+liftCatch :: Catch e m a -> Catch e (ReaderT r m) a
+liftCatch f m h = ReaderT $ \r -> f (runReaderT m r) (\e -> runReaderT (h e) r)

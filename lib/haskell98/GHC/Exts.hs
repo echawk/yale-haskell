@@ -26,13 +26,18 @@ module GHC.Exts (
     (>##), (>=##), negateDouble#, sqrtDouble#, expDouble#, logDouble#,
     sinDouble#, cosDouble#, int2Double#, double2Int#,
     plusWord#, minusWord#, timesWord#, and#, or#, xor#, not#, shiftL#,
-    shiftRL#, int2Word#, word2Int#, eqWord#, ltWord#,
-    chr#, ord#, eqChar#, neChar#,
+    shiftRL#, int2Word#, word2Int#, eqWord#, neWord#, ltWord#, leWord#,
+    gtWord#, geWord#,
+    chr#, ord#, eqChar#, neChar#, ltChar#, leChar#, gtChar#, geChar#,
+    eqFloat#, neFloat#, ltFloat#, leFloat#, gtFloat#, geFloat#,
+    eqAddr#, neAddr#, ltAddr#, leAddr#, gtAddr#, geAddr#,
     lazy, inline, oneShot, seq, seq#, build, augment,
-    IsList(fromList, toList, fromListN), IsString(fromString)
+    IsList(fromList, toList, fromListN), IsString(fromString),
+    coerce, Coercible
   ) where
 
 import GHC.IsList (IsList(fromList, toList, fromListN))
+import Data.Coerce (coerce, Coercible)
 
 import Data.Bits
 import Data.Word (Word)
@@ -242,9 +247,13 @@ int2Word# = fromIntegral
 word2Int# :: Word -> Int
 word2Int# = fromIntegral
 
-eqWord#, ltWord# :: Word -> Word -> Int
+eqWord#, neWord#, ltWord#, leWord#, gtWord#, geWord# :: Word -> Word -> Int
 eqWord# a b = b2i (a == b)
+neWord# a b = b2i (a /= b)
 ltWord# a b = b2i (a < b)
+leWord# a b = b2i (a <= b)
+gtWord# a b = b2i (a > b)
+geWord# a b = b2i (a >= b)
 
 chr# :: Int -> Char
 chr# = toEnum
@@ -252,9 +261,30 @@ chr# = toEnum
 ord# :: Char -> Int
 ord# = fromEnum
 
-eqChar#, neChar# :: Char -> Char -> Int
+eqChar#, neChar#, ltChar#, leChar#, gtChar#, geChar# :: Char -> Char -> Int
 eqChar# a b = b2i (a == b)
 neChar# a b = b2i (a /= b)
+ltChar# a b = b2i (a < b)
+leChar# a b = b2i (a <= b)
+gtChar# a b = b2i (a > b)
+geChar# a b = b2i (a >= b)
+
+eqFloat#, neFloat#, ltFloat#, leFloat#, gtFloat#, geFloat# :: Float -> Float -> Int
+eqFloat# a b = b2i (a == b)
+neFloat# a b = b2i (a /= b)
+ltFloat# a b = b2i (a < b)
+leFloat# a b = b2i (a <= b)
+gtFloat# a b = b2i (a > b)
+geFloat# a b = b2i (a >= b)
+
+-- an Addr# is its bytes here, so addresses compare by contents
+eqAddr#, neAddr#, ltAddr#, leAddr#, gtAddr#, geAddr# :: Addr# -> Addr# -> Int
+eqAddr# (Addr# a) (Addr# b) = b2i (a == b)
+neAddr# (Addr# a) (Addr# b) = b2i (a /= b)
+ltAddr# (Addr# a) (Addr# b) = b2i (a < b)
+leAddr# (Addr# a) (Addr# b) = b2i (a <= b)
+gtAddr# (Addr# a) (Addr# b) = b2i (a > b)
+geAddr# (Addr# a) (Addr# b) = b2i (a >= b)
 
 lazy, inline, oneShot :: a -> a
 lazy x = x

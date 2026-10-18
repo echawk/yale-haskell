@@ -3,9 +3,11 @@
 module Control.Monad.Trans.RWS.Lazy (
     RWST(RWST, runRWST), RWS, rws, runRWS, evalRWS, execRWS, evalRWST,
     execRWST, mapRWST, withRWST, reader, ask, local, asks, writer, tell,
-    listen, listens, pass, censor, state, get, put, modify, gets
+    listen, listens, pass, censor, state, get, put, modify, gets,
+    liftCallCC, liftCallCC', liftCatch
   ) where
 
+import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
 import Control.Monad.Trans.Class
@@ -114,3 +116,15 @@ modify f = RWST (\_ s -> return ((), f s, mempty))
 
 gets :: (Monoid w, Monad m) => (s -> a) -> RWST r w s m a
 gets f = RWST (\_ s -> return (f s, s, mempty))
+
+-- Lifting other operations through RWST (transformers)
+liftCallCC :: Monoid w => CallCC m (a, s, w) (b, s, w) -> CallCC (RWST r w s m) a b
+liftCallCC callCC f = RWST $ \r s -> callCC $ \c ->
+  runRWST (f (\a -> RWST $ \_ _ -> c (a, s, mempty))) r s
+
+liftCallCC' :: Monoid w => CallCC m (a, s, w) (b, s, w) -> CallCC (RWST r w s m) a b
+liftCallCC' callCC f = RWST $ \r s -> callCC $ \c ->
+  runRWST (f (\a -> RWST $ \_ s' -> c (a, s', mempty))) r s
+
+liftCatch :: Catch e m (a, s, w) -> Catch e (RWST r w s m) a
+liftCatch catchE m h = RWST $ \r s -> runRWST m r s `catchE` \e -> runRWST (h e) r s

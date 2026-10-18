@@ -115,7 +115,8 @@
 (define (parse-gadt-con-type)
   (let ((t+a (if (at-strictness-flag?)
 		 (parse-strict-atype)
-		 (tuple (parse-btype) '()))))
+		 ;; (a type operator's application: Refl :: a :~: a)
+		 (tuple (parse-type-operators (parse-btype)) '()))))
     (token-case
      (-> (let ((rest (parse-gadt-con-type)))
 	   (cons (cons t+a (car rest)) (cdr rest))))
@@ -372,10 +373,9 @@
 (define (parse-class-decl)
  (save-parser-context
   ;; a multi-parameter superclass (class HasSetter t b => HasUpdate t a b)
-  ;; is dropped: a multi-parameter class has no superclasses here, so its
-  ;; methods' users must give that constraint themselves
-  (let ((supers (mlet (((single _) (split-contexts (parse-optional-context))))
-		  single)))
+  ;; is kept apart: signatures with the class get it too
+  ;; (util/signature.mumble's add-mp-superclass-contexts)
+  (mlet (((supers mp-supers) (split-contexts (parse-optional-context))))
     (token-case
      (tycon
       (let* ((class (class->ast))
@@ -400,7 +400,8 @@
 			     (class-vars (if (null? more-vars)
 					     '()
 					     (cons class-var more-vars)))
-			     (fundeps fundeps))))
+			     (fundeps fundeps)
+			     (mp-super-classes mp-supers))))
 	 (else
 	  (signal-missing-token "<tyvar>" "class declaration")))))
      (else (signal-missing-token "<tycon>" "class declaration"))))))

@@ -176,6 +176,8 @@
 		 ((algdata? def)
 		  (require-complete-algdata
 		   (gather-algdata-group name def)))
+		 ((data-family? def)
+		  (gather-data-family-group name def))
 		 ((synonym? def)
 		  (make-group name def))
 		 ((and (class? def) (not (eq? name qname)))
@@ -200,6 +202,17 @@
 		   entity "constructor or field"))
 		 (else
 		  (signal-wrong-definition "class" name *module-name*))))
+	  ((and (is-type? 'entity-datatype entity) (data-family? def))
+	   ;; F(C, ...): a data family with its instances' constructors
+	   (let ((names (entity-datatype-constructors entity))
+		 (group (gather-data-family-group name def)))
+	     (if (memq '|..| names)
+		 group
+		 (match-group-names group names entity "constructor"))))
+	  ((and (is-type? 'entity-class entity) (data-family? def))
+	   (match-group-names (gather-data-family-group name def)
+			      (entity-class-methods entity) entity
+			      "constructor or field"))
 	  ((is-type? 'entity-datatype entity)
 	   (if (algdata? def)
 	       (bundle-pattern-synonyms
@@ -214,6 +227,32 @@
 	       (signal-wrong-definition "data type" name *module-name*)))
 	  (else
 	   (error "Bad entity ~s." entity)))))
+
+;;; TypeFamilies: a data family's group has the constructors and fields of
+;;; its data instances in this module (the types F:1, F:2, ...;
+;;; parser/typedecl-parser.mumble's parse-data-instance).
+
+(define (data-family? def)
+  ;; (the family flag is set after this phase: tdecl/alg-syn.mumble)
+  (and (synonym? def) (not (null? (data-family-instances def)))))
+
+(define (data-family-instances def)
+  (let ((prefix (string-append (symbol->string (def-name def)) ":"))
+	(res '()))
+    (dolist (decl (module-algdatas *module*))
+      (let ((name (tycon-name (data-decl-simple decl))))
+	(when (string-starts? prefix (symbol->string name))
+	  (let ((alg (or (resolve-toplevel-name (add-con-prefix/symbol name))
+			 (resolve-toplevel-name name))))
+	    (when (algdata? alg)
+	      (push alg res))))))
+    (reverse res)))
+
+(define (gather-data-family-group name def)
+  (let ((members '()))
+    (dolist (alg (data-family-instances def))
+      (setf members (append members (algdata-constrs alg) (algdata-field-vars alg))))
+    (cons (tuple name def) (gather-group members))))
 
 ;;; PatternSynonyms: T (P, Q) or T (.., P, Q) in an export list bundles
 ;;; the pattern synonyms P and Q with T: their builders (pattern%P,

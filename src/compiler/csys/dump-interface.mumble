@@ -854,7 +854,7 @@
   (with-new-def (dexp class *number-classes-dumped*)
     (dump-def-slots class class dexp
 		    (super super* tyvar method-vars selectors kind
-		     n-methods dict-size tyvars fundeps mp-supers))))
+		     n-methods dict-size tyvars fundeps mp-supers mp-mp-supers))))
 
 
 ;;;==================================================================

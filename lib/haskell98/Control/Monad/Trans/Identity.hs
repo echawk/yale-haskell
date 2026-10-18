@@ -1,8 +1,10 @@
 -- Control.Monad.Trans.Identity (transformers): the identity transformer.
 module Control.Monad.Trans.Identity (
-    IdentityT(IdentityT, runIdentityT), mapIdentityT
+    IdentityT(IdentityT, runIdentityT), mapIdentityT,
+    liftCallCC, liftCatch
   ) where
 
+import Control.Monad.Signatures
 import Prelude hiding (foldr)
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
@@ -48,3 +50,10 @@ instance MonadTrans IdentityT where
 
 instance MonadIO m => MonadIO (IdentityT m) where
   liftIO = IdentityT . liftIO
+
+-- Lifting other operations through IdentityT (transformers)
+liftCallCC :: CallCC m a b -> CallCC (IdentityT m) a b
+liftCallCC callCC f = IdentityT $ callCC $ \c -> runIdentityT (f (IdentityT . c))
+
+liftCatch :: Catch e m a -> Catch e (IdentityT m) a
+liftCatch f m h = IdentityT $ f (runIdentityT m) (runIdentityT . h)

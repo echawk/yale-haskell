@@ -517,6 +517,11 @@
 
 
 (define-walker-method scope var-ref (object env)
+ (if (and (eq? (var-ref-var object) *undefined-def*)
+	  (string-starts? "%nameq." (symbol->string (var-ref-name object))))
+  ;; TemplateHaskell's quoted name (parser/exp-parser.mumble)
+  (scope-name-quote (symbol->string (var-ref-name object)) env)
+ (begin
   (when (and (eq? (var-ref-var object) *undefined-def*)
 	     (string-starts? "%arrow." (symbol->string (var-ref-name object))))
     ;; Arrows' proc notation (parser/exp-parser.mumble): Control.Arrow's
@@ -547,7 +552,8 @@
       (setf (var-ref-name object) (has-field-getter (var-ref-name object))))
     (setf (var-ref-var object)
 	  (lookup-name (var-ref-name object) env)))
-  object)
+  object)))
+
 
 (define-walker-method scope con-ref (object env)
   (if (and (eq? (con-ref-con object) *undefined-def*)
@@ -853,3 +859,53 @@
   (let* ((s (symbol->string (def-name var)))
 	 (i (lisp:position #\% s)))
     (if i (string->symbol (substring s 0 i)) (def-name var))))
+
+;;; TemplateHaskell: 'f, 'C or ''T (STRING is %nameq.K.NAME) is the Name of
+;;; what the name refers to here: a global one's NameG (with GHC's names
+;;; for the built-in syntax; derived/lift.mumble's th-global-name), a
+;;; local variable's mkName.
+
+(define (scope-name-quote string env)
+  (let* ((kind  (string-ref string 7))
+	 (text  (substring string 9 (string-length string)))
+	 (name  (string->symbol text))
+	 (def   (cond ((char=? kind #\t) (name-quote-type text))
+		      ((char=? kind #\d) (name-quote-con text))
+		      (else (lookup-name name env)))))
+    (cond ((eq? def 'equality)
+	   ;; ''(~), which has no definition here
+	   (**app (**var/def (th-def '|mkNameG_tc|))
+		  (**string "main") (**string "GHC.Internal.Types") (**string "~")))
+	  ((eq? def *undefined-def*) (**string text))   ; reported already
+	  ((and (char=? kind #\v)
+		(lisp:some (lambda (frame) (assq name frame)) env))
+	   ;; a local variable (GHC: a level error)
+	   (**app (**var/def (th-def '|mkName|)) (**string text)))
+	  (else
+	   (mlet (((modu occ) (th-global-name def)))
+	     (**app (**var/def (th-def (cond ((var? def) '|mkNameG_v|)
+					     ((con? def) '|mkNameG_d|)
+					     (else '|mkNameG_tc|))))
+		    (**string "main") (**string modu) (**string occ)))))))
+
+(define (name-quote-con text)
+  (cond ((string=? text "()") (core-symbol "UnitConstructor"))
+	((string=? text "[]") (core-symbol "Nil"))
+	((string-starts? "(," text)
+	 (tuple-constructor (- (string-length text) 1)))
+	(else (lookup-toplevel-name (string->symbol text)))))
+
+(define (name-quote-type text)
+  (cond ((string=? text "()") (core-symbol "UnitType"))
+	((string=? text "[]") (core-symbol "List"))
+	((string=? text "->") (core-symbol "Arrow"))
+	((string=? text "~") 'equality)
+	((string-starts? "(," text)
+	 (tuple-tycon (- (string-length text) 1)))
+	(else
+	 (let ((def (or (resolve-toplevel-name (add-con-prefix/symbol (string->symbol text)))
+			(resolve-toplevel-name (string->symbol text)))))
+	   (if (and def (or (algdata? def) (synonym? def) (class? def)))
+	       def
+	       (begin (signal-undefined-symbol (string->symbol text))
+		      *undefined-def*))))))

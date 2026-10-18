@@ -315,6 +315,9 @@
     (var (save-parser-context (var->ast)))
     (con (save-parser-context (magic-hash-con (con->ast))))
     (literal (overloaded-string (literal->ast)))
+    ;; TemplateHaskell's quoted names ('f, ''T): lexer.mumble
+    (name-quote (parse-name-quote '#f))
+    (type-name-quote (parse-name-quote '#t))
     (\(
      (token-case
        (\) (**con/def (core-symbol "UnitConstructor")))
@@ -930,3 +933,53 @@
 
 (define (exp-from-list exps)
   (if (null? (cdr exps)) (car exps) (make pp-exp-list (exps exps))))
+
+;;; TemplateHaskell: after 'f or ''T, the name; a reference to
+;;; %nameq.K.NAME, which prec/scope.mumble replaces by the Name (K: v a
+;;; variable, d a data constructor, t a type or class).  The built-in
+;;; syntax (), [], (,), (->) is named by its text.
+
+(define (parse-name-quote type?)
+  (let ((kind+name
+	 (if type?
+	     (token-case
+	      (tycon (cons "t" (symbol->string (token->symbol))))
+	      (\( (token-case
+		   (\) (cons "t" "()"))
+		   (\, (cons "t" (parse-tuple-name-rest 1)))
+		   ((no-advance consym varsym)
+		    (let ((name (car *token-args*)))
+		      (advance-token)
+		      (require-token \) (signal-missing-token "`)'" "a quoted name"))
+		      (cons "t" name)))
+		   (\-\> (require-token \) (signal-missing-token "`)'" "a quoted name"))
+			 (cons "t" "->"))
+		   (\~ (require-token \) (signal-missing-token "`)'" "a quoted name"))
+		       (cons "t" "~"))
+		   (else (signal-invalid-syntax "a quoted type name"))))
+	      (\[ (require-token \] (signal-missing-token "`]'" "a quoted name"))
+		  (cons "t" "[]"))
+	      (else (signal-invalid-syntax "a quoted type name")))
+	     (token-case
+	      ((no-advance var) (cons "v" (symbol->string (var->symbol))))
+	      ((no-advance \()
+	       (if (memq (peek-1-type) '(\) \,))
+		   (begin
+		     (advance-token)
+		     (token-case
+		      (\) (cons "d" "()"))
+		      (\, (cons "d" (parse-tuple-name-rest 1)))))
+		   (cons "d" (symbol->string (con->symbol)))))
+	      ((no-advance con) (cons "d" (symbol->string (con->symbol))))
+	      (\[ (require-token \] (signal-missing-token "`]'" "a quoted name"))
+		  (cons "d" "[]"))
+	      (else (signal-invalid-syntax "a quoted name"))))))
+    (generated-var-ref
+     (string->symbol (string-append "%nameq." (car kind+name) "." (cdr kind+name))))))
+
+;;; After (, and N commas: the rest of (,,,), as its text.
+(define (parse-tuple-name-rest n)
+  (token-case
+   (\, (parse-tuple-name-rest (1+ n)))
+   (\) (string-append "(" (make-string n #\,) ")"))
+   (else (signal-missing-token "`)'" "a quoted tuple name"))))

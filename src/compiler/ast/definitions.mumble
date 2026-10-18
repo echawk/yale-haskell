@@ -214,6 +214,10 @@
    ;; class Monad m => MonadReader r m (signature.mumble adds them to
    ;; contexts with the class)
    (mp-supers (type (list (tuple class int))) (default '()))
+   ;; its multi-parameter superclasses: (superclass . positions of the
+   ;; type variables it takes), as MonadReader r m (0 3) in
+   ;; class MonadReader r m => MonadRWS r w s m
+   (mp-mp-supers (type (list (tuple class (list int)))) (default '()))
    ))
 
 ;;; Since instances are not named there is no need to include def.  

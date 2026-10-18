@@ -87,6 +87,23 @@
 			  (gtype-tyvar-names g) (gtype-context g))))
 	(values (copy-gtype (gtype-type g) tyvars) own))))
 
+;;; A pattern signature's instance, and the bindings of its names not in
+;;; scope already (which the pattern binds).
+(define (instantiate-gtype/pattern g)
+  (if (null? (gtype-tyvar-names g))
+      (values (instantiate-gtype g) '())
+      (let* ((new '())
+	     (tyvars (map (lambda (name ctx)
+			    (let ((b (assq name (dynamic *scoped-tyvars*))))
+			      (if b
+				  (tuple-2-2 b)
+				  (let ((v (**ntyvar)))
+				    (setf (ntyvar-context v) ctx)
+				    (push (tuple name v) new)
+				    v))))
+			  (gtype-tyvar-names g) (gtype-context g))))
+	(values (copy-gtype (gtype-type g) tyvars) new))))
+
 ;;; Before a binding group's right-hand sides are typed: each var whose
 ;;; signature mentions a scoped name has its type unified with the
 ;;; signature's instance and no longer has the signature.  TYPES are the

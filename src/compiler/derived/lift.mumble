@@ -48,7 +48,10 @@
 ;;; (src/compiler/th/) maps these to Yale Haskell's.
 
 (define (th-global-name def)
-  (let ((name  (remove-con-prefix (symbol->string (def-name def)))))
+  (let* ((s     (symbol->string (def-name def)))
+	 (name  (if (and (> (string-length s) 0) (char=? (string-ref s 0) #\;))
+		    (remove-con-prefix s)
+		    s)))
     (cond ((is-tuple-constructor? def)
 	   (values "GHC.Internal.Tuple"
 		   (string-append "(" (make-string (1- (con-arity def)) #\,) ")")))

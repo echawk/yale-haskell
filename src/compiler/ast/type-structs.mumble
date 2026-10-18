@@ -166,7 +166,10 @@
    ;; a multi-parameter class: all its type variables (class-var is the
    ;; first), and its functional dependencies as (from-vars . to-vars)
    (class-vars (type (list symbol)) (default '()))
-   (fundeps (type (list (tuple (list symbol) (list symbol)))) (default '()))))
+   (fundeps (type (list (tuple (list symbol) (list symbol)))) (default '()))
+   ;; a multi-parameter class's multi-parameter superclasses
+   ;; (class (MonadReader r m, MonadState s m) => MonadRWS r w s m)
+   (mp-super-classes (type (list mp-context)) (default '()))))
 
 
 ;;; <instance-decl> -> instance [<context> =>] <tycls> <inst>

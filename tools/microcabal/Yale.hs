@@ -117,6 +117,17 @@ stagePackage env db name vers flds = do
   rmrf env pdir
   mkdir env (pdir </> "src")
   forM_ (srcDirs ++ [pathModuleDir env]) $ \ d -> copyTree env d (pdir </> "src")
+  -- a module Yale Haskell's library has is not the package's: a
+  -- compatibility package's backport (bifunctor-classes-compat's
+  -- Data.Bifoldable for a base without it) would hide the library's
+  inLib <- libraryModules env (libModules flds)
+  unless (null inLib) $
+    message env 0 $ "Not staged (Yale Haskell's library has them): " ++ unwords inLib
+  forM_ inLib $ \ m -> do
+    let base = pdir </> "src" </> modulePath m
+    forM_ [base ++ ".hs", base ++ ".lhs"] $ \ f -> do
+      b <- doesFileExist f
+      when b $ removeFile f
   forM_ incDirs $ \ d -> do
     mkdir env (pdir </> "include" </> d)
     copyTree env d (pdir </> "include" </> d)
@@ -172,10 +183,30 @@ compileModules env dbs dir name mdls = do
 -- next to modules that need none).  They are installed all the same.
 buildableModules :: Env -> FilePath -> [String] -> IO [String]
 buildableModules env pdir mdls = do
-  th <- filterM (usesTH pdir) mdls
+  inLib <- libraryModules env mdls
+  let mdls' = mdls \\ inLib
+  th <- filterM (usesTH pdir) mdls'
   unless (null th) $
     message env 0 $ "Not compiled (Template Haskell): " ++ unwords th
-  return (mdls \\ th)
+  return (mdls' \\ th)
+
+-- The modules of MDLS that Yale Haskell's library (lib/haskell98, next to
+-- the compiler's bin/) provides.
+libraryModules :: Env -> [String] -> IO [String]
+libraryModules env mdls = do
+  let exe = compilerExe (backend env)
+      lib = parentDir (parentDir exe) </> "lib" </> "haskell98"
+  b <- doesDirectoryExist lib
+  if not b then return [] else
+    filterM (\ m -> do
+               let base = lib </> modulePath m
+               or <$> mapM doesFileExist [base ++ ".hu", base ++ ".hs"]) mdls
+
+parentDir :: FilePath -> FilePath
+parentDir = reverse . drop 1 . dropWhile (/= '/') . reverse
+
+modulePath :: String -> FilePath
+modulePath = map (\ c -> if c == '.' then '/' else c)
 
 usesTH :: FilePath -> String -> IO Bool
 usesTH pdir m = do

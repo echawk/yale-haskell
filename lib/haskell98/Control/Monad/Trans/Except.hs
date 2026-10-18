@@ -2,9 +2,11 @@
 module Control.Monad.Trans.Except (
     ExceptT(ExceptT), Except, except, runExcept, runExceptT, mapExceptT,
     withExceptT, withExcept, mapExcept, throwE, catchE, handleE, tryE,
-    finallyE
+    finallyE,
+    liftCallCC, liftListen, liftPass
   ) where
 
+import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
 import Control.Monad.Trans.Class
@@ -92,3 +94,20 @@ finallyE m closer = ExceptT (runExceptT m >>= \res -> runExceptT closer >>= \c -
                       return (case c of
                                 Left e -> Left e
                                 Right () -> res))
+
+-- Lifting other operations through ExceptT (transformers)
+liftCallCC :: CallCC m (Either e a) (Either e b) -> CallCC (ExceptT e m) a b
+liftCallCC callCC f = ExceptT $ callCC $ \c ->
+  runExceptT (f (\a -> ExceptT $ c (Right a)))
+
+liftListen :: Monad m => Listen w m (Either e a) -> Listen w (ExceptT e m) a
+liftListen listen = mapExceptT $ \m -> do
+  (a, w) <- listen m
+  return $! fmap (\r -> (r, w)) a
+
+liftPass :: Monad m => Pass w m (Either e a) -> Pass w (ExceptT e m) a
+liftPass pass = mapExceptT $ \m -> pass $ do
+  a <- m
+  return $! case a of
+    Left l -> (Left l, id)
+    Right (r, f) -> (Right r, f)

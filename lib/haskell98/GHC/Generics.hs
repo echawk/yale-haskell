@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeOperators, TypeFamilies, KindSignatures #-}
+{-# LANGUAGE TypeOperators, TypeFamilies, KindSignatures, MagicHash #-}
 -- GHC.Generics (base): the classes, with their associated Rep types, and
 -- the representation types.  Deriving Generic gives an instance with no
 -- Rep and no from or to (derived/derived-instances.mumble): programs and
@@ -9,12 +9,26 @@ module GHC.Generics (
     Generic(from, to), Rep, Generic1(from1, to1), Rep1,
     V1, U1(U1), Par1(Par1, unPar1), Rec1(Rec1, unRec1), K1(K1, unK1),
     M1(M1, unM1), (:+:)(L1, R1), (:*:)((:*:)), (:.:)(Comp1, unComp1),
-    R, D, C, S, Rec0, D1, C1, S1
+    R, D, C, S, Rec0, D1, C1, S1,
+    URec, UAddr(UAddr, uAddr#), UChar(UChar, uChar#),
+    UDouble(UDouble, uDouble#), UFloat(UFloat, uFloat#), UInt(UInt, uInt#),
+    UWord(UWord, uWord#),
+    Datatype(datatypeName, moduleName, packageName, isNewtype),
+    Constructor(conName, conFixity, conIsRecord),
+    Selector(selName, selSourceUnpackedness, selSourceStrictness,
+             selDecidedStrictness),
+    Fixity(Prefix, Infix), FixityI, Associativity(LeftAssociative,
+    RightAssociative, NotAssociative), prec,
+    SourceUnpackedness(NoSourceUnpackedness, SourceNoUnpack, SourceUnpack),
+    SourceStrictness(NoSourceStrictness, SourceLazy, SourceStrict),
+    DecidedStrictness(DecidedLazy, DecidedStrict, DecidedUnpack),
+    Generically(Generically), Generically1(Generically1)
   ) where
 
 import Prelude hiding (foldr)
 import PreludeModern
 import Data.Kind (Type)
+import GHC.Exts (Addr#, Char#, Double#, Float#, Int#, Word#)
 
 -- (the fixities of the type operators :+: and :.: are not used here)
 infixr 6 :*:
@@ -165,3 +179,76 @@ instance (Applicative f, Applicative g) => Applicative (f :.: g) where
 instance Monoid c => Applicative (K1 i c) where
   pure _ = K1 mempty
   K1 a <*> K1 b = K1 (a `mappend` b)
+
+-- The representation of unboxed fields (Int#, ...: here the boxed
+-- types).  GHC's URec is a data family with an instance per type, UAddr
+-- = URec (Ptr ()) and so on; here each is its own type, so that each
+-- has its own instances (transformers-compat: GOrd (UAddr p), GOrd
+-- (UChar p), ...), and URec a closed family naming them.
+data UAddr p = UAddr { uAddr# :: Addr# }
+data UChar p = UChar { uChar# :: Char# }
+data UDouble p = UDouble { uDouble# :: Double# }
+data UFloat p = UFloat { uFloat# :: Float# }
+data UInt p = UInt { uInt# :: Int# }
+data UWord p = UWord { uWord# :: Word# }
+
+type family URec a :: Type -> Type where
+  URec Addr# = UAddr
+  URec Char = UChar
+  URec Double = UDouble
+  URec Float = UFloat
+  URec Int = UInt
+  URec Word = UWord
+
+-- Metadata of a datatype, a constructor and a field (GHC gives instances
+-- for its type-level descriptions; deriving Generic does not make them
+-- here)
+class Datatype d where
+  datatypeName :: t d f a -> [Char]
+  moduleName :: t d f a -> [Char]
+  packageName :: t d f a -> [Char]
+  isNewtype :: t d f a -> Bool
+  isNewtype _ = False
+
+class Constructor c where
+  conName :: t c f a -> [Char]
+  conFixity :: t c f a -> Fixity
+  conFixity _ = Prefix
+  conIsRecord :: t c f a -> Bool
+  conIsRecord _ = False
+
+class Selector s where
+  selName :: t s f a -> [Char]
+  selSourceUnpackedness :: t s f a -> SourceUnpackedness
+  selSourceUnpackedness _ = NoSourceUnpackedness
+  selSourceStrictness :: t s f a -> SourceStrictness
+  selSourceStrictness _ = NoSourceStrictness
+  selDecidedStrictness :: t s f a -> DecidedStrictness
+  selDecidedStrictness _ = DecidedLazy
+
+data Fixity = Prefix | Infix Associativity Int
+  deriving (Eq, Show, Ord, Read)
+
+-- the type-level fixity GHC's metadata uses
+data FixityI = PrefixI | InfixI Associativity Int
+
+data Associativity = LeftAssociative | RightAssociative | NotAssociative
+  deriving (Eq, Show, Ord, Read, Enum, Bounded)
+
+-- a constructor's precedence: 10 for a prefix one
+prec :: Fixity -> Int
+prec Prefix = 10
+prec (Infix _ n) = n
+
+data SourceUnpackedness = NoSourceUnpackedness | SourceNoUnpack | SourceUnpack
+  deriving (Eq, Show, Ord, Read, Enum, Bounded)
+
+data SourceStrictness = NoSourceStrictness | SourceLazy | SourceStrict
+  deriving (Eq, Show, Ord, Read, Enum, Bounded)
+
+data DecidedStrictness = DecidedLazy | DecidedStrict | DecidedUnpack
+  deriving (Eq, Show, Ord, Read, Enum, Bounded)
+
+-- DerivingVia's helpers: instances through the generic representation
+newtype Generically a = Generically a
+newtype Generically1 f a = Generically1 (f a)

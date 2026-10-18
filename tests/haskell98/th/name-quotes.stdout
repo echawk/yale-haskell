@@ -1,0 +1,3 @@
+[Main.f,PreludeList.map,Data.Map.Internal.insert,GHC.Internal.Types.+,Main.MkT,Main.:+:,PreludeCore.Just,GHC.Internal.Types.True,GHC.Internal.Types.:,GHC.Internal.Types.[],GHC.Internal.Tuple.(),GHC.Internal.Tuple.(,),GHC.Internal.Tuple.(,,)]
+[Main.T,Main.C,PreludeCore.Maybe,GHC.Internal.Types.Int,GHC.Internal.Types.List,GHC.Internal.Tuple.Unit,GHC.Internal.Tuple.Tuple2,Data.Map.Internal.Map,GHC.Internal.Types.Show]
+(Main.cm,"f",Just "PreludeCore",'c','\n',True,False)

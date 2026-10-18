@@ -2,9 +2,11 @@
 module Control.Monad.Trans.State.Strict (
     StateT(StateT, runStateT), State, runState, evalState, execState,
     mapState, withState, evalStateT, execStateT, mapStateT, withStateT,
-    state, get, put, modify, modify', gets
+    state, get, put, modify, modify', gets,
+    liftCallCC, liftCallCC', liftCatch, liftListen, liftPass
   ) where
 
+import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
 import Control.Monad.Trans.Class
@@ -105,3 +107,25 @@ gets f = state (\s -> (f s, s))
 {-# modify :: Inline #-}
 {-# modify' :: Inline #-}
 {-# gets :: Inline #-}
+
+-- Lifting other operations through StateT (transformers)
+liftCallCC :: CallCC m (a, s) (b, s) -> CallCC (StateT s m) a b
+liftCallCC callCC f = StateT $ \s -> callCC $ \c ->
+  runStateT (f (\a -> StateT $ \_ -> c (a, s))) s
+
+liftCallCC' :: CallCC m (a, s) (b, s) -> CallCC (StateT s m) a b
+liftCallCC' callCC f = StateT $ \s -> callCC $ \c ->
+  runStateT (f (\a -> StateT $ \s' -> c (a, s'))) s
+
+liftCatch :: Catch e m (a, s) -> Catch e (StateT s m) a
+liftCatch catchE m h = StateT $ \s -> runStateT m s `catchE` \e -> runStateT (h e) s
+
+liftListen :: Monad m => Listen w m (a, s) -> Listen w (StateT s m) a
+liftListen listen m = StateT $ \s -> do
+  ((a, s'), w) <- listen (runStateT m s)
+  return ((a, w), s')
+
+liftPass :: Monad m => Pass w m (a, s) -> Pass w (StateT s m) a
+liftPass pass m = StateT $ \s -> pass $ do
+  ((a, f), s') <- runStateT m s
+  return ((a, s'), f)

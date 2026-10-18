@@ -1,8 +1,10 @@
 -- Control.Monad.Trans.Maybe (transformers)
 module Control.Monad.Trans.Maybe (
-    MaybeT(MaybeT, runMaybeT), mapMaybeT, hoistMaybe
+    MaybeT(MaybeT, runMaybeT), mapMaybeT, hoistMaybe,
+    liftCallCC, liftCatch, liftListen, liftPass
   ) where
 
+import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
 import Control.Monad.Trans.Class
@@ -49,3 +51,22 @@ instance MonadTrans MaybeT where
 
 instance MonadIO m => MonadIO (MaybeT m) where
   liftIO io = lift (liftIO io)
+
+-- Lifting other operations through MaybeT (transformers)
+liftCallCC :: CallCC m (Maybe a) (Maybe b) -> CallCC (MaybeT m) a b
+liftCallCC callCC f = MaybeT $ callCC $ \c -> runMaybeT (f (MaybeT . c . Just))
+
+liftCatch :: Catch e m (Maybe a) -> Catch e (MaybeT m) a
+liftCatch f m h = MaybeT $ f (runMaybeT m) (runMaybeT . h)
+
+liftListen :: Monad m => Listen w m (Maybe a) -> Listen w (MaybeT m) a
+liftListen listen = mapMaybeT $ \m -> do
+  (a, w) <- listen m
+  return $! fmap (\r -> (r, w)) a
+
+liftPass :: Monad m => Pass w m (Maybe a) -> Pass w (MaybeT m) a
+liftPass pass = mapMaybeT $ \m -> pass $ do
+  a <- m
+  return $! case a of
+    Nothing -> (Nothing, id)
+    Just (v, f) -> (Just v, f)

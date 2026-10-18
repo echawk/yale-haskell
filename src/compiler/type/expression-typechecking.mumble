@@ -64,14 +64,18 @@
     (return-type object pattern-type)))
 
 ;;; (pat :: type): the pattern's type unified with the signature's, its
-;;; type variables fresh.
+;;; type variables fresh.  ScopedTypeVariables: a name not in scope is
+;;; bound by the pattern, over the rest of the clause (f (Left (e :: e))
+;;; = ... where m :: Either e x), as in GHC; single-fun-def keeps the
+;;; binding to its clause.
 (define-type-checker sig-pat
   (type-check sig-pat pattern pattern-type
     (let ((sig  (sig-pat-signature object)))
-      (type-unify pattern-type
-		  (instantiate-gtype/scoped (signature->gtype sig))
-	(type-mismatch/fixed object
-	  "The pattern does not have its signature's type" pattern-type))
+      (mlet (((type new) (instantiate-gtype/pattern (signature->gtype sig))))
+	(type-unify pattern-type type
+	  (type-mismatch/fixed object
+	    "The pattern does not have its signature's type" pattern-type))
+	(setf (dynamic *scoped-tyvars*) (append new (dynamic *scoped-tyvars*))))
       (return-type object pattern-type))))
 
 (define-type-checker var-pat
@@ -489,8 +493,10 @@
       (return-type object *bool-type*))))
 
 (define-type-checker cast
-  (type-check cast exp _
+  (type-check cast exp inner
     (fresh-type res
+      ;; a GADT match's coercion (existentials.mumble)
+      (record-gadt-cast object inner res)
       (return-type object res))))
 
 ;;; This is used for overloaded methods.  The theory is to avoid supplying

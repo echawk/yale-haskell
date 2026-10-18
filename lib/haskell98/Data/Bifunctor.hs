@@ -22,6 +22,15 @@ instance Bifunctor ((,,) x) where
 instance Bifunctor ((,,,) x y) where
   bimap f g (x, y, a, b) = (x, y, f a, g b)
 
+instance Bifunctor ((,,,,) x y z) where
+  bimap f g (x, y, z, a, b) = (x, y, z, f a, g b)
+
+instance Bifunctor ((,,,,,) x y z w) where
+  bimap f g (x, y, z, w, a, b) = (x, y, z, w, f a, g b)
+
+instance Bifunctor ((,,,,,,) x y z w v) where
+  bimap f g (x, y, z, w, v, a, b) = (x, y, z, w, v, f a, g b)
+
 instance Bifunctor Arg where
   bimap f g (Arg a b) = Arg (f a) (g b)
 

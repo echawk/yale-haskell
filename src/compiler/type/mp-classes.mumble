@@ -48,6 +48,10 @@
 ;;; (all of them without functional dependencies).
 
 (define (mp-determining-positions class)
+ (if (null? (class-tyvars class))
+  ;; a one-parameter class at an application (Show (f a)): its type
+  ;; (else every given Show (...) would match, and be unified with it)
+  '(0)
   (let ((determined '()))
     (dolist (fd (class-fundeps class))
       (setf determined (append (tuple-2-2 fd) determined)))
@@ -55,7 +59,7 @@
       (dotimes (i (length (class-tyvars class)))
 	(when (not (memv i determined))
 	  (push i res)))
-      (nreverse res))))
+      (nreverse res)))))
 
 ;;; Structural equality of ntypes (tyvars by identity).
 
@@ -400,10 +404,20 @@
       (let* ((class (mp-placeholder-class p))
 	     (types (mp-placeholder-types p))
 	     (param (find-mp-param p class types decls))
-	     (found (if (eq? param '#f) (find-mp-instance class types) '#f)))
+	     (sub (if (eq? param '#f) (find-subclass-mp-param p class types decls) '#f))
+	     (found (if (and (eq? param '#f) (eq? sub '#f))
+			(find-mp-instance class types)
+			'#f)))
 	(cond ((not (eq? param '#f))
 	       (setf (placeholder-exp p)
 		     (mp-dict-use p (**var/def (mp-param-var param))))
+	       deferred)
+	      ((not (eq? sub '#f))
+	       ;; given a subclass at the type (GOrd (f p) gives GEq (f p)):
+	       ;; its superclass dictionary
+	       (setf (placeholder-exp p)
+		     (mp-dict-use p (**dsel/dict (mp-param-class sub) class
+						 (**var/def (mp-param-var sub)))))
 	       deferred)
 	      ((and (null? (cdr types))
 		    (null? (cdr (class-tyvars class)))
@@ -446,6 +460,24 @@
 	'#f
 	(or (find-mp-param-1 (valdef-mp-dict-params decl) class types)
 	    (find-only-mp-param (valdef-mp-dict-params decl) class types)))))
+
+;;; A one-parameter class wanted at an application (GEq (f p)), given by
+;;; the enclosing binding as a subclass at the same type (GOrd (f p),
+;;; class GEq a => GOrd a): that parameter, or #f.
+
+(define (find-subclass-mp-param p class types decls)
+  (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls)))
+    (and decl
+	 (null? (cdr types))
+	 (null? (cdr (class-tyvars class)))
+	 (lisp:find-if
+	  (lambda (param)
+	    (let ((pclass (mp-param-class param)))
+	      (and (null? (cdr (mp-param-types param)))
+		   (not (eq? pclass class))
+		   (memq class (class-super* pclass))
+		   (mp-type-equal? (car (mp-param-types param)) (car types)))))
+	  (valdef-mp-dict-params decl)))))
 
 ;;; AllowAmbiguousTypes: a type variable only a constraint mentions (n in
 ;;; get :: Get n l r => l -> r) is not determined by the types, so a

@@ -2,7 +2,8 @@
 module Control.Monad.Trans.State (
     StateT(StateT, runStateT), State, runState, evalState, execState,
     mapState, withState, evalStateT, execStateT, mapStateT, withStateT,
-    state, get, put, modify, modify', gets
+    state, get, put, modify, modify', gets,
+    liftCallCC, liftCallCC', liftCatch, liftListen, liftPass
   ) where
 
 import Control.Monad.Trans.State.Lazy

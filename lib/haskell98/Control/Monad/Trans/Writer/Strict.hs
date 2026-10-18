@@ -2,9 +2,11 @@
 -- result pairs matched strictly.
 module Control.Monad.Trans.Writer.Strict (
     WriterT(WriterT, runWriterT), Writer, runWriter, execWriter, execWriterT,
-    mapWriterT, mapWriter, writer, tell, listen, pass, censor
+    mapWriterT, mapWriter, writer, tell, listen, pass, censor,
+    liftCallCC, liftCatch
   ) where
 
+import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
 import Control.Monad.Trans.Class
@@ -66,3 +68,11 @@ pass m = WriterT (runWriterT m >>= \((a, f), w) -> return (a, f w))
 
 censor :: Monad m => (w -> w) -> WriterT w m a -> WriterT w m a
 censor f m = WriterT (runWriterT m >>= \(a, w) -> return (a, f w))
+
+-- Lifting other operations through WriterT (transformers)
+liftCallCC :: Monoid w => CallCC m (a, w) (b, w) -> CallCC (WriterT w m) a b
+liftCallCC callCC f = WriterT $ callCC $ \c ->
+  runWriterT (f (\a -> WriterT $ c (a, mempty)))
+
+liftCatch :: Catch e m (a, w) -> Catch e (WriterT w m) a
+liftCatch catchE m h = WriterT $ runWriterT m `catchE` \e -> runWriterT (h e)
