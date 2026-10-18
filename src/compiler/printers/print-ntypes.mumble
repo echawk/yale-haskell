@@ -38,7 +38,9 @@
   (write-string (symbol->string (gtyvar->symbol (gtyvar-varnum object))) xp))
 
 (define (gtyvar->symbol n)
-  (cond ((< n 26)
+  (cond ((< n 0)   ; a nested polytype's own (util/type-utils.mumble)
+	 (string->symbol (format '#f "p~A" (- n))))
+	((< n 26)
 	 (list-ref '(|a| |b| |c| |d| |e| |f| |g|
 		     |h| |i| |j| |k| |l| |m| |n|
 		     |o| |p| |q| |r| |s| |t| |u|

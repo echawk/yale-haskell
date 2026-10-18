@@ -8,8 +8,13 @@
 ;;;   a                      f x                f x acc        f x
 ;;;   F ... u  (a not in ...)  fmap g x         foldr g acc x  traverse g x
 ;;; where g does the same for u (F a type constructor, or a type variable
-;;; bi, which then needs Functor bi etc. in the instance's context).  Any
-;;; other use of a (a function type, a in two arguments) is not derivable.
+;;; bi, which then needs Functor bi etc. in the instance's context).
+;;; Functor also maps functions, b -> u, as \y -> g (x (h y)): g maps u,
+;;; and h maps b the other way (a in b must be in a function's argument
+;;; again: Bar's (a -> b) -> t in profunctors); and a polytype's body,
+;;; forall f. C f => u (Bazaar), whose own variables take their classes
+;;; from its context.  Any other use of a (a function's argument, a in
+;;; two arguments) is not derivable.
 ;;; Foldable and Traversable are PreludeModern's classes.
 
 (define (constructor-class-derivable? class)
@@ -74,9 +79,26 @@
 				       vars)))
 		  (cons need vars)
 		  vars))))
+	  ((arrow-ast-type? ty)
+	   (functor-context-tyvars (car (tycon-args ty)) a
+	     (functor-context-tyvars (cadr (tycon-args ty)) a vars)))
 	  ((and (tycon? ty) (not (null? (tycon-args ty))))
 	   (functor-context-tyvars (car (lisp:last (tycon-args ty))) a vars))
+	  ((forall-type? ty)
+	   ;; what needs the class in the body, but not the polytype's own
+	   ;; variables: its context has them
+	   (let ((own (forall-type-tyvars ty)))
+	     (append (lisp:remove-if
+		      (lambda (v)
+			(if (symbol? v)
+			    (memq v own)
+			    (mentions-any-tyvar? v own)))
+		      (functor-context-tyvars (forall-type-type ty) a '()))
+		     vars)))
 	  (else vars))))
+
+(define (mentions-any-tyvar? ty names)
+  (lisp:some (lambda (n) (mentions-tyvar? ty n)) names))
 
 (define (functor-expand ty)
   (if (and (tycon? ty) (synonym? (tycon-def ty)))
@@ -90,7 +112,12 @@
 	  ((tyapp? ty) (or (mentions-tyvar? (tyapp-fun ty) a)
 			   (lisp:some (lambda (u) (mentions-tyvar? u a))
 				      (tyapp-args ty))))
+	  ((forall-type? ty) (and (not (memq a (forall-type-tyvars ty)))
+				  (mentions-tyvar? (forall-type-type ty) a)))
 	  (else '#f))))
+
+(define (arrow-ast-type? ty)
+  (and (tycon? ty) (eq? (tycon-def ty) (core-symbol "Arrow"))))
 
 ;;; For a type F t1 ... tn: its last argument, if only it mentions a.
 
@@ -133,10 +160,36 @@
 (define (fmap-field ty a f x)
   (cond ((not (mentions-tyvar? ty a)) x)
 	((tyvar? (functor-expand ty)) (**app f x))
+	((forall-type? (functor-expand ty))
+	 (fmap-field (forall-type-type (functor-expand ty)) a f x))
+	((arrow-ast-type? (functor-expand ty))
+	 (map-arrow-field ty a f x (function fmap-field) (function cofmap-field)))
 	(else
 	 (**app (**var/def (functor-method '|fmap|))
 		(fmap-fn (functor-last-arg ty a (core-symbol "Functor")) a f)
 		x))))
+
+;;; b -> u: \y -> (MAP-RESULT u) (x ((MAP-ARG b) y))
+
+(define (map-arrow-field ty a f x map-result map-arg)
+  (let ((args  (tycon-args (functor-expand ty)))
+	(y     (functor-temp "y%")))
+    (**lambda (list y)
+      (funcall map-result (cadr args) a f
+	       (**app x (funcall map-arg (car args) a f (**var y)))))))
+
+;;; The contravariant map, for a function's argument: from TY with a's
+;;; image for a, to TY.
+
+(define (cofmap-field ty a f x)
+  (cond ((not (mentions-tyvar? ty a)) x)
+	((arrow-ast-type? (functor-expand ty))
+	 (map-arrow-field ty a f x (function cofmap-field) (function fmap-field)))
+	(else
+	 (phase-error 'cannot-derive-instance
+	   "Instance Functor cannot be derived: a field's type uses the last type~%~
+            variable in a function's argument.")
+	 x)))
 
 (define (fmap-fn ty a f)
   (if (tyvar? (functor-expand ty))

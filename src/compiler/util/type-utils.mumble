@@ -148,8 +148,10 @@
 	 (mlet (((n env1) (ast->gtyvar (tyvar-name type) env)))
 	   (values (**gtyvar n) env1)))
 	((forall-type? type)
-	 ;; a nested polytype: its tyvars are -1, -2, ...
-	 (let ((inner (let ((i 0))
+	 ;; a nested polytype: its tyvars are -1, -2, ..., or inside
+	 ;; another one's, numbered on from the enclosing ones' (so that
+	 ;; forall r. (forall x. p x -> r x) -> .. keeps r and x apart)
+	 (let ((inner (let ((i (- (length (dynamic *inner-tyvars*)))))
 			(map (lambda (v) (decf i) (tuple v i))
 			     (forall-type-tyvars type)))))
 	   (mlet (((body env1)
@@ -199,6 +201,8 @@
 ;;; These routines convert gtypes back to ordinary types.
 
 ;;; A nested polytype's instance: new type variables for its own.
+;;; TYVARS replace gtyvars -1 .. -n; a polytype inside it numbers its own
+;;; from -n-1 on, and they move up by n, as it is now the outer one.
 
 (define (instantiate-polytype g)
   (let ((tyvars (map (lambda (c) (declare (ignore c)) (**ntyvar)) (gtype-context g))))
@@ -206,9 +210,14 @@
 
 (define (copy-polytype-body g tyvars)
   (cond ((and (gtyvar? g) (< (gtyvar-varnum g) 0))
-	 (list-ref tyvars (- -1 (gtyvar-varnum g))))
+	 (let ((i (- -1 (gtyvar-varnum g)))
+	       (n (length tyvars)))
+	   (if (< i n)
+	       (list-ref tyvars i)
+	       (**gtyvar (+ (gtyvar-varnum g) n)))))
 	((and (gtype? g) (gtype-nested? g))
-	 (let ((g1 (**gtype (gtype-context g) g)))
+	 (let ((g1 (**gtype (gtype-context g)
+			    (copy-polytype-body (gtype-type g) tyvars))))
 	   (setf (gtype-nested? g1) '#t)
 	   g1))
 	((ntyapp? g)
@@ -429,6 +438,15 @@
 	 (mlet (((fun env1) (ntype->gtype-1 (ntyapp-fun ntype) env))
 		((args env2) (ntype->gtype/l (ntyapp-args ntype) env1)))
 	   (values (**ntyapp fun args) env2)))
+	((and (gtype? ntype) (gtype-nested? ntype))
+	 ;; a polytype inside (RankNTypes): the type variables of its body
+	 ;; that are not its own are generalized with the rest
+	 (mlet (((body env1) (ntype->gtype-1 (gtype-type ntype) env)))
+	   (let ((g (**gtype (gtype-context ntype) body)))
+	     (setf (gtype-nested? g) '#t)
+	     (values g env1))))
+	((gtyvar? ntype)   ; a polytype's own
+	 (values ntype env))
 	(else
 	 (ntyvar->gtyvar ntype env)))))
 

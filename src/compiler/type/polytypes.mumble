@@ -83,6 +83,44 @@
 	      (arrow-argument-types (cadr (ntycon-args type))))
 	'())))
 
+;;; ARG, given where a value of type EXPECTED is wanted, when it is a
+;;; lambda: the (tuple var polytype) bindings for its variables bound to
+;;; polytype arguments of EXPECTED, which then are polymorphic inside it,
+;;; as in GHC (Copastro $ \n -> rmap f (h n), n :: forall x y. p x y -> r x y).
+
+(define (lambda-polytype-vars arg expected)
+  (let ((type (prune expected))
+	(result '()))
+    (when (polytype? type)
+      (setf type (instantiate-polytype type)))
+    (when (is-type? 'lambda arg)
+      (do ((pats (lambda-pats arg) (cdr pats))
+	   (types (arrow-argument-types type) (cdr types)))
+	  ((or (null? pats) (null? types)))
+	(let ((t1 (prune (car types))))
+	  (when (and (polytype? t1) (var-pat? (car pats)))
+	    (push (tuple (var-ref-var (var-pat-var (car pats))) t1) result)))))
+    result))
+
+;;; FN-TYPE's argument type when it is known to be a function type.
+
+(define (known-argument-type fn-type)
+  (let ((type (prune fn-type)))
+    (and (ntycon? type)
+	 (eq? (ntycon-tycon type) (core-symbol "Arrow"))
+	 (car (ntycon-args type)))))
+
+;;; f $ x, with the Prelude's $, is typed as f x, as GHC does: so that x
+;;; may be given for a polytype argument of f (runST $ do ..).
+
+(define (prelude-dollar-app? object)
+  (and (app? object)
+       (app? (app-fn object))
+       (var-ref? (app-fn (app-fn object)))
+       (let ((def (var-ref-var (app-fn (app-fn object)))))
+	 (and (eq? (def-name def) '|$|)
+	      (eq? (def-module def) '|Prelude|)))))
+
 ;;; A polytype with a non-empty context.
 
 (define (constrained-polytype? type)
@@ -133,7 +171,11 @@
 		(ntyvar-dict-params tv)))
 	(push tv tyvars)))
     (let ((type (copy-polytype-body (gtype-type poly) (reverse tyvars))))
-      (mlet (((arg1 arg-type) (dispatch-type-check arg)))
+      (mlet (((arg1 arg-type)
+	      (dynamic-let ((*polytype-vars*
+			     (append (lambda-polytype-vars arg type)
+				     (dynamic *polytype-vars*))))
+		(dispatch-type-check arg))))
 	(type-unify arg-type type
 	  (type-mismatch arg
 	    "The argument is not as polymorphic as its type requires"

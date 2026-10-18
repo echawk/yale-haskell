@@ -27,7 +27,15 @@ compiled interface, so a new version recompiles cached units.
   (Functor (bi a)); derived Read for such fields.
 - A class method with its own multi-parameter constraint keeps the class's
   type variable as the carrier (profunctors' (#.)).
-- A synonym for a polytype as an argument's type ((p :-> q) -> ...).
+- A synonym for a polytype as an argument's type ((p :-> q) -> ...), and
+  as a constructor field's type, also when defined in the same module.
+- RankNTypes: a polytype inside another that uses its type variables
+  (forall r. (forall x y. p x y -> r x y) -> r a b) keeps them apart; a
+  lambda given for a polytype argument has polymorphic variables where
+  the polytype has polytype arguments; f $ x with the Prelude's $ is
+  typed as f x, so x may be given for a polytype (Copastro $ \n -> ..).
+- Derived Functor over function types (r -> a, (a -> b) -> t) and
+  polytypes (Bazaar's forall f. Applicative f => (a -> f b) -> f t).
 - A local binding's constraint on an application (Read (p b a)) is passed
   to the enclosing binding; Eq is taken from a given Ord at an
   application.

@@ -268,9 +268,13 @@
 ;;; specially.
 
 (define-type-checker app
- (if (and (var-ref? (app-fn object))
-	  (eq? (var-ref-var (app-fn object)) (core-symbol "dictSel")))
-  (type-check-dict-sel (app-arg object))
+ (cond
+  ((and (var-ref? (app-fn object))
+	(eq? (var-ref-var (app-fn object)) (core-symbol "dictSel")))
+   (type-check-dict-sel (app-arg object)))
+  ((prelude-dollar-app? object)
+   (type-rewrite (**app (app-arg (app-fn object)) (app-arg object))))
+  (else
   (type-check app fn fn-type0
    (let ((fn-type (polytype-function-instance object fn-type0)))
    (if (constrained-polytype-argument fn-type)
@@ -280,6 +284,12 @@
 	    (type-check-polytype-argument
 	     (app-arg object) (constrained-polytype-argument fn-type)))
       (return-type object (cadr (ntycon-args (prune fn-type)))))
+    (dynamic-let ((*polytype-vars*
+		   (let ((expected (known-argument-type fn-type)))
+		     (if expected
+			 (append (lambda-polytype-vars (app-arg object) expected)
+				 (dynamic *polytype-vars*))
+			 (dynamic *polytype-vars*)))))
     (type-check app arg arg-type
       (fresh-type res-type
         (fresh-type arg-type-1
@@ -290,7 +300,7 @@
 	  (type-unify arg-type-1 arg-type
               (type-mismatch object
 		 "Argument type mismatch" arg-type-1 arg-type))
-	  (return-type object res-type)))))))))
+	  (return-type object res-type)))))))))))
 
 ;;; This is a special hack for typing dictionary selection as used in
 ;;; generic tuple functions.  This extracts a dictionary from a TupleDict
