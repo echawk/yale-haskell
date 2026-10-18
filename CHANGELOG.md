@@ -21,6 +21,12 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- An INLINE function that leads back to itself (a multi-parameter
+  instance's method calling itself through its own dictionary, as
+  indexed-traversable's FunctorWithIndex [Int] Tree) is a loop breaker,
+  as in GHC; the optimizer unrolled it until memory ran out.
+  indexed-traversable builds.  YALE_HASKELL_DEBUG=1 prints a backtrace
+  when the stack or heap runs out.
 - The lazy ByteString is its own type, as in bytestring (a newtype over
   the strict one), so a program may give instances for both;
   Data.ByteString.Lazy and .Lazy.Char8 are generated over it

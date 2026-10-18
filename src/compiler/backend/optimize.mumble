@@ -341,13 +341,50 @@
 	      (let ((new-val  (optimize val)))
 		(setf (var-value var) new-val)
 		(setf (var-simple? var)
-		      (or (var-force-inline? var)
-			  (and (not (var-selector-fn? var))
-			       (can-inline?
-				 new-val
-				 (if recursive? bindings '())
-				 toplevel?))))))
+		      (cond ((and toplevel?
+				  (var-force-inline? var)
+				  (leads-back-to? new-val var))
+			     ;; a loop breaker, as in GHC
+			     '#f)
+			    ((var-force-inline? var) '#t)
+			    (else
+			     (and (not (var-selector-fn? var))
+				  (can-inline?
+				   new-val
+				   (if recursive? bindings '())
+				   toplevel?)))))))
 	  ))))
+
+;;; Does EXP, the value of top-level VAR marked Inline, refer to VAR,
+;;; itself or through dictionaries?  A multi-parameter instance's method
+;;; calls itself at its own instance through the dictionary (imap f
+;;; (Node a as) = ... imap (\i -> imap (f . (:) i)) as, with INLINE, in
+;;; indexed-traversable), not through the method's local binding as a
+;;; one-parameter instance's does; dict-C-T is the method (a one-method
+;;; class), and each optimizer pass unrolled the method once more.
+
+(define (leads-back-to? exp var)
+  (flic-find (lambda (e)
+	       (and (is-type? 'flic-ref e)
+		    (dictionary-leads-to? (flic-ref-var e) var 4)))
+	     exp))
+
+(define (dictionary-leads-to? w var n)
+  (or (eq? w var)
+      (and (> n 0)
+	   (var-toplevel? w)
+	   (string-starts? "dict-" (symbol->string (def-name w)))
+	   (let* ((val   (var-value w))
+		  (body  (if (is-type? 'flic-lambda val) (flic-lambda-body val) val)))
+	     (cond ((is-type? 'flic-ref body)
+		    (dictionary-leads-to? (flic-ref-var body) var (1- n)))
+		   ((and (is-type? 'flic-app body)
+			 (is-type? 'flic-pack (flic-app-fn body)))
+		    (lisp:some (lambda (a)
+				 (and (is-type? 'flic-ref a)
+				      (dictionary-leads-to? (flic-ref-var a) var (1- n))))
+			       (flic-app-args body)))
+		   (else '#f))))))
 
 
 ;;; VAL, the value of top-level VAR, is a top-level function marked

@@ -31,6 +31,19 @@
 	     (lisp:handler-bind ((lisp:warning
 				  (lambda (c)
 				    (lisp:muffle-warning c)))
+				 ;; YALE_HASKELL_DEBUG=1: where the stack or heap ran out
+				 #+sbcl
+				 (lisp:storage-condition
+				  (lambda (c)
+				    (declare (ignore c))
+				    (when (env-flag? "YALE_HASKELL_DEBUG")
+				      (lisp:let ((lisp:*print-pretty* lisp:nil)
+						 (lisp:*print-length* 4)
+						 (lisp:*print-level* 2))
+					(lisp:ignore-errors
+					 (lisp:funcall
+					  (lisp:find-symbol "PRINT-BACKTRACE" "SB-DEBUG")
+					  ':count 60 ':stream (debug-stream)))))))
 				 ;; YALE_HASKELL_DEBUG=1: a Lisp backtrace for
 				 ;; an internal error
 				 (lisp:error
