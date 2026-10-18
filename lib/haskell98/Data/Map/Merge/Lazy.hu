@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Map/Merge/
+:o= all
+:package
+Lazy.hs

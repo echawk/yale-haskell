@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Sequence/
+:o= all
+:package
+Internal.hs

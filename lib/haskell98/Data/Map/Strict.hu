@@ -1,3 +1,4 @@
 :output $LIBRARYBIN/Data/Map/
 :o= all
+:package
 Strict.hs

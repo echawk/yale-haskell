@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Map/Internal/
+:o= all
+:package
+Debug.hs

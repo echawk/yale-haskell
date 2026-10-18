@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Utils/Containers/Internal/
+:o= all
+:package
+PtrEquality.hs

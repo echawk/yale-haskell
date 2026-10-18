@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/IntSet/Internal/
+:o= all
+:package
+IntTreeCommons.hs

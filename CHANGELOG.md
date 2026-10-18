@@ -67,6 +67,11 @@ compiled interface, so a new version recompiles cached units.
 - Control.Applicative has ZipList, WrappedArrow and asum, and exports
   liftA2 as Applicative's method.
 
+- Yale Haskell's containers library is containers 0.8.1, its source
+  unchanged (tools/gen/import-containers.py; it was nhc98's 0.3 port):
+  the whole modern API of Data.Map, IntMap, Set, IntSet, Sequence (with
+  its pattern synonyms), Tree and Graph, the Merge modules and
+  Data.Containers.ListUtils.  mapcount runs at 1.7x GHC -O2 (was 2.1x).
 - The real containers 0.8.1 compiles and runs unchanged (with
   DEFINE_PATTERN_SYNONYMS), which brought these fixes:
   - `module Prelude` in an export list re-exports base's Prelude with

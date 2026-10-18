@@ -1,389 +1,701 @@
-{-# LANGUAGE PatternSynonyms, ViewPatterns #-}
--- Data.Graph -- graph algorithms (the containers package's module)
+{-# LANGUAGE CPP #-}
+#include "containers.h"
+{-# LANGUAGE BangPatterns #-}
+#if __GLASGOW_HASKELL__
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
+#if !MIN_VERSION_array(0,5,7)
+{-# LANGUAGE Trustworthy #-}
+#endif
+#endif
+#ifdef DEFINE_PATTERN_SYNONYMS
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
+#endif
+#ifdef USE_ST_MONAD
+{-# LANGUAGE RankNTypes #-}
+#endif
+
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Data.Graph
+-- Copyright   :  (c) The University of Glasgow 2002
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
--- Ported from Hugs's packages/base/Data/Graph.hs (King and Launchbury's
--- lazy depth-first search), with what later containers added:
--- reverseTopSort, and Eq, Show, Functor, Foldable and Traversable for
--- SCC.  Hugs's file carries:
+-- Maintainer  :  libraries@haskell.org
+-- Portability :  portable
 --
---   Module      :  Data.Graph
---   Copyright   :  (c) The University of Glasgow 2002
---   License     :  BSD-style (see the file libraries/base/LICENSE)
+-- = Finite Graphs
 --
---   The Glasgow Haskell Compiler License
+-- The @'Graph'@ type is an adjacency list representation of a finite, directed
+-- graph with vertices of type @Int@.
 --
---   Copyright 2004, The University Court of the University of Glasgow.
---   All rights reserved.
+-- The @'SCC'@ type represents a
+-- <https://en.wikipedia.org/wiki/Strongly_connected_component strongly-connected component>
+-- of a graph.
 --
---   Redistribution and use in source and binary forms, with or without
---   modification, are permitted provided that the following conditions
---   are met:
+-- == Implementation
 --
---   - Redistributions of source code must retain the above copyright
---   notice, this list of conditions and the following disclaimer.
+-- The implementation is based on
 --
---   - Redistributions in binary form must reproduce the above copyright
---   notice, this list of conditions and the following disclaimer in the
---   documentation and/or other materials provided with the distribution.
+--   * David King and John Launchbury,
+--     \"/Structuring Depth-First Search Algorithms in Haskell/\",
+--     Proceedings of the 22nd ACM SIGPLAN-SIGACT Symposium on Principles of
+--     Programming Languages, 344-354, 1995,
+--     <https://doi.org/10.1145/199448.199530>.
 --
---   - Neither name of the University nor the names of its contributors
---   may be used to endorse or promote products derived from this
---   software without specific prior written permission.
---
---   THIS SOFTWARE IS PROVIDED BY THE UNIVERSITY COURT OF THE UNIVERSITY
---   OF GLASGOW AND THE CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
---   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
---   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
---   IN NO EVENT SHALL THE UNIVERSITY COURT OF THE UNIVERSITY OF GLASGOW
---   OR THE CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
---   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
---   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
---   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
---   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
---   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
---   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-----------------------------------------------------------------------------
 
-module Data.Graph(
+module Data.Graph (
 
-	-- * External interface
+    -- * Graphs
+      Graph
+    , Bounds
+    , Edge
+    , Vertex
+    , Table
 
-	-- At present the only one with a "nice" external interface
-	stronglyConnComp, stronglyConnCompR, SCC(..), pattern CyclicSCC, flattenSCC, flattenSCCs,
+    -- ** Graph Construction
+    , graphFromEdges
+    , graphFromEdges'
+    , buildG
 
-	-- * Graphs
+    -- ** Graph Properties
+    , vertices
+    , edges
+    , outdegree
+    , indegree
 
-	Graph, Table, Bounds, Edge, Vertex,
+    -- ** Graph Transformations
+    , transposeG
 
-	-- ** Building graphs
+    -- ** Graph Algorithms
+    , dfs
+    , dff
+    , topSort
+    , reverseTopSort
+    , components
+    , scc
+    , bcc
+    , reachable
+    , path
 
-	graphFromEdges, graphFromEdges', buildG, transposeG,
-	-- reverseE,
 
-	-- ** Graph properties
+    -- * Strongly Connected Components
+    , SCC(..
+#ifdef DEFINE_PATTERN_SYNONYMS
+      , CyclicSCC
+#endif
+      )
 
-	vertices, edges,
-	outdegree, indegree,
+    -- ** Construction
+    , stronglyConnComp
+    , stronglyConnCompR
 
-	-- * Algorithms
+    -- ** Conversion
+    , flattenSCC
+    , flattenSCC1
+    , flattenSCCs
 
-	dfs, dff,
-	topSort, reverseTopSort,
-	components,
-	scc,
-	bcc,
-	-- tree, back, cross, forward,
-	reachable, path,
-
-	module Data.Tree
+    -- * Trees
+    , Tree(..)
+    , Forest
 
     ) where
 
--- Extensions
+import Utils.Containers.Internal.Prelude
+import Prelude ()
+#if USE_ST_MONAD
 import Control.Monad.ST
-import Data.Array.ST (STArray, newArray, readArray, writeArray)
-import Data.Tree (Tree(Node), Forest)
-import qualified Data.Foldable as F
-import Data.List.NonEmpty (NonEmpty(..))
-import qualified Data.List.NonEmpty as NE
-import qualified Data.Traversable as T
-import Control.Applicative ((<$>))
+import Data.Array.ST (newArray, readArray, writeArray)
+# if USE_UNBOXED_ARRAYS
+import Data.Array.ST (STUArray)
+# else
+import Data.Array.ST (STArray)
+# endif
+#else
+import Data.IntSet (IntSet)
+import qualified Data.IntSet as Set
+#endif
+import Data.Tree (Tree(..), Forest)
+import qualified Data.Tree as Tree
 
 -- std interfaces
-import Data.Maybe
+import Data.Foldable as F
+#if MIN_VERSION_base(4,18,0)
+import qualified Data.Foldable1 as F1
+#endif
+import Control.DeepSeq (NFData(rnf),NFData1(liftRnf))
 import Data.Array
-import Data.List
+#if USE_UNBOXED_ARRAYS
+import qualified Data.Array.Unboxed as UA
+import Data.Array.Unboxed ( UArray )
+#else
+import qualified Data.Array as UA
+#endif
+import qualified Data.List as L
+import Data.List.NonEmpty (NonEmpty(..))
+import qualified Data.List.NonEmpty as NE
+import Data.Functor.Classes
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup (Semigroup (..))
+#endif
+#ifdef __GLASGOW_HASKELL__
+import GHC.Generics (Generic, Generic1)
+import Data.Data (Data)
+#  if __GLASGOW_HASKELL__ >= 914
+import Language.Haskell.TH.Lift (Lift)
+#  else
+import Language.Haskell.TH.Syntax (Lift(..))
+-- See Note [ Template Haskell Dependencies ]
+import Language.Haskell.TH ()
+#  endif
+#endif
 
+-- Make sure we don't use Integer by mistake.
+default ()
 
 -------------------------------------------------------------------------
---									-
---	External interface
---									-
+--                                                                      -
+--      Strongly Connected Components
+--                                                                      -
 -------------------------------------------------------------------------
 
 -- | Strongly connected component.
--- As in containers 0.7: a cycle is a NonEmpty list, and CyclicSCC is a
--- pattern synonym for it as a list.
-data SCC vertex = AcyclicSCC vertex	-- ^ A single vertex that is not
-					-- in any cycle.
-	        | NECyclicSCC (NonEmpty vertex)	-- ^ A maximal set of mutually
-					-- reachable vertices.
+data SCC vertex
+  = AcyclicSCC vertex
+  -- ^ A single vertex that is not in any cycle.
+  | NECyclicSCC {-# UNPACK #-} !(NonEmpty vertex)
+  -- ^ A maximal set of mutually reachable vertices.
+  --
+  -- @since 0.7
+  deriving ( Eq   -- ^ @since 0.5.9
+           , Show -- ^ @since 0.5.9
+           , Read -- ^ @since 0.5.9
+           )
 
+#ifdef DEFINE_PATTERN_SYNONYMS
+-- | Partial pattern synonym for backward compatibility with @containers < 0.7@.
 pattern CyclicSCC :: [vertex] -> SCC vertex
 pattern CyclicSCC xs <- NECyclicSCC (NE.toList -> xs) where
+  CyclicSCC [] = error "CyclicSCC: an argument cannot be an empty list"
   CyclicSCC (x : xs) = NECyclicSCC (x :| xs)
-  CyclicSCC []       = error "Data.Graph: CyclicSCC: empty list"
+
+{-# COMPLETE AcyclicSCC, CyclicSCC #-}
+#endif
+
+#ifdef __GLASGOW_HASKELL__
+-- | @since 0.5.9
+deriving instance Data vertex => Data (SCC vertex)
+
+-- | @since 0.5.9
+deriving instance Generic1 SCC
+
+-- | @since 0.5.9
+deriving instance Generic (SCC vertex)
+
+-- There is no instance Lift (NonEmpty v) before template-haskell-2.15.
+#if __GLASGOW_HASKELL__ > 808
+-- | @since 0.6.6
+deriving instance Lift vertex => Lift (SCC vertex)
+#else
+instance Lift vertex => Lift (SCC vertex) where
+  lift (AcyclicSCC v) = [| AcyclicSCC v |]
+  lift (NECyclicSCC (v :| vs)) = [| NECyclicSCC (v :| vs) |]
+#endif
+
+#endif
+
+-- | @since 0.5.9
+instance Eq1 SCC where
+  liftEq eq (AcyclicSCC v1) (AcyclicSCC v2) = eq v1 v2
+  liftEq eq (NECyclicSCC vs1) (NECyclicSCC vs2) = liftEq eq vs1 vs2
+  liftEq _ _ _ = False
+-- | @since 0.5.9
+instance Show1 SCC where
+  liftShowsPrec sp _sl d (AcyclicSCC v) = showsUnaryWith sp "AcyclicSCC" d v
+  liftShowsPrec sp sl d (NECyclicSCC vs) = showsUnaryWith (liftShowsPrec sp sl) "NECyclicSCC" d vs
+-- | @since 0.5.9
+instance Read1 SCC where
+  liftReadsPrec rp rl = readsData $
+    readsUnaryWith rp "AcyclicSCC" AcyclicSCC <>
+    readsUnaryWith (liftReadsPrec rp rl) "NECyclicSCC" NECyclicSCC
+#ifdef __GLASGOW_HASKELL__
+    <> readsUnaryWith (const rl) "CyclicSCC" CyclicSCC
+#endif
+
+-- | @since 0.5.9
+instance F.Foldable SCC where
+  foldr c n (AcyclicSCC v) = c v n
+  foldr c n (NECyclicSCC vs) = foldr c n vs
+
+  toList = flattenSCC
+
+#if MIN_VERSION_base(4,18,0)
+-- | @since 0.7
+instance F1.Foldable1 SCC where
+  foldMap1 f (AcyclicSCC v) = f v
+  foldMap1 f (NECyclicSCC vs) = F1.foldMap1 f vs
+
+  toNonEmpty = flattenSCC1
+
+  -- TODO define more methods
+#endif
+
+-- | @since 0.5.9
+instance Traversable SCC where
+  traverse f (AcyclicSCC vertex) = AcyclicSCC <$> f vertex
+  -- Avoid traverse from instance Traversable NonEmpty,
+  -- it is redundantly lazy.
+  traverse f (NECyclicSCC (x :| xs)) =
+    liftA2 (\x' xs' -> NECyclicSCC (x' :| xs')) (f x) (traverse f xs)
+
+instance NFData a => NFData (SCC a) where
+    rnf (AcyclicSCC v) = rnf v
+    rnf (NECyclicSCC vs) = rnf vs
+
+-- | @since 0.8
+instance NFData1 SCC where
+    liftRnf rnfx (AcyclicSCC v)   = rnfx v
+    liftRnf rnfx (NECyclicSCC vs) = liftRnf rnfx vs
+
+-- | @since 0.5.4
+instance Functor SCC where
+    fmap f (AcyclicSCC v) = AcyclicSCC (f v)
+    -- Avoid fmap from instance Functor NonEmpty,
+    -- it is redundantly lazy.
+    fmap f (NECyclicSCC (x :| xs)) = NECyclicSCC (f x :| map f xs)
 
 -- | The vertices of a list of strongly connected components.
 flattenSCCs :: [SCC a] -> [a]
 flattenSCCs = concatMap flattenSCC
 
 -- | The vertices of a strongly connected component.
+--
+-- @flattenSCC = 'Data.List.NonEmpty.toList' . 'flattenSCC1'@.
+--
+-- This function is retained for backward compatibility,
+-- 'flattenSCC1' has the more precise type.
 flattenSCC :: SCC vertex -> [vertex]
 flattenSCC (AcyclicSCC v) = [v]
-flattenSCC (CyclicSCC vs) = vs
+flattenSCC (NECyclicSCC (v :| vs)) = v : vs
+-- Note: Best to avoid NE.toList, it is too lazy.
 
-instance Eq vertex => Eq (SCC vertex) where
-  AcyclicSCC a == AcyclicSCC b = a == b
-  NECyclicSCC as == NECyclicSCC bs = as == bs
-  _ == _ = False
+-- | The vertices of a strongly connected component.
+--
+-- @since 0.8
+flattenSCC1 :: SCC vertex -> NonEmpty vertex
+flattenSCC1 (AcyclicSCC v) = v :| []
+flattenSCC1 (NECyclicSCC vs) = vs
 
-instance Show vertex => Show (SCC vertex) where
-  showsPrec d (AcyclicSCC v) =
-    showParen (d >= 11) (showString "AcyclicSCC " . showsPrec 11 v)
-  showsPrec d (NECyclicSCC vs) =
-    showParen (d >= 11) (showString "NECyclicSCC " . showsPrec 11 vs)
-
-instance Functor SCC where
-  fmap f (AcyclicSCC v) = AcyclicSCC (f v)
-  fmap f (NECyclicSCC vs) = NECyclicSCC (fmap f vs)
-
-instance F.Foldable SCC where
-  foldr c n (AcyclicSCC v) = c v n
-  foldr c n (NECyclicSCC vs) = F.foldr c n vs
-
-instance T.Traversable SCC where
-  traverse f (AcyclicSCC v) = AcyclicSCC <$> f v
-  traverse f (NECyclicSCC vs) = NECyclicSCC <$> T.traverse f vs
-
--- | The strongly connected components of a directed graph, topologically
--- sorted.
+-- | \(O((V+E) \log V)\). The strongly connected components of a directed graph,
+-- reverse topologically sorted.
+--
+-- ==== __Examples__
+--
+-- > stronglyConnComp [("a",0,[1]),("b",1,[2,3]),("c",2,[1]),("d",3,[3])]
+-- >   == [CyclicSCC ["d"],CyclicSCC ["b","c"],AcyclicSCC "a"]
 stronglyConnComp
-	:: Ord key
-	=> [(node, key, [key])]
-		-- ^ The graph: a list of nodes uniquely identified by keys,
-		-- with a list of keys of nodes this node has edges to.
-		-- The out-list may contain keys that don't correspond to
-		-- nodes of the graph; such edges are ignored.
-	-> [SCC node]
+        :: Ord key
+        => [(node, key, [key])]
+                -- ^ The graph: a list of nodes uniquely identified by keys,
+                -- with a list of keys of nodes this node has edges to.
+                -- The out-list may contain keys that don't correspond to
+                -- nodes of the graph; such edges are ignored.
+        -> [SCC node]
 
 stronglyConnComp edges0
   = map get_node (stronglyConnCompR edges0)
   where
     get_node (AcyclicSCC (n, _, _)) = AcyclicSCC n
-    get_node (CyclicSCC triples)     = CyclicSCC [n | (n,_,_) <- triples]
+    get_node (NECyclicSCC ((n0, _, _) :| triples)) =
+      NECyclicSCC (n0 :| [n | (n, _, _) <- triples])
+{-# INLINABLE stronglyConnComp #-}
 
--- | The strongly connected components of a directed graph, topologically
--- sorted.  The function is the same as 'stronglyConnComp', except that
--- all the information about each node retained.
+-- | \(O((V+E) \log V)\). The strongly connected components of a directed graph,
+-- reverse topologically sorted.  The function is the same as
+-- 'stronglyConnComp', except that all the information about each node retained.
 -- This interface is used when you expect to apply 'SCC' to
 -- (some of) the result of 'SCC', so you don't want to lose the
 -- dependency information.
+--
+-- ==== __Examples__
+--
+-- > stronglyConnCompR [("a",0,[1]),("b",1,[2,3]),("c",2,[1]),("d",3,[3])]
+-- >  == [CyclicSCC [("d",3,[3])],CyclicSCC [("b",1,[2,3]),("c",2,[1])],AcyclicSCC ("a",0,[1])]
 stronglyConnCompR
-	:: Ord key
-	=> [(node, key, [key])]
-		-- ^ The graph: a list of nodes uniquely identified by keys,
-		-- with a list of keys of nodes this node has edges to.
-		-- The out-list may contain keys that don't correspond to
-		-- nodes of the graph; such edges are ignored.
-	-> [SCC (node, key, [key])]	-- ^ Topologically sorted
+        :: Ord key
+        => [(node, key, [key])]
+                -- ^ The graph: a list of nodes uniquely identified by keys,
+                -- with a list of keys of nodes this node has edges to.
+                -- The out-list may contain keys that don't correspond to
+                -- nodes of the graph; such edges are ignored.
+        -> [SCC (node, key, [key])]     -- ^ Reverse topologically sorted
 
 stronglyConnCompR [] = []  -- added to avoid creating empty array in graphFromEdges -- SOF
 stronglyConnCompR edges0
   = map decode forest
   where
     (graph, vertex_fn,_) = graphFromEdges edges0
-    forest	       = scc graph
-    decode (Node v []) | mentions_itself v = CyclicSCC [vertex_fn v]
-		       | otherwise	   = AcyclicSCC (vertex_fn v)
-    decode other = CyclicSCC (dec other [])
-		 where
-		   dec (Node v ts) vs = vertex_fn v : foldr dec vs ts
+    forest             = scc graph
+
+    decode (Node v []) | mentions_itself v = NECyclicSCC (vertex_fn v :| [])
+                       | otherwise         = AcyclicSCC (vertex_fn v)
+    decode (Node v ts) = NECyclicSCC (vertex_fn v :| foldr dec [] ts)
+
+    dec (Node v ts) vs = vertex_fn v : foldr dec vs ts
     mentions_itself v = v `elem` (graph ! v)
+{-# INLINABLE stronglyConnCompR #-}
 
 -------------------------------------------------------------------------
---									-
---	Graphs
---									-
+--                                                                      -
+--      Graphs
+--                                                                      -
 -------------------------------------------------------------------------
 
 -- | Abstract representation of vertices.
 type Vertex  = Int
 -- | Table indexed by a contiguous set of vertices.
+--
+-- /Note: This is included for backwards compatibility./
 type Table a = Array Vertex a
 -- | Adjacency list representation of a graph, mapping each vertex to its
 -- list of successors.
-type Graph   = Table [Vertex]
--- | The bounds of a 'Table'.
+type Graph   = Array Vertex [Vertex]
+-- | The bounds of an @Array@.
 type Bounds  = (Vertex, Vertex)
 -- | An edge from the first vertex to the second.
 type Edge    = (Vertex, Vertex)
 
--- | All vertices of a graph.
+#if !USE_UNBOXED_ARRAYS
+type UArray i a = Array i a
+#endif
+
+-- | \(O(V)\). Returns the list of vertices in the graph.
+--
+-- ==== __Examples__
+--
+-- > vertices (buildG (0,-1) []) == []
+--
+-- > vertices (buildG (0,2) [(0,1),(1,2)]) == [0,1,2]
 vertices :: Graph -> [Vertex]
 vertices  = indices
+-- See Note [Inline for fusion]
+{-# INLINE vertices #-}
 
--- | All edges of a graph.
+-- | \(O(V+E)\). Returns the list of edges in the graph.
+--
+-- ==== __Examples__
+--
+-- > edges (buildG (0,-1) []) == []
+--
+-- > edges (buildG (0,2) [(0,1),(1,2)]) == [(0,1),(1,2)]
 edges    :: Graph -> [Edge]
 edges g   = [ (v, w) | v <- vertices g, w <- g!v ]
+-- See Note [Inline for fusion]
+{-# INLINE edges #-}
 
-mapT    :: (Vertex -> a -> b) -> Table a -> Table b
-mapT f t = array (bounds t) [ (,) v (f v (t!v)) | v <- indices t ]
-
--- | Build a graph from a list of edges.
+-- | \(O(V+E)\). Build a graph from a list of edges.
+--
+-- Warning: This function will cause a runtime exception if a vertex in the edge
+-- list is not within the given @Bounds@.
+--
+-- ==== __Examples__
+--
+-- > buildG (0,-1) [] == array (0,-1) []
+-- > buildG (0,2) [(0,1), (1,2)] == array (0,1) [(0,[1]),(1,[2])]
+-- > buildG (0,2) [(0,1), (0,2), (1,2)] == array (0,2) [(0,[2,1]),(1,[2]),(2,[])]
 buildG :: Bounds -> [Edge] -> Graph
-buildG bounds0 edges0 = accumArray (flip (:)) [] bounds0 edges0
+buildG = accumArray (flip (:)) []
+-- See Note [Inline for fusion]
+{-# INLINE buildG #-}
 
--- | The graph obtained by reversing all edges.
+-- | \(O(V+E)\). The graph obtained by reversing all edges.
+--
+-- ==== __Examples__
+--
+-- > transposeG (buildG (0,2) [(0,1), (1,2)]) == array (0,2) [(0,[]),(1,[0]),(2,[1])]
 transposeG  :: Graph -> Graph
 transposeG g = buildG (bounds g) (reverseE g)
 
 reverseE    :: Graph -> [Edge]
 reverseE g   = [ (w, v) | (v, w) <- edges g ]
+-- See Note [Inline for fusion]
+{-# INLINE reverseE #-}
 
--- | A table of the count of edges from each node.
-outdegree :: Graph -> Table Int
-outdegree  = mapT numEdges
-             where numEdges _ ws = length ws
+-- | \(O(V+E)\). A table of the count of edges from each node.
+--
+-- ==== __Examples__
+--
+-- > outdegree (buildG (0,-1) []) == array (0,-1) []
+--
+-- > outdegree (buildG (0,2) [(0,1), (1,2)]) == array (0,2) [(0,1),(1,1),(2,0)]
+outdegree :: Graph -> Array Vertex Int
+-- This is bizarrely lazy. We build an array filled with thunks, instead
+-- of actually calculating anything. This is the historical behavior, and I
+-- suppose someone *could* be relying on it, but it might be worth finding
+-- out. Note that we *can't* be so lazy with indegree.
+outdegree  = fmap length
 
--- | A table of the count of edges into each node.
-indegree :: Graph -> Table Int
-indegree  = outdegree . transposeG
+-- | \(O(V+E)\). A table of the count of edges into each node.
+--
+-- ==== __Examples__
+--
+-- > indegree (buildG (0,-1) []) == array (0,-1) []
+--
+-- > indegree (buildG (0,2) [(0,1), (1,2)]) == array (0,2) [(0,0),(1,1),(2,1)]
+indegree :: Graph -> Array Vertex Int
+indegree g = accumArray (+) 0 (bounds g) [(v, 1) | (_, outs) <- assocs g, v <- outs]
 
--- | Identical to 'graphFromEdges', except that the return value
--- does not include the function which maps keys to vertices.  This
+-- | \(O((V+E) \log V)\). Identical to 'graphFromEdges', except that the return
+-- value does not include the function which maps keys to vertices. This
 -- version of 'graphFromEdges' is for backwards compatibility.
 graphFromEdges'
-	:: Ord key
-	=> [(node, key, [key])]
-	-> (Graph, Vertex -> (node, key, [key]))
+        :: Ord key
+        => [(node, key, [key])]
+        -> (Graph, Vertex -> (node, key, [key]))
 graphFromEdges' x = (a,b) where
     (a,b,_) = graphFromEdges x
+{-# INLINABLE graphFromEdges' #-}
 
--- | Build a graph from a list of nodes uniquely identified by keys,
--- with a list of keys of nodes this node should have edges to.
--- The out-list may contain keys that don't correspond to
--- nodes of the graph; they are ignored.
+-- | \(O((V+E) \log V)\). Build a graph from a list of nodes uniquely identified
+-- by keys, with a list of keys of nodes this node should have edges to.
+--
+-- This function takes an adjacency list representing a graph with vertices of
+-- type @key@ labeled by values of type @node@ and produces a @Graph@-based
+-- representation of that list. The @Graph@ result represents the /shape/ of the
+-- graph, and the functions describe a) how to retrieve the label and adjacent
+-- vertices of a given vertex, and b) how to retrieve a vertex given a key.
+--
+-- @(graph, nodeFromVertex, vertexFromKey) = graphFromEdges edgeList@
+--
+-- * @graph :: Graph@ is the raw, array based adjacency list for the graph.
+-- * @nodeFromVertex :: Vertex -> (node, key, [key])@ returns the node
+--   associated with the given 0-based @Int@ vertex; see /warning/ below. This
+--   runs in \(O(1)\) time.
+-- * @vertexFromKey :: key -> Maybe Vertex@ returns the @Int@ vertex for the
+--   key if it exists in the graph, @Nothing@ otherwise. This runs in
+--   \(O(\log V)\) time.
+--
+-- To safely use this API you must either extract the list of vertices directly
+-- from the graph or first call @vertexFromKey k@ to check if a vertex
+-- corresponds to the key @k@. Once it is known that a vertex exists you can use
+-- @nodeFromVertex@ to access the labelled node and adjacent vertices. See below
+-- for examples.
+--
+-- Note: The out-list may contain keys that don't correspond to nodes of the
+-- graph; they are ignored.
+--
+-- Warning: The @nodeFromVertex@ function will cause a runtime exception if the
+-- given @Vertex@ does not exist.
+--
+-- ==== __Examples__
+--
+-- An empty graph.
+--
+-- > (graph, nodeFromVertex, vertexFromKey) = graphFromEdges []
+-- > graph = array (0,-1) []
+--
+-- A graph where the out-list references unspecified nodes (@\'c\'@), these are
+-- ignored.
+--
+-- > (graph, _, _) = graphFromEdges [("a", 'a', ['b']), ("b", 'b', ['c'])]
+-- > array (0,1) [(0,[1]),(1,[])]
+--
+--
+-- A graph with 3 vertices: ("a") -> ("b") -> ("c")
+--
+-- > (graph, nodeFromVertex, vertexFromKey) = graphFromEdges [("a", 'a', ['b']), ("b", 'b', ['c']), ("c", 'c', [])]
+-- > graph == array (0,2) [(0,[1]),(1,[2]),(2,[])]
+-- > nodeFromVertex 0 == ("a",'a',"b")
+-- > vertexFromKey 'a' == Just 0
+--
+-- Get the label for a given key.
+--
+-- > let getNodePart (n, _, _) = n
+-- > (graph, nodeFromVertex, vertexFromKey) = graphFromEdges [("a", 'a', ['b']), ("b", 'b', ['c']), ("c", 'c', [])]
+-- > getNodePart . nodeFromVertex <$> vertexFromKey 'a' == Just "A"
+--
 graphFromEdges
-	:: Ord key
-	=> [(node, key, [key])]
-	-> (Graph, Vertex -> (node, key, [key]), key -> Maybe Vertex)
+        :: Ord key
+        => [(node, key, [key])]
+        -> (Graph, Vertex -> (node, key, [key]), key -> Maybe Vertex)
 graphFromEdges edges0
   = (graph, \v -> vertex_map ! v, key_vertex)
   where
-    max_v      	    = length edges0 - 1
+    max_v           = length edges0 - 1
     bounds0         = (0,max_v) :: (Vertex, Vertex)
-    sorted_edges    = sortBy lt edges0
-    edges1	    = zipWith (,) [0..] sorted_edges
+    sorted_edges    = L.sortBy lt edges0
 
-    graph	    = array bounds0 [(,) v (mapMaybe key_vertex ks) | (,) v (_,    _, ks) <- edges1]
-    key_map	    = array bounds0 [(,) v k			   | (,) v (_,    k, _ ) <- edges1]
-    vertex_map	    = array bounds0 edges1
+    graph = listArray bounds0 [keysToVertices ks | (_, _, ks) <- sorted_edges]
+    key_map = listArray bounds0 [k | (_, k, _) <- sorted_edges]
+    vertex_map = listArray bounds0 sorted_edges
 
     (_,k1,_) `lt` (_,k2,_) = k1 `compare` k2
 
-    -- key_vertex :: key -> Maybe Vertex
-    -- 	returns Nothing for non-interesting vertices
-    key_vertex k   = findVertex 0 max_v
-		   where
-		     findVertex a b | a > b
-			      = Nothing
-		     findVertex a b = case compare k (key_map ! mid) of
-				   LT -> findVertex a (mid-1)
-				   EQ -> Just mid
-				   GT -> findVertex (mid+1) b
-			      where
-			 	mid = (a + b) `div` 2
+    keysToVertices = foldr f []
+      where
+        f k vs =
+          let v = keyVertexGo k
+          in if v < 0 then vs else v:vs
+
+    key_vertex k =
+      let v = keyVertexGo k
+      in if v < 0 then Nothing else Just v
+
+    -- Binary search. Returns -1 when not found.
+    keyVertexGo k = findVertex 0 max_v
+                   where
+                     findVertex a b | a > b = -1
+                     findVertex a b = case compare k (key_map ! mid) of
+                                   LT -> findVertex a (mid-1)
+                                   EQ -> mid
+                                   GT -> findVertex (mid+1) b
+                              where
+                                mid = a + (b - a) `div` 2
+{-# INLINABLE graphFromEdges #-}
 
 -------------------------------------------------------------------------
---									-
---	Depth first search
---									-
+--                                                                      -
+--      Depth first search
+--                                                                      -
 -------------------------------------------------------------------------
 
-type Set s    = STArray s Vertex Bool
-
-mkEmpty      :: Bounds -> ST s (Set s)
-mkEmpty bnds  = newArray bnds False
-
-contains     :: Set s -> Vertex -> ST s Bool
-contains m v  = readArray m v
-
-include      :: Set s -> Vertex -> ST s ()
-include m v   = writeArray m v True
-
--- | A spanning forest of the graph, obtained from a depth-first search of
--- the graph starting from each vertex in an unspecified order.
-dff          :: Graph -> Forest Vertex
+-- | \(O(V+E)\). A spanning forest of the graph, obtained from a depth-first
+-- search of the graph starting from each vertex in an unspecified order.
+dff          :: Graph -> [Tree Vertex]
 dff g         = dfs g (vertices g)
 
--- | A spanning forest of the part of the graph reachable from the listed
--- vertices, obtained from a depth-first search of the graph starting at
+-- | \(O(V+E)\). A spanning forest of the part of the graph reachable from the
+-- listed vertices, obtained from a depth-first search of the graph starting at
 -- each of the listed vertices in order.
-dfs          :: Graph -> [Vertex] -> Forest Vertex
-dfs g vs      = prune (bounds g) (map (generate g) vs)
 
-generate     :: Graph -> Vertex -> Tree Vertex
-generate g v  = Node v (map (generate g) (g!v))
+-- This function deviates from King and Launchbury's implementation by
+-- bundling together the functions generate, prune, and chop for efficiency
+-- reasons.
+dfs :: Graph -> [Vertex] -> [Tree Vertex]
+dfs !g vs0 = run (bounds g) $ \contains include ->
+  let
+    go [] = pure []
+    go (v:vs) = do
+      visited <- contains v
+      if visited
+      then go vs
+      else do
+        include v
+        as <- go (g!v)
+        bs <- go vs
+        pure $ Node v as : bs
+  in go vs0
 
-prune        :: Bounds -> Forest Vertex -> Forest Vertex
-prune bnds ts = runST (mkEmpty bnds  >>= \m ->
-                       chop m ts)
+#if USE_ST_MONAD
 
-chop         :: Set s -> Forest Vertex -> ST s (Forest Vertex)
-chop _ []     = return []
-chop m (Node v ts : us)
-              = contains m v >>= \visited ->
-                if visited then
-                  chop m us
-                else
-                  include m v >>= \_  ->
-                  chop m ts   >>= \as ->
-                  chop m us   >>= \bs ->
-                  return (Node v as : bs)
+-- Use the ST monad if available, for constant-time primitives.
+
+newArrayBool
+  :: Bounds
+#if USE_UNBOXED_ARRAYS
+  -> ST s (STUArray s Vertex Bool)
+#else
+  -> ST s (STArray s Vertex Bool)
+#endif
+newArrayBool bnds = newArray bnds False
+
+run
+  :: Bounds
+  -> (forall s. (Vertex -> ST s Bool) -> (Vertex -> ST s ()) -> ST s a)
+  -> a
+run bnds f = runST $ do
+  m <- newArrayBool bnds
+  f (readArray m) (\v -> writeArray m v True)
+{-# INLINE run #-}
+
+#else /* !USE_ST_MONAD */
+
+-- Portable implementation using IntSet.
+
+newtype SetM a = SetM { runSetM :: IntSet -> (a, IntSet) }
+
+instance Monad SetM where
+    SetM v >>= f = SetM $ \s -> case v s of (x, s') -> runSetM (f x) s'
+
+instance Functor SetM where
+    f `fmap` SetM v = SetM $ \s -> case v s of (x, s') -> (f x, s')
+    {-# INLINE fmap #-}
+
+instance Applicative SetM where
+    pure x = SetM $ \s -> (x, s)
+    {-# INLINE pure #-}
+    SetM f <*> SetM v = SetM $ \s -> case f s of (k, s') -> case v s' of (x, s'') -> (k x, s'')
+    {-# INLINE (<*>) #-}
+
+run :: Bounds -> ((Vertex -> SetM Bool) -> (Vertex -> SetM ()) -> SetM a) -> a
+run _ f = fst (runSetM (f contains include) Set.empty)
+  where
+    contains v = SetM $ \m -> (Set.member v m, m)
+    include v = SetM $ \m -> ((), Set.insert v m)
+
+#endif /* !USE_ST_MONAD */
 
 -------------------------------------------------------------------------
---									-
---	Algorithms
---									-
+--                                                                      -
+--      Algorithms
+--                                                                      -
 -------------------------------------------------------------------------
 
 ------------------------------------------------------------
 -- Algorithm 1: depth first search numbering
 ------------------------------------------------------------
 
-preorder            :: Tree a -> [a]
-preorder (Node a ts) = a : preorderF ts
+tabulate        :: Bounds -> [Vertex] -> UArray Vertex Int
+tabulate bnds vs = UA.array bnds (zipWith (flip (,)) [1..] vs)
+-- Why zipWith (flip (,)) instead of just using zip with the
+-- arguments in the other order? We want the [1..] to fuse
+-- away, and these days that only happens when it's the first
+-- list argument.
 
-preorderF           :: Forest a -> [a]
-preorderF ts         = concat (map preorder ts)
-
-tabulate        :: Bounds -> [Vertex] -> Table Int
-tabulate bnds vs = array bnds (zipWith (,) vs [1..])
-
-preArr          :: Bounds -> Forest Vertex -> Table Int
-preArr bnds      = tabulate bnds . preorderF
+preArr          :: Bounds -> [Tree Vertex] -> UArray Vertex Int
+preArr bnds      = tabulate bnds . concatMap Tree.flatten
 
 ------------------------------------------------------------
 -- Algorithm 2: topological sorting
 ------------------------------------------------------------
 
-postorder :: Tree a -> [a]
-postorder (Node a ts) = postorderF ts ++ [a]
-
-postorderF   :: Forest a -> [a]
-postorderF ts = concat (map postorder ts)
-
-postOrd      :: Graph -> [Vertex]
-postOrd       = postorderF . dff
-
--- | A topological sort of the graph.
+-- | \(O(V+E)\). A topological sort of the graph.
 -- The order is partially specified by the condition that a vertex /i/
 -- precedes /j/ whenever /j/ is reachable from /i/ but not vice versa.
-topSort      :: Graph -> [Vertex]
-topSort       = reverse . postOrd
+--
+-- Note: A topological sort exists only when there are no cycles in the graph.
+-- If the graph has cycles, the output of this function will not be a
+-- topological sort. In such a case consider using 'scc'.
+topSort :: Graph -> [Vertex]
+topSort = reversePostOrder' . dff
 
--- | A reverse topological sort of the graph (containers 0.6.4).
+-- Generates the result list at once. This is more efficient that being lazy if
+-- we will consume the full result anyway.
+reversePostOrder' :: [Tree a] -> [a]
+reversePostOrder' =
+  F.foldl' (\xs t -> F.foldl' (flip (:)) xs (Tree.PostOrder t)) []
+
+-- | \(O(V+E)\). Reverse ordering of `topSort`.
+--
+-- See note in 'topSort'.
+--
+-- @since 0.6.4
 reverseTopSort :: Graph -> [Vertex]
-reverseTopSort = postOrd
+reverseTopSort = concatMap (F.toList . Tree.PostOrder) . dff
 
 ------------------------------------------------------------
 -- Algorithm 3: connected components
 ------------------------------------------------------------
 
--- | The connected components of a graph.
+-- | \(O(V+E)\). The connected components of a graph.
 -- Two vertices are connected if there is a path between them, traversing
 -- edges in either direction.
-components   :: Graph -> Forest Vertex
+components   :: Graph -> [Tree Vertex]
 components    = dff . undirected
 
 undirected   :: Graph -> Graph
@@ -391,17 +703,29 @@ undirected g  = buildG (bounds g) (edges g ++ reverseE g)
 
 -- Algorithm 4: strongly connected components
 
--- | The strongly connected components of a graph.
-scc  :: Graph -> Forest Vertex
-scc g = dfs g (reverse (postOrd (transposeG g)))
+-- | \(O(V+E)\). The strongly connected components of a graph, in reverse
+-- topological order.
+--
+-- ==== __Examples__
+--
+-- > scc (buildG (0,3) [(3,1),(1,2),(2,0),(0,1)])
+-- >   == [Node {rootLabel = 0, subForest = [Node {rootLabel = 1, subForest = [Node {rootLabel = 2, subForest = []}]}]}
+-- >      ,Node {rootLabel = 3, subForest = []}]
+
+scc :: Graph -> [Tree Vertex]
+scc g = dfs g (reversePostOrder' (dff (transposeG g)))
 
 ------------------------------------------------------------
 -- Algorithm 5: Classifying edges
 ------------------------------------------------------------
 
+{-
+XXX unused code
+
 tree              :: Bounds -> Forest Vertex -> Graph
 tree bnds ts       = buildG bnds (concat (map flat ts))
- where flat (Node v ts) = [ (v, w) | Node w _us <- ts ] ++ concat (map flat ts)
+ where flat (Node v ts') = [ (v, w) | Node w _us <- ts' ]
+                        ++ concat (map flat ts')
 
 back              :: Graph -> Table Int -> Graph
 back g post        = mapT select g
@@ -412,46 +736,93 @@ cross g pre post   = mapT select g
  where select v ws = [ w | w <- ws, post!v > post!w, pre!v > pre!w ]
 
 forward           :: Graph -> Graph -> Table Int -> Graph
-forward g tree pre = mapT select g
- where select v ws = [ w | w <- ws, pre!v < pre!w ] \\ tree!v
+forward g tree' pre = mapT select g
+ where select v ws = [ w | w <- ws, pre!v < pre!w ] \\ tree' ! v
+
+mapT    :: (Vertex -> a -> b) -> Array Vertex a -> Array Vertex b
+mapT f t = array (bounds t) [ (,) v (f v (t!v)) | v <- indices t ]
+-}
 
 ------------------------------------------------------------
 -- Algorithm 6: Finding reachable vertices
 ------------------------------------------------------------
 
--- | A list of vertices reachable from a given vertex.
-reachable    :: Graph -> Vertex -> [Vertex]
-reachable g v = preorderF (dfs g [v])
+-- | \(O(V+E)\). Returns the list of vertices reachable from a given vertex.
+--
+-- ==== __Examples__
+--
+-- > reachable (buildG (0,0) []) 0 == [0]
+--
+-- > reachable (buildG (0,2) [(0,1), (1,2)]) 0 == [0,1,2]
+reachable :: Graph -> Vertex -> [Vertex]
+reachable g v = concatMap Tree.flatten (dfs g [v])
 
--- | Is the second vertex reachable from the first?
-path         :: Graph -> Vertex -> Vertex -> Bool
+-- | \(O(V+E)\). Returns @True@ if the second vertex reachable from the first.
+--
+-- ==== __Examples__
+--
+-- > path (buildG (0,0) []) 0 0 == True
+--
+-- > path (buildG (0,2) [(0,1), (1,2)]) 0 2 == True
+--
+-- > path (buildG (0,2) [(0,1), (1,2)]) 2 0 == False
+path :: Graph -> Vertex -> Vertex -> Bool
 path g v w    = w `elem` (reachable g v)
 
 ------------------------------------------------------------
 -- Algorithm 7: Biconnected components
 ------------------------------------------------------------
 
--- | The biconnected components of a graph.
+-- | \(O(V+E)\). The biconnected components of a graph.
 -- An undirected graph is biconnected if the deletion of any vertex
 -- leaves it connected.
-bcc :: Graph -> Forest [Vertex]
-bcc g = (concat . map bicomps . map (do_label g dnum)) forest
- where forest = dff g
-       dnum   = preArr (bounds g) forest
+--
+-- The input graph is expected to be undirected, i.e. for every edge in the
+-- graph the reverse edge is also in the graph. If the graph is not undirected
+-- the output is arbitrary.
+bcc :: Graph -> [Tree [Vertex]]
+bcc g = concatMap bicomps forest
+  where
+    -- The algorithm here is the same as given by King and Launchbury, which is
+    -- an adaptation of Hopcroft and Tarjan's. The implementation, however, has
+    -- been modified from King and Launchbury to make it efficient.
 
-do_label :: Graph -> Table Int -> Tree Vertex -> Tree (Vertex,Int,Int)
-do_label g dnum (Node v ts) = Node (v,dnum!v,lv) us
- where us = map (do_label g dnum) ts
-       lv = minimum ([dnum!v] ++ [dnum!w | w <- g!v]
-                     ++ [lu | Node (u,du,lu) xs <- us])
+    forest = dff g
 
-bicomps :: Tree (Vertex,Int,Int) -> Forest [Vertex]
-bicomps (Node (v,_,_) ts)
-      = [ Node (v:vs) us | (l,Node vs us) <- map collect ts]
+    -- dnum!v is the index of vertex v in the dfs preorder of vertices
+    dnum = preArr (bounds g) forest
 
-collect :: Tree (Vertex,Int,Int) -> (Int, Tree [Vertex])
-collect (Node (v,dv,lv) ts) = (lv, Node (v:vs) cs)
- where collected = map collect ts
-       vs = concat [ ws | (lw, Node ws us) <- collected, lw<dv]
-       cs = concat [ if lw<dv then us else [Node (v:ws) us]
-                        | (lw, Node ws us) <- collected ]
+    -- Wraps up the component of every child of the root
+    bicomps :: Tree Vertex -> [Tree [Vertex]]
+    bicomps (Node v tws) =
+      [Node (v : curw []) (donew []) | (_, curw, donew) <- map collect tws]
+
+    -- Returns a triple of
+    -- * lowpoint of v
+    -- * difference list of vertices in v's component
+    -- * difference list of trees of components, whose root components are
+    --   adjacent to v's component
+    collect :: Tree Vertex
+            -> (Int, [Vertex] -> [Vertex], [Tree [Vertex]] -> [Tree [Vertex]])
+    collect (Node v tws) = (lowv, (v:) . curv, donev)
+      where
+        dv = dnum UA.! v
+        accf (lowv', curv', donev') tw
+          | loww < dv  -- w's component extends through v
+            = (lowv'', curv' . curw, donev' . donew)
+          | otherwise  -- w's component ends with v as an articulation point
+            = (lowv'', curv', donev' . (Node (v : curw []) (donew []) :))
+          where
+            (loww, curw, donew) = collect tw
+            !lowv'' = min lowv' loww
+        !lowv0 = F.foldl' min dv [dnum UA.! w | w <- g!v]
+        !(lowv, curv, donev) = F.foldl' accf (lowv0, id, id) tws
+
+--------------------------------------------------------------------------------
+
+-- Note [Inline for fusion]
+-- ~~~~~~~~~~~~~~~~~~~~~~~~
+--
+-- We inline simple functions that produce or consume lists so that list fusion
+-- can fire. transposeG is a function where this is particularly useful; it has
+-- two intermediate lists in its definition which get fused away.

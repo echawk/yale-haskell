@@ -1,3 +1,4 @@
 :output $LIBRARYBIN/Data/IntMap/
 :o= all
+:package
 Strict.hs

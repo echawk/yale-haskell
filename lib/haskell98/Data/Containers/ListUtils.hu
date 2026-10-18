@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Containers/
+:o= all
+:package
+ListUtils.hs

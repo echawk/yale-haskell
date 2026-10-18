@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/IntSet/
+:o= all
+:package
+Internal.hs

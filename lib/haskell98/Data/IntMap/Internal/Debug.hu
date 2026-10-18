@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/IntMap/Internal/
+:o= all
+:package
+Debug.hs

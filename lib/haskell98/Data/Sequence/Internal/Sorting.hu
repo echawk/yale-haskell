@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Sequence/Internal/
+:o= all
+:package
+Sorting.hs

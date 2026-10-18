@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Map/Merge/Set/
+:o= all
+:package
+Strict.hs

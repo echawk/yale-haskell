@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/IntMap/Strict/
+:o= all
+:package
+Internal.hs
