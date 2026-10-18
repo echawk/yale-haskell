@@ -5,6 +5,7 @@
 /ref/*
 !/ref/README.md
 
-# Claude Code agent worktrees
-/.claude/
+# Claude Code agent worktrees and local state; skills are tracked
+/.claude/*
+!/.claude/skills/
 /ocicl/
