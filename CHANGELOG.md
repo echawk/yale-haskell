@@ -21,6 +21,10 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- doc/PACKAGES.md: how to run a program, build an executable, and build
+  a cabal project with Hackage dependencies through mcabal.
+- --haskell2010 and --modern-prelude given first select the Haskell 98
+  image, as --ghc2021 does (they read the file as Haskell 1.2 before).
 - Data.Data is base's: the class with gfoldl, gunfold, toConstr,
   dataTypeOf, dataCast1/2 and the gmap family; Constr, DataType and
   their functions; instances for base's types.  deriving Data writes the
