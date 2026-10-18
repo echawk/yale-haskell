@@ -63,7 +63,11 @@
     (table-for-each
      (lambda (name group)
        (declare (ignore name))
-       (cond ((in-hiding-list? group all)
+       (cond ((hides-head-only? group all)
+	      (when (in-hiding-list? group hiding)
+		(setf hiding (remove-entity group hiding)))
+	      (import-group-members group all renamings module))
+	     ((in-hiding-list? group all)
 	      (when (in-hiding-list? group hiding)
 		(setf hiding (remove-entity group hiding))))
 	     (else
@@ -87,6 +91,30 @@
       (dolist (h hiding)
 	(signal-unused-hiding (entity-name h) (module-name module)))))
   (find-unused-renamings renamings import-decl))
+
+;;; hiding (T): a bare type or class name hides T, and a constructor named
+;;; T, but not T's constructors, fields or methods (H98 5.3.1).  T(..)
+;;; hides them all.
+
+(define (hides-head-only? group all)
+  (and (not (null? (cdr group)))
+       (lisp:some (lambda (e)
+		    ;; (a bare name is an entity-con; T(..) is abbreviated)
+		    (and (entity-con? e)
+			 (eq? (entity-name e) (group-name group))))
+		  all)))
+
+;;; The group's members, less those the hiding list names, imported on
+;;; their own.
+
+(define (import-group-members group all renamings module)
+  (let ((members (lisp:remove-if
+		  (lambda (n-d)
+		    (lisp:find (tuple-2-1 n-d) all
+			       :test (function hidden-name-matches?)))
+		  (cdr group))))
+    (dolist (n-d members)
+      (import-group (rename-group (list n-d) renamings) module))))
 
 (define (hidden-name-matches? name entity)
   (let ((e (entity-name entity)))
@@ -131,7 +159,11 @@
   ;; import-all-entities); HIDING keeps those not used yet
   (let ((all (import-decl-hiding-all import hiding)))
     (dolist (group (module-fresh-exports module))
-      (cond ((in-hiding-list? group all)
+      (cond ((hides-head-only? group all)
+	     (when (in-hiding-list? group hiding)
+	       (setf hiding (remove-entity group hiding)))
+	     (import-group-members group all renamings module))
+	    ((in-hiding-list? group all)
 	     (when (in-hiding-list? group hiding)
 	       (setf hiding (remove-entity group hiding))))
 	    (else

@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Language/Haskell/TH/
+:o= all
+:package
+LanguageExtensions.hs

@@ -4,18 +4,18 @@
 -- dictionaries (util/instance-manager.mumble's get-typeable-instance;
 -- the representation is built by prim.typeable-dict in base-runtime.lisp).
 -- deriving Typeable is accepted and does nothing; instances cannot be
--- written.  Type constructors are represented by their unqualified
--- names, so two types of one name from different modules are equal here.
+-- written.  A type constructor is its name and its defining module.
 module Data.Typeable (
     Typeable(primTypeRepOf), TypeRep, TyCon, Proxy(Proxy),
     typeOf, typeRep, cast, gcast, gcast1, gcast2, eqTypeRep,
     typeRepTyCon, typeRepArgs, splitTyConApp, funResultTy, tyConName,
+    tyConModule, tyConPackage,
     showsTypeRep, rnfTypeRep, primTypeableDict
   ) where
 
 import Data.Proxy (Proxy(Proxy))
 import Unsafe.Coerce (unsafeCoerce)
-import BasePrims (TypeRepObj, primTypeRepName, primTypeRepArity, primTypeRepArg,
+import BasePrims (TypeRepObj, primTypeRepName, primTypeRepModule, primTypeRepArity, primTypeRepArg,
                   primTypeableDict)
 
 class Typeable a where
@@ -23,16 +23,24 @@ class Typeable a where
 
 data TypeRep = TypeRep TyCon [TypeRep] deriving (Eq, Ord)
 
-newtype TyCon = TyCon String deriving (Eq, Ord)
+-- the name, and the module that defines it
+data TyCon = TyCon String String deriving (Eq, Ord)
 
 instance Show TyCon where
-  showsPrec _ (TyCon n) = showString n
+  showsPrec _ (TyCon n _) = showString n
 
 tyConName :: TyCon -> String
-tyConName (TyCon n) = n
+tyConName (TyCon n _) = n
+
+tyConModule :: TyCon -> String
+tyConModule (TyCon _ m) = m
+
+-- Yale Haskell has no packages
+tyConPackage :: TyCon -> String
+tyConPackage _ = "main"
 
 fromObj :: TypeRepObj -> TypeRep
-fromObj o = TypeRep (TyCon (primTypeRepName o))
+fromObj o = TypeRep (TyCon (primTypeRepName o) (primTypeRepModule o))
                     [fromObj (primTypeRepArg o i) | i <- [0 .. primTypeRepArity o - 1]]
 
 typeRep :: Typeable a => proxy a -> TypeRep
@@ -92,11 +100,11 @@ splitTyConApp :: TypeRep -> (TyCon, [TypeRep])
 splitTyConApp (TypeRep c as) = (c, as)
 
 funResultTy :: TypeRep -> TypeRep -> Maybe TypeRep
-funResultTy (TypeRep (TyCon "->") [a, r]) b | a == b = Just r
+funResultTy (TypeRep (TyCon "->" _) [a, r]) b | a == b = Just r
 funResultTy _ _ = Nothing
 
 rnfTypeRep :: TypeRep -> ()
-rnfTypeRep (TypeRep (TyCon n) as) = length n `seq` foldr seq () (map rnfTypeRep as)
+rnfTypeRep (TypeRep (TyCon n _) as) = length n `seq` foldr seq () (map rnfTypeRep as)
 
 -- GHC's format: Maybe [Char], Int -> Int, (Int,Bool), Either Int (Maybe Int)
 instance Show TypeRep where
@@ -106,7 +114,7 @@ showsTypeRep :: TypeRep -> ShowS
 showsTypeRep = shows
 
 showsTypeRepPrec :: Int -> TypeRep -> ShowS
-showsTypeRepPrec d (TypeRep (TyCon n) as) = case (n, as) of
+showsTypeRepPrec d (TypeRep (TyCon n _) as) = case (n, as) of
   ("[]", [a]) -> showChar '[' . showsTypeRepPrec 0 a . showChar ']'
   ("->", [a, r]) -> showParen (d > 8) (showsTypeRepPrec 9 a . showString " -> "
                                        . showsTypeRepPrec 8 r)

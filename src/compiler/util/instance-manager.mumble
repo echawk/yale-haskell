@@ -50,6 +50,15 @@
   (and (instance-special? inst)
        (typeable-class? (instance-class inst))))
 
+;;; The string a Typeable dictionary is made from: the defining module, a
+;;; NUL, and the name its TypeRep shows (prim.typerep-name and
+;;; prim.typerep-module in base-runtime.lisp take it apart).
+
+(define (typeable-tycon-string alg)
+  (string-append (symbol->string (def-module alg))
+		 (make-string 1 (integer->char 0))
+		 (typeable-tycon-name alg)))
+
 ;;; The name a Typeable instance's TypeRep shows for its type constructor.
 
 (define (typeable-tycon-name alg)

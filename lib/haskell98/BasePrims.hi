@@ -102,6 +102,7 @@ primRegexCompile   :: String -> Bool -> Bool -> RegexObj
 primRegexMatch     :: RegexObj -> String -> String
 data TypeRepObj
 primTypeRepName    :: TypeRepObj -> String
+primTypeRepModule  :: TypeRepObj -> String
 primTypeRepArity   :: TypeRepObj -> Int
 primTypeRepArg     :: TypeRepObj -> Int -> TypeRepObj
 primTypeableDict   :: a
@@ -116,6 +117,7 @@ primKnobHandle     :: KnobObj -> String -> Int -> IO HandleObj
 primRegexCompile   :: LispName("prim.regex-compile")
 primRegexMatch     :: LispName("prim.regex-match")
 primTypeRepName    :: LispName("prim.typerep-name")
+primTypeRepModule  :: LispName("prim.typerep-module")
 primTypeRepArity   :: LispName("prim.typerep-arity")
 primTypeRepArg     :: LispName("prim.typerep-arg")
 primTypeableDict   :: LispName("prim.typeable-dict")

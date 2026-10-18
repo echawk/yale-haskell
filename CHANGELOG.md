@@ -21,6 +21,20 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- Template Haskell, milestone 1 (doc/plans/TEMPLATE-HASKELL.md): the
+  library.  Language.Haskell.TH and its Syntax, Lib, Lib.Internal, Ppr,
+  PprLib, Quote and LanguageExtensions modules are template-haskell
+  2.24's, from GHC's sources (ghc-internal 9.1401.0, ghc-boot-th 9.14.1),
+  with Q over IO.  Syntax is built with the Lib functions, run with runQ,
+  and printed with pprint as GHC prints it.  GHC.Lexeme and GHC.Show
+  (showMultiLineString and the other helpers) are new.
+- deriving Lift (DeriveLift), with GHC's global names for the built-in
+  constructors.
+- Data.Typeable's TyCon knows its module (tyConModule, tyConPackage), so
+  two types of one name from different modules differ.
+- StandaloneDeriving of a built-in type: deriving instance ... => C (a, b).
+- hiding (T) hides the type or class T (and a constructor T), not its
+  constructors or methods, as the Report says; T(..) hides them all.
 - doc/PACKAGES.md: how to run a program, build an executable, and build
   a cabal project with Hackage dependencies through mcabal.
 - --haskell2010 and --modern-prelude given first select the Haskell 98

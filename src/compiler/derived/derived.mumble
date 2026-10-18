@@ -20,6 +20,8 @@
     (source-filename "functor"))
   (unit data
     (source-filename "data"))
+  (unit lift
+    (source-filename "lift"))
   )
 
 

@@ -449,7 +449,15 @@
 		   (cl:declare (cl:ignore proxy))
 		   rep)))))
 
-(cl:defun prim.typerep-name (rep) (cl:car rep))
+;;; NAME is "Module" NUL "T" (typeable-tycon-string, instance-manager.mumble)
+(cl:defun prim.typerep-name (rep)
+  (cl:let* ((s (cl:car rep))
+	    (i (cl:position (cl:code-char 0) s)))
+    (cl:if i (cl:subseq s (cl:1+ i)) s)))
+(cl:defun prim.typerep-module (rep)
+  (cl:let* ((s (cl:car rep))
+	    (i (cl:position (cl:code-char 0) s)))
+    (cl:if i (cl:subseq s 0 i) "")))
 (cl:defun prim.typerep-arity (rep) (cl:length (cl:cdr rep)))
 (cl:defun prim.typerep-arg (rep i) (cl:nth i (cl:cdr rep)))
 

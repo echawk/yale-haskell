@@ -117,9 +117,11 @@
        (when (not (or (memq key names)
 		      (lisp:some (lambda (n-d) (memq (tuple-2-1 n-d) names))
 				 group)))
+	 ;; (a type or class with its members: T(..), as a bare T hides
+	 ;; only T)
 	 (push (if (var? (group-definition group))
 		   (make entity-var (name key))
-		   (make entity-con (name key)))
+		   (make entity-abbreviated (name key)))
 	       res)))
      (module-export-table modern))
     res))
@@ -156,9 +158,9 @@
 ;;; Control.Applicative's), as the hiding list of its implicit import.
 ;;; Hiding the class hides its methods (empty, <|>, some, many).
 (define *not-in-ghc-prelude*
-  (cons (make entity-con (name '|Alternative|))
-    (cons (make entity-con (name '|WrappedMonad|))
-     (cons (make entity-con (name '|NonEmpty|))
+  (cons (make entity-abbreviated (name '|Alternative|))
+    (cons (make entity-abbreviated (name '|WrappedMonad|))
+     (cons (make entity-abbreviated (name '|NonEmpty|))
 	  (map (lambda (name) (make entity-var (name name)))
 	       '(|<**>| |liftA| |liftA3| |optional|
 		 ;; Data.Foldable's

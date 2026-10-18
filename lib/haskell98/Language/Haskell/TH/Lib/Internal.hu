@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Language/Haskell/TH/Lib/
+:o= all
+:package
+Internal.hs

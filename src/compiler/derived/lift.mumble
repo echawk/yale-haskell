@@ -1,0 +1,71 @@
+;;; lift.mumble -- derived Lift instances (GHC's DeriveLift)
+;;;
+;;; For data T a1 ... an = ... | C t1 ... tp | ..., in module M:
+;;;   lift x = case x of
+;;;              C x1 ... xp -> lift x1 >>= \e1 -> ... lift xp >>= \ep ->
+;;;                             return (AppE (... (AppE (ConE c) e1) ...) ep)
+;;;   liftTyped x = unsafeCodeCoerce (lift x)
+;;; where c is the constructor's global name, NameG DataName "main" "M"
+;;; "C" (Language.Haskell.TH.Syntax's mkNameG_d), so the code refers to
+;;; M's C wherever it is spliced.  The functions and constructors are
+;;; Language.Haskell.TH.Syntax's.  A field type needs a Lift instance, as
+;;; for Eq; the parameters get Lift in the context.
+
+(define (lift-class? class)
+  (and (eq? (def-name class) '|Lift|)
+       (eq? (def-module class) '|Language.Haskell.TH.Syntax|)))
+
+(define (th-def name)
+  (or (data-module-def '|Language.Haskell.TH.Syntax| name)
+      (error "Language.Haskell.TH.Syntax's ~A is not loaded." name)))
+
+(define (lift-fns alg)
+  (list
+   (**define '|lift| '(|x%|)
+     (**case/con alg (**var '|x%|)
+       (lambda (con vars)
+	 (let* ((evars (map (lambda (v) (declare (ignore v)) (functor-temp "e%")) vars))
+		(exp   (**app (**con/def (th-def '|ConE|))
+			      (mlet (((modu occ) (th-global-name con)))
+				(**app (**var/def (th-def '|mkNameG_d|))
+				       (**string "main") (**string modu) (**string occ))))))
+	   (dolist (e evars)
+	     (setf exp (**app (**con/def (th-def '|AppE|)) exp (**var e))))
+	   (setf exp (**app (**var/def (core-symbol "return")) exp))
+	   (dolist2 (v (reverse vars)) (e (reverse evars))
+	     (setf exp (**app (**var/def (core-symbol ">>="))
+			      (**app (**var/def (th-def '|lift|)) (**var v))
+			      (**lambda (list e) exp))))
+	   exp))))
+   (**define '|liftTyped| '(|x%|)
+     (**app (**var/def (th-def '|unsafeCodeCoerce|))
+	    (**app (**var/def (th-def '|lift|)) (**var '|x%|))))))
+
+;;; The module and name of DEF as a Template Haskell global name (NameG):
+;;; its module and name, except for the built-in types and constructors,
+;;; which get GHC's (GHC.Internal.Tuple.(,), GHC.Internal.Types.:,
+;;; GHC.Internal.Types.True, ...); converting a name back
+;;; (src/compiler/th/) maps these to Yale Haskell's.
+
+(define (th-global-name def)
+  (let ((name  (remove-con-prefix (symbol->string (def-name def)))))
+    (cond ((is-tuple-constructor? def)
+	   (values "GHC.Internal.Tuple"
+		   (string-append "(" (make-string (1- (con-arity def)) #\,) ")")))
+	  ((is-tuple-tycon? def)
+	   (values "GHC.Internal.Tuple"
+		   (string-append "Tuple" (number->string (tuple-size def)))))
+	  ((eq? def (core-symbol "UnitConstructor"))
+	   (values "GHC.Internal.Tuple" "()"))
+	  ((eq? def (core-symbol "UnitType"))
+	   (values "GHC.Internal.Tuple" "Unit"))
+	  ((eq? def (core-symbol "Nil"))
+	   (values "GHC.Internal.Types" "[]"))
+	  ((eq? def (core-symbol "List"))
+	   (values "GHC.Internal.Types" "List"))
+	  ((eq? def (core-symbol "Arrow"))
+	   (values "GHC.Internal.Types" "->"))
+	  ((char=? (string-ref (symbol->string (def-module def)) 0) #\*)
+	   (values "GHC.Internal.Types" name))
+	  (else
+	   (values (symbol->string (def-module def)) name)))))

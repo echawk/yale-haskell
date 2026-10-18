@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/GHC/
+:o= all
+:package
+Show.hs
