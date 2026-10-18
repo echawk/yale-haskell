@@ -16,8 +16,8 @@ mapMaybeT f m = MaybeT (f (runMaybeT m))
 hoistMaybe :: Monad m => Maybe a -> MaybeT m a
 hoistMaybe m = MaybeT (return m)
 
-instance Monad m => Functor (MaybeT m) where
-  fmap f m = MaybeT (runMaybeT m >>= \v -> return (fmap f v))
+instance Functor m => Functor (MaybeT m) where
+  fmap f m = MaybeT (fmap (\v -> fmap f v) (runMaybeT m))
 
 instance Monad m => Applicative (MaybeT m) where
   pure a = MaybeT (return (Just a))

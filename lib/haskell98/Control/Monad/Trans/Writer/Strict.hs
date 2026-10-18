@@ -30,8 +30,8 @@ mapWriter f = mapWriterT (Identity . f . runIdentity)
 mapWriterT :: (m (a, w) -> n (b, w')) -> WriterT w m a -> WriterT w' n b
 mapWriterT f m = WriterT (f (runWriterT m))
 
-instance Monad m => Functor (WriterT w m) where
-  fmap f m = WriterT (runWriterT m >>= \(a, w) -> return (f a, w))
+instance Functor m => Functor (WriterT w m) where
+  fmap f m = WriterT (fmap (\(a, w) -> (f a, w)) (runWriterT m))
 
 instance (Monoid w, Monad m) => Applicative (WriterT w m) where
   pure a = WriterT (return (a, mempty))

@@ -23,21 +23,20 @@ mapReaderT f m = ReaderT (\r -> f (runReaderT m r))
 withReaderT :: (r' -> r) -> ReaderT r m a -> ReaderT r' m a
 withReaderT f m = ReaderT (\r -> runReaderT m (f r))
 
-instance Monad m => Functor (ReaderT r m) where
-  fmap f m = ReaderT (\r -> runReaderT m r >>= \a -> return (f a))
+instance Functor m => Functor (ReaderT r m) where
+  fmap f m = ReaderT (\r -> fmap (\a -> f a) (runReaderT m r))
 
-instance Monad m => Applicative (ReaderT r m) where
-  pure a = ReaderT (\_ -> return a)
-  mf <*> mx = ReaderT (\r -> runReaderT mf r >>= \f ->
-                             runReaderT mx r >>= \x -> return (f x))
+instance Applicative m => Applicative (ReaderT r m) where
+  pure a = ReaderT (\_ -> pure a)
+  mf <*> mx = ReaderT (\r -> runReaderT mf r <*> runReaderT mx r)
 
 instance Monad m => Monad (ReaderT r m) where
   return a = ReaderT (\_ -> return a)
   m >>= k = ReaderT (\r -> runReaderT m r >>= \a -> runReaderT (k a) r)
 
-instance MonadPlus m => Alternative (ReaderT r m) where
-  empty = ReaderT (\_ -> mzero)
-  m <|> n = ReaderT (\r -> runReaderT m r `mplus` runReaderT n r)
+instance Alternative m => Alternative (ReaderT r m) where
+  empty = ReaderT (\_ -> empty)
+  m <|> n = ReaderT (\r -> runReaderT m r <|> runReaderT n r)
 
 instance MonadPlus m => MonadPlus (ReaderT r m) where
   mzero = ReaderT (\_ -> mzero)

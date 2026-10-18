@@ -32,6 +32,14 @@ compiled interface, so a new version recompiles cached units.
   Monad, Foldable, Traversable, Semigroup and Monoid; Contravariant for
   Reverse, Compose, Product and Sum.
 
+- An expression annotation with an explicit forall that also mentions a
+  variable scoped from an instance head now scopes its own variables
+  over the expression (distributive's `coerce (fmap :: ...) :: forall
+  a b f. ...`).
+- transformers' instance contexts: Functor for ReaderT, StateT,
+  WriterT, RWST, ExceptT and MaybeT needs only `Functor m`; ReaderT's
+  Applicative and Alternative need `Applicative m` and `Alternative m`.
+
 ## 3.0.15.0 (2026-10-17)
 
 - Read has base's `readPrec` and `readListPrec` methods: an instance

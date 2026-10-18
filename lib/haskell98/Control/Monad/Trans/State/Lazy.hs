@@ -42,8 +42,8 @@ mapStateT f m = StateT (\s -> f (runStateT m s))
 withStateT :: (s -> s) -> StateT s m a -> StateT s m a
 withStateT f m = StateT (\s -> runStateT m (f s))
 
-instance Monad m => Functor (StateT s m) where
-  fmap f m = StateT (\s -> runStateT m s >>= \ ~(a, s') -> return (f a, s'))
+instance Functor m => Functor (StateT s m) where
+  fmap f m = StateT (\s -> fmap (\ ~(a, s') -> (f a, s')) (runStateT m s))
   {-# fmap :: Inline #-}
 
 instance Monad m => Applicative (StateT s m) where

@@ -66,17 +66,26 @@
 ;;; variables are new.
 
 (define (instantiate-gtype/scoped g)
+  (mlet (((type _) (instantiate-gtype/scoped+ g)))
+    type))
+
+;;; Also the bindings of the names the signature's own forall binds (an
+;;; annotation e :: forall a. ... t ..., t scoped already, scopes a over e).
+(define (instantiate-gtype/scoped+ g)
   (if (null? (gtype-tyvar-names g))
-      (instantiate-gtype g)
-      (let ((tyvars (map (lambda (name ctx)
-			   (let ((b (assq name (dynamic *scoped-tyvars*))))
-			     (if b
-				 (tuple-2-2 b)
-				 (let ((v (**ntyvar)))
-				   (setf (ntyvar-context v) ctx)
-				   v))))
-			 (gtype-tyvar-names g) (gtype-context g))))
-	(copy-gtype (gtype-type g) tyvars))))
+      (values (instantiate-gtype g) '())
+      (let* ((own '())
+	     (tyvars (map (lambda (name ctx)
+			    (let ((b (assq name (dynamic *scoped-tyvars*))))
+			      (if (and b (not (memq name (gtype-scoped g))))
+				  (tuple-2-2 b)
+				  (let ((v (**ntyvar)))
+				    (setf (ntyvar-context v) ctx)
+				    (when (memq name (gtype-scoped g))
+				      (push (tuple name v) own))
+				    v))))
+			  (gtype-tyvar-names g) (gtype-context g))))
+	(values (copy-gtype (gtype-type g) tyvars) own))))
 
 ;;; Before a binding group's right-hand sides are typed: each var whose
 ;;; signature mentions a scoped name has its type unified with the
@@ -90,7 +99,9 @@
       (let ((sig (var-signature v)))
 	(when sig
 	  (cond ((scoped-gtype? sig)
-		 (type-unify ty (instantiate-gtype/scoped sig) '#f)
+		 (mlet (((inst own) (instantiate-gtype/scoped+ sig)))
+		   (type-unify ty inst '#f)
+		   (setf added (append own added)))
 		 (setf (var-signature v) '#f))
 		(else
 		 (mlet (((inst alist tyvars) (scoped-signature-instance sig)))

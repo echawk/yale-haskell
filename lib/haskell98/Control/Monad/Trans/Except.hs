@@ -30,8 +30,8 @@ mapExceptT f m = ExceptT (f (runExceptT m))
 withExceptT :: Monad m => (e -> e') -> ExceptT e m a -> ExceptT e' m a
 withExceptT f m = ExceptT (runExceptT m >>= \v -> return (either (Left . f) Right v))
 
-instance Monad m => Functor (ExceptT e m) where
-  fmap f m = ExceptT (runExceptT m >>= \v -> return (fmap f v))
+instance Functor m => Functor (ExceptT e m) where
+  fmap f m = ExceptT (fmap (\v -> fmap f v) (runExceptT m))
 
 instance Monad m => Applicative (ExceptT e m) where
   pure a = ExceptT (return (Right a))
