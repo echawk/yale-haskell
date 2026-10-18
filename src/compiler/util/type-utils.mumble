@@ -307,14 +307,26 @@
        (synonym-family? (ntycon-tycon type))))
 
 ;;; The reduced type, or 'stuck.
+(define (family-arity family)
+  ;; (an associated family's arity is its equations')
+  (let ((eqs (synonym-equations family)))
+    (if (null? eqs)
+	(length (synonym-args family))
+	(length (tuple-2-1 (car eqs))))))
+
+;;; A family application with more arguments than the family has, which
+;;; does not reduce yet: Rep1 g a.  Its extra arguments are an ordinary
+;;; application (type/unify.mumble's unify-app-family).
+(define (over-applied-family-app? type)
+  (and (family-app? type)
+       (> (length (ntycon-args type)) (family-arity (ntycon-tycon type)))
+       (eq? (reduce-family-app type) 'stuck)))
+
 (define (reduce-family-app type)
   (let* ((family (ntycon-tycon type))
 	 (args (ntycon-args type))
-	 ;; (an associated family's arity is its equations')
 	 (eqs (synonym-equations family))
-	 (arity (if (null? eqs)
-		    (length (synonym-args family))
-		    (length (tuple-2-1 (car eqs)))))
+	 (arity (family-arity family))
 	 (res (reduce-family-app-1 eqs args)))
     ;; a family whose result is a type constructor, applied to more
     ;; arguments than it has (Rep1 f a): the result applied to the rest

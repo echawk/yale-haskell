@@ -129,7 +129,9 @@
 		 (null? (cdr (class-tyvars class)))
 		 ;; Monad (m s): kept, a given whose dictionary is a
 		 ;; parameter, as a multi-parameter constraint's is
-		 (not (tyvar-application? (car (mp-context-types c)))))
+		 (not (tyvar-application? (car (mp-context-types c))))
+		 ;; GDefault (Rep a), on a type family application: kept too
+		 (not (family-application-ast? (car (mp-context-types c)))))
 	    (setf added (append (reduce-context-type class (car (mp-context-types c)))
 				added))
 	    (push c keep))))
@@ -160,6 +162,12 @@
 		    (append (signature-context signature)
 			    (list (make context (class (**class/def (tuple-2-1 s)))
 					         (tyvar (tyvar-name ty)))))))))))))
+
+(define (family-application-ast? type)
+  (and (tycon? type)
+       (begin (resolve-type-1 type '() '#t) '#t)
+       (let ((def (tycon-def type)))
+	 (and (synonym? def) (synonym-family? def)))))
 
 (define (reduce-context-type class type)
   (resolve-type type)
@@ -222,7 +230,12 @@
 	 (resolve-tycon type)
 	 (with-slots tycon (name def args) type
 	   (when (not (eq? def *undefined-def*))
-	     (cond ((eqv? (tycon-def-arity def) -1)
+	     (cond ;; a family: its declared parameters, more when its
+		   ;; result is a type constructor (Rep1 g, Rep1 f a;
+		   ;; util/type-utils.mumble's reduce-family-app); the arity a
+		   ;; first use would record does not apply
+		   ((and (synonym? def) (synonym-family? def)))
+		   ((eqv? (tycon-def-arity def) -1)
 		    (setf (tycon-def-arity def) (length args)))
 		   ;; a synonym for a partial application, applied to more:
 		   ;; type State s = StateT s Identity; State s a (GHC)
@@ -231,10 +244,6 @@
 			 (expand-over-applied-synonym type))
 		    (return-from resolve-type-1
 		      (resolve-type-1 type vars partial-ok?)))
-		   ;; a family whose result is a type constructor (Rep1 f a,
-		   ;; util/type-utils.mumble's reduce-family-app)
-		   ((and (> (length args) (tycon-def-arity def))
-			 (synonym? def) (synonym-family? def)))
 		   ((> (length args) (tycon-def-arity def))
 		    (signal-tycon-arity name type))
 		   ((and (< (length args) (tycon-def-arity def))

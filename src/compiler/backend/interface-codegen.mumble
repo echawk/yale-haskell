@@ -386,7 +386,17 @@
   (if (eq? fn '#f) x (funcall fn x)))
 
 (define (ffi-expand ty)
-  (expand-ntype-synonym (prune ty)))
+  (let ((ty (expand-ntype-synonym (prune ty))))
+    ;; a Foreign.C.Types newtype (CInt over Int32) crosses as its field
+    (if (and (ntycon? ty)
+	     (algdata? (ntycon-tycon ty))
+	     (eq? (def-module (ntycon-tycon ty)) '|Foreign.C.Types|)
+	     (algdata-newtype? (ntycon-tycon ty)))
+	(let* ((sig (con-signature (car (algdata-constrs (ntycon-tycon ty)))))
+	       (fn (prune (if (gtype? sig) (gtype-type sig) sig))))
+	  ;; the constructor's type, Int32 -> CInt: its argument
+	  (ffi-expand (car (ntycon-args fn))))
+	ty)))
 
 (define *ffi-export* '#f)	; the foreign-export being generated
 

@@ -69,8 +69,18 @@
   (let* ((tyvar (placeholder-tyvar p))
 	 (type (prune tyvar)))
     (cond ((and (ntycon? type) (family-app? (expand-ntype-synonym type)))
-	   ;; a type family application not decided yet (TypeFamilies)
-	   (cons p deferred))
+	   ;; a type family application not decided yet (TypeFamilies):
+	   ;; given by the enclosing binding's signature (Size (Rep a) =>),
+	   ;; or left for later
+	   (let ((given (given-app-dict-params p type decls)))
+	     (cond ((not (null? given))
+		    (setf (placeholder-exp p)
+			  (if (dict-placeholder? p)
+			      (dict-reference-code (dict-placeholder-class p) given)
+			      (let ((m (method-placeholder-method p)))
+				(method-reference-code m (method-var-class m) given))))
+		    deferred)
+		   (else (cons p deferred)))))
 	  ((ntycon? type)
 	   (process-instantiated-tyvar
 	    (expand-ntype-synonym type) p deferred decls))

@@ -1,6 +1,6 @@
 -- System.Posix.Types (base): the POSIX types, as the type synonyms the
--- Foreign.C.Types types are here (doc/FFI.md), except Fd, a newtype as in
--- base.
+-- Foreign.C.Types types are here (doc/FFI.md), except Fd, a newtype over
+-- CInt as in base.
 module System.Posix.Types (
     Fd(Fd), CMode, CDev, CIno, COff, CPid, CSsize, CUid, CGid, CNlink,
     FileMode, FileOffset, EpochTime, ProcessID, ByteCount, DeviceID,
@@ -9,8 +9,9 @@ module System.Posix.Types (
 
 import Data.Int (Int32, Int64)
 import Data.Word (Word16, Word32, Word64)
+import Foreign.C.Types (CInt)
 
-newtype Fd = Fd Int32 deriving (Eq, Ord)
+newtype Fd = Fd CInt deriving (Eq, Ord)
 
 instance Show Fd where
   showsPrec d (Fd n) = showsPrec d n

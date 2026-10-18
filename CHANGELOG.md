@@ -45,6 +45,17 @@ compiled interface, so a new version recompiles cached units.
   F X = Maybe`); an equation's right-hand side may be a partial
   application.
 
+- Type families: a constraint on a family application in a signature
+  (`Size (Rep a) =>`) is kept and answers uses at that type; `h b` and
+  an over-applied family application that does not reduce (`Rep1 g a`)
+  unify as applications (`h` is `Rep1 g`); a family's arity is its
+  declared one, not that of its first use.
+- Foreign.C.Types' types are newtypes, as in the Report and base (they
+  were synonyms of the Data.Int and Data.Word types), so a program may
+  give instances for CInt and Int32 both; CBool, CUSeconds and
+  CSUSeconds are new.  The FFI passes them as the underlying types.
+  System.Posix.Types' Fd is over CInt.
+
 ## 3.0.15.0 (2026-10-17)
 
 - Read has base's `readPrec` and `readListPrec` methods: an instance

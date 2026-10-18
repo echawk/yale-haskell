@@ -79,7 +79,11 @@
 ;;; application of a type variable.
 
 (define (unify-nonvar type1 type2)
-  (cond ((or (family-app? type1) (family-app? type2))
+  (cond ((and (ntyapp? type1) (over-applied-family-app? type2))
+	 (unify-app-family type1 type2))
+	((and (ntyapp? type2) (over-applied-family-app? type1))
+	 (unify-app-family type2 type1))
+	((or (family-app? type1) (family-app? type2))
 	 (unify-family type1 type2))
 	((and (ntycon? type1) (ntycon? type2))
 	 (if (eq? (ntycon-tycon type1) (ntycon-tycon type2))
@@ -117,6 +121,24 @@
 
 ;;; f a1 .. an  against  T b1 .. bm  with m >= n:  f = T b1 .. b(m-n)
 ;;; and the remaining arguments pair up.
+
+;;; h b with Rep1 g a, the family applied to more than its arity: the
+;;; extra arguments are an application, so h is Rep1 g and b is a.
+(define (unify-app-family app fam)
+  (let* ((args (ntyapp-args app))
+	 (n (length args))
+	 (fargs (ntycon-args fam))
+	 (arity (family-arity (ntycon-tycon fam)))
+	 (extra (- (length fargs) arity)))
+    (if (<= n extra)
+	(begin
+	  (unify-list args (list-tail fargs (- (length fargs) n)))
+	  (unify (ntyapp-fun app)
+		 (**ntycon (ntycon-tycon fam) (list-head fargs (- (length fargs) n)))))
+	(begin
+	  (unify-list (list-tail args (- n extra)) (list-tail fargs arity))
+	  (unify (apply-ntype (ntyapp-fun app) (list-head args (- n extra)))
+		 (**ntycon (ntycon-tycon fam) (list-head fargs arity)))))))
 
 (define (unify-app-con app con)
   (let* ((n (length (ntyapp-args app)))
