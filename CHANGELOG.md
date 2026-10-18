@@ -1,25 +1,25 @@
 # Changelog
 
-Yale Haskell follows [semantic versioning](https://semver.org/):
+Version numbers are MAJOR.MINOR.FEATURE.FIX:
 
-- **major**: a change that breaks programs or interfaces that compiled
-  before (a removed flag, a library or Prelude change that is not
-  compatible, a changed compiled-unit format users rely on);
-- **minor**: a new feature, extension, library, optimization or flag,
-  compatible with what came before;
-- **patch**: a bug fix or conformance fix with no new feature.
+- **major**: 4.0.0 is reserved for the release in which no mumble code is
+  left (doc/plans/MUMBLE-TO-CL.md); until then it stays 3;
+- **minor**: a milestone: a substantial new capability, or a change that
+  breaks programs or interfaces that compiled before (marked
+  **breaking** here);
+- **feature**: a release of accumulated small features, libraries and
+  extensions (one release for a batch of work, not one per change);
+- **fix**: a release of bug and conformance fixes only.
 
-**4.0.0 is reserved** for the release in which no mumble code is left
-(doc/plans/MUMBLE-TO-CL.md).  Until then the major version stays 3: a
-change that would otherwise be major goes out as a minor version, marked
-**breaking** in its entry here.
+3.0.1.0 to 3.0.15.0 were first numbered 3.1.0 to 3.15.0 (and 3.0.1.1 was
+3.1.1); commit messages of that time use the old numbers.
 
 The version is `*haskell-compiler-version*` in
 `src/compiler/top/globals.mumble` and `:version` in `yale-haskell.asd`;
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
-## 3.15.0 (2026-10-17)
+## 3.0.15.0 (2026-10-17)
 
 - Read has base's `readPrec` and `readListPrec` methods: an instance
   defines `readsPrec` or `readPrec`.  ReadPrec is a reader given the
@@ -32,19 +32,19 @@ compiled interface, so a new version recompiles cached units.
 - `Q.T(..)` in an export list (T imported qualified as Q) exports the
   constructors in scope as Q.C; it was reported as not exported.
 
-## 3.14.0 (2026-10-17)
+## 3.0.14.0 (2026-10-17)
 
 - base's Functor, Applicative, Monad, Foldable and Traversable
   instances for Complex (with `--modern-prelude`), and Contravariant
   Proxy.
 
-## 3.13.0 (2026-10-17)
+## 3.0.13.0 (2026-10-17)
 
 - `deriving Generic1` makes the instance for the type constructor
   (`Generic1 (T a)` for `T a b`), as GHC; it was for the whole type.
 - Data.Monoid's Alt and Ap; Control.Monad.Zip.
 
-## 3.12.0 (2026-10-17)
+## 3.0.12.0 (2026-10-17)
 
 - `yale-haskell build` failed about one time in five with a memory
   fault while saving (SBCL on macOS, after a thread with a large stack).
@@ -64,7 +64,7 @@ compiled interface, so a new version recompiles cached units.
   was measured and builds fewer packages (11 against 13 of 43), so it
   stays off.
 
-## 3.11.0 (2026-10-17)
+## 3.0.11.0 (2026-10-17)
 
 - Complex as in base: no datatype context, and `mkPolar` and `cis` need
   only Floating, `conjugate` Num, `realPart` and `imagPart` nothing
@@ -73,7 +73,7 @@ compiled interface, so a new version recompiles cached units.
   b`) crashed the compiler; it is accepted and dropped (multi-parameter
   classes have no superclasses here).
 
-## 3.10.0 (2026-10-17)
+## 3.0.10.0 (2026-10-17)
 
 - Foldable has base's `fold` and `foldMap'` methods (Data.Foldable
   exports them; the Prelude does not, as base's does not).  An instance
@@ -81,13 +81,13 @@ compiled interface, so a new version recompiles cached units.
 - New modules: Data.Functor.Compose, Data.Functor.Product,
   Data.Functor.Sum, Control.Monad.ST.Lazy.Unsafe.
 
-## 3.9.0 (2026-10-17)
+## 3.0.9.0 (2026-10-17)
 
 - New modules: Data.Bifoldable1, Data.Functor.Contravariant,
   Control.Monad.Trans.Select; Control.Concurrent's forkOSWithUnmask and
   forkOnWithUnmask, and rank-2 forkIOWithUnmask.
 
-## 3.8.0 (2026-10-17)
+## 3.0.8.0 (2026-10-17)
 
 - Layout (Haskell 98 report 10.3): a declaration block (`where`, `let`,
   a class or instance body) whose first token is not indented past the
@@ -108,7 +108,7 @@ compiled interface, so a new version recompiles cached units.
 - New modules: Data.Foldable1, Control.Monad.Trans.Identity,
   Control.Monad.Trans.Accum.
 
-## 3.7.0 (2026-10-17)
+## 3.0.7.0 (2026-10-17)
 
 - An export list may name an entity by a qualified name (`module M
   (C.choice) where import qualified A as C`); it is exported under its
@@ -120,7 +120,7 @@ compiled interface, so a new version recompiles cached units.
   and Control.Applicative.Lift (transformers), Foreign.C.ConstPtr,
   GHC.List, GHC.Arr, Control.Monad.ST.Unsafe, Data.ByteString.Short.
 
-## 3.6.0 (2026-10-17)
+## 3.0.6.0 (2026-10-17)
 
 From the Hackage survey (doc/plans/MICROCABAL.md):
 
@@ -141,7 +141,7 @@ From the Hackage survey (doc/plans/MICROCABAL.md):
   it instead of `<*>`); Bifunctor instances for Const and 3- and 4-tuples;
   Text.Read exports Read; Data.Coerce exports Coercible.
 
-## 3.5.0 (2026-10-17)
+## 3.0.5.0 (2026-10-17)
 
 - `yale-haskell build FILE [-o EXE]`: a standalone executable (the image
   with the program loaded, saved by SBCL) that runs Main.main with all
@@ -167,7 +167,7 @@ From the Hackage survey (doc/plans/MICROCABAL.md):
 - MicroCabal backend: `$YALE_CPP_OPTIONS` adds CPP options to every
   package (`-D__GLASGOW_HASKELL__=906` for code that insists on GHC).
 
-## 3.4.0 (2026-10-17)
+## 3.0.4.0 (2026-10-17)
 
 - `--ghc2021` and `--ghc2024`: GHC's language standards, their
   extensions on in every module, with `--modern-prelude`.  `-X NAME`
@@ -176,7 +176,7 @@ From the Hackage survey (doc/plans/MICROCABAL.md):
   (GHC2021, GHC2024, Haskell2010, Haskell98) stands for its extensions,
   and `NoNAME` turns an extension off.
 
-## 3.3.0 (2026-10-17)
+## 3.0.3.0 (2026-10-17)
 
 - DataKinds type-level lists: `'[]`, `'[a]`, `[a, b]`, `t ': ts` (and
   `t : ts`), as the empty types PromotedNil and PromotedCons
@@ -195,7 +195,7 @@ From the Hackage survey (doc/plans/MICROCABAL.md):
   family, fundeps and type applications) runs: tests/haskell98/language/
   hlist.hs.
 
-## 3.2.0 (2026-10-17)
+## 3.0.2.0 (2026-10-17)
 
 - MicroCabal backend (tools/microcabal/): `tools/microcabal/mcabal
   install PKG` fetches a Hackage package (Stackage's versions) and
@@ -205,7 +205,7 @@ From the Hackage survey (doc/plans/MICROCABAL.md):
   `tools/microcabal/hackage-survey.sh` tries 43 popular libraries: 2
   build so far, and doc/plans/MICROCABAL.md lists what stops the rest.
 
-## 3.1.1 (2026-10-17)
+## 3.0.1.1 (2026-10-17)
 
 - `--help`, `--version` and `--numeric-version` crashed after printing
   (a memory fault, status 1) with a program stack of 64 MB or more, the
@@ -213,7 +213,7 @@ From the Hackage survey (doc/plans/MICROCABAL.md):
   output and exits at once (src/cli/cli.lisp).  `make test` checks the
   three options' exit status.
 
-## 3.1.0 (2026-10-17)
+## 3.0.1.0 (2026-10-17)
 
 - Module search path: `-i DIR` (repeatable) and `$YALE_HASKELL_PATH`.
 - Installed packages: `--package-db DIR` (and `$YALE_HASKELL_PACKAGE_DB`)

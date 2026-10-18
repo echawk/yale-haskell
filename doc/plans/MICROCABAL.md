@@ -177,7 +177,7 @@ base.cabal, Hugs's Cabal.cabal and nhc98's 15 library packages.
    of the startup time.
 3. Step 5.
 
-## Step 5 — the Yale backend (2026-10-17, 3.2.0)
+## Step 5 — the Yale backend (2026-10-17, 3.0.2.0)
 
 `tools/microcabal/` holds the backend and how it is put into MicroCabal
 without editing the clone:
@@ -232,7 +232,7 @@ fixing one usually moves several packages to their next error:
 | a GHC boot package not on Stackage's list (integer-gmp); C headers (MachDeps.h) | integer-logarithms, primitive (vector) |
 | others: a GADT-style record parse (prettyprinter, optparse-applicative), an existential with `deriving` after `#if` (async), a too-general signature (colour), base-compat's forkOSWithUnmask, ansi-wl-pprint | one each |
 
-### Executables (2026-10-17, 3.5.0)
+### Executables (2026-10-17, 3.0.5.0)
 
 The backend builds an executable with `yale-haskell build`, a
 standalone executable, and installs it in `$CABALDIR/bin`.  alex
@@ -248,12 +248,12 @@ examples/ (44 identical outputs, the same 2 errors).  It needed:
 - `import Data.List.NonEmpty (pattern (:|))`, `import GHC.Exts
   (Int(I#), ...)`, `#include "ghcconfig.h"`, DatatypeContexts with
   `default-language: Haskell2010`, and OverloadedLists in a local
-  binding (all fixed in 3.5.0).
+  binding (all fixed in 3.0.5.0).
 
 hscolour does not get that far: MicroCabal itself (built by GHC as well)
 rejects its cabal file's empty `Default-Extensions:` field.
 
-### Second survey (2026-10-17, 3.6.0): 6 of 43 build
+### Second survey (2026-10-17, 3.0.6.0): 6 of 43 build
 
 split, safe, base-orphans, splitmix, assoc and call-stack build.  Each
 of the others stops later than before; most now at a missing module:
@@ -271,13 +271,13 @@ of the others stops later than before; most now at a missing module:
 | the kind `TYPE` | primitive, vector |
 | `E.Handler` from a qualified import; `forkOSWithUnmask`; integer-gmp; a signature too general (colour; prettyprinter's `Doc ann` with Void) | HUnit, base-compat, integer-logarithms, colour, prettyprinter, optparse-applicative |
 
-### Third and fourth surveys (2026-10-17, 3.7.0 and 3.8.0): 9, then 11 of 43
+### Third and fourth surveys (2026-10-17, 3.0.7.0 and 3.0.8.0): 9, then 11 of 43
 
 Built: split, safe, base-orphans, splitmix, assoc, parser-combinators,
 utility-ht, call-stack, HUnit, prettyprinter, optparse-applicative.
-3.7.0 and 3.8.0 fixed what the second survey found (qualified names in
+3.0.7.0 and 3.0.8.0 fixed what the second survey found (qualified names in
 export lists, polytype synonyms, the empty layout block, extensible
-exceptions, explicit Prelude import lists, eight modules); 3.9.0 adds
+exceptions, explicit Prelude import lists, eight modules); 3.0.9.0 adds
 the small modules the fourth found (Data.Bifoldable1 for tagged and the
 eight packages above it, Data.Functor.Contravariant, Control.Monad.Trans
 .Select).  What is left is larger:
