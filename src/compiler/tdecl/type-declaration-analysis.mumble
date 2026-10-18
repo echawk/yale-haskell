@@ -13,10 +13,12 @@
   (setf *synonym-refs* '())
   (walk-modules modules
    (lambda ()
-     (setf (module-alg-defs *module*)
-	   (map (function algdata->def) (module-algdatas *module*)))
+     ;; synonyms first: a constructor field may be a polytype synonym
+     ;; of the same module, expanded by algdata->def
      (setf (module-synonym-defs *module*)
 	   (map (function synonym->def) (module-synonyms *module*)))
+     (setf (module-alg-defs *module*)
+	   (map (function algdata->def) (module-algdatas *module*)))
      (when (not interface?)
 	(dolist (ty (default-decl-types (module-default *module*)))
 		(resolve-type ty))))

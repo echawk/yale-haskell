@@ -31,6 +31,10 @@
 			 (when (not (eqv? c-arity 0))
 			   (setf enum? '#f))
 			 (dolist (type types)
+			   ;; a field whose type is a polytype synonym's
+			   ;; (Cotambara :: (r :-> q) -> ...): the polytype
+			   (setf (car type)  ; tuple-2-1
+				 (expand-nested-polytype-synonyms (tuple-2-1 type) 8))
 			   (let* ((ty (tuple-2-1 type))
 				  (anns (tuple-2-2 type))
 				  (tyvars1 (resolve-type ty)))
