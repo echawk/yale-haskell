@@ -1,0 +1,27 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/golden/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/golden/json_output.hs:3:1
+{-@ type Even = {v:Int | v mod 2 = 0} @-}
+
+-- FILE tests/golden/json_output.hs:5:1
+{-@ weAreEven :: [Even] @-}
+
+-- FILE tests/golden/json_output.hs:8:1
+{-@ notEven :: Even @-}
+
+-- FILE tests/golden/json_output.hs:11:1
+{-@ isEven :: n:Nat -> {v:Bool | (v <=> (n mod 2 == 0))} @-}
+
+-- FILE tests/golden/json_output.hs:17:1
+{-@ evens :: n:Nat -> [Even] @-}
+
+-- FILE tests/golden/json_output.hs:20:1
+{-@ range :: lo:Int -> hi:Int -> [{v:Int | (lo <= v && v < hi)}] / [hi -lo] @-}
+
+-- FILE tests/golden/json_output.hs:25:1
+{-@ shift :: [Even] -> Even -> [Even] @-}
+
+-- FILE tests/golden/json_output.hs:28:1
+{-@ double :: [Nat] -> [Even] @-}
+

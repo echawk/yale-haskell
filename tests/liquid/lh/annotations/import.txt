@@ -1,0 +1,752 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/import/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/import/client/C.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/C.hs:7:1
+{-@ getVal :: {e:Expr l st r | isEFalse e } -> {v:Int | false} @-}
+
+-- FILE tests/import/client/CliRedBlue.hs:6:1
+{-@ yumyum :: _ -> Nat @-}
+
+-- FILE tests/import/client/Client1Lib.hs:6:5
+    {-@ data B a = B {b1 :: a, b2 :: {v:a | cProp b1 v } } @-}
+
+-- FILE tests/import/client/Client2Lib.hs:3:5
+    {-@ reflect cProp @-}
+
+-- FILE tests/import/client/ExactGADT9.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/ExactGADT9.hs:9:1
+{-@ reflect bar @-}
+
+-- FILE tests/import/client/LibRedBlue.hs:6:1
+{-@ foo :: Thing -> Nat @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:1:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:8:1
+{-@ zero ::
+      i: {v: Int | v >= 0} ->
+      n: Int ->
+      a: (j: {v: Int | (0 <= v && v < i)} -> {v: Int | v = 0}) ->
+      (k: {v: Int | (0 <= v && v < n)} -> {v: Int | v = 0}) @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:17:1
+{-@ tenZeroes :: i: {v: Int | (0 <= v && v < 10)} -> {v: Int | v = 0} @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:20:1
+{-@ zeroBackwards ::
+      i: Int ->
+      n: {v: Int | v > i} ->
+      a: (j: {v: Int | (i < v && v < n)} -> {v: Int | v = 0}) ->
+      (k: {v: Int | (0 <= v && v < n)} -> {v: Int | v = 0}) @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:29:1
+{-@ tenZeroes' :: i: {v: Int | (0 <= v && v < 10)} -> {v: Int | v = 0} @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:32:1
+{-@ zeroEveryOther ::
+      i: {v: Int | (v >= 0 && v mod 2 = 0)} ->
+      n: Int ->
+      a: (j: {v: Int | (0 <= v && v < i && v mod 2 = 0)} -> {v: Int | v = 0}) ->
+      (k: {v: Int | (0 <= v && v < n && v mod 2 = 0)} -> {v: Int | v = 0}) @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:41:1
+{-@ stridedZeroes ::
+      j: {v: Int | (v mod 2 = 0 && 0 <= v && v < 10)} -> {v: Int | v = 0} @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:45:1
+{-@ initArray :: forall a <p :: x0: Int -> x1: a -> Bool>.
+      f: (z: Int -> a<p z>) ->
+      i: {v: Int | v >= 0} ->
+      n: Int ->
+      a: (j: {v: Int | (0 <= v && v < i)} -> a<p j>) ->
+      (k: {v: Int | (0 <= v && v < n)} -> a<p k>) @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:54:1
+{-@ zeroInitArray ::
+      i: {v: Int | v >= 0} ->
+      n: Int ->
+      a: (j: {v: Int | (0 <= v && v < i)} -> {v: Int | v = 0}) ->
+      (k: {v: Int | (0 <= v && v < n)} -> {v: Int | v = 0}) @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:62:1
+{-@ tenZeroes'' :: i: {v: Int | (0 <= v && v < 10)} -> {v: Int | v = 0} @-}
+
+-- FILE tests/import/client/LiquidArrayInit.hs:65:1
+{-@ initid ::
+      i: {v: Int | v >= 0} ->
+      n: Int ->
+      a: (j: {v: Int | (0 <= v && v < i)} -> {v: Int | v = j}) ->
+      (k: {v: Int | (0 <= v && v < n)} -> {v: Int | v = k}) @-}
+
+-- FILE tests/import/client/LiquidArrayNullTerm.hs:1:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/import/client/LiquidArrayNullTerm.hs:15:1
+{-@ upperCaseString ::
+      n: {v: Int | v > 0} ->
+      s: (j: {v : Int | (0 <= v && v < n)} ->
+          {v: Int | (j = n - 1 => v = 0)}) ->
+      (j: {v : Int | (0 <= v && v < n)} ->
+       {v: Int | (j = n - 1 => v = 0)})
+@-}
+
+-- FILE tests/import/client/ListClient.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/ListClient.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/client/ListClient.hs:11:1
+{-@ reflect incr @-}
+
+-- FILE tests/import/client/ListClient.hs:15:1
+{-@ reflect isPos @-}
+
+-- FILE tests/import/client/ListClient.hs:19:1
+{-@ reflect ints0 @-}
+
+-- FILE tests/import/client/ListClient.hs:23:1
+{-@ reflect ints1 @-}
+
+-- FILE tests/import/client/ListClient.hs:27:1
+{-@ reflect ints2 @-}
+
+-- FILE tests/import/client/ListClient.hs:31:1
+{-@ mapProp :: () -> { map incr ints0 == ints1 } @-}
+
+-- FILE tests/import/client/ListClient.hs:34:1
+{-@ filterProp :: () -> { filter isPos ints0 == ints2 } @-}
+
+-- FILE tests/import/client/NameClashClient.hs:7:1
+{-@ bar :: Lib.FooAlias -> Nat @-}
+
+-- FILE tests/import/client/RC1015.hs:1:1
+{-@ LIQUID "--higherorder" @-}
+
+-- FILE tests/import/client/RC1015.hs:7:1
+{-@ car :: f:Foo -> { v: a | fooFirst f 0 == 10 } -> Int @-}
+
+-- FILE tests/import/client/ReExportClient.hs:5:1
+{-@ bar :: Foo -> {v:Int | 0 < v} @-}
+
+-- FILE tests/import/client/ReExportClient.hs:10:1
+{-@ booz :: Foo -> {v:Int | 0 < v} @-}
+
+-- FILE tests/import/client/ReflectClient0.hs:9:1
+{-@ incr :: x:Nat -> {v:Nat | gtThan v x} @-}
+
+-- FILE tests/import/client/ReflectClient0.hs:13:1
+{-@ testOpaquelyReflectedInScope :: { opaquelyReflected 5 == opaquelyReflected 5 } @-}
+
+-- FILE tests/import/client/ReflectClient1.hs:5:1
+{-@ myHead :: {v:[a] | not (isNull v) } -> a @-}
+
+-- FILE tests/import/client/ReflectClient2.hs:1:1
+{-@ LIQUID "--higherorder" @-}
+
+-- FILE tests/import/client/ReflectClient2.hs:7:1
+{-@ proof :: a -> { v: Int | incr 5 == 6 } @-}
+
+-- FILE tests/import/client/ReflectClient3.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/ReflectClient3.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/client/ReflectClient3.hs:16:1
+{-@ test2 :: { next Mon == Tue } @-}
+
+-- FILE tests/import/client/ReflectClient3.hs:22:1
+{-@ test4 :: { lDay Nil == Mon } @-}
+
+-- FILE tests/import/client/ReflectClient4.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/ReflectClient4.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/client/ReflectClient4.hs:14:1
+{-@ test1 :: {v:List a | v = Nil} @-}
+
+-- FILE tests/import/client/ReflectClient4.hs:19:1
+{-@ test2 :: {v:Proof | llen (Cons 1 Nil) = 1} @-}
+
+-- FILE tests/import/client/ReflectClient4.hs:26:1
+{-@ test3 :: {v:Proof | llen (Cons 1 (Cons 2 Nil)) = 2} @-}
+
+-- FILE tests/import/client/ReflectClient4.hs:33:1
+{-@ zen :: xs:List a -> {v:Nat | v = llen xs} @-}
+
+-- FILE tests/import/client/ReflectClient4.hs:38:1
+{-@ test5 :: { app (Cons 1 Nil) (Cons 2 (Cons 3 Nil)) = Cons 1 (Cons 2 (Cons 3 Nil)) } @-}
+
+-- FILE tests/import/client/ReflectClient4.hs:44:1
+{-@ thmAppLen :: xs:List a -> ys:List a -> { llen (app xs ys) == llen xs + llen ys} @-}
+
+-- FILE tests/import/client/ReflectClient4a.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/ReflectClient4a.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/client/ReflectClient4a.hs:10:1
+{-@ test1 :: { llen Nil == 0 } @-}
+
+-- FILE tests/import/client/ReflectClient4a.hs:13:1
+{-@ test2 :: { llen (Cons 2 Nil) == 1 } @-}
+
+-- FILE tests/import/client/ReflectClient4a.hs:16:1
+{-@ test3 :: { llen (Cons 1 (Cons 2 Nil)) == 2 } @-}
+
+-- FILE tests/import/client/ReflectClient4a.hs:19:1
+{-@ test4 :: { app Nil Nil == Nil } @-}
+
+-- FILE tests/import/client/ReflectClient4a.hs:22:1
+{-@ test5 :: { gapp Nil = Nil } @-}
+
+-- FILE tests/import/client/ReflectClient5.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/ReflectClient5.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/client/ReflectClient5.hs:10:1
+{-@ test5 :: { gapp Nil = Nil } @-}
+
+-- FILE tests/import/client/ReflectClient6.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/ReflectClient6.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/client/ReflectClient6.hs:10:1
+{-@ testOK :: { next Mon == Tue } @-}
+
+-- FILE tests/import/client/ReflectClient6.hs:13:1
+{-@ testFAIL :: { next Tue == Mon } @-}
+
+-- FILE tests/import/client/ReflectClient7.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/ReflectClient7.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/client/ReflectClient7.hs:12:1
+{-@ axiomatize fmapU1 @-}
+
+-- FILE tests/import/client/ReflectClient7.hs:16:1
+{-@ fmapU1Compose :: f:(q -> r)
+                  -> g:(p -> q)
+                  -> x:U1 p
+                  -> { fmapU1 (compose f g) x == compose (fmapU1 f) (fmapU1 g) x }
+@-}
+
+-- FILE tests/import/client/ReflectClient8.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/ReflectClient8.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/client/ReflectClient8.hs:5:1
+{-@ LIQUID "--extensionality" @-}
+
+-- FILE tests/import/client/ReflectClient8.hs:11:1
+{-@ assume extensionality :: f:(a -> b) -> g:(a -> b) -> (x:a -> {f x == g x}) ->  {f == g}  @-}
+
+-- FILE tests/import/client/ReflectClient8.hs:15:1
+{-@ refineExt' ::
+        f  : (a -> Int)
+     -> g  : (a -> Int)
+     -> (x : a -> { v : () | Refines (f x) (g x)})
+     -> x  : a
+     -> {v : () | chooseF f g x = g x}
+@-}
+
+-- FILE tests/import/client/ReflectClient8.hs:25:1
+{-@ refineExt ::
+        f  : (a -> Int)
+     -> g  : (a -> Int)
+     -> (x : a -> { v : () | Refines (f x) (g x)})
+     -> {v : () | RefinesF f g}
+@-}
+
+-- FILE tests/import/client/ReflectClient8.hs:35:1
+{-@ predicate Refines  M1 M2 = choose   M1 M2 = M2 @-}
+
+-- FILE tests/import/client/ReflectClient8.hs:36:1
+{-@ predicate RefinesF F1 F2 = chooseF F1 F2 = F2 @-}
+
+-- FILE tests/import/client/ReproUse.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/ReproUse.hs:12:1
+{-@ contradictionThere :: Evidence -> {v:() | 0 /= 0} @-}
+
+-- FILE tests/import/client/RewriteClient.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/RewriteClient.hs:4:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/import/client/RewriteClient.hs:5:1
+{-@ LIQUID "--rw-termination-check" @-}
+
+-- FILE tests/import/client/RewriteClient.hs:9:1
+{-@ infix ++ @-}
+
+-- FILE tests/import/client/RewriteClient.hs:13:1
+{-@ rewriteWith assoc2 [assoc] @-}
+
+-- FILE tests/import/client/RewriteClient.hs:14:1
+{-@ assoc2 :: xs:[a] -> ys:[a] -> zs:[a] -> ws:[a]
+          -> { xs ++ (ys ++ (zs ++ ws)) == ((xs ++ ys) ++ zs) ++ ws } @-}
+
+-- FILE tests/import/client/STClient.hs:4:1
+{-@ LIQUID "--no-pattern-inline" @-}
+
+-- FILE tests/import/client/STClient.hs:5:1
+{-@ LIQUID "--higherorder"       @-}
+
+-- FILE tests/import/client/STClient.hs:13:1
+{-@ fresh :: forall <pre :: Int -> Bool>.
+                    { zoo::Int |- Int<pre> <: {v:Int | 0 <= v} }
+                    ST <pre, {\rv v -> ( 0 <= rv && rv + 1 = v )}> Int (Int<pre>)
+  @-}
+
+-- FILE tests/import/client/STClient.hs:24:1
+{-@ incr0 :: ST <{\v -> (0 <= v)}, {\rv v -> (0 <= rv && 1 <= v)}> Int Int @-}
+
+-- FILE tests/import/client/STClient.hs:30:1
+{-@ incr1 :: ST <{\v -> (0 <= v)}, {\rv v -> (0 <= rv && 1 <= v)}> Int Int @-}
+
+-- FILE tests/import/client/STClient.hs:34:1
+{-@ incr2 :: ST <{\v -> (0 == v)}, {\rv v -> (4 == v)}> Int Int @-}
+
+-- FILE tests/import/client/STClient.hs:43:1
+{-@ checkEq :: x:Int -> y:{Int | y = x} -> {v:Int | v = y} @-}
+
+-- FILE tests/import/client/T1096_Foo.hs:5:1
+{-@ foo  :: f:Foo -> Foo / [size f] @-}
+
+-- FILE tests/import/client/T1104Client.hs:12:1
+{-@ burp :: (Foo a b) -> Nat @-}
+
+-- FILE tests/import/client/T1104Client.hs:16:1
+{-@ twerp :: x:(Foo a b) -> {v:Bool | v = isFoo x} @-}
+
+-- FILE tests/import/client/T1117.hs:1:1
+{-@ LIQUID "--reflection"        @-}
+
+-- FILE tests/import/client/T1117.hs:9:1
+{-@ axiomatize leqU1 @-}
+
+-- FILE tests/import/client/T1117.hs:13:1
+{-@ leqU1Refl :: x:U1 p -> { leqU1 x x } @-}
+
+-- FILE tests/import/client/T1117.hs:17:1
+{-@ axiomatize leqProd @-}
+
+-- FILE tests/import/client/T1118.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/T1118.hs:10:1
+{-@ reflect leqU1 @-}
+
+-- FILE tests/import/client/T1118.hs:14:1
+{-@ leqU1Refl :: x:U1 p -> { leqU1 x x } @-}
+
+-- FILE tests/import/client/T1118.hs:18:1
+{-@ reflect leqProd @-}
+
+-- FILE tests/import/client/T1688.hs:3:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/import/client/T1688.hs:12:1
+{-@ ftypSize :: HasFType -> { n:Int | n >= 0 } @-}
+
+-- FILE tests/import/client/T1738.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/client/T1738.hs:7:1
+{-@ reflect bar @-}
+
+-- FILE tests/import/client/WrapClient.hs:6:1
+{-@ bar :: {v:Int | v = 2 } @-}
+
+-- FILE tests/import/deps/ALib.hs:3:1
+{-@ plus :: x:Int -> y:Int -> {v:Int | v = x + y} @-}
+
+-- FILE tests/import/deps/BLib.hs:3:1
+{-@ minus :: x:Int -> y:Int -> {v:Int | v = x - y} @-}
+
+-- FILE tests/import/deps/CLib.hs:6:1
+{-@ quux :: x:Int -> y:Int -> z:Int -> {v:Int | v = x + y - z} @-}
+
+-- FILE tests/import/deps/D.hs:5:1
+{-@ gloob :: x:Nat -> Nat @-}
+
+-- FILE tests/import/lib/B.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/lib/B.hs:5:1
+{-@ reflect subst @-}
+
+-- FILE tests/import/lib/ExactGADT8Lib.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/lib/ExactGADT8Lib.hs:11:1
+{-@ data Blob  = Bingo { xVal :: Int, yVal :: Int } @-}
+
+-- FILE tests/import/lib/ExactGADT8Lib.hs:28:1
+{-@ reflect foo @-}
+
+-- FILE tests/import/lib/FunClashLib.hs:5:1
+{-@ blob :: Nat -> Nat @-}
+
+-- FILE tests/import/lib/FunClashLibLib.hs:4:1
+{-@ incr :: Nat -> Nat @-}
+
+-- FILE tests/import/lib/Language.hs:4:1
+{-@ data Expr l st r = EUnit | EFalse { elb1 :: {xxx:Int | false}}  @-}
+
+-- FILE tests/import/lib/Language.hs:7:1
+{-@ measure isEFalse @-}
+
+-- FILE tests/import/lib/LibAliasGen00.hs:5:1
+{-@ type Floo a N = {v:[a] | len v = N} @-}
+
+-- FILE tests/import/lib/LibAliasGen00.hs:7:1
+{-@ assume foo :: n:Nat -> Floo Int n @-}
+
+-- FILE tests/import/lib/LibBlue.hs:5:1
+{-@ foo :: Int -> Thing @-}
+
+-- FILE tests/import/lib/LibRed.hs:5:1
+{-@ foo :: Int -> Thing @-}
+
+-- FILE tests/import/lib/LiquidArrayLib.hs:3:1
+{-@ set :: forall a <p :: x0: Int -> x1: a -> Bool, r :: x0: Int -> Bool>.
+      i: Int<r> ->
+      x: a<p i> ->
+      a: (j: {v: Int<r> | v != i} -> a<p j>) ->
+      (k: Int<r> -> a<p k>) @-}
+
+-- FILE tests/import/lib/LiquidArrayLib.hs:11:1
+{-@ get :: forall a <p :: x0: Int -> x1: a -> Bool, r :: x0: Int -> Bool>.
+             i: Int<r> ->
+             a: (j: Int<r> -> a<p j>) ->
+             a<p i> @-}
+
+-- FILE tests/import/lib/LiquidArrayLib.hs:18:1
+{-@ empty :: i: {v: Int | 0 = 1} -> a @-}
+
+-- FILE tests/import/lib/ListLib.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/lib/ListLib.hs:8:1
+{-@ reflect map @-}
+
+-- FILE tests/import/lib/ListLib.hs:13:1
+{-@ reflect filter @-}
+
+-- FILE tests/import/lib/ListLib.hs:18:1
+{-@ reflect append @-}
+
+-- FILE tests/import/lib/ListLib.hs:23:1
+{-@ reflect concat @-}
+
+-- FILE tests/import/lib/ListLib.hs:28:1
+{-@ reflect foldr @-}
+
+-- FILE tests/import/lib/NameClashLib.hs:5:1
+{-@ type FooAlias = {v : Foo | False} @-}
+
+-- FILE tests/import/lib/PeanoLib.hs:3:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/import/lib/PeanoLib.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/import/lib/PeanoLib.hs:13:1
+{-@ data Peano [toNat] @-}
+
+-- FILE tests/import/lib/PeanoLib.hs:18:1
+{-@ measure toNat @-}
+
+-- FILE tests/import/lib/PeanoLib.hs:19:1
+{-@ toNat :: Peano -> Nat @-}
+
+-- FILE tests/import/lib/PeanoLib.hs:24:1
+{-@ reflect plus @-}
+
+-- FILE tests/import/lib/PeanoLib.hs:29:1
+{-@ reflect double @-}
+
+-- FILE tests/import/lib/RL1015Lib.hs:1:1
+{-@ LIQUID "--higherorder" @-}
+
+-- FILE tests/import/lib/RL1015Lib.hs:7:1
+{-@ data Foo = Foo { fooFirst :: Int -> Int , fooSnd :: Nat } @-}
+
+-- FILE tests/import/lib/RL1015Lib.hs:9:1
+{-@ bar :: f:Foo -> { v: a | fooFirst f 0 == 10 } -> Int @-}
+
+-- FILE tests/import/lib/RL1015Lib.hs:13:1
+{-@ reflect bling @-}
+
+-- FILE tests/import/lib/ReflectLib0.hs:3:1
+{-@ inline gtThan @-}
+
+-- FILE tests/import/lib/ReflectLib0.hs:8:1
+{-@ predicate GreaterThanA X Y = X > Y @-}
+
+-- FILE tests/import/lib/ReflectLib0.hs:10:1
+{-@ opaque-reflect opaquelyReflected @-}
+
+-- FILE tests/import/lib/ReflectLib1.hs:3:1
+{-@ measure isNull @-}
+
+-- FILE tests/import/lib/ReflectLib2.hs:1:1
+{-@ LIQUID "--higherorder" @-}
+
+-- FILE tests/import/lib/ReflectLib2.hs:5:1
+{-@ reflect incr @-}
+
+-- FILE tests/import/lib/ReflectLib2.hs:9:1
+{-@ reflect incr2 @-}
+
+-- FILE tests/import/lib/ReflectLib2.hs:13:1
+{-@ reflect plus @-}
+
+-- FILE tests/import/lib/ReflectLib2.hs:17:1
+{-@ reflect apply @-}
+
+-- FILE tests/import/lib/ReflectLib2.hs:21:1
+{-@ reflect toNat @-}
+
+-- FILE tests/import/lib/ReflectLib2.hs:23:1
+{-@ toNat :: Nat -> Nat @-}
+
+-- FILE tests/import/lib/ReflectLib2.hs:27:1
+{-@ myproof :: a -> { v: Int | incr 5 == 6 } @-}
+
+-- FILE tests/import/lib/ReflectLib3.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/lib/ReflectLib3.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/lib/ReflectLib3.hs:10:1
+{-@ data Day = Mon | Tue @-}
+
+-- FILE tests/import/lib/ReflectLib3.hs:13:1
+{-@ reflect next @-}
+
+-- FILE tests/import/lib/ReflectLib3.hs:20:1
+{-@ data List  a = Nil | Cons {lHd :: a} @-}
+
+-- FILE tests/import/lib/ReflectLib3.hs:23:1
+{-@ reflect lDay @-}
+
+-- FILE tests/import/lib/ReflectLib4.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/lib/ReflectLib4.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/lib/ReflectLib4.hs:8:1
+{-@ data List [llen] @-}
+
+-- FILE tests/import/lib/ReflectLib4.hs:11:1
+{-@ measure llen @-}
+
+-- FILE tests/import/lib/ReflectLib4.hs:12:1
+{-@ llen :: List a -> Nat @-}
+
+-- FILE tests/import/lib/ReflectLib4.hs:20:1
+{-@ reflect app @-}
+
+-- FILE tests/import/lib/ReflectLib4.hs:25:1
+{-@ reflect gapp @-}
+
+-- FILE tests/import/lib/ReflectLib4.hs:30:1
+{-@ test4 :: { gapp Nil = Nil } @-}
+
+-- FILE tests/import/lib/ReflectLib5.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/lib/ReflectLib5.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/lib/ReflectLib5.hs:8:1
+{-@ data Day = Mon | Tue @-}
+
+-- FILE tests/import/lib/ReflectLib5.hs:11:1
+{-@ reflect next @-}
+
+-- FILE tests/import/lib/ReflectLib5.hs:16:1
+{-@ reflect lDay @-}
+
+-- FILE tests/import/lib/ReflectLib5.hs:25:1
+{-@ reflect gapp @-}
+
+-- FILE tests/import/lib/ReflectLib5.hs:30:1
+{-@ test4 :: { gapp Nil = Nil } @-}
+
+-- FILE tests/import/lib/ReflectLib6.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/lib/ReflectLib6.hs:2:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/import/lib/ReflectLib6.hs:8:1
+{-@ reflect next @-}
+
+-- FILE tests/import/lib/ReflectLib6.hs:13:1
+{-@ testFAIL :: { next Mon == Tue } @-}
+
+-- FILE tests/import/lib/ReflectLib7.hs:1:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/import/lib/ReflectLib7.hs:5:1
+{-@ reflect compose @-}
+
+-- FILE tests/import/lib/ReflectLib8.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/lib/ReflectLib8.hs:6:1
+{-@ reflect choose @-}
+
+-- FILE tests/import/lib/ReflectLib8.hs:9:1
+{-@ reflect chooseF @-}
+
+-- FILE tests/import/lib/ReproDef.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/lib/ReproDef.hs:8:3
+  {-@ Refuter :: p:Int
+              -> (x:{Int | x == p} -> {v:() | 0 /= 0})
+              -> Evidence @-}
+
+-- FILE tests/import/lib/ReproDef.hs:13:1
+{-@ contradictionHere :: Evidence -> {v:() | 0 /= 0} @-}
+
+-- FILE tests/import/lib/RewriteLib.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/import/lib/RewriteLib.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/import/lib/RewriteLib.hs:4:1
+{-@ infix ++ @-}
+
+-- FILE tests/import/lib/RewriteLib.hs:9:1
+{-@ reflect ++ @-}
+
+-- FILE tests/import/lib/RewriteLib.hs:14:1
+{-@ assoc :: xs:[a] -> ys:[a] -> zs:[a]
+          -> { xs ++ (ys ++ zs) == (xs ++ ys) ++ zs } @-}
+
+-- FILE tests/import/lib/STLib.hs:4:1
+{-@ LIQUID "--no-pattern-inline" @-}
+
+-- FILE tests/import/lib/STLib.hs:10:1
+{-@ data ST s a <pre :: s -> Bool, post :: a -> s -> Bool>
+       = S { runSt :: (x:s<pre> -> ((a, s)<post>)) }
+  @-}
+
+-- FILE tests/import/lib/STLib.hs:14:1
+{-@ apply :: forall <p :: s -> Bool, q :: a -> s -> Bool>.
+               ST <p, q> s a -> s<p> -> (a, s)<q>
+  @-}
+
+-- FILE tests/import/lib/STLib.hs:28:3
+  {-@ instance Monad (ST s) where
+        return :: forall <p :: a -> s -> Bool>. x:a -> ST <{v:s<p x>| true}, p, {v:a | true}> s a ;
+        >>=    :: forall <pbind :: s -> Bool, qbind :: a -> s -> Bool, rbind :: b -> s -> Bool>.
+                                  ST <pbind, qbind> s a
+                              -> (xbind:a -> ST <{v:s<qbind xbind> | true}, rbind> s b)
+                              -> ST <pbind, rbind> s b;
+        >>    :: forall <pbind :: s -> Bool, qbind :: a -> s -> Bool, rbind :: b -> s -> Bool>.
+                                 ST <pbind, qbind> s a
+                              -> (ST <{v:s| true}, rbind> s b)
+                              -> ST <pbind, rbind> s b
+    @-}
+
+-- FILE tests/import/lib/SpecLib.hs:4:1
+{-@ data Foo = FooDC {unfoo :: {v:Int | 0 < v }} @-}
+
+-- FILE tests/import/lib/SpecLib.hs:6:1
+{-@ measure cfun @-}
+
+-- FILE tests/import/lib/SpecLib.hs:7:1
+{-@ cfun :: Foo -> {v:Int | 0 < v} @-}
+
+-- FILE tests/import/lib/T1096_TypesLib.hs:1:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/import/lib/T1096_TypesLib.hs:9:1
+{-@ measure size @-}
+
+-- FILE tests/import/lib/T1096_TypesLib.hs:11:1
+{-@ size :: Foo -> {v:Integer |  0 <= v }  @-}
+
+-- FILE tests/import/lib/T1102_LibX.hs:8:1
+{-@ theorem :: x:Bar -> {bar x = bar x} @-}
+
+-- FILE tests/import/lib/T1102_LibY.hs:8:1
+{-@ reflect bar @-}
+
+-- FILE tests/import/lib/T1102_LibZ.hs:4:1
+{-@ data Foo a b = Foo { fooA :: a, fooB :: b} @-}
+
+-- FILE tests/import/lib/T1104Lib.hs:5:1
+{-@ measure isFoo @-}
+
+-- FILE tests/import/lib/T1104Lib.hs:10:1
+{-@ measure toNat @-}
+
+-- FILE tests/import/lib/T1104Lib.hs:11:1
+{-@ toNat :: Foo a b -> Nat @-}
+
+-- FILE tests/import/lib/T1104Lib.hs:16:1
+{-@ twerp :: x:(Foo a b) -> {v:Bool | v = isFoo x} @-}
+
+-- FILE tests/import/lib/T1112.hs:2:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/import/lib/T1112.hs:10:1
+{-@ axiomatize leqProd @-}
+
+-- FILE tests/import/lib/T1117Lib.hs:1:1
+{-@ LIQUID "--higherorder"        @-}
+
+-- FILE tests/import/lib/T1118Lib1.hs:1:1
+{-@ LIQUID "--higherorder"        @-}
+
+-- FILE tests/import/lib/T1688Lib.hs:3:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/import/lib/T1688Lib.hs:9:1
+{-@ measure propOf :: a -> b @-}
+
+-- FILE tests/import/lib/T1688Lib.hs:10:1
+{-@ type ProofOf E = { proofObj:_ | propOf proofObj = E } @-}
+
+-- FILE tests/import/lib/T1688Lib.hs:26:1
+{-@ data StepProof where
+      EFake :: x:Vname -> e:Expr -> v:_ -> ProofOf( Step (App (Lambda x e) v) e)
+  @-}
+
+-- FILE tests/import/lib/T1738Lib.hs:3:1
+{-@ inline incr @-}
+
+-- FILE tests/import/lib/WrapLib.hs:5:1
+{-@ assume WrapLibCode.foo :: x:Nat -> {v:Nat | v = x + 1}  @-}
+

@@ -1,0 +1,6 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/plugin-package/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/plugin-package/PluginPackageTest.hs:6:1
+{-@ safeHead :: {v:[a] | len v > 0} -> a @-}
+

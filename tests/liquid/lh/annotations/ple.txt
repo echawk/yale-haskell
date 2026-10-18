@@ -1,0 +1,4382 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/ple/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/ple/neg/BinahQuery.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:2:1
+{-@ LIQUID "--higherorder"                         @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:3:1
+{-@ LIQUID "--no-termination"                      @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:4:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:6:1
+{-@ infixr === @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:7:1
+{-@ infixr >== @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:8:1
+{-@ infixr <== @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:21:1
+{-@ data Filter record typ = Filter { filterField :: EntityField record typ, filterValue :: typ, filterFilter :: PersistFilter } @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:29:1
+{-@ reflect === @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:34:1
+{-@ reflect <== @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:44:1
+{-@ reflect >== @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:54:1
+{-@ data Blob  = B { xVal :: Int, yVal :: Int } @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:58:5
+    {-@ data EntityField Blob typ where
+            BlobXVal :: EntityField Blob Int
+            BlobYVal :: EntityField Blob Int
+    @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:66:1
+{-@ filter :: f:(a -> Bool) -> [a] -> [{v:a | f v}] @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:73:1
+{-@ reflect evalQBlobXVal @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:79:1
+{-@ reflect evalQBlobYVal @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:85:1
+{-@ reflect evalQBlob @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:91:1
+{-@ reflect evalQsBlob @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:97:1
+{-@ filterQBlob :: f:(Filter Blob a) -> [Blob] -> [{b:Blob | evalQBlob f b}] @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:101:1
+{-@ filterQsBlob :: f:[(Filter Blob a)] -> [Blob] -> [{b:Blob | evalQsBlob f b}] @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:107:1
+{-@ assume selectBlob :: f:[(Filter Blob a)] -> [{b:Blob | evalQsBlob f b}] @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:111:1
+{-@ getZeros_ :: () -> [{b:Blob | xVal b = 0}] @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:115:1
+{-@ getBiggerThan10 :: () -> [{b:Blob | xVal b >= 10}] @-}
+
+-- FILE tests/ple/neg/BinahQuery.hs:119:1
+{-@ getInRange :: () -> [{b:Blob | xVal b >= 10  && xVal b <= 20 && yVal b >= 0 && yVal b <= 10}] @-}
+
+-- FILE tests/ple/neg/BinahUpdate.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/BinahUpdate.hs:2:1
+{-@ LIQUID "--higherorder"                         @-}
+
+-- FILE tests/ple/neg/BinahUpdate.hs:3:1
+{-@ LIQUID "--no-termination"                      @-}
+
+-- FILE tests/ple/neg/BinahUpdate.hs:4:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/neg/BinahUpdate.hs:14:5
+    {-@ data EntityField Blob typ where
+            BlobXVal :: EntityField Blob {v:Int | v >= 66}
+            BlobYVal :: EntityField Blob Int
+      @-}
+
+-- FILE tests/ple/neg/BinahUpdate.hs:22:1
+{-@ data Blob  = B { xVal :: {v:Int | v >= 0}, yVal :: Int } @-}
+
+-- FILE tests/ple/neg/BinahUpdateClient.hs:1:1
+{-@ LIQUID "--higherorder"                         @-}
+
+-- FILE tests/ple/neg/BinahUpdateClient.hs:2:1
+{-@ LIQUID "--no-termination"                      @-}
+
+-- FILE tests/ple/neg/BinahUpdateClient.hs:3:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib.hs:2:1
+{-@ LIQUID "--higherorder"                         @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib.hs:3:1
+{-@ LIQUID "--no-termination"                      @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib.hs:4:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib.hs:14:5
+    {-@ data EntityField Blob typ where
+            BinahUpdateLib.BlobYVal :: EntityField Blob {v:_ | True}
+            BinahUpdateLib.BlobXVal :: EntityField Blob {v:_ | v >= 10}
+      @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib.hs:22:1
+{-@ data Blob  = B { xVal :: {v:Int | v >= 0}, yVal :: Int } @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib1.hs:2:1
+{-@ LIQUID "--higherorder"                         @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib1.hs:3:1
+{-@ LIQUID "--no-termination"                      @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib1.hs:4:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/neg/BinahUpdateLib1.hs:14:5
+    {-@ data EntityField Blob typ where
+            BinahUpdateLib1.BlobYVal :: EntityField Blob {v:_ | True}
+            BinahUpdateLib1.BlobXVal :: EntityField Blob {v:_ | v >= 10}
+      @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:2:1
+{-@ LIQUID "--higherorder"                         @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:3:1
+{-@ LIQUID "--no-termination"                      @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:4:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:17:1
+{-@ data Filter record typ = Filter { filterField :: EntityField record typ, filterValue :: typ, filterFilter :: PersistFilter } @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:25:1
+{-@ reflect createEqQuery @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:49:1
+{-@ data Blob  = B { xVal :: Int, yVal :: Int } @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:53:3
+  {-@ data EntityField Blob typ where
+          BlobXVal :: EntityField Blob Int
+          BlobYVal :: EntityField Blob Int
+    @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:61:1
+{-@ filter :: f:(a -> Bool) -> [a] -> [{v:a | f v}] @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:68:1
+{-@ reflect evalQBlobXVal @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:74:1
+{-@ reflect evalQBlobYVal @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:80:1
+{-@ reflect evalQBlob @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:86:1
+{-@ filterQBlob :: f:(Filter Blob a) -> [Blob] -> [{b:Blob | evalQBlob f b}] @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:90:1
+{-@ assume select :: f:(Filter Blob a) -> [{b:Blob | evalQBlob f b}] @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:97:1
+{-@ getZeros1 :: [Blob] -> [{b:Blob | xVal b == 10}] @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:101:1
+{-@ getZeros2 :: () -> [{b:Blob | xVal b == 0}] @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:105:1
+{-@ getZeros3 :: [Blob] -> [{b:Blob | xVal b == 0}] @-}
+
+-- FILE tests/ple/neg/ExactGADT5.hs:109:1
+{-@ getZeros4 :: () -> [{b:Blob | xVal b == 0}] @-}
+
+-- FILE tests/ple/neg/Ple0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/Ple0.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/neg/Ple0.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/neg/Ple0.hs:7:1
+{-@ reflect adder @-}
+
+-- FILE tests/ple/neg/Ple0.hs:11:1
+{-@ prop :: { adder 5 6 == 12 } @-}
+
+-- FILE tests/ple/neg/Ple_sum.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/Ple_sum.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/neg/Ple_sum.hs:4:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/neg/Ple_sum.hs:5:1
+{-@ LIQUID "--fuel=4" @-}
+
+-- FILE tests/ple/neg/Ple_sum.hs:9:1
+{-@ reflect sumTo @-}
+
+-- FILE tests/ple/neg/Ple_sum.hs:13:1
+{-@ test :: () -> { sumTo 5 == 15 } @-}
+
+-- FILE tests/ple/neg/PolyKVar2649a.hs:1:1
+{-@ LIQUID "--expect-error-containing=Liquid Type Mismatch" @-}
+
+-- FILE tests/ple/neg/PolyKVar2649a.hs:2:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/neg/PolyKVar2649a.hs:10:1
+{-@ go :: {acc:[a] | _} -> {v:[a] | _ } @-}
+
+-- FILE tests/ple/neg/PolyKVar2649a.hs:14:1
+{-@ uniques :: (Eq a) => xs:[a] -> {v:ListE a xs | noDups v} @-}
+
+-- FILE tests/ple/neg/PolyKVar2649a.hs:18:1
+{-@ reflect noDups @-}
+
+-- FILE tests/ple/neg/PolyKVar2649a.hs:23:1
+{-@ type ListE a X = {v:[a] | S.listElts v = S.listElts X} @-}
+
+-- FILE tests/ple/neg/PolyKVar2649b.hs:1:1
+{-@ LIQUID "--expect-error-containing=Liquid Type Mismatch" @-}
+
+-- FILE tests/ple/neg/PolyKVar2649b.hs:2:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/neg/PolyKVar2649b.hs:10:1
+{-@ uniques :: (Eq a) => xs:_ -> {v:ListE a xs | noDups v} @-}
+
+-- FILE tests/ple/neg/PolyKVar2649b.hs:14:5
+    {-@ go :: (Eq a) => xs:_ -> acc:_ -> {v:ListU a acc xs | _ } @-}
+
+-- FILE tests/ple/neg/PolyKVar2649b.hs:20:1
+{-@ isIn :: (Eq a) => x:a -> ys:[a] -> {v:Bool | v = S.member x (S.listElts ys)} @-}
+
+-- FILE tests/ple/neg/PolyKVar2649b.hs:25:1
+{-@ reflect noDups @-}
+
+-- FILE tests/ple/neg/PolyKVar2649b.hs:30:1
+{-@ type ListE a X   = {v:[a] | S.listElts v = S.listElts X} @-}
+
+-- FILE tests/ple/neg/PolyKVar2649b.hs:31:1
+{-@ type ListU a X Y = {v:[a] | S.listElts v = S.union (S.listElts X) (S.listElts Y)} @-}
+
+-- FILE tests/ple/neg/ReflectDefault.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/ReflectDefault.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/neg/ReflectDefault.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/neg/ReflectDefault.hs:5:1
+{-@ LIQUID "--max-case-expand=0" @-}
+
+-- FILE tests/ple/neg/ReflectDefault.hs:11:1
+{-@ reflect foo @-}
+
+-- FILE tests/ple/neg/ReflectDefault.hs:17:1
+{-@ thmOK :: {foo C == 1} @-}
+
+-- FILE tests/ple/neg/ReflectDefault.hs:20:1
+{-@ thmBAD :: {foo A == 1} @-}
+
+-- FILE tests/ple/neg/T1173.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/T1173.hs:4:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/ple/neg/T1173.hs:5:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/neg/T1173.hs:10:1
+{-@ prop1 :: [Int] -> [{v:Int | v == 100}] @-}
+
+-- FILE tests/ple/neg/T1173.hs:15:1
+{-@ prop2 :: [Int] -> [{v:Int | v == 10}] @-}
+
+-- FILE tests/ple/neg/T1173.hs:19:1
+{-@ reflect mkQQ @-}
+
+-- FILE tests/ple/neg/T1173.hs:23:1
+{-@ filterQQ :: q:QQ -> [Int] -> [{v:Int | evalQQ q v}] @-}
+
+-- FILE tests/ple/neg/T1173.hs:34:1
+{-@ reflect evalQQ @-}
+
+-- FILE tests/ple/neg/T1173.hs:42:1
+{-@ filter :: f:(a -> Bool) -> [a] -> [{v:a | f v}] @-}
+
+-- FILE tests/ple/neg/T1192.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/T1192.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/neg/T1192.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/neg/T1192.hs:11:1
+{-@ reflect sem_ij @-}
+
+-- FILE tests/ple/neg/T1192.hs:12:1
+{-@ sem_ij :: i:Int -> j:Int -> S.Set Int / [j - i] @-}
+
+-- FILE tests/ple/neg/T1192.hs:18:1
+{-@ lem_split :: f:_ -> x:{_ | f <= x} -> t:{_ | x < t} ->
+                { sem_ij f t = S.union (sem_ij f x) (sem_ij x t) } / [ x - f]
+  @-}
+
+-- FILE tests/ple/neg/T1289.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/T1289.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/neg/T1289.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/neg/T1289.hs:7:1
+{-@ reflect intId @-}
+
+-- FILE tests/ple/neg/T1289.hs:12:1
+{-@ thm1 :: x:Int -> {intId x = x} @-}
+
+-- FILE tests/ple/neg/T1371_Tick.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/T1371_Tick.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/neg/T1371_Tick.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/neg/T1371_Tick.hs:8:1
+{-@ reflect tx @-}
+
+-- FILE tests/ple/neg/T1371_Tick.hs:14:1
+{-@ reflect go @-}
+
+-- FILE tests/ple/neg/T1371_Tick.hs:20:1
+{-@ thm :: x:Foo -> {x = tx x} @-}
+
+-- FILE tests/ple/neg/T1409.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/T1409.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/neg/T1409.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/neg/T1409.hs:9:1
+{-@ reflect isEven @-}
+
+-- FILE tests/ple/neg/T1409.hs:14:1
+{-@ foo :: _ -> {v:Int | v = 0} @-}
+
+-- FILE tests/ple/neg/T1424.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/ple/neg/T1424.hs:8:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/neg/T1424.hs:9:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/neg/T1424.hs:21:1
+{-@ reflect funky @-}
+
+-- FILE tests/ple/neg/T1424.hs:26:1
+{-@ test1 :: xig:_ -> yong:_ -> {v:_ | v == funky xig yong} @-}
+
+-- FILE tests/ple/neg/T1424.hs:32:1
+{-@ reflect proj @-}
+
+-- FILE tests/ple/neg/T1424.hs:37:1
+{-@ test2 :: _ -> TT @-}
+
+-- FILE tests/ple/neg/T1424.hs:43:1
+{-@ projW :: f:_ -> x:_ -> { v:_ | v = proj f x } @-}
+
+-- FILE tests/ple/neg/T1424.hs:47:1
+{-@ test3 :: _ -> TT @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:1:1
+{-@ LIQUID "--higherorder"                         @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:2:1
+{-@ LIQUID "--no-termination"                      @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:3:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:5:1
+{-@ infixr === @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:6:1
+{-@ infixr >== @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:7:1
+{-@ infixr <== @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:20:1
+{-@ data Filter record typ = Filter { filterField :: EntityField record typ, filterValue :: typ, filterFilter :: PersistFilter } @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:28:1
+{-@ reflect === @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:33:1
+{-@ reflect <== @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:43:1
+{-@ reflect >== @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:53:1
+{-@ data Blob  = B { xVal :: Int, yVal :: Int } @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:65:1
+{-@ filter :: f:(a -> Bool) -> [a] -> [{v:a | f v}] @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:72:1
+{-@ reflect evalQBlobXVal @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:78:1
+{-@ reflect evalQBlobYVal @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:84:1
+{-@ reflect evalQBlob @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:90:1
+{-@ reflect evalQsBlob @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:96:1
+{-@ filterQBlob :: f:(Filter Blob a) -> [Blob] -> [{b:Blob | evalQBlob f b}] @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:100:1
+{-@ filterQsBlob :: f:[(Filter Blob a)] -> [Blob] -> [{b:Blob | evalQsBlob f b}] @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:106:1
+{-@ assume selectBlob :: f:[(Filter Blob a)] -> [{b:Blob | evalQsBlob f b}] @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:110:1
+{-@ getZeros_ :: () -> [{b:Blob | xVal b = 0}] @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:114:1
+{-@ getBiggerThan10 :: () -> [{b:Blob | xVal b >= 10}] @-}
+
+-- FILE tests/ple/pos/BinahQuery.hs:118:1
+{-@ getInRange :: () -> [{b:Blob | xVal b >= 10  && xVal b <= 20 && yVal b >= 0 && yVal b <= 11}] @-}
+
+-- FILE tests/ple/pos/BinahUpdate.hs:5:1
+{-@ LIQUID "--higherorder"                         @-}
+
+-- FILE tests/ple/pos/BinahUpdate.hs:6:1
+{-@ LIQUID "--no-termination"                      @-}
+
+-- FILE tests/ple/pos/BinahUpdate.hs:7:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/pos/BinahUpdate.hs:22:1
+{-@ data Blob  = B { xVal :: {v:Int | v >= 0}, yVal :: Int } @-}
+
+-- FILE tests/ple/pos/BinahUpdate.hs:25:1
+{-@ data Update record typ = Update { updateField :: EntityField record typ, updateValue :: typ } @-}
+
+-- FILE tests/ple/pos/BinahUpdate.hs:31:1
+{-@ data variance Update covariant covariant contravariant @-}
+
+-- FILE tests/ple/pos/BinahUpdate.hs:33:1
+{-@ createUpdate :: EntityField record a -> a -> Update record a @-}
+
+-- FILE tests/ple/pos/CCDep.hs:7:1
+{-@ LIQUID "--ple"               @-}
+
+-- FILE tests/ple/pos/CCDep.hs:8:1
+{-@ LIQUID "--reflection"        @-}
+
+-- FILE tests/ple/pos/CCDep.hs:9:1
+{-@ LIQUID "--max-case-expand=4" @-}
+
+-- FILE tests/ple/pos/CCDep.hs:17:1
+{-@ infix :  @-}
+
+-- FILE tests/ple/pos/CCDep.hs:18:1
+{-@ infix || @-}
+
+-- FILE tests/ple/pos/CCDep.hs:19:1
+{-@ infix && @-}
+
+-- FILE tests/ple/pos/CCDep.hs:20:1
+{-@ infix ++ @-}
+
+-- FILE tests/ple/pos/CCDep.hs:22:1
+{-@ reflect ror @-}
+
+-- FILE tests/ple/pos/CCDep.hs:23:1
+{-@ assume reflect || as ror @-}
+
+-- FILE tests/ple/pos/CCDep.hs:29:1
+{-@ reflect rand @-}
+
+-- FILE tests/ple/pos/CCDep.hs:30:1
+{-@ assume reflect && as rand @-}
+
+-- FILE tests/ple/pos/CCDep.hs:35:1
+{-@ reflect plusplus @-}
+
+-- FILE tests/ple/pos/CCDep.hs:36:1
+{-@ assume reflect ++ as plusplus @-}
+
+-- FILE tests/ple/pos/CCDep.hs:41:1
+{-@ reflect append @-}
+
+-- FILE tests/ple/pos/CCDep.hs:45:1
+{-@ EVal :: Nat -> Prop (Expr False) @-}
+
+-- FILE tests/ple/pos/CCDep.hs:47:1
+{-@ EAdd :: a:Bool -> b:Bool
+        -> Prop (Expr a) -> Prop (Expr b)
+        -> Prop (Expr (a || b)) @-}
+
+-- FILE tests/ple/pos/CCDep.hs:51:1
+{-@ EThrow :: Prop (Expr True) @-}
+
+-- FILE tests/ple/pos/CCDep.hs:53:1
+{-@ ECatch :: a:Bool -> b:Bool
+           -> Prop (Expr a) -> Prop (Expr b)
+           -> Prop (Expr (a && b)) @-}
+
+-- FILE tests/ple/pos/CCDep.hs:59:1
+{-@ reflect evalM @-}
+
+-- FILE tests/ple/pos/CCDep.hs:60:1
+{-@ evalM :: b:Bool -> Prop (Expr b) -> Maybe Nat @-}
+
+-- FILE tests/ple/pos/CCDep.hs:72:1
+{-@ eval :: Prop (Expr False) -> Nat @-}
+
+-- FILE tests/ple/pos/CCDep.hs:86:1
+{-@ CPush :: s:[Ty] -> s':[Ty]
+          -> Nat -> Prop (Code (TNat : s) s')
+          -> Prop (Code s s') @-}
+
+-- FILE tests/ple/pos/CCDep.hs:90:1
+{-@ CAdd :: s:[Ty] -> s':[Ty]
+         -> Prop (Code (TNat : s) s')
+         -> Prop (Code (TNat : TNat : s) s') @-}
+
+-- FILE tests/ple/pos/CCDep.hs:94:1
+{-@ CThrow :: s:[Ty] -> s':[Ty] -> s'':[Ty]
+           -> Prop (Code (s'' ++ (THan s s' : s)) s') @-}
+
+-- FILE tests/ple/pos/CCDep.hs:97:1
+{-@ CMark :: s:[Ty] -> s':[Ty]
+          -> Prop (Code s s')
+          -> Prop (Code ((THan s s') : s) s')
+          -> Prop (Code s s') @-}
+
+-- FILE tests/ple/pos/CCDep.hs:102:1
+{-@ CUnmark :: s:[Ty] -> s':[Ty] -> k:Ty
+            -> Prop (Code (append k s) s')
+            -> Prop (Code (append k (THan s s' : s)) s') @-}
+
+-- FILE tests/ple/pos/CCDep.hs:107:1
+{-@ CHalt :: s:[Ty] -> Prop (Code s s) @-}
+
+-- FILE tests/ple/pos/CCDep.hs:112:1
+{-@ VNat :: Nat -> Prop (Val TNat) @-}
+
+-- FILE tests/ple/pos/CCDep.hs:114:1
+{-@ VHan :: s:[Ty] -> s':[Ty]
+         -> Prop (Code s s')
+         -> Prop (Val (THan s s')) @-}
+
+-- FILE tests/ple/pos/CCDep.hs:120:1
+{-@ compM :: b:Bool -> s:[Ty] -> s':[Ty] -> s'':[Ty]
+          -> Prop (Expr b) -> Prop (Code (TNat : (s'' ++ (THan s s' : s))) s')
+          -> Prop (Code (s'' ++ (THan s s' : s)) s') @-}
+
+-- FILE tests/ple/pos/CCDep.hs:134:1
+{-@ comp :: s:[Ty] -> s':[Ty]
+         -> Prop (Expr False) -> Prop (Code (TNat : s) s')
+         -> Prop (Code s s') @-}
+
+-- FILE tests/ple/pos/CCDep.hs:145:1
+{-@ compile :: s:[Ty] -> Prop (Expr False) -> Prop (Code s (TNat : s)) @-}
+
+-- FILE tests/ple/pos/CCDep.hs:150:1
+{-@ SNil :: Prop (Stack []) @-}
+
+-- FILE tests/ple/pos/CCDep.hs:152:1
+{-@ SCons :: t:Ty -> ts:[Ty]
+          -> Prop (Val t) -> Prop (Stack ts)
+          -> Prop (Stack (append t ts)) @-}
+
+-- FILE tests/ple/pos/CCDep.hs:158:1
+{-@ exec :: s:[Ty] -> s':[Ty] -> Prop (Code s s') -> Prop (Stack s) -> Prop (Stack s') @-}
+
+-- FILE tests/ple/pos/CCDep.hs:174:1
+{-@ lazy failE @-}
+
+-- FILE tests/ple/pos/CCDep.hs:175:1
+{-@ failE :: s:[Ty] -> s':[Ty] -> s'':[Ty] -> Prop (Stack (s'' ++ THan s s' : s)) -> Prop (Stack s') @-}
+
+-- FILE tests/ple/pos/Compiler.hs:1:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/ple/pos/Compiler.hs:2:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/Compiler.hs:3:1
+{-@ LIQUID "--no-totality"    @-}
+
+-- FILE tests/ple/pos/Compiler.hs:11:1
+{-@ data Expr [eSize] @-}
+
+-- FILE tests/ple/pos/Compiler.hs:16:1
+{-@ measure eSize @-}
+
+-- FILE tests/ple/pos/Compiler.hs:17:1
+{-@ eSize :: Expr -> {v:Int | 1 <= v} @-}
+
+-- FILE tests/ple/pos/Compiler.hs:22:1
+{-@ invariant {v:Expr | 1 <= eSize v } @-}
+
+-- FILE tests/ple/pos/Compiler.hs:26:1
+{-@ reflect interp @-}
+
+-- FILE tests/ple/pos/Compiler.hs:33:1
+{-@ data Code [cSize] @-}
+
+-- FILE tests/ple/pos/Compiler.hs:39:1
+{-@ measure cSize @-}
+
+-- FILE tests/ple/pos/Compiler.hs:40:1
+{-@ cSize :: Code -> Nat @-}
+
+-- FILE tests/ple/pos/Compiler.hs:53:1
+{-@ reflect compileC @-}
+
+-- FILE tests/ple/pos/Compiler.hs:58:1
+{-@ reflect compile @-}
+
+-- FILE tests/ple/pos/Compiler.hs:64:1
+{-@ reflect run @-}
+
+-- FILE tests/ple/pos/Compiler.hs:70:1
+{-@ reflect compileAndRun @-}
+
+-- FILE tests/ple/pos/Compiler.hs:76:1
+{-@ thmCompileC :: e:Expr -> c:Code -> s:Stack ->
+      { run (compileC e c) s = run c (Arg (interp e) s) }
+  @-}
+
+-- FILE tests/ple/pos/Compiler.hs:84:1
+{-@ thmCompileAndRun :: e:Expr -> { compileAndRun e == interp e } @-}
+
+-- FILE tests/ple/pos/ExactGADT4.hs:1:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/ExactGADT4.hs:2:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/ExactGADT4.hs:3:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/ExactGADT4.hs:16:1
+{-@
+data Filter record typ = Filter
+    { filterField  :: EntityField record typ
+    , filterValue  :: typ
+    , filterFilter :: PersistFilter
+    }
+@-}
+
+-- FILE tests/ple/pos/ExactGADT4.hs:39:1
+{-@ data Blob = B { xVal :: Int, yVal :: Int } @-}
+
+-- FILE tests/ple/pos/ExactGADT4.hs:49:1
+{-@ filter :: f:(a -> Bool) -> [a] -> [{v:a | f v}] @-}
+
+-- FILE tests/ple/pos/ExactGADT4.hs:56:1
+{-@ reflect evalQBlobXVal @-}
+
+-- FILE tests/ple/pos/ExactGADT4.hs:62:1
+{-@ reflect evalQBlobYVal @-}
+
+-- FILE tests/ple/pos/ExactGADT4.hs:68:1
+{-@ reflect evalQBlob @-}
+
+-- FILE tests/ple/pos/ExactGADT4.hs:74:1
+{-@ filterQBlob :: f:(Filter Blob a) -> [Blob] -> [{b:Blob | evalQBlob f b}] @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:1:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:3:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:16:1
+{-@ data Filter record typ = Filter { filterField :: EntityField record typ, filterValue :: typ, filterFilter :: PersistFilter } @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:24:1
+{-@ reflect createEqQuery @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:44:1
+{-@ data Blob  = B { xVal :: Int, yVal :: Int } @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:52:1
+{-@ filter :: f:(a -> Bool) -> [a] -> [{v:a | f v}] @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:59:1
+{-@ reflect evalQBlobXVal @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:65:1
+{-@ reflect evalQBlobYVal @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:71:1
+{-@ reflect evalQBlob @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:77:1
+{-@ filterQBlob :: f:(Filter Blob a) -> [Blob] -> [{b:Blob | evalQBlob f b}] @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:81:1
+{-@ assume select :: f:(Filter Blob a) -> [{b:Blob | evalQBlob f b}] @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:88:1
+{-@ getZeros1 :: [Blob] -> [{b:Blob | xVal b == 0}] @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:92:1
+{-@ getZeros2 :: () -> [{b:Blob | xVal b == 0}] @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:96:1
+{-@ getZeros3 :: [Blob] -> [{b:Blob | xVal b == 0}] @-}
+
+-- FILE tests/ple/pos/ExactGADT5.hs:100:1
+{-@ getZeros4 :: () -> [{b:Blob | xVal b == 0}] @-}
+
+-- FILE tests/ple/pos/ExactGADT7.hs:4:1
+{-@ LIQUID "--prune-unsorted" @-}
+
+-- FILE tests/ple/pos/ExactGADT7.hs:13:1
+{-@ measure isBool @-}
+
+-- FILE tests/ple/pos/ExactGADT7.hs:18:1
+{-@ type Thing = { v: Some Bool | isBool v } @-}
+
+-- FILE tests/ple/pos/ExactGADT7.hs:20:1
+{-@ a :: Thing @-}
+
+-- FILE tests/ple/pos/ExactGADT7.hs:23:1
+{-@ b :: Thing @-}
+
+-- FILE tests/ple/pos/FilterPLE.hs:1:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/FilterPLE.hs:2:1
+{-@ LIQUID "--short-names"    @-}
+
+-- FILE tests/ple/pos/FilterPLE.hs:3:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/ple/pos/FilterPLE.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/FilterPLE.hs:10:1
+{-@ filter :: f:(a -> Bool) -> [a] -> [{v:a | f v}] @-}
+
+-- FILE tests/ple/pos/FilterPLE.hs:17:1
+{-@ reflect isPos @-}
+
+-- FILE tests/ple/pos/FilterPLE.hs:21:1
+{-@ reflect isNeg @-}
+
+-- FILE tests/ple/pos/FilterPLE.hs:25:1
+{-@ positives :: [Int] -> [{v:Int | v > 0}] @-}
+
+-- FILE tests/ple/pos/FilterPLE.hs:29:1
+{-@ negatives :: [Int] -> [{v:Int | v < 0}] @-}
+
+-- FILE tests/ple/pos/FindPLE.hs:1:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/pos/FindPLE.hs:2:1
+{-@ LIQUID "--etabeta" @-}
+
+-- FILE tests/ple/pos/FindPLE.hs:3:1
+{-@ LIQUID "--higherorder" @-}
+
+-- FILE tests/ple/pos/FindPLE.hs:10:1
+{-@ data A = A { val  :: Int } @-}
+
+-- FILE tests/ple/pos/FindPLE.hs:16:1
+{-@ findVal :: x:Int -> [A] -> Maybe ({v:A | val v == x}) @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:3:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:4:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:6:1
+{-@ infixr ++              @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:22:1
+{-@ reflect fv @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:23:1
+{-@ fv :: [Int] -> Nat -> Int @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:26:1
+{-@ reflect abs @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:35:1
+{-@ type ListNE a  = {v:[a] | len v > 0 } @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:37:1
+{-@ fulcrum :: xs:(ListNE Int) -> (i :: Int, j:Int -> {v:() | (btwn 0 j (len xs)) => fv xs i <= fv xs j}) @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:40:1
+{-@ type FvMap Xs N = {m: GMap Int (fv Xs) | size m = N} @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:42:1
+{-@ fulcrums :: xorgs:ListNE Int -> FvMap xorgs (len xorgs) @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:46:5
+    {-@ go :: i:_ -> {pre:_ | pre == sum (take i xorgs)} -> ys:{ys == drop i xorgs} 
+           -> FvMap xorgs i 
+           -> FvMap {xorgs} {i + len ys} / [len ys] 
+      @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:58:1
+{-@ fv' :: xs:_ -> total:{total = sum xs} -> i:Nat -> pre:{pre = sum (take i xs)} 
+        -> {v:_ | v = fv xs i} 
+  @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:72:1
+{-@ reflect ++ @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:73:1
+{-@ (++) :: xs:[a] -> ys:[a] -> {v:[a] | len v = len xs + len ys} @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:77:1
+{-@ reflect take @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:78:1
+{-@ take :: Nat -> [a] -> [a] @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:83:1
+{-@ reflect drop @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:84:1
+{-@ drop :: Nat -> xs:[a] -> {v:[a] | len v <= len xs} @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:89:1
+{-@ reflect sum @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:100:1
+{-@ thmSumSplit :: xs:[Int] -> i:Nat -> { sum xs = sum (take i xs) + sum (drop i xs) } @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:103:1
+{-@ type SuffixAt a I Xs = {v:[a] | v = drop I Xs && len v > 0} @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:105:1
+{-@ thmSumTake :: xs:[Int] -> i:Nat -> ys:SuffixAt _ i xs -> 
+                   { sum (take (i+1) xs) == sum (take i xs) + head ys } 
+  @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:116:1
+{-@ thmSumAppend :: xs:[Int] -> ys:[Int] -> {sum (xs ++ ys) = sum xs + sum ys} @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:120:1
+{-@ thmSumAppR :: xs:[Int] -> y:Int -> { sum (xs ++ [y]) == sum xs + y } @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:131:1
+{-@ thmSplitAppend :: xs:_ -> i:Nat -> { xs == (take i xs) ++ (drop i xs) } @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:138:1
+{-@ thmDrop :: xs:[a] -> i:Nat -> ys:SuffixAt _ i xs -> { drop (i+1) xs == tail ys } @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:143:1
+{-@ thmTake :: xs:[a] -> i:Nat -> ys:SuffixAt _ i xs -> { take (i+1) xs == (take i xs ++ [head ys]) } @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:154:1
+{-@ thmSuffix :: xs:[a] -> i:{i > 0} -> ys:SuffixAt _ i xs -> { ys == drop (i-1) (tail xs) } @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:159:1
+{-@ thmSuffixAt :: xs:[a] -> i:Nat -> ys:SuffixAt _ i xs -> { len ys <= len xs} @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:168:1
+{-@ data IMap [size] a <p :: Int -> a -> Bool> =
+        Bind { key  :: Int
+             , val  :: a<p key>
+             , rest :: {v: IMap <p> a | size v = key}
+             }
+      | Emp
+  @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:177:1
+{-@ measure size @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:178:1
+{-@ size :: IMap a -> Nat @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:183:1
+{-@ type GMap a G  = IMap<{\i v -> v = G i}> a   @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:185:1
+{-@ argMin :: (Ord a) => g:(Nat -> a) -> m:{GMap a g | size m > 0} -> 
+		 (i::Int, j:Int -> {v:() | (btwn 0 j (size m)) => g i <= g j}) 
+  @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:190:1
+{-@ loop :: (Ord a) => g:(Nat -> a) 
+         -> m0:(GMap a g) -> i0:Int -> v0:{a | v0 = g i0} 
+         -> n:Nat 
+         -> (j:Int -> {v:() | (btwn (size m0) j n) => g i0 <= g j}) 
+         -> (i::Int, j:Int -> {v:() | (btwn 0 j n) => g i  <= g j}) 
+  @-}
+
+-- FILE tests/ple/pos/Fulcrum.hs:201:1
+{-@ inline btwn @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:4:1
+{-@ LIQUID "--etabeta"    @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:13:1
+{-@ reflect append @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:16:1
+{-@ reflect map @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:21:1
+{-@ reflect foldr @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:26:1
+{-@ reflect build @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:30:1
+{-@ reflect mapFB @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:34:1
+{-@ rewriteMapList :: f:_ -> b:_ -> { foldr (mapFB append f) [] b = map f b } @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:39:1
+{-@ rewriteMapFB :: c:_ -> f:_ -> g:_ -> { mapFB (mapFB c f) g = mapFB c (f . g) } @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:43:1
+{-@ rewriteMapFBid :: c:(a -> b -> b) -> { mapFB c (\x:a -> x) = c } @-}
+
+-- FILE tests/ple/pos/FuseMap.hs:47:1
+{-@ rewriteMap :: f:(a1 -> a2) -> xs:[a1] 
+               -> { build (\c:func(1, [a2, @(1), @(1)]) -> \n:@(1) -> foldr (mapFB c f) n xs) 
+                  = map f xs } @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:5:1
+{-@ LIQUID "--etabeta"    @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:13:1
+{-@ reflect append @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:17:1
+{-@ reflect map @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:22:1
+{-@ reflect foldr @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:27:1
+{-@ reflect build @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:31:1
+{-@ reflect mapFB @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:36:1
+{-@ rewriteMapList :: f:_ -> b:_ -> { foldr (mapFB append f) [] b = map f b } @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:41:1
+{-@ rewriteMapFB :: c:_ -> f:_ -> g:_ -> { mapFB (mapFB c f) g = mapFB c (f . g) } @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:45:1
+{-@ rewriteMapFBid :: c:(a -> b -> b) -> { mapFB c (\x:a -> x) = c } @-}
+
+-- FILE tests/ple/pos/FuseMapLam.hs:49:1
+{-@ rewriteMap :: f:(a1 -> a2) -> xs:[a1] 
+               -> { build (\c:func(1, [a2, @(0), @(0)]) -> \n:@(0) -> foldr (mapFB c f) n xs) 
+                  = map f xs } @-}
+
+-- FILE tests/ple/pos/IndLast.hs:3:1
+{-@ LIQUID "--reflection"    @-}
+
+-- FILE tests/ple/pos/IndLast.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/IndLast.hs:22:1
+{-@ data Last [pfSize] a where
+        End :: x:a -> Prop (Last x (Cons x Nil))
+        Mid :: x:a -> y:a -> ys:List a 
+            -> Prop (Last x ys) 
+            -> Prop (Last x (Cons y ys))
+  @-}
+
+-- FILE tests/ple/pos/IndLast.hs:29:1
+{-@ reflect lastFun @-}
+
+-- FILE tests/ple/pos/IndLast.hs:35:1
+{-@ last_fun_ok :: x:a -> l:List a -> Prop (Last x l) -> {lastFun l = Just x} @-}
+
+-- FILE tests/ple/pos/IndLast.hs:42:1
+{-@ measure prop :: a -> b           @-}
+
+-- FILE tests/ple/pos/IndLast.hs:43:1
+{-@ type Prop E = {v:_ | prop v = E} @-}
+
+-- FILE tests/ple/pos/IndLast.hs:45:1
+{-@ measure pfSize @-}
+
+-- FILE tests/ple/pos/IndLast.hs:46:1
+{-@ pfSize :: Last a -> Nat @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:11:1
+{-@ infixr ++  @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:12:1
+{-@ reflect ++ @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:17:1
+{-@ reflect rev @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:22:1
+{-@ reflect mkPal @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:26:1
+{-@ reflect single @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:41:1
+{-@ data Pal a where
+        Pal0 :: Prop (Pal []) 
+        Pal1 :: x:_ -> Prop (Pal (single x)) 
+        Pals :: x:_ -> xs:_ -> Prop (Pal xs) -> Prop (Pal (mkPal x xs)) 
+  @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:47:1
+{-@ assume admit :: _ -> { false } @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:50:1
+{-@ ple lemma_pal @-}
+
+-- FILE tests/ple/pos/IndPal0.hs:51:1
+{-@ lemma_pal :: xs:_ -> p:Prop (Pal xs) -> { xs = rev xs } @-}
+
+-- FILE tests/ple/pos/IndPal00.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/IndPal00.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/IndPal00.hs:18:1
+{-@ data Pal a where
+        Pal0 :: Prop (Pal []) 
+        Pals :: x:_ -> xs:_ -> Prop (Pal (x:xs)) 
+  @-}
+
+-- FILE tests/ple/pos/IndPal00.hs:24:1
+{-@ ple lemma_pal @-}
+
+-- FILE tests/ple/pos/IndPal00.hs:25:1
+{-@ lemma_pal :: xs:[a] -> p:{Pal a | prop p == Pal xs} -> { true } @-}
+
+-- FILE tests/ple/pos/IndPal00.hs:35:1
+{-@ measure prop :: a -> b           @-}
+
+-- FILE tests/ple/pos/IndPal00.hs:36:1
+{-@ type Prop E = {v:_ | prop v = E} @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:11:1
+{-@ infixr ++  @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:12:1
+{-@ reflect ++ @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:17:1
+{-@ reflect rev @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:22:1
+{-@ reflect mkPal @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:26:1
+{-@ reflect single @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:41:1
+{-@ data Pal a where
+        Pal0 :: Prop (Pal [])
+        Pal1 :: x:_ -> Prop (Pal (single x))
+        Pals :: x:_ -> xs:_ -> Prop (Pal xs) -> Prop (Pal (mkPal x xs))
+  @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:47:1
+{-@ assume admit :: _ -> { false } @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:50:1
+{-@ ple lemma_pal @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:51:1
+{-@ lemma_pal :: xs:_ -> p:Prop (Pal xs) -> { xs = rev xs } / [palNat p] @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:67:1
+{-@ measure palNat         @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:68:1
+{-@ palNat :: Pal a -> Nat @-}
+
+-- FILE tests/ple/pos/IndPalindrome.hs:74:1
+{-@ lemma_rev_app :: xs:_ -> ys:_ -> { rev (xs ++ ys) = rev ys ++ rev xs} @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:2:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:3:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:12:1
+{-@ data List [llen] @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:24:1
+{-@ data Ins [insNat] a where
+        Here  :: m:a -> ms:List a
+              -> Prop (Ins m ms (Cons m ms))
+
+        There :: m:a -> n:a -> ns:List a -> mns:List a
+              -> Prop (Ins m ns mns)
+              -> Prop (Ins m (Cons n ns) (Cons n mns))
+  @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:42:1
+{-@ data Perm [permNat] a where
+        NilPerm  :: Prop (Perm Nil Nil)
+        ConsPerm :: m:a -> ms:List a -> ns:List a -> mns:List a
+                 -> Prop (Ins m ns mns)
+                 -> Prop (Perm ms ns)
+                 -> Prop (Perm (Cons m ms) mns)
+  @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:52:1
+{-@ reflect sum @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:57:1
+{-@ lemma :: m:Int -> ns:List Int -> mns:List Int
+          -> ins:Prop (Ins m ns mns)
+          -> { m + sum ns = sum mns } / [insNat ins]
+  @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:65:1
+{-@ theorem :: ms:List Int -> ns:List Int
+            -> perm:Prop (Perm ms ns)
+            -> {sum ms = sum ns} / [permNat perm]
+  @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:78:1
+{-@ measure permNat @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:79:1
+{-@ permNat :: Perm a -> Nat @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:84:1
+{-@ measure insNat @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:85:1
+{-@ insNat :: Ins a -> Nat @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:90:1
+{-@ measure llen          @-}
+
+-- FILE tests/ple/pos/IndPerm.hs:91:1
+{-@ llen :: List a -> Nat @-}
+
+-- FILE tests/ple/pos/IndStar.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/IndStar.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/IndStar.hs:10:1
+{-@ data Star [toNat] a where
+        Refl :: r:Rel a -> x:a -> Prop (Star r x x)
+        Step :: r:Rel a -> x:a -> y:{a | r x y} -> z:a -> Prop (Star r y z) -> Prop (Star r x z)
+  @-}
+
+-- FILE tests/ple/pos/IndStar.hs:15:1
+{-@ thm :: r:Rel a -> x:a -> y:a -> z:a
+        -> Prop (Star r x y)
+        -> Prop (Star r y z)
+        -> Prop (Star r x z)
+  @-}
+
+-- FILE tests/ple/pos/IndStar.hs:36:1
+{-@ measure toNat          @-}
+
+-- FILE tests/ple/pos/IndStar.hs:37:1
+{-@ toNat :: Star a -> Nat @-}
+
+-- FILE tests/ple/pos/IndStar.hs:42:1
+{-@ measure prop :: a -> b           @-}
+
+-- FILE tests/ple/pos/IndStar.hs:43:1
+{-@ type Prop E = {v:_ | prop v = E} @-}
+
+-- FILE tests/ple/pos/IndStarHole.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/IndStarHole.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/IndStarHole.hs:10:1
+{-@ data Star [toNat] a where
+        Refl :: r:_ -> x:_ -> Prop (Star r x x)
+        Step :: r:_ -> x:_ -> y:{_ | r x y} -> z:_ -> Prop (Star r y z) -> Prop (Star r x z)
+  @-}
+
+-- FILE tests/ple/pos/IndStarHole.hs:15:1
+{-@ thm :: r:Rel a -> x:a -> y:a -> z:a
+        -> Prop (Star r x y)
+        -> Prop (Star r y z)
+        -> Prop (Star r x z)
+  @-}
+
+-- FILE tests/ple/pos/IndStarHole.hs:36:1
+{-@ measure toNat          @-}
+
+-- FILE tests/ple/pos/IndStarHole.hs:37:1
+{-@ toNat :: Star a -> Nat @-}
+
+-- FILE tests/ple/pos/IndStarHole.hs:42:1
+{-@ measure prop :: a -> b           @-}
+
+-- FILE tests/ple/pos/IndStarHole.hs:43:1
+{-@ type Prop E = {v:_ | prop v = E} @-}
+
+-- FILE tests/ple/pos/Isort_erase.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/Isort_erase.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/Isort_erase.hs:28:1
+{-@ reflect isSorted @-}
+
+-- FILE tests/ple/pos/Isort_erase.hs:37:1
+{-@ reflect insert @-}
+
+-- FILE tests/ple/pos/Isort_erase.hs:38:1
+{-@ insert :: x:Int -> {xs:List | isSorted xs} -> {xs:List | isSorted xs} @-}
+
+-- FILE tests/ple/pos/Isort_erase.hs:45:1
+{-@ lem_ins :: y:Int -> {x:Int | y < x} -> {ys:List | isSorted (Cons y ys)} -> {isSorted (Cons y (insert x ys))} @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:3:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:8:1
+{-@ infix : @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:13:1
+{-@ reflect and @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:14:1
+{-@ and :: x : Bool -> y : Bool -> {z : Bool | z <=> x && y } @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:19:1
+{-@ reflect gte @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:20:1
+{-@ gte :: x : Elm -> y : Elm -> {z : Bool | z <=> x >= y} @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:24:1
+{-@ reflect lte @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:25:1
+{-@ lte :: x : Elm -> y : Elm -> {z : Bool | z <=> x <= y} @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:29:1
+{-@ reflect all @-}
+
+-- FILE tests/ple/pos/ListAnd.hs:34:1
+{-@ simple :: x : Elm -> y : Elm -> ys : [Elm] -> {v : () | and (lte y x) (all (gte x) ys) = all (gte x) (y:ys) } @-}
+
+-- FILE tests/ple/pos/ListPolySet.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/ListPolySet.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/ListPolySet.hs:10:1
+{-@ reflect assert @-}
+
+-- FILE tests/ple/pos/ListPolySet.hs:11:1
+{-@ assert :: b:{Bool | b } -> x:a -> {v:a | v == x && b} @-}
+
+-- FILE tests/ple/pos/ListPolySet.hs:15:1
+{-@ reflect ?? @-}
+
+-- FILE tests/ple/pos/ListPolySet.hs:18:1
+{-@ reflect all @-}
+
+-- FILE tests/ple/pos/ListPolySet.hs:23:1
+{-@ all_to_elem :: (Ord a, Eq a) => f:(a -> Bool)
+                -> ls:{[a] | all f ls}
+                -> e:{a | (member e (fromList ls))}
+                -> { f e } @-}
+
+-- FILE tests/ple/pos/ListPolySet.hs:37:1
+{-@ all_subset :: f:(a -> Bool)
+               -> ls1:{[a] | all (f) ls1 }
+               -> ls2:{[a] | isSubsetOf (fromList ls2) (fromList ls1) }
+               -> { all f ls2 } @-}
+
+-- FILE tests/ple/pos/Lists.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/Lists.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/Lists.hs:10:1
+{-@ reflect incr @-}
+
+-- FILE tests/ple/pos/Lists.hs:14:1
+{-@ reflect isPos @-}
+
+-- FILE tests/ple/pos/Lists.hs:18:1
+{-@ reflect ints0 @-}
+
+-- FILE tests/ple/pos/Lists.hs:22:1
+{-@ reflect ints1 @-}
+
+-- FILE tests/ple/pos/Lists.hs:26:1
+{-@ reflect ints2 @-}
+
+-- FILE tests/ple/pos/Lists.hs:30:1
+{-@ mapProp :: () -> { map incr ints0 == ints1 } @-}
+
+-- FILE tests/ple/pos/Lists.hs:33:1
+{-@ filterProp :: () -> { filter isPos ints0 == ints2 } @-}
+
+-- FILE tests/ple/pos/Lists.hs:36:1
+{-@ reflect map @-}
+
+-- FILE tests/ple/pos/Lists.hs:41:1
+{-@ reflect filter @-}
+
+-- FILE tests/ple/pos/Lists.hs:46:1
+{-@ reflect append @-}
+
+-- FILE tests/ple/pos/Lists.hs:51:1
+{-@ reflect concat @-}
+
+-- FILE tests/ple/pos/Lists.hs:56:1
+{-@ reflect foldr @-}
+
+-- FILE tests/ple/pos/MJFix.hs:4:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/ple/pos/MJFix.hs:5:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/ple/pos/MJFix.hs:6:1
+{-@ LIQUID "--short-names" @-}
+
+-- FILE tests/ple/pos/MJFix.hs:16:1
+{-@ reflect init @-}
+
+-- FILE tests/ple/pos/MJFix.hs:20:1
+{-@ reflect set @-}
+
+-- FILE tests/ple/pos/MJFix.hs:24:1
+{-@ reflect get @-}
+
+-- FILE tests/ple/pos/MJFix.hs:44:1
+{-@ reflect aval @-}
+
+-- FILE tests/ple/pos/MJFix.hs:60:1
+{-@ reflect lval @-}
+
+-- FILE tests/ple/pos/MJFix.hs:71:1
+{-@ reflect inlyne @-}
+
+-- FILE tests/ple/pos/MJFix.hs:80:1
+{-@ reflect help @-}
+
+-- FILE tests/ple/pos/MJFix.hs:84:1
+{-@ reflect contains @-}
+
+-- FILE tests/ple/pos/MJFix.hs:91:1
+{-@ reflect replace@-}
+
+-- FILE tests/ple/pos/MJFix.hs:102:1
+{-@ lem_inlyne :: l:_ -> s:_ -> { lval l s = aval (inlyne l) s } @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:1:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:2:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:3:1
+{-@ LIQUID "--short-names" @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:4:1
+{-@ LIQUID "--checks=lma_msort" @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:19:1
+{-@ reflect make @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:20:1
+{-@ make :: n:Nat -> x:_ -> xs:{(size xs) = n} @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:25:1
+{-@ measure size @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:27:1
+{-@ size :: xs:_ -> Nat @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:32:1
+{-@ reflect get @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:33:1
+{-@ get :: xs:_ -> {n:Nat | n < size xs } -> x:_ @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:38:1
+{-@ reflect set @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:39:1
+{-@ set :: xs:_ -> {n:Nat | n < size xs } -> x:_ -> nxs:{(size nxs) = (size xs)} @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:46:1
+{-@ lma_gs :: xs:_ -> n:{v:Nat | v < size xs } -> x:_ 
+      -> { pf:_ | get (set xs n x) n = x} @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:63:1
+{-@ lma_gns :: xs:_ -> n:{v:Nat | v < size xs } -> m:{v:Nat | v /= n && v < size xs} -> x:_ 
+      -> { pf:_ | get (set xs n x) m = get xs m} @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:94:1
+{-@ reflect isSorted @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:99:1
+{-@ reflect isSortedFstN @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:100:1
+{-@ isSortedFstN :: xs:_ -> m:{n:Nat | n <= size xs} -> b:_ / [m] @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:107:1
+{-@ lma_is_isfn :: xs:{isSorted xs} -> n:{v:Nat |  v <= size xs} 
+      -> { pf:_ | isSortedFstN xs n} / [n] @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:120:1
+{-@ lma_isfn_set :: xs:_ -> x:_ -> n:{v:Nat |  v < size xs} -> m:{v:Nat | v <= n } 
+      -> {(isSortedFstN (set xs n x) m) = (isSortedFstN xs m)} / [m] @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:137:1
+{-@ lma_isfn1 :: xs:_ -> n:{v:Nat | v <= size xs && (isSortedFstN xs v)} -> m:{v:Nat | v <= n} 
+      -> { pf:_ | isSortedFstN xs m} / [n-m] @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:157:1
+{-@ reflect merge @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:158:1
+{-@ merge :: xs:_ -> ys:_ -> n:{v:Nat | v <= size xs} -> m:{v:Nat | v <= size ys} 
+      -> zs:{(size zs) = ((size xs) + (size ys))} / [m+n] @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:178:1
+{-@ reflect msort @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:179:1
+{-@ msort :: xs:_ -> ys:{(size ys == size xs)} / [size xs] @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:190:1
+{-@ reflect splitMid @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:191:1
+{-@ splitMid :: xs:{size xs >= 2} -> {t:_ | ((size (fst t)) < (size xs) && (size (snd t)) < (size xs)) && (size xs = (size (fst t)) + (size (snd t)))} @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:198:1
+{-@ reflect subArray @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:199:1
+{-@ subArray :: xs:{size xs >= 1} -> n:{v:Nat | v <= size xs} -> m:{v:Nat | n <= m && m <= size xs} -> c:{v:Nat | v <= m-n} -> {ys:_ | size ys == m-n} / [c] @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:205:1
+{-@ reflect mydiv @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:206:1
+{-@ mydiv :: n:{n >= 2} -> m:{v:Nat | (v > 0 && v < n)} @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:222:1
+{-@ lma_merge_max :: xs:{isSorted xs} -> ys:{isSorted ys} -> n:{v:Nat | v > 0 && v <= size xs} -> m:{v:Nat | v > 0 && v <= size ys} -> z:{  z >= (get xs (n-1)) && z >= (get ys (m-1))} 
+      -> { pf:_ | z >= get (merge xs ys n m) (n+m-1) } @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:257:1
+{-@ lma_merge_max_m :: xs:_ -> ys:{isSorted ys} -> m:{v:Nat | v > 0 && v <= size ys} -> z:{ z >= (get ys (m-1))}
+      -> { pf:_ | z >= get (merge xs ys 0 m) (m-1) } @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:272:1
+{-@ lma_merge_max_n :: xs:{isSorted xs} -> ys:_ -> n:{v:Nat | v > 0 && v <= size xs} -> z:{ z >= (get xs (n-1))}
+      -> { pf:_ | z >= get (merge xs ys n 0) (n-1) } @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:290:1
+{-@ lma_merge :: xs:{isSorted xs} -> ys:{isSorted ys} -> n:{v:Nat | v <= size xs} -> m:{v:Nat | v <= size ys} 
+      -> { pf:_ | isSortedFstN (merge xs ys n m) (n+m)} / [n+m] @-}
+
+-- FILE tests/ple/pos/MergeSort.hs:376:1
+{-@ lma_msort :: xs:_ -> { pf:_ | isSortedFstN (msort xs) (size xs)} / [size xs] @-}
+
+-- FILE tests/ple/pos/MonadCont.hs:1:1
+{-@ LIQUID "--reflection"                @-}
+
+-- FILE tests/ple/pos/MonadCont.hs:2:1
+{-@ LIQUID "--ple"                       @-}
+
+-- FILE tests/ple/pos/MonadCont.hs:3:1
+{-@ LIQUID "--etabeta"                   @-}
+
+-- FILE tests/ple/pos/MonadCont.hs:11:1
+{-@ data Cont r a = Cont { runCont :: (a -> r) -> r } @-}
+
+-- FILE tests/ple/pos/MonadCont.hs:14:1
+{-@ reflect return @-}
+
+-- FILE tests/ple/pos/MonadCont.hs:18:1
+{-@ infix   >>= @-}
+
+-- FILE tests/ple/pos/MonadCont.hs:19:1
+{-@ reflect >>= @-}
+
+-- FILE tests/ple/pos/MonadCont.hs:23:1
+{-@ leftIdentity :: x:a -> f:(a -> Cont r b) -> { return x >>= f = f x } @-}
+
+-- FILE tests/ple/pos/MonadCont.hs:27:1
+{-@ rightIdentity :: x:Cont r a -> { (x >>= return) = x } @-}
+
+-- FILE tests/ple/pos/MonadCont.hs:31:1
+{-@ associativity :: x:Cont r a -> f:(a -> Cont r b) -> g:(b -> Cont r c)
+                  -> { (x >>= f) >>= g = x >>= (\r:a -> f r >>= g) } @-}
+
+-- FILE tests/ple/pos/MonadList.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/MonadList.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/MonadList.hs:3:1
+{-@ LIQUID "--etabeta"    @-}
+
+-- FILE tests/ple/pos/MonadList.hs:15:1
+{-@ reflect return @-}
+
+-- FILE tests/ple/pos/MonadList.hs:19:1
+{-@ infix   ++ @-}
+
+-- FILE tests/ple/pos/MonadList.hs:20:1
+{-@ reflect ++ @-}
+
+-- FILE tests/ple/pos/MonadList.hs:25:1
+{-@ infix   >>= @-}
+
+-- FILE tests/ple/pos/MonadList.hs:26:1
+{-@ reflect >>= @-}
+
+-- FILE tests/ple/pos/MonadList.hs:31:1
+{-@ rightIdentity :: x:List a -> { x >>= return = x } @-}
+
+-- FILE tests/ple/pos/MonadList.hs:36:1
+{-@ appendIdR :: xs:List a -> { xs ++ Nil = xs } @-}
+
+-- FILE tests/ple/pos/MonadList.hs:41:1
+{-@ leftIdentity :: x:a -> f:(a -> List b) -> { return x >>= f = f x } @-}
+
+-- FILE tests/ple/pos/MonadList.hs:45:1
+{-@ appendAssoc :: xs:List a -> ys:List a -> zs:List a
+                -> { (xs ++ ys) ++ zs = xs ++ (ys ++ zs) } @-}
+
+-- FILE tests/ple/pos/MonadList.hs:51:1
+{-@ rightDistributive :: xs:List a -> ys:List a -> f:(a -> List b)
+                      -> { xs ++ ys >>= f = (xs >>= f) ++ (ys >>= f) } @-}
+
+-- FILE tests/ple/pos/MonadList.hs:58:1
+{-@ associativity :: x:List a -> f:(a -> List a) -> g:(a -> List a)
+                  -> { (x >>= f) >>= g = x >>= (\r:a -> f r >>= g) } @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:1:1
+{-@ LIQUID "--reflection"                @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:2:1
+{-@ LIQUID "--ple"                       @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:3:1
+{-@ LIQUID "--etabeta"                   @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:12:1
+{-@ data Reader r a = Reader { runReader :: r -> a } @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:15:1
+{-@ reflect return @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:19:1
+{-@ infix   >>= @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:20:1
+{-@ reflect >>= @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:24:1
+{-@ readerId :: f:(Reader r a) -> { f = Reader (runReader f) } @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:28:1
+{-@ rightIdentity :: x:Reader r a -> { x >>= return = x } @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:32:1
+{-@ associativity :: x:Reader r a -> f: (a -> Reader r a) -> g:(a -> Reader r a)
+                  -> { (x >>= f) >>= g = x >>= (\r:a -> f r >>= g) } @-}
+
+-- FILE tests/ple/pos/MonadReader.hs:37:1
+{-@ leftIdentity :: x:a -> f:(a -> Reader r b) -> { return x >>= f = f x } @-}
+
+-- FILE tests/ple/pos/MonadState.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/MonadState.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/MonadState.hs:3:1
+{-@ LIQUID "--etabeta"    @-}
+
+-- FILE tests/ple/pos/MonadState.hs:12:1
+{-@ data State s a = State { runState :: s -> Pair a s } @-}
+
+-- FILE tests/ple/pos/MonadState.hs:15:1
+{-@ reflect return @-}
+
+-- FILE tests/ple/pos/MonadState.hs:19:1
+{-@ infix   >>= @-}
+
+-- FILE tests/ple/pos/MonadState.hs:20:1
+{-@ reflect >>= @-}
+
+-- FILE tests/ple/pos/MonadState.hs:24:1
+{-@ leftIdentity :: x:a -> f:(a -> State s b) -> { return x >>= f = f x } @-}
+
+-- FILE tests/ple/pos/MonadState.hs:28:1
+{-@ rightIdentity :: x:State s a -> { (x >>= return) = x } @-}
+
+-- FILE tests/ple/pos/MonadState.hs:32:1
+{-@ associativity :: x:State s a -> f:(a -> State s b) -> g:(b -> State s c)
+                  -> { (x >>= f) >>= g = x >>= (\r:a -> f r >>= g) } @-}
+
+-- FILE tests/ple/pos/MossakaBug.hs:1:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/ple/pos/MossakaBug.hs:2:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/ple/pos/MossakaBug.hs:3:1
+{-@ LIQUID "--short-names" @-}
+
+-- FILE tests/ple/pos/MossakaBug.hs:4:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/MossakaBug.hs:14:1
+{-@ reflect nnf @-}
+
+-- FILE tests/ple/pos/MossakaBug.hs:24:1
+{-@ lem_nnf :: s:_ -> p:_ -> { pval p s = pval (nnf p) s } @-}
+
+-- FILE tests/ple/pos/MossakaBug.hs:31:1
+{-@ reflect pval @-}
+
+-- FILE tests/ple/pos/MossakaBug.hs:38:1
+{-@ reflect get @-}
+
+-- FILE tests/ple/pos/NNFPiotr.hs:1:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/NNFPiotr.hs:2:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/NNFPiotr.hs:3:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/NNFPiotr.hs:19:1
+{-@ reflect toWff @-}
+
+-- FILE tests/ple/pos/NNFPiotr.hs:26:1
+{-@ reflect lookup @-}
+
+-- FILE tests/ple/pos/NNFPiotr.hs:32:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/NNFPiotr.hs:39:1
+{-@ reflect evalNNF @-}
+
+-- FILE tests/ple/pos/NNFPiotr.hs:46:1
+{-@ toNNF :: s:[Bool] -> p:Wff -> { q: NNF | eval s p = evalNNF s q } @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:19:1
+{-@ data Pred [predSize] @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:21:1
+{-@ measure predSize @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:22:1
+{-@ predSize :: Pred -> Nat @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:33:1
+{-@ type NNF = {v:Pred | isNNF v} @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:35:1
+{-@ measure isVar @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:40:1
+{-@ measure isNNF @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:52:1
+{-@ reflect lookup @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:58:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:69:1
+{-@ reflect nnfP @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:70:1
+{-@ nnf :: s:_ -> p:_ -> {v:NNF | eval s v = eval s p} / [predSize p] @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:77:1
+{-@ reflect nnfN @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:78:1
+{-@ nnf' :: s:_ -> p:_ -> {v:NNF | eval s p = not (eval s v)} / [predSize p] @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:89:1
+{-@ reflect nnfP @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:90:1
+{-@ nnfP :: Pred -> NNF @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:97:1
+{-@ reflect nnfN @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:98:1
+{-@ nnfN :: Pred -> NNF @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:109:1
+{-@ thmP :: s:_ -> p:_ -> { eval s p = eval s (nnfP p) } / [predSize p] @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:116:1
+{-@ thmN :: s:_  -> p:_ -> { eval s p = not (eval s (nnfN p)) } / [predSize p] @-}
+
+-- FILE tests/ple/pos/NegNormalForm.hs:123:1
+{-@ reflect not @-}
+
+-- FILE tests/ple/pos/PLEMeasureSortCompat.hs:8:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/pos/PLEMeasureSortCompat.hs:12:1
+{-@ reflect ms @-}
+
+-- FILE tests/ple/pos/PLEMeasureSortCompat.hs:13:1
+{-@ ms :: [[Int]] -> Nat @-}
+
+-- FILE tests/ple/pos/PLEMeasureSortCompat.hs:18:1
+{-@ measure m @-}
+
+-- FILE tests/ple/pos/PLEMeasureSortCompat.hs:19:1
+{-@ m :: xs:[Int] -> {v:Nat | len xs = v} @-}
+
+-- FILE tests/ple/pos/PLEMeasureSortCompat.hs:24:1
+{-@ f :: xs:[[Int]] -> Int / [ms xs] @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:1:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:2:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:3:1
+{-@ infixr ++              @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:4:1
+{-@ infixr !!              @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:13:1
+{-@ reflect leftPad @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:14:1
+{-@ leftPad :: n:Int -> c:a -> xs:[a] -> {v:[a] | size v = max n (size xs)} @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:22:1
+{-@ leftPadObvious :: n:Int -> c:a -> xs:[a] -> 
+      { leftPad n c xs = if (size xs < n) 
+                            then (replicate (n - size xs) c ++ xs) 
+                            else xs 
+      } 
+  @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:31:1
+{-@ reflect max @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:38:1
+{-@ thmLeftPad :: n:_ -> c:_ -> xs:{size xs < n} -> 
+                    i:{Nat | i < n} -> { (leftPad n c xs !! i) == (if (i < n - size xs) then c else (xs !! (i - (n - size xs)))) }                               
+  @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:54:1
+{-@ thmAppLeft :: xs:[a] -> ys:[a] -> {i:Nat | i < size xs} -> { (xs ++ ys) !! i == xs !! i } @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:59:1
+{-@ thmAppRight :: xs:[a] -> ys:[a] -> {i:Nat | size xs <= i} -> { (xs ++ ys) !! i == ys !! (i - size xs) } @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:64:1
+{-@ thmReplicate :: n:Nat -> c:a -> i:{Nat | i < n} -> { replicate n c !! i  == c } @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:72:1
+{-@ reflect replicate @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:73:1
+{-@ replicate :: n:Nat -> a -> {v:[a] | size v = n} @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:78:1
+{-@ reflect ++ @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:79:1
+{-@ (++) :: xs:[a] -> ys:[a] -> {v:[a] | size v = size xs + size ys} @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:84:1
+{-@ measure size @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:85:1
+{-@ size :: [a] -> Nat @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:90:1
+{-@ reflect !! @-}
+
+-- FILE tests/ple/pos/PadLeft.hs:91:1
+{-@ (!!) :: xs:[a] -> {n:Nat | n < size xs} -> a @-}
+
+-- FILE tests/ple/pos/Permutations.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/Permutations.hs:2:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/pos/Permutations.hs:32:1
+{-@ infixr 5 ++ @-}
+
+-- FILE tests/ple/pos/Permutations.hs:33:1
+{-@ infixr 5 : @-}
+
+-- FILE tests/ple/pos/Permutations.hs:34:1
+{-@ infixl 9 !! @-}
+
+-- FILE tests/ple/pos/Permutations.hs:55:1
+{-@ lazy permutations @-}
+
+-- FILE tests/ple/pos/Permutations.hs:56:1
+{-@ reflect permutations @-}
+
+-- FILE tests/ple/pos/Permutations.hs:57:1
+{-@ permutations :: ts:[a] -> [[a]] / [(len ts), 1, 0] @-}
+
+-- FILE tests/ple/pos/Permutations.hs:83:1
+{-@
+reflect perms
+perms
+  :: ts:[a]
+  -> is:[a]
+  -> { v:[[a]]
+     | v = concat (map (aux2 ts is) (fromTo 0 (len ts - 1)))
+     } / [((len ts)+(len is)), 0, (len ts)]
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:145:1
+{-@
+reflect aux2
+aux2 :: ts:[a] -> [a] -> { n:Int | n < len ts && n >= 0 } -> [[a]]
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:153:1
+{-@ reflect aux0 @-}
+
+-- FILE tests/ple/pos/Permutations.hs:157:1
+{-@ reflect aux1 @-}
+
+-- FILE tests/ple/pos/Permutations.hs:171:1
+{-@
+reflect mapInterleave
+mapInterleave
+  :: t:a
+  -> ts:[a]
+  -> ps:[[a]]
+  -> r:[[a]]
+  -> { v:[[a]] | v == concat (map (aux1 t ts []) ps) ++ r }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:188:1
+{-@
+reflect interleave
+interleave
+  :: t:a
+  -> ts:[a]
+  -> xs:[a]
+  -> r:[[a]]
+  -> { v:[[a]] | v == map (aux0 t id xs ts) (fromTo 0 (len xs - 1)) ++ r }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:206:1
+{-@
+reflect interleave'
+interleave'
+  :: t:a
+  -> ts:[a]
+  -> f:([a] -> b)
+  -> ys:[a]
+  -> r:[b]
+  -> ( { v:[a] | v == ys ++ ts }
+     , { v:[b] | v == map (aux0 t f ys ts) (fromTo 0 (len ys-1)) ++ r }
+     )
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:275:1
+{-@
+lemmaPermutationsDecomposition
+  :: { n:Int | n >= 0 }
+  -> r:[Int]
+  -> { permutations (fromTo 1 n ++ r)
+       ==
+       map (flipAppend r) (permutations (fromTo 1 n)) ++ concat (map (aux2 (fromTo 1 n ++ r) []) (fromTo n (n + len r - 1)))
+     }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:288:1
+{-@
+lemmaPermsDecomposition
+  :: { n:Int | n >= 0 }
+  -> r:[Int]
+  -> { perms (fromTo 1 n ++ r) []
+       ==
+       map (flipAppend r) (perms (fromTo 1 n) []) ++ concat (map (aux2 (fromTo 1 n ++ r) []) (fromTo n (n + len r - 1)))
+     }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:354:1
+{-@ reflect id @-}
+
+-- FILE tests/ple/pos/Permutations.hs:358:1
+{-@ inline const @-}
+
+-- FILE tests/ple/pos/Permutations.hs:362:1
+{-@
+inline asTypeOf
+asTypeOf :: x:a -> { y:a | x = y } -> { v:a | v = x }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:369:1
+{-@ reflect concat @-}
+
+-- FILE tests/ple/pos/Permutations.hs:374:1
+{-@
+reflect !!
+(!!) :: xs:[a] -> { n:Int | n < len xs && n >= 0 } -> a
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:382:1
+{-@ reflect take @-}
+
+-- FILE tests/ple/pos/Permutations.hs:392:1
+{-@ reflect drop @-}
+
+-- FILE tests/ple/pos/Permutations.hs:402:1
+{-@ reflect ++ @-}
+
+-- FILE tests/ple/pos/Permutations.hs:407:1
+{-@ reflect flipAppend @-}
+
+-- FILE tests/ple/pos/Permutations.hs:411:1
+{-@ reflect insertAt @-}
+
+-- FILE tests/ple/pos/Permutations.hs:415:1
+{-@ reflect map @-}
+
+-- FILE tests/ple/pos/Permutations.hs:420:1
+{-@ reflect foldr @-}
+
+-- FILE tests/ple/pos/Permutations.hs:425:1
+{-@ reflect fromTo @-}
+
+-- FILE tests/ple/pos/Permutations.hs:426:1
+{-@
+fromTo
+  :: a:Int
+  -> b:Int
+  -> [{c:Int | a <= c && c <= b}]
+     / [b-a+1]
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:437:1
+{-@ reflect reverse @-}
+
+-- FILE tests/ple/pos/Permutations.hs:442:1
+{-@
+lemmaElemAtAppend
+  :: xs:[a]
+  -> ys:[a]
+  -> { i:Int | 0 <= i && i < len xs }
+  -> { (xs ++ ys) !! i == xs !! i }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:454:1
+{-@
+lemmaDropAppend
+  :: xs:[a]
+  -> ys:[a]
+  -> { i:Int | 0 <= i && i <= len xs }
+  -> { drop i (xs ++ ys) == drop i xs ++ ys }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:466:1
+{-@
+lemmaTakeAppend
+  :: xs:[a]
+  -> ys:[a]
+  -> { i:Int | 0 <= i && i <= len xs }
+  -> { take i (xs ++ ys) == take i xs }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:478:1
+{-@
+lemmaMapAppend
+  :: f:(a -> b)
+  -> xs:[a]
+  -> ys:[a]
+  -> { map f xs ++ map f ys == map f (xs ++ ys) }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:489:1
+{-@
+lemmaConcatAppend
+  :: xs:[[a]]
+  -> ys:[[a]]
+  -> { concat (xs ++ ys) = concat xs ++ concat ys }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:501:1
+{-@
+lemmaLengthFromTo
+  :: i:Int
+  -> { j:Int | i <= j + 1 }
+  -> { len (fromTo i j) == j - i + 1 } / [j - i + 1]
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:510:1
+{-@
+lemmaLengthAppend
+  :: xs:[a]
+  -> ys:[a]
+  -> { len (xs ++ ys) == len xs + len ys }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:520:1
+{-@
+lemmaFromToSplit
+  :: a:Int
+  -> { b:Int | a <= b + 1 }
+  -> { c:Int | b <= c }
+  -> { fromTo a b ++ fromTo (b + 1) c == fromTo a c } / [ b - a + 1 ]
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:547:1
+{-@ lemmaAppendId :: xs:[a] -> { xs = xs ++ [] } @-}
+
+-- FILE tests/ple/pos/Permutations.hs:559:1
+{-@
+lemmaMapAux0
+  :: t:a
+  -> f:([a] -> b)
+  -> y:a
+  -> ys:[a]
+  -> ts:[a]
+  -> { i:Int | 0 <= i }
+  -> j:Int
+  -> { map (aux0 t (snoc f y) ys ts) (fromTo i j)
+         == map (aux0 t f (y:ys) ts) (fromTo (i+1) (j+1))
+     } / [j-i+1]
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:576:1
+{-@ reflect snoc @-}
+
+-- FILE tests/ple/pos/Permutations.hs:580:1
+{-@
+lemmaInterleaveAppend
+  :: t:a
+  -> ts:[a]
+  -> p:[a]
+  -> r:[[a]]
+  -> { interleave t ts p r == interleave t ts p [] ++ r }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:601:1
+{-@
+lemmaFoldrInterleave
+  :: t:a
+  -> ts:[a]
+  -> ps:[[a]]
+  -> r:[[a]]
+  -> { foldr (interleave t ts) r ps == concat (map (aux1 t ts []) ps) ++ r }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:616:1
+{-@
+lemmaAppendAssoc :: xs:[a] -> ys:[a] -> zs:[a] -> { xs ++ ys ++ zs = (xs ++ ys) ++ zs }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:623:1
+{-@
+lemmaConcatMapInterleave
+  :: ts:[a]
+  -> r:[a]
+  -> { i:Int | i >= 0 }
+  -> { j:Int | j < len ts }
+  -> { concat (map (aux2 (ts ++ r) []) (fromTo i j))
+         == map (flipAppend r) (concat (map (aux2 ts []) (fromTo i j))) } / [j - i + 1]
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:685:1
+{-@
+lemmaAppendInterleave
+  :: t:a
+  -> ts:[a]
+  -> r:[a]
+  -> ps:[[a]]
+  -> { mapInterleave t (ts ++ r) ps [] == map (flipAppend r) (mapInterleave t ts ps []) }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:754:1
+{-@
+lemmaAppendAux0
+  :: t:a
+  -> p:[a]
+  -> ts:[a]
+  -> r:[a]
+  -> xs:[Int]
+  -> { map (aux0 t id p (ts ++ r)) xs == map (flipAppend r) (map (aux0 t id p ts) xs) }
+@-}
+
+-- FILE tests/ple/pos/Permutations.hs:784:1
+{-@
+lemmaMapAux2
+  :: t:a
+  -> ts:[a]
+  -> is:[a]
+  -> { i:Int | 0 <= i }
+  -> { j:Int | j < len ts }
+  -> { map (aux2 ts (t:is)) (fromTo i j)
+         == map (aux2 (t:ts) is) (fromTo (i+1) (j+1))
+     } / [j-i+1]
+@-}
+
+-- FILE tests/ple/pos/Ple0.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/Ple0.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/Ple0.hs:6:1
+{-@ reflect adder @-}
+
+-- FILE tests/ple/pos/Ple0.hs:10:1
+{-@ prop :: { adder 5 6 == 11 } @-}
+
+-- FILE tests/ple/pos/PleORM.hs:3:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/ple/pos/PleORM.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/PleORM.hs:9:1
+{-@ prop0 :: [Blob] -> [{v:Blob | xVal v == 5}] @-}
+
+-- FILE tests/ple/pos/PleORM.hs:13:1
+{-@ prop1 :: [Int] -> [{v:Int | v == 10}] @-}
+
+-- FILE tests/ple/pos/PleORM.hs:17:1
+{-@ prop2 :: [Int] -> [{v:Int | v == 10}] @-}
+
+-- FILE tests/ple/pos/PleORM.hs:21:1
+{-@ reflect mkQQ @-}
+
+-- FILE tests/ple/pos/PleORM.hs:25:1
+{-@ filterQ :: q:Qry -> [Blob] -> [{v:Blob | evalQ q v}] @-}
+
+-- FILE tests/ple/pos/PleORM.hs:29:1
+{-@ filterQQ :: q:QQ -> [Int] -> [{v:Int | evalQQ q v}] @-}
+
+-- FILE tests/ple/pos/PleORM.hs:45:1
+{-@ data Blob = Blob {xVal :: Int, yVal :: Int} @-}
+
+-- FILE tests/ple/pos/PleORM.hs:48:1
+{-@ reflect evalQQ @-}
+
+-- FILE tests/ple/pos/PleORM.hs:52:1
+{-@ reflect evalQ @-}
+
+-- FILE tests/ple/pos/PleORM.hs:56:1
+{-@ reflect evalV @-}
+
+-- FILE tests/ple/pos/PleORM.hs:62:1
+{-@ reflect evalC @-}
+
+-- FILE tests/ple/pos/PleORM.hs:71:1
+{-@ filter :: f:(a -> Bool) -> [a] -> [{v:a | f v}] @-}
+
+-- FILE tests/ple/pos/Ple_sum.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/Ple_sum.hs:3:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/pos/Ple_sum.hs:4:1
+{-@ LIQUID "--fuel=5" @-}
+
+-- FILE tests/ple/pos/Ple_sum.hs:8:1
+{-@ reflect sumTo @-}
+
+-- FILE tests/ple/pos/Ple_sum.hs:12:1
+{-@ test :: () -> { sumTo 5 == 15 } @-}
+
+-- FILE tests/ple/pos/PolyKVar2649.hs:1:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/pos/PolyKVar2649.hs:7:1
+{-@ go :: {acc:[a] | _} -> {v:[a] | _ } @-}
+
+-- FILE tests/ple/pos/PolyKVar2649.hs:14:1
+{-@ wrap :: xs:[a] -> {v:[a] | len v >= 0 } @-}
+
+-- FILE tests/ple/pos/PolySetBar.hs:1:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/PolySetBar.hs:2:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/PolySetBar.hs:10:1
+{-@ lemma_last_isFoo :: f : Foo t -> { isFoo (last (foos f))} @-}
+
+-- FILE tests/ple/pos/PolySetFoo.hs:1:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/PolySetFoo.hs:7:1
+{-@ reflect last @-}
+
+-- FILE tests/ple/pos/PolySetFoo.hs:8:1
+{-@ last :: xs:{ [a] | len xs > 0 } -> a @-}
+
+-- FILE tests/ple/pos/PolySetFoo.hs:16:1
+{-@ reflect isFoo @-}
+
+-- FILE tests/ple/pos/PolySetFoo.hs:20:1
+{-@ reflect foos @-}
+
+-- FILE tests/ple/pos/PolySetFoo.hs:21:1
+{-@ foos :: Foo t -> [{ v:Foo t | isFoo v }] @-}
+
+-- FILE tests/ple/pos/ProposalLocalRewrites.hs:3:1
+{-@ LIQUID "--ple"           @-}
+
+-- FILE tests/ple/pos/ProposalLocalRewrites.hs:4:1
+{-@ LIQUID "--reflection"    @-}
+
+-- FILE tests/ple/pos/ProposalLocalRewrites.hs:5:1
+{-@ LIQUID "--etabeta"       @-}
+
+-- FILE tests/ple/pos/ProposalLocalRewrites.hs:6:1
+{-@ LIQUID "--dependantcase" @-}
+
+-- FILE tests/ple/pos/ProposalLocalRewrites.hs:13:1
+{-@ reflect id @-}
+
+-- FILE tests/ple/pos/ProposalLocalRewrites.hs:18:5
+    {-@ MkId :: Prop (Term id) @-}
+
+-- FILE tests/ple/pos/ProposalLocalRewrites.hs:22:1
+{-@ doSomething :: f:_ -> Prop (Term f) -> {f = id} @-}
+
+-- FILE tests/ple/pos/ProposalLocalRewrites.hs:26:1
+{-@ doSomething' :: f:_ -> Prop (Term f) -> {f 42 = 42} @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:1:1
+{-@ LIQUID "--reflection"                @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:2:1
+{-@ LIQUID "--ple"                       @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:3:1
+{-@ LIQUID "--etabeta"                   @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:12:1
+{-@ data Reader r a = Reader { runReader :: r -> a } @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:15:1
+{-@ reflect const @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:19:1
+{-@ reflect return @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:23:1
+{-@ reflect bindAux @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:26:1
+{-@ reflect bind @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:30:1
+{-@ readerId :: f:(Reader r a) -> {f == Reader (runReader f)} @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:34:1
+{-@ right_identity :: x:Reader r a -> { bind x return == x } @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:39:1
+{-@ associativity :: x:Reader r a -> f: (a -> Reader r a) -> g:(a -> Reader r a) 
+                        -> {bind (bind x f) g      ==  bind x (\r4:a ->(bind (f r4) g)) } @-}
+
+-- FILE tests/ple/pos/ReaderEta.hs:45:1
+{-@ left_identity :: x:a -> f:(a -> Reader r b) -> { bind (return x) f == f x } @-}
+
+-- FILE tests/ple/pos/ReflectDefault.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/ReflectDefault.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/ReflectDefault.hs:4:1
+{-@ LIQUID "--max-case-expand=0" @-}
+
+-- FILE tests/ple/pos/ReflectDefault.hs:10:1
+{-@ reflect foo @-}
+
+-- FILE tests/ple/pos/ReflectDefault.hs:16:1
+{-@ thmOK :: {foo C == 1} @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:5:1
+{-@ infixr ++             @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:18:1
+{-@ data RE [reSize] @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:27:1
+{-@ measure reSize @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:28:1
+{-@ reSize :: RE a -> Nat @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:41:1
+{-@ reflect dmatch @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:45:1
+{-@ reflect derivs @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:46:1
+{-@ derivs :: _ -> xs:_ -> _ / [size xs] @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:54:1
+{-@ reflect deriv @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:68:1
+{-@ reflect empty @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:91:1
+{-@ data Match [msize] a where
+        MEmpty :: Prop (Match Nil Empty)
+        MChar  :: x:_ -> Prop (Match (single x) (Char x))
+        MCat   :: s1:_ -> r1:_ -> s2:_ -> r2:_ ->
+                  Prop (Match s1 r1) ->
+                  Prop (Match s2 r2) ->
+                  Prop (Match {s1 ++ s2} (Cat r1 r2))
+        MAltL  :: s:_ -> r1:_ -> r2:_ ->
+                  Prop (Match s r1) ->
+                  Prop (Match s (Alt r1 r2))
+        MAltR  :: s:_ -> r1:_ -> r2:_ ->
+                  Prop (Match s r2) ->
+                  Prop (Match s (Alt r1 r2))
+        MStar0 :: r:_  ->
+                  Prop (Match Nil (Star r))
+        MStar1 :: s1:{0 < size s1} -> s2:_ -> r:_ ->
+                  Prop (Match s1 r) ->
+                  Prop (Match s2 (Star r)) ->
+                  Prop (Match {s1 ++ s2} (Star r))
+  @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:112:1
+{-@ measure msize           @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:113:1
+{-@ msize :: Match a -> Nat @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:127:1
+{-@ thm :: cs:_ -> r:_ -> Prop (Match cs r) -> { dmatch cs r } @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:134:1
+{-@ thm' :: cs:_ -> r:{ dmatch cs r } -> Prop (Match cs r) @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:145:1
+{-@ lem1 :: c:_ -> cs:_  -> r:_
+         -> pf: Prop (Match (Cons c cs) r)
+         -> Prop (Match cs (deriv r c)) / [msize pf]
+  @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:181:1
+{-@ lem1s :: cs:_ -> r:_ -> Prop (Match cs r) -> Prop (Match Nil (derivs r cs)) @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:186:1
+{-@ lem1a :: c:_ -> cs:_  -> r:_
+          -> m: Prop (Match cs (deriv r c))
+          -> Prop (Match (Cons c cs) r) / [msize m, 1]
+  @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:214:1
+{-@ lemCat :: c:_ -> cs:_ -> r1:_ -> r2:_
+           -> pf:Prop (Match cs (Cat (deriv r1 c) r2))
+           -> Prop (Match (Cons c cs) (Cat r1 r2)) / [msize pf, 0]
+  @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:223:1
+{-@ lem1s' ::  cs:_  -> r:_ -> Prop (Match Nil (derivs r cs)) -> Prop (Match cs r) @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:228:1
+{-@ lemEmp :: r:_ -> Prop (Match Nil r) -> {empty r} @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:238:1
+{-@ lemEmp' :: r:{empty r} -> Prop (Match Nil r) @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:250:1
+{-@ data List [size] @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:256:1
+{-@ measure size @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:257:1
+{-@ size :: List a -> Nat @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:262:1
+{-@ reflect ++ @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:267:1
+{-@ reflect single @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:271:1
+{-@ app_nil_nil :: s1:_ -> s2:{s1 ++ s2 == Nil} -> {s1 == Nil && s2 == Nil} @-}
+
+-- FILE tests/ple/pos/RegexpDerivative.hs:285:1
+{-@ kmatch :: cs:_ -> r:_ -> _ / [size cs, reSize r] @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:8:1
+{-@ data Pred [psize] @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:17:1
+{-@ measure psize @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:18:1
+{-@ psize :: Pred -> Nat @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:25:1
+{-@ inline mmax @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:29:1
+{-@ type NNF = {v:Pred | isNNF v} @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:31:1
+{-@ measure isNNF @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:38:1
+{-@ measure isVar @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:45:1
+{-@ reflect nnf @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:46:1
+{-@ nnf :: Pred -> NNF @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:53:1
+{-@ reflect neg @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:54:1
+{-@ neg :: Pred -> NNF @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:64:1
+{-@ reflect crunch @-}
+
+-- FILE tests/ple/pos/RosePLEDiv.hs:65:1
+{-@ crunch :: Pred -> NNF @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:3:1
+{-@ LIQUID "--reflection"        @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:4:1
+{-@ LIQUID "--ple"               @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:5:1
+{-@ LIQUID "--full"              @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:6:1
+{-@ LIQUID "--max-case-expand=4" @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:7:1
+{-@ LIQUID "--etabeta"           @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:8:1
+{-@ LIQUID "--dependantcase"     @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:27:3
+  {-@ Here :: σ:Ty -> γ:Ctx -> Prop (Ref σ (Cons σ γ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:30:3
+  {-@ There :: τ:Ty -> σ:Ty -> γ:Ctx -> Prop (Ref σ γ) 
+            -> Prop (Ref σ (Cons τ γ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:36:3
+  {-@ App :: σ:Ty -> τ:Ty -> γ:Ctx -> Prop (Term γ (Arrow σ τ)) 
+          -> Prop (Term γ σ) -> Prop (Term γ τ) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:39:3
+  {-@ Lam :: σ:Ty -> τ:Ty -> γ:Ctx -> Prop (Term (Cons σ γ) τ) 
+          -> Prop (Term γ (Arrow σ τ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:42:3
+  {-@ Var :: σ:Ty -> γ:Ctx -> Prop (Ref σ γ) -> Prop (Term γ σ) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:46:1
+{-@ measure tlen @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:47:1
+{-@ tlen :: Term -> Nat @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:55:1
+{-@ LIQUID "--no-positivity-check" @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:57:3
+  {-@ VIota :: Int -> Prop (Value Iota) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:59:3
+  {-@ VFun :: σ:Ty -> τ:Ty -> (Prop (Value σ) -> Prop (Value τ)) 
+           -> Prop (Value (Arrow σ τ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:64:1
+{-@ reflect asFun @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:65:1
+{-@ asFun :: σ:Ty -> τ:Ty -> Prop (Value (Arrow σ τ)) 
+          -> (Prop (Value σ) -> Prop (Value τ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:71:3
+  {-@ Empty :: Prop (Env Nil) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:73:3
+  {-@ With :: σ:Ty -> γ:Ctx -> Prop (Value σ) -> Prop (Env γ) 
+           -> Prop (Env (Cons σ γ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:78:1
+{-@ reflect lookupRef @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:79:1
+{-@ lookupRef :: σ:Ty -> γ:Ctx -> r:Prop (Ref σ γ) -> Prop (Env γ) 
+              -> Prop (Value σ) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:86:1
+{-@ makeFunBody :: σ:Ty -> α:Ty -> γ:Ctx -> t:Prop (Term (Cons α γ) σ) 
+                -> Prop (Env γ) -> (Prop (Value α) -> Prop (Value σ))
+                / [tlen t, 1] @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:89:1
+{-@ eval :: σ:Ty -> γ:Ctx -> t:Prop (Term γ σ) -> Prop (Env γ) 
+         -> Prop (Value σ) / [tlen t, 0] @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:92:1
+{-@ reflect makeFunBody @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:95:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:110:1
+{-@ reflect id @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:114:1
+{-@ reflect makeId @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:115:1
+{-@ makeId :: σ:Ty -> γ:Ctx -> (Prop (Env γ) -> Prop (Value (Arrow σ σ))) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:119:1
+{-@ reflect makeApp @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:120:1
+{-@ makeApp :: σ:Ty -> τ:Ty -> γ:Ctx 
+            -> (Prop (Env γ) -> Prop (Value (Arrow σ τ)))
+            -> (Prop (Env γ) -> Prop (Value σ))
+            -> Prop (Env γ) -> Prop (Value τ) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:128:1
+{-@ reflect makeDiscard @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:129:1
+{-@ makeDiscard :: σ:Ty -> τ:Ty -> Prop (Value σ) 
+                -> (Prop (Value τ) -> Prop (Value σ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:134:1
+{-@ reflect makeConstIn @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:135:1
+{-@ makeConstIn :: σ:Ty -> τ:Ty 
+                -> (Prop (Value σ) -> Prop (Value (Arrow τ σ))) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:140:1
+{-@ reflect makeConst @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:141:1
+{-@ makeConst :: σ:Ty -> τ:Ty -> γ:Ctx 
+              -> (Prop (Env γ) -> Prop (Value (Arrow σ (Arrow τ σ)))) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:146:1
+{-@ reflect makeS1 @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:147:1
+{-@ makeS1 :: σ:Ty -> τ:Ty -> υ:Ty 
+           -> (Prop (Value (Arrow σ (Arrow τ υ))) 
+              -> Prop (Value (Arrow (Arrow σ τ) (Arrow σ υ)))) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:153:1
+{-@ reflect makeS2 @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:154:1
+{-@ makeS2 :: σ:Ty -> τ:Ty -> υ:Ty -> Prop (Value (Arrow σ (Arrow τ υ)))
+           -> (Prop (Value (Arrow σ τ)) -> Prop (Value (Arrow σ υ))) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:159:1
+{-@ reflect makeS3 @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:160:1
+{-@ makeS3 :: σ:Ty -> τ:Ty -> υ:Ty -> Prop (Value (Arrow σ (Arrow τ υ)))
+           -> Prop (Value (Arrow σ τ)) -> (Prop (Value σ) -> Prop (Value υ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:165:1
+{-@ reflect makeS @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:166:1
+{-@ makeS :: σ:Ty -> τ:Ty -> υ:Ty -> γ:Ctx 
+          -> (Prop (Env γ) 
+             -> Prop (Value (Arrow (Arrow σ (Arrow τ υ)) 
+                                   (Arrow (Arrow σ τ) (Arrow σ υ)))))@-}
+
+-- FILE tests/ple/pos/SKIDC.hs:176:1
+{-@ reflect sType @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:179:1
+{-@ reflect kType @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:182:1
+{-@ reflect iType @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:186:3
+  {-@ S :: σ:Ty -> τ:Ty -> υ:Ty -> γ:Ctx 
+        -> Prop (Comb γ (sType σ τ υ) (makeS σ τ υ γ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:189:3
+  {-@ K :: σ:Ty -> τ:Ty -> γ:Ctx
+        -> Prop (Comb γ (kType σ τ) (makeConst σ τ γ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:192:3
+  {-@ I :: σ:Ty -> γ:Ctx 
+        -> Prop (Comb γ (iType σ) (makeId σ γ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:195:3
+  {-@ CApp :: σ:Ty -> τ:Ty -> γ:Ctx 
+           -> fun:(Prop (Env γ) -> Prop (Value (Arrow σ τ)))
+           -> arg:(Prop (Env γ) -> Prop (Value σ))
+           -> Prop (Comb γ (Arrow σ τ) fun)
+           -> Prop (Comb γ σ arg) 
+           -> Prop (Comb γ τ (makeApp σ τ γ fun arg)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:203:3
+  {-@ CVar :: σ:Ty -> γ:Ctx -> r:Prop (Ref σ γ)
+           -> Prop (Comb γ σ (lookupRef σ γ r)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:208:1
+{-@ translate :: σ:Ty -> γ:Ctx -> t:Prop (Term γ σ) 
+              -> Prop (Comb γ σ (eval σ γ t))  @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:220:1
+{-@ reflect makeBracketingInside @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:221:1
+{-@ makeBracketingInside :: σ:Ty -> τ:Ty -> γ:Ctx 
+                         -> f:(Prop (Env (Cons σ γ)) -> Prop (Value τ))
+                         -> Prop (Env γ)
+                         -> Prop (Value σ)
+                         -> Prop (Value τ) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:229:1
+{-@ reflect makeBracketing @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:230:1
+{-@ makeBracketing :: σ:Ty -> τ:Ty -> γ:Ctx 
+                   -> f:(Prop (Env (Cons σ γ)) -> Prop (Value τ))
+                   -> Prop (Env γ)
+                   -> Prop (Value (Arrow σ τ)) @-}
+
+-- FILE tests/ple/pos/SKIDC.hs:237:1
+{-@ bracket :: σ:Ty -> τ:Ty -> γ:Ctx -> f:(Prop (Env (Cons σ γ)) -> Prop (Value τ)) 
+            -> Prop (Comb (Cons σ γ) τ f) 
+            -> Prop (Comb γ (Arrow σ τ) (makeBracketing σ τ γ f)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:3:1
+{-@ LIQUID "--reflection"                @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:4:1
+{-@ LIQUID "--ple"                       @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:5:1
+{-@ LIQUID "--max-case-expand=4"         @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:6:1
+{-@ LIQUID "--etabeta"                   @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:25:3
+  {-@ Here :: σ:Ty -> γ:Ctx -> Prop (Ref σ (Cons σ γ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:28:3
+  {-@ There :: τ:Ty -> σ:Ty -> γ:Ctx -> Prop (Ref σ γ) 
+            -> Prop (Ref σ (Cons τ γ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:34:3
+  {-@ App :: σ:Ty -> τ:Ty -> γ:Ctx -> Prop (Term γ (Arrow σ τ)) 
+          -> Prop (Term γ σ) -> Prop (Term γ τ) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:37:3
+  {-@ Lam :: σ:Ty -> τ:Ty -> γ:Ctx -> Prop (Term (Cons σ γ) τ) 
+          -> Prop (Term γ (Arrow σ τ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:40:3
+  {-@ Var :: σ:Ty -> γ:Ctx -> Prop (Ref σ γ) -> Prop (Term γ σ) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:44:1
+{-@ measure tlen @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:45:1
+{-@ tlen :: Term -> Nat @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:53:1
+{-@ LIQUID "--no-positivity-check" @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:55:3
+  {-@ VIota :: Int -> Prop (Value Iota) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:57:3
+  {-@ VFun :: σ:Ty -> τ:Ty -> (Prop (Value σ) -> Prop (Value τ)) 
+           -> Prop (Value (Arrow σ τ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:62:1
+{-@ reflect asFun @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:63:1
+{-@ asFun :: σ:Ty -> τ:Ty -> Prop (Value (Arrow σ τ)) 
+          -> (Prop (Value σ) -> Prop (Value τ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:69:3
+  {-@ Empty :: Prop (Env Nil) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:71:3
+  {-@ With :: σ:Ty -> γ:Ctx -> Prop (Value σ) -> Prop (Env γ) 
+           -> Prop (Env (Cons σ γ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:76:1
+{-@ reflect lookupRef @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:77:1
+{-@ lookupRef :: σ:Ty -> γ:Ctx -> r:Prop (Ref σ γ) -> Prop (Env γ) 
+              -> Prop (Value σ) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:84:1
+{-@ makeFunBody :: σ:Ty -> α:Ty -> γ:Ctx -> t:Prop (Term (Cons α γ) σ) 
+                -> Prop (Env γ) -> (Prop (Value α) -> Prop (Value σ))
+                / [tlen t, 1] @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:87:1
+{-@ eval :: σ:Ty -> γ:Ctx -> t:Prop (Term γ σ) -> Prop (Env γ) 
+         -> Prop (Value σ) / [tlen t, 0] @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:90:1
+{-@ reflect makeFunBody @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:93:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:108:1
+{-@ reflect id @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:113:1
+{-@ reflect makeId @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:114:1
+{-@ makeId :: σ:Ty -> γ:Ctx -> (Prop (Env γ) -> Prop (Value (Arrow σ σ))) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:118:1
+{-@ reflect makeApp @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:119:1
+{-@ makeApp :: σ:Ty -> τ:Ty -> γ:Ctx 
+            -> (Prop (Env γ) -> Prop (Value (Arrow σ τ)))
+            -> (Prop (Env γ) -> Prop (Value σ))
+            -> Prop (Env γ) -> Prop (Value τ) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:127:1
+{-@ reflect makeDiscard @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:128:1
+{-@ makeDiscard :: σ:Ty -> τ:Ty -> Prop (Value σ) 
+                -> (Prop (Value τ) -> Prop (Value σ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:133:1
+{-@ reflect makeConstIn @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:134:1
+{-@ makeConstIn :: σ:Ty -> τ:Ty 
+                -> (Prop (Value σ) -> Prop (Value (Arrow τ σ))) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:139:1
+{-@ reflect makeConst @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:140:1
+{-@ makeConst :: σ:Ty -> τ:Ty -> γ:Ctx 
+              -> (Prop (Env γ) -> Prop (Value (Arrow σ (Arrow τ σ)))) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:145:1
+{-@ reflect makeS1 @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:146:1
+{-@ makeS1 :: σ:Ty -> τ:Ty -> υ:Ty 
+           -> (Prop (Value (Arrow σ (Arrow τ υ))) 
+              -> Prop (Value (Arrow (Arrow σ τ) (Arrow σ υ)))) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:152:1
+{-@ reflect makeS2 @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:153:1
+{-@ makeS2 :: σ:Ty -> τ:Ty -> υ:Ty -> Prop (Value (Arrow σ (Arrow τ υ)))
+           -> (Prop (Value (Arrow σ τ)) -> Prop (Value (Arrow σ υ))) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:158:1
+{-@ reflect makeS3 @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:159:1
+{-@ makeS3 :: σ:Ty -> τ:Ty -> υ:Ty -> Prop (Value (Arrow σ (Arrow τ υ)))
+           -> Prop (Value (Arrow σ τ)) -> (Prop (Value σ) -> Prop (Value υ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:164:1
+{-@ reflect makeS @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:165:1
+{-@ makeS :: σ:Ty -> τ:Ty -> υ:Ty -> γ:Ctx 
+          -> (Prop (Env γ) 
+             -> Prop (Value (Arrow (Arrow σ (Arrow τ υ)) 
+                                   (Arrow (Arrow σ τ) (Arrow σ υ)))))@-}
+
+-- FILE tests/ple/pos/SKIEta.hs:175:1
+{-@ reflect sType @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:178:1
+{-@ reflect kType @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:181:1
+{-@ reflect iType @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:185:3
+  {-@ S :: σ:Ty -> τ:Ty -> υ:Ty -> γ:Ctx 
+        -> Prop (Comb γ (sType σ τ υ) (makeS σ τ υ γ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:188:3
+  {-@ K :: σ:Ty -> τ:Ty -> γ:Ctx
+        -> Prop (Comb γ (kType σ τ) (makeConst σ τ γ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:191:3
+  {-@ I :: σ:Ty -> γ:Ctx 
+        -> Prop (Comb γ (iType σ) (makeId σ γ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:194:3
+  {-@ CApp :: σ:Ty -> τ:Ty -> γ:Ctx 
+           -> fun:(Prop (Env γ) -> Prop (Value (Arrow σ τ)))
+           -> arg:(Prop (Env γ) -> Prop (Value σ))
+           -> Prop (Comb γ (Arrow σ τ) fun)
+           -> Prop (Comb γ σ arg) 
+           -> Prop (Comb γ τ (makeApp σ τ γ fun arg)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:202:3
+  {-@ CVar :: σ:Ty -> γ:Ctx -> r:Prop (Ref σ γ)
+           -> Prop (Comb γ σ (lookupRef σ γ r)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:207:1
+{-@ translate :: σ:Ty -> γ:Ctx -> t:Prop (Term γ σ) 
+              -> Prop (Comb γ σ (eval σ γ t))  @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:219:1
+{-@ reflect makeBracketingInside @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:220:1
+{-@ makeBracketingInside :: σ:Ty -> τ:Ty -> γ:Ctx 
+                         -> f:(Prop (Env (Cons σ γ)) -> Prop (Value τ))
+                         -> Prop (Env γ)
+                         -> Prop (Value σ)
+                         -> Prop (Value τ) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:228:1
+{-@ reflect makeBracketing @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:229:1
+{-@ makeBracketing :: σ:Ty -> τ:Ty -> γ:Ctx 
+                   -> f:(Prop (Env (Cons σ γ)) -> Prop (Value τ))
+                   -> Prop (Env γ)
+                   -> Prop (Value (Arrow σ τ)) @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:236:1
+{-@ bracketHere :: σ:Ty -> γ:Ctx
+                 -> {makeBracketing σ σ γ (lookupRef σ (Cons σ γ) (Here σ γ)) 
+                     == makeId σ γ} @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:242:1
+{-@ bracketThere :: σ:Ty -> τ:Ty -> γ:Ctx -> t:Prop (Ref τ γ)
+                 -> {makeBracketing σ τ γ (lookupRef τ (Cons σ γ) 
+                                                       (There σ τ γ t))
+                     == makeApp τ (Arrow σ τ) γ (makeConst τ σ γ) 
+                                                (lookupRef τ γ t)} @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:251:1
+{-@ bracketId :: σ:Ty -> τ:Ty -> γ:Ctx
+               -> {makeBracketing σ (Arrow τ τ) γ (makeId τ (Cons σ γ))
+                  = makeApp (Arrow τ τ) (Arrow σ (Arrow τ τ)) γ (makeConst (Arrow τ τ) σ γ) (makeId τ γ)} @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:257:1
+{-@ bracketConst :: σ:Ty -> τ:Ty -> υ:Ty -> γ:Ctx
+                -> {makeBracketing σ (kType τ υ) γ (makeConst τ υ (Cons σ γ))
+                    = makeApp (kType τ υ) (Arrow σ (kType τ υ)) γ 
+                              (makeConst (kType τ υ) σ γ) (makeConst τ υ γ)} @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:264:1
+{-@ bracketS :: σ:Ty -> τ:Ty -> υ:Ty -> ψ:Ty -> γ:Ctx
+                -> {makeBracketing σ (sType τ υ ψ) γ (makeS τ υ ψ (Cons σ γ))
+                    = makeApp (sType τ υ ψ) (Arrow σ (sType τ υ ψ)) γ 
+                              (makeConst (sType τ υ ψ) σ γ) (makeS τ υ ψ γ)} @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:271:1
+{-@ bracketApp :: σ:Ty -> α:Ty -> τ:Ty -> γ:Ctx 
+               -> ft1:(Prop (Env (Cons σ γ)) -> Prop (Value (Arrow α τ)))
+               -> ft2:(Prop (Env (Cons σ γ)) -> Prop (Value α))
+               -> {makeApp (Arrow σ α) (Arrow σ τ) γ 
+                           (makeApp (Arrow σ (Arrow α τ)) 
+                                    (Arrow (Arrow σ α) (Arrow σ τ)) γ 
+                                    (makeS σ α τ γ) 
+                                    (makeBracketing σ (Arrow α τ) γ ft1))
+                           (makeBracketing σ α γ ft2)
+                   == makeBracketing σ τ γ (makeApp α τ (Cons σ γ) ft1 ft2)} @-}
+
+-- FILE tests/ple/pos/SKIEta.hs:284:1
+{-@ bracket :: σ:Ty -> τ:Ty -> γ:Ctx -> f:(Prop (Env (Cons σ γ)) -> Prop (Value τ)) 
+            -> Prop (Comb (Cons σ γ) τ f) 
+            -> Prop (Comb γ (Arrow σ τ) (makeBracketing σ τ γ f)) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:3:1
+{-@ LIQUID "--reflection"        @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:4:1
+{-@ LIQUID "--ple"               @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:5:1
+{-@ LIQUID "--etabeta"           @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:6:1
+{-@ LIQUID "--dependantcase"     @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:14:1
+{-@ assume reflect id as myId @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:16:1
+{-@ reflect myId @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:31:3
+  {-@ Here :: σ:Ty -> γ:Ctx -> Ix Ref (σ, (Cons σ γ)) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:34:3
+  {-@ There :: τ:Ty -> σ:Ty -> γ:Ctx -> Ix Ref (σ, γ)
+            -> Ix Ref (σ, (Cons τ γ)) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:39:3
+  {-@ App :: σ:Ty -> τ:Ty -> γ:Ctx -> Ix Term (γ, (Arrow σ τ))
+          -> Ix Term (γ, σ) -> Ix Term (γ, τ) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:42:3
+  {-@ Lam :: σ:Ty -> τ:Ty -> γ:Ctx -> Ix Term ((Cons σ γ), τ)
+          -> Ix Term (γ, (Arrow σ τ)) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:45:3
+  {-@ Var :: σ:Ty -> γ:Ctx -> Ix Ref (σ, γ) -> Ix Term (γ, σ) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:48:1
+{-@ stratified Value @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:50:3
+  {-@ VIota :: Int -> Ix Value Iota @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:52:3
+  {-@ VFun :: σ:Ty -> τ:Ty -> (Ix Value σ -> Ix Value τ)
+           -> Ix Value (Arrow σ τ) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:57:3
+  {-@ Empty :: Ix Env Nil @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:59:3
+  {-@ With :: σ:Ty -> γ:Ctx -> Ix Value σ -> Ix Env γ
+           -> Ix Env (Cons σ γ) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:63:1
+{-@ reflect lookupRef @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:64:1
+{-@ lookupRef :: σ:Ty -> γ:Ctx -> r:Ix Ref (σ, γ) -> Ix Env γ
+              -> Ix Value σ @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:71:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:72:1
+{-@ eval :: σ:Ty -> γ:Ctx -> t:Ix Term (γ, σ) -> Ix Env γ
+         -> Ix Value σ @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:80:1
+{-@ reflect makeId @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:81:1
+{-@ makeId :: σ:Ty -> γ:Ctx -> (Ix Env γ -> Ix Value (Arrow σ σ)) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:85:1
+{-@ reflect makeApp @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:86:1
+{-@ makeApp :: σ:Ty -> τ:Ty -> γ:Ctx
+            -> (Ix Env γ -> Ix Value (Arrow σ τ))
+            -> (Ix Env γ -> Ix Value σ)
+            -> Ix Env γ -> Ix Value τ @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:94:1
+{-@ reflect makeConst @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:95:1
+{-@ makeConst :: σ:Ty -> τ:Ty -> γ:Ctx
+              -> (Ix Env γ -> Ix Value (Arrow σ (Arrow τ σ))) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:101:1
+{-@ reflect makeS @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:102:1
+{-@ makeS :: σ:Ty -> τ:Ty -> υ:Ty -> γ:Ctx
+          -> (Ix Env γ
+             -> Ix Value (Arrow (Arrow σ (Arrow τ υ))
+                                   (Arrow (Arrow σ τ) (Arrow σ υ))))@-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:112:1
+{-@ reflect sType @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:115:1
+{-@ reflect kType @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:118:1
+{-@ reflect iType @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:121:1
+{-@ reflect dom @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:122:1
+{-@ dom :: { σ:Ty | σ /= Iota } -> Ty @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:125:1
+{-@ reflect cod @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:126:1
+{-@ cod :: { σ:Ty | σ /= Iota } -> Ty @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:131:3
+  {-@ S :: σ:Ty -> τ:Ty -> υ:Ty -> γ:Ctx
+        -> Ix Comb (γ, sType σ τ υ, makeS σ τ υ γ) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:134:3
+  {-@ K :: σ:Ty -> τ:Ty -> γ:Ctx
+        -> Ix Comb (γ, kType σ τ, makeConst σ τ γ) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:137:3
+  {-@ I :: σ:Ty -> γ:Ctx
+        -> Ix Comb (γ, iType σ, makeId σ γ) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:140:3
+  {-@ CApp :: σ:Ty -> τ:Ty -> γ:Ctx
+           -> fun:(Ix Env γ -> Ix Value (Arrow σ τ))
+           -> arg:(Ix Env γ -> Ix Value σ)
+           -> Ix Comb (γ, Arrow σ τ, fun)
+           -> Ix Comb (γ, σ, arg)
+           -> Ix Comb (γ, τ, makeApp σ τ γ fun arg) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:148:3
+  {-@ CVar :: σ:Ty -> γ:Ctx -> r:Ix Ref (σ, γ)
+           -> Ix Comb (γ, σ, lookupRef σ γ r) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:152:1
+{-@ translate :: σ:Ty -> γ:Ctx -> t:Ix Term (γ, σ)
+              -> Ix Comb (γ, σ, eval σ γ t)  @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:164:1
+{-@ reflect makeBracketing @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:165:1
+{-@ makeBracketing :: σ:Ty -> τ:Ty -> γ:Ctx
+                   -> f:(Ix Env (Cons σ γ) -> Ix Value τ)
+                   -> Ix Env γ
+                   -> Ix Value (Arrow σ τ) @-}
+
+-- FILE tests/ple/pos/SKIIdx.hs:172:1
+{-@ bracket :: σ:Ty -> τ:Ty -> γ:Ctx -> f:(Ix Env (Cons σ γ) -> Ix Value τ)
+            -> Ix Comb (Cons σ γ, τ, f)
+            -> Ix Comb (γ, Arrow σ τ, makeBracketing σ τ γ f) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:3:1
+{-@ LIQUID "--modern" @-}
+
+-- FILE tests/ple/pos/SKILam.hs:11:1
+{-@ assume reflect id as myId @-}
+
+-- FILE tests/ple/pos/SKILam.hs:13:1
+{-@ reflect myId @-}
+
+-- FILE tests/ple/pos/SKILam.hs:29:3
+  {-@ Here :: σ:Ty -> γ:Ctx -> Prop (Ref σ (Cons σ γ)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:32:3
+  {-@ There :: τ:Ty -> σ:Ty -> γ:Ctx -> Prop (Ref σ γ)
+            -> Prop (Ref σ (Cons τ γ)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:38:3
+  {-@ App :: σ:Ty -> τ:Ty -> γ:Ctx -> Prop (Term γ (Arrow σ τ))
+          -> Prop (Term γ σ) -> Prop (Term γ τ) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:41:3
+  {-@ Lam :: σ:Ty -> τ:Ty -> γ:Ctx -> Prop (Term (Cons σ γ) τ)
+          -> Prop (Term γ (Arrow σ τ)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:44:3
+  {-@ Var :: σ:Ty -> γ:Ctx -> Prop (Ref σ γ) -> Prop (Term γ σ) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:48:1
+{-@ measure tlen @-}
+
+-- FILE tests/ple/pos/SKILam.hs:49:1
+{-@ tlen :: Term -> Nat @-}
+
+-- FILE tests/ple/pos/SKILam.hs:56:1
+{-@ stratified Value @-}
+
+-- FILE tests/ple/pos/SKILam.hs:58:3
+  {-@ VIota :: Int -> Prop (Value Iota) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:60:3
+  {-@ VFun :: σ:Ty -> τ:Ty -> (Prop (Value σ) -> Prop (Value τ))
+           -> Prop (Value (Arrow σ τ)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:66:3
+  {-@ Empty :: Prop (Env Nil) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:68:3
+  {-@ With :: σ:Ty -> γ:Ctx -> Prop (Value σ) -> Prop (Env γ)
+           -> Prop (Env (Cons σ γ)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:73:1
+{-@ reflect lookupRef @-}
+
+-- FILE tests/ple/pos/SKILam.hs:74:1
+{-@ lookupRef :: σ:Ty -> γ:Ctx -> r:Prop (Ref σ γ) -> Prop (Env γ)
+              -> Prop (Value σ) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:81:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/SKILam.hs:82:1
+{-@ eval :: σ:Ty -> γ:Ctx -> t:Prop (Term γ σ) -> Prop (Env γ)
+         -> Prop (Value σ) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:90:1
+{-@ reflect makeId @-}
+
+-- FILE tests/ple/pos/SKILam.hs:91:1
+{-@ makeId :: σ:Ty -> γ:Ctx -> (Prop (Env γ) -> Prop (Value (Arrow σ σ))) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:95:1
+{-@ reflect makeApp @-}
+
+-- FILE tests/ple/pos/SKILam.hs:96:1
+{-@ makeApp :: σ:Ty -> τ:Ty -> γ:Ctx
+            -> (Prop (Env γ) -> Prop (Value (Arrow σ τ)))
+            -> (Prop (Env γ) -> Prop (Value σ))
+            -> Prop (Env γ) -> Prop (Value τ) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:104:1
+{-@ reflect makeConst @-}
+
+-- FILE tests/ple/pos/SKILam.hs:105:1
+{-@ makeConst :: σ:Ty -> τ:Ty -> γ:Ctx
+              -> (Prop (Env γ) -> Prop (Value (Arrow σ (Arrow τ σ)))) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:111:1
+{-@ reflect makeS @-}
+
+-- FILE tests/ple/pos/SKILam.hs:112:1
+{-@ makeS :: σ:Ty -> τ:Ty -> υ:Ty -> γ:Ctx
+          -> (Prop (Env γ)
+             -> Prop (Value (Arrow (Arrow σ (Arrow τ υ))
+                                   (Arrow (Arrow σ τ) (Arrow σ υ)))))@-}
+
+-- FILE tests/ple/pos/SKILam.hs:122:1
+{-@ reflect sType @-}
+
+-- FILE tests/ple/pos/SKILam.hs:125:1
+{-@ reflect kType @-}
+
+-- FILE tests/ple/pos/SKILam.hs:128:1
+{-@ reflect iType @-}
+
+-- FILE tests/ple/pos/SKILam.hs:131:1
+{-@ reflect dom @-}
+
+-- FILE tests/ple/pos/SKILam.hs:132:1
+{-@ dom :: { σ:Ty | σ /= Iota } -> Ty @-}
+
+-- FILE tests/ple/pos/SKILam.hs:135:1
+{-@ reflect cod @-}
+
+-- FILE tests/ple/pos/SKILam.hs:136:1
+{-@ cod :: { σ:Ty | σ /= Iota } -> Ty @-}
+
+-- FILE tests/ple/pos/SKILam.hs:141:3
+  {-@ S :: σ:Ty -> τ:Ty -> υ:Ty -> γ:Ctx
+        -> Prop (Comb γ (sType σ τ υ) (makeS σ τ υ γ)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:144:3
+  {-@ K :: σ:Ty -> τ:Ty -> γ:Ctx
+        -> Prop (Comb γ (kType σ τ) (makeConst σ τ γ)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:147:3
+  {-@ I :: σ:Ty -> γ:Ctx
+        -> Prop (Comb γ (iType σ) (makeId σ γ)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:150:3
+  {-@ CApp :: σ:Ty -> τ:Ty -> γ:Ctx
+           -> fun:(Prop (Env γ) -> Prop (Value (Arrow σ τ)))
+           -> arg:(Prop (Env γ) -> Prop (Value σ))
+           -> Prop (Comb γ (Arrow σ τ) fun)
+           -> Prop (Comb γ σ arg)
+           -> Prop (Comb γ τ (makeApp σ τ γ fun arg)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:158:3
+  {-@ CVar :: σ:Ty -> γ:Ctx -> r:Prop (Ref σ γ)
+           -> Prop (Comb γ σ (lookupRef σ γ r)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:163:1
+{-@ translate :: σ:Ty -> γ:Ctx -> t:Prop (Term γ σ)
+              -> Prop (Comb γ σ (eval σ γ t))  @-}
+
+-- FILE tests/ple/pos/SKILam.hs:175:1
+{-@ reflect makeBracketing @-}
+
+-- FILE tests/ple/pos/SKILam.hs:176:1
+{-@ makeBracketing :: σ:Ty -> τ:Ty -> γ:Ctx
+                   -> f:(Prop (Env (Cons σ γ)) -> Prop (Value τ))
+                   -> Prop (Env γ)
+                   -> Prop (Value (Arrow σ τ)) @-}
+
+-- FILE tests/ple/pos/SKILam.hs:183:1
+{-@ bracket :: σ:Ty -> τ:Ty -> γ:Ctx -> f:(Prop (Env (Cons σ γ)) -> Prop (Value τ))
+            -> Prop (Comb (Cons σ γ) τ f)
+            -> Prop (Comb γ (Arrow σ τ) (makeBracketing σ τ γ f)) @-}
+
+-- FILE tests/ple/pos/STLC0.hs:3:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/STLC0.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/STLC0.hs:5:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/STLC0.hs:45:1
+{-@ reflect seq2 @-}
+
+-- FILE tests/ple/pos/STLC0.hs:60:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/STLC0.hs:66:1
+{-@ reflect evalOp @-}
+
+-- FILE tests/ple/pos/STLC0.hs:101:1
+{-@ data ResTy where
+        R_Res  :: x:Val -> t:Type -> Prop (ValTy x t) -> Prop (ResTy (Result x) t) 
+        R_Time :: t:Type -> Prop (ResTy Timeout t) 
+  @-}
+
+-- FILE tests/ple/pos/STLC0.hs:127:1
+{-@ data ValTy where
+        V_Bool :: b:Bool -> Prop (ValTy (VBool b) TBool) 
+        V_Int  :: i:Int  -> Prop (ValTy (VInt i)  TInt) 
+  @-}
+
+-- FILE tests/ple/pos/STLC0.hs:143:1
+{-@ reflect opIn1 @-}
+
+-- FILE tests/ple/pos/STLC0.hs:149:1
+{-@ reflect opIn2 @-}
+
+-- FILE tests/ple/pos/STLC0.hs:155:1
+{-@ reflect opOut @-}
+
+-- FILE tests/ple/pos/STLC0.hs:175:1
+{-@ data ExprTy where 
+        E_Bool :: b:Bool 
+               -> Prop (ExprTy (EBool b) TBool)
+        E_Int  :: i:Int  
+               -> Prop (ExprTy (EInt i)  TInt)
+        E_Bin  :: o:Op -> e1:Expr -> e2:Expr 
+               -> Prop (ExprTy e1 (opIn1 o)) 
+               -> Prop (ExprTy e2 (opIn2 o))
+               -> Prop (ExprTy (EBin o e1 e2) (opOut o))
+  @-}
+
+-- FILE tests/ple/pos/STLC0.hs:197:1
+{-@ evalOp_safe 
+      :: o:Op -> v1:Val -> v2:Val 
+      -> Prop (ValTy v1 (opIn1 o)) 
+      -> Prop (ValTy v2 (opIn2 o)) 
+      -> (v :: Val, ( {y:() | evalOp o v1 v2 == Result v} , {z:ValTy | prop z = ValTy v (opOut o)}))
+  @-}
+
+-- FILE tests/ple/pos/STLC0.hs:217:1
+{-@ evalOp_res_safe 
+      :: o:Op -> r1:Result -> r2:Result
+      -> Prop (ResTy r1 (opIn1 o))
+      -> Prop (ResTy r2 (opIn2 o))
+      -> Prop (ResTy (seq2 (evalOp o) r1 r2) (opOut o)) 
+  @-}
+
+-- FILE tests/ple/pos/STLC0.hs:236:1
+{-@ eval_safe :: e:Expr -> t:Type -> Prop (ExprTy e t) -> Prop (ResTy (eval e) t) @-}
+
+-- FILE tests/ple/pos/STLC0.hs:254:1
+{-@ measure prop :: a -> b           @-}
+
+-- FILE tests/ple/pos/STLC0.hs:255:1
+{-@ type Prop E = {v:_ | prop v = E} @-}
+
+-- FILE tests/ple/pos/STLC0.hs:257:1
+{-@ trivial :: {v:a | false} -> b @-}
+
+-- FILE tests/ple/pos/STLC1.hs:3:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/STLC1.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/STLC1.hs:5:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/STLC1.hs:54:1
+{-@ reflect seq2 @-}
+
+-- FILE tests/ple/pos/STLC1.hs:69:1
+{-@ reflect lookupVEnv @-}
+
+-- FILE tests/ple/pos/STLC1.hs:74:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/STLC1.hs:83:1
+{-@ reflect evalOp @-}
+
+-- FILE tests/ple/pos/STLC1.hs:118:1
+{-@ data ResTy where
+        R_Res  :: x:Val -> t:Type -> Prop (ValTy x t) -> Prop (ResTy (Result x) t) 
+        R_Time :: t:Type -> Prop (ResTy Timeout t) 
+  @-}
+
+-- FILE tests/ple/pos/STLC1.hs:144:1
+{-@ data ValTy where
+        V_Bool :: b:Bool -> Prop (ValTy (VBool b) TBool) 
+        V_Int  :: i:Int  -> Prop (ValTy (VInt i)  TInt) 
+  @-}
+
+-- FILE tests/ple/pos/STLC1.hs:171:1
+{-@ data StoTy where
+        S_Emp  :: Prop (StoTy TEmp VEmp) 
+        S_Bind :: x:Var -> t:Type -> val:Val -> g:TEnv -> s:VEnv
+               -> Prop (ValTy val t) 
+               -> Prop (StoTy g   s) 
+               -> Prop (StoTy (TBind x t g) (VBind x val s)) 
+  @-}
+
+-- FILE tests/ple/pos/STLC1.hs:190:1
+{-@ reflect opIn1 @-}
+
+-- FILE tests/ple/pos/STLC1.hs:196:1
+{-@ reflect opIn2 @-}
+
+-- FILE tests/ple/pos/STLC1.hs:202:1
+{-@ reflect opOut @-}
+
+-- FILE tests/ple/pos/STLC1.hs:208:1
+{-@ reflect lookupTEnv @-}
+
+-- FILE tests/ple/pos/STLC1.hs:232:1
+{-@ data ExprTy where 
+        E_Bool :: g:TEnv -> b:Bool 
+               -> Prop (ExprTy g (EBool b) TBool)
+        E_Int  :: g:TEnv -> i:Int  
+               -> Prop (ExprTy g (EInt i)  TInt)
+        E_Bin  :: g:TEnv -> o:Op -> e1:Expr -> e2:Expr 
+               -> Prop (ExprTy g e1 (opIn1 o)) 
+               -> Prop (ExprTy g e2 (opIn2 o))
+               -> Prop (ExprTy g (EBin o e1 e2) (opOut o))
+        E_Var  :: g:TEnv -> x:Var -> t:{Type| lookupTEnv x g == Just t} 
+               -> Prop (ExprTy g (EVar x) t)
+  @-}
+
+-- FILE tests/ple/pos/STLC1.hs:257:1
+{-@ evalOp_safe 
+      :: o:Op -> v1:Val -> v2:Val 
+      -> Prop (ValTy v1 (opIn1 o)) 
+      -> Prop (ValTy v2 (opIn2 o)) 
+      -> (v :: Val, ( {y:() | evalOp o v1 v2 == Result v} , {z:ValTy | prop z = ValTy v (opOut o)}))
+  @-}
+
+-- FILE tests/ple/pos/STLC1.hs:277:1
+{-@ evalOp_res_safe 
+      :: o:Op -> r1:Result -> r2:Result
+      -> Prop (ResTy r1 (opIn1 o))
+      -> Prop (ResTy r2 (opIn2 o))
+      -> Prop (ResTy (seq2 (evalOp o) r1 r2) (opOut o)) 
+  @-}
+
+-- FILE tests/ple/pos/STLC1.hs:295:1
+{-@ lookup_safe :: g:TEnv -> s:VEnv -> x:Var -> t:{Type | lookupTEnv x g == Just t} 
+                -> Prop (StoTy g s) 
+                -> (w :: Val, ({z:() | lookupVEnv x s ==  Just w} , {z:ValTy | prop z = ValTy w t} ))
+  @-}
+
+-- FILE tests/ple/pos/STLC1.hs:312:1
+{-@ eval_safe :: g:TEnv -> s:VEnv -> e:Expr -> t:Type 
+              -> Prop (ExprTy g e t) 
+              -> Prop (StoTy  g s) 
+              -> Prop (ResTy (eval s e) t) 
+  @-}
+
+-- FILE tests/ple/pos/STLC1.hs:343:1
+{-@ measure prop :: a -> b           @-}
+
+-- FILE tests/ple/pos/STLC1.hs:344:1
+{-@ type Prop E = {v:_ | prop v = E} @-}
+
+-- FILE tests/ple/pos/STLC1.hs:346:1
+{-@ trivial :: {v:a | false} -> b @-}
+
+-- FILE tests/ple/pos/STLC2.hs:3:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/STLC2.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/STLC2.hs:5:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/STLC2.hs:57:1
+{-@ reflect seq2 @-}
+
+-- FILE tests/ple/pos/STLC2.hs:72:1
+{-@ reflect lookupVEnv @-}
+
+-- FILE tests/ple/pos/STLC2.hs:77:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/STLC2.hs:88:1
+{-@ reflect evalApp @-}
+
+-- FILE tests/ple/pos/STLC2.hs:93:1
+{-@ reflect evalOp @-}
+
+-- FILE tests/ple/pos/STLC2.hs:127:1
+{-@ data ResTy where
+        R_Res  :: x:Val -> t:Type -> Prop (ValTy x t) -> Prop (ResTy (Result x) t) 
+        R_Time :: t:Type -> Prop (ResTy Timeout t) 
+  @-}
+
+-- FILE tests/ple/pos/STLC2.hs:156:1
+{-@ data ValTy where
+        V_Bool :: b:Bool -> Prop (ValTy (VBool b) TBool) 
+        V_Int  :: i:Int  -> Prop (ValTy (VInt i)  TInt) 
+        V_Clos :: g:TEnv -> s:VEnv -> f:Var -> x:Var -> t1:Type -> t2:Type -> e:Expr 
+               -> Prop (StoTy g s) 
+               -> Prop (ExprTy (TBind x t1 (TBind f (TFun t1 t2) g)) e t2)
+               -> Prop (ValTy (VClos f x e s) (TFun t1 t2)) 
+  @-}
+
+-- FILE tests/ple/pos/STLC2.hs:189:1
+{-@ data StoTy where
+        S_Emp  :: Prop (StoTy TEmp VEmp) 
+        S_Bind :: x:Var -> t:Type -> val:Val -> g:TEnv -> s:VEnv
+               -> Prop (ValTy val t) 
+               -> Prop (StoTy g   s) 
+               -> Prop (StoTy (TBind x t g) (VBind x val s)) 
+  @-}
+
+-- FILE tests/ple/pos/STLC2.hs:208:1
+{-@ reflect opIn @-}
+
+-- FILE tests/ple/pos/STLC2.hs:214:1
+{-@ reflect opOut @-}
+
+-- FILE tests/ple/pos/STLC2.hs:220:1
+{-@ reflect lookupTEnv @-}
+
+-- FILE tests/ple/pos/STLC2.hs:253:1
+{-@ data ExprTy where 
+        E_Bool :: g:TEnv -> b:Bool 
+               -> Prop (ExprTy g (EBool b) TBool)
+        E_Int  :: g:TEnv -> i:Int  
+               -> Prop (ExprTy g (EInt i)  TInt)
+        E_Bin  :: g:TEnv -> o:Op -> e1:Expr -> e2:Expr 
+               -> Prop (ExprTy g e1 (opIn o)) 
+               -> Prop (ExprTy g e2 (opIn o))
+               -> Prop (ExprTy g (EBin o e1 e2) (opOut o))
+        E_Var  :: g:TEnv -> x:Var -> t:{Type| lookupTEnv x g == Just t} 
+               -> Prop (ExprTy g (EVar x) t)
+        E_Fun  :: g:TEnv -> f:Var -> x:Var -> t1:Type -> e:Expr -> t2:Type
+               -> Prop (ExprTy (TBind x t1 (TBind f (TFun t1 t2) g)) e t2)
+               -> Prop (ExprTy g (EFun f x t1 e) (TFun t1 t2))       
+        E_App  :: g:TEnv -> e1:Expr -> e2:Expr -> t1:Type -> t2:Type 
+               -> Prop (ExprTy g e1 (TFun t1 t2))
+               -> Prop (ExprTy g e2 t1)
+               -> Prop (ExprTy g (EApp e1 e2) t2)
+  @-}
+
+-- FILE tests/ple/pos/STLC2.hs:287:1
+{-@ reflect isValTy @-}
+
+-- FILE tests/ple/pos/STLC2.hs:293:1
+{-@ propValTy :: o:Op -> w:Val -> Prop (ValTy w (opIn o)) -> { w' : Val | w = w' && isValTy w' (opIn o) } @-}
+
+-- FILE tests/ple/pos/STLC2.hs:299:1
+{-@ evalOp_safe 
+      :: o:Op -> v1:{Val | isValTy v1 (opIn o) } -> v2:{Val | isValTy v2 (opIn o) } 
+      -> (v :: Val, ( {y:() | evalOp o v1 v2 == Result v} , {z:ValTy | prop z = ValTy v (opOut o)}))
+  @-}
+
+-- FILE tests/ple/pos/STLC2.hs:310:1
+{-@ evalOp_res_safe 
+      :: o:Op -> r1:Result -> r2:Result
+      -> Prop (ResTy r1 (opIn o))
+      -> Prop (ResTy r2 (opIn o))
+      -> Prop (ResTy (seq2 (evalOp o) r1 r2) (opOut o)) 
+  @-}
+
+-- FILE tests/ple/pos/STLC2.hs:328:1
+{-@ lookup_safe :: g:TEnv -> s:VEnv -> x:Var -> t:{Type | lookupTEnv x g == Just t} 
+                -> Prop (StoTy g s) 
+                -> (w :: Val, ({z:() | lookupVEnv x s ==  Just w} , {z:ValTy | prop z = ValTy w t} ))
+  @-}
+
+-- FILE tests/ple/pos/STLC2.hs:344:1
+{-@ evalApp_safe 
+      :: v1:Val -> v2:Val -> t1:Type -> t2:Type
+      -> Prop (ValTy v1 (TFun t1 t2)) 
+      -> Prop (ValTy v2 t1)
+      -> Prop (ResTy (evalApp v1 v2) t2) 
+  @-}
+
+-- FILE tests/ple/pos/STLC2.hs:370:1
+{-@ evalApp_res_safe 
+      :: r1:Result -> r2:Result -> t1:Type -> t2:Type
+      -> Prop (ResTy r1 (TFun t1 t2)) 
+      -> Prop (ResTy r2 t1)
+      -> Prop (ResTy (seq2 evalApp r1 r2) t2)
+  @-}
+
+-- FILE tests/ple/pos/STLC2.hs:387:1
+{-@ eval_safe :: g:TEnv -> s:VEnv -> e:Expr -> t:Type 
+              -> Prop (ExprTy g e t) 
+              -> Prop (StoTy  g s) 
+              -> Prop (ResTy (eval s e) t) 
+  @-}
+
+-- FILE tests/ple/pos/STLC2.hs:425:1
+{-@ measure prop :: a -> b           @-}
+
+-- FILE tests/ple/pos/STLC2.hs:426:1
+{-@ type Prop E = {v:_ | prop v = E} @-}
+
+-- FILE tests/ple/pos/STLC2.hs:428:1
+{-@ trivial :: {v:a | false} -> b @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:3:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:5:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:42:1
+{-@ reflect seq2 @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:57:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:63:1
+{-@ reflect evalOp @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:86:1
+{-@ reflect isResTy @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:96:1
+{-@ reflect isValTy @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:106:1
+{-@ reflect isExprTy @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:115:1
+{-@ reflect opIn @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:121:1
+{-@ reflect opOut @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:131:1
+{-@ evalOp_safe 
+      :: o:Op -> v1:{Val | isValTy v1 (opIn o)} -> v2:{Val | isValTy v2 (opIn o)} 
+      -> { isResTy (evalOp o v1 v2) (opOut o) }
+  @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:141:1
+{-@ evalOp_res_safe 
+      :: o:Op -> r1:{Result | isResTy r1 (opIn o)} -> r2:{Result | isResTy r2 (opIn o)}
+      -> { isResTy (seq2 (evalOp o) r1 r2) (opOut o) } 
+  @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:155:1
+{-@ eval_safe :: e:Expr -> t:{Type | isExprTy e t} -> { isResTy (eval e) t } @-}
+
+-- FILE tests/ple/pos/STLCB0.hs:168:1
+{-@ withProof :: x:a -> b -> {v:a | v = x} @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:3:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:5:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:55:1
+{-@ reflect seq2 @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:69:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:79:1
+{-@ reflect evalOp @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:86:1
+{-@ reflect lookupVEnv @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:108:1
+{-@ reflect isResTy @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:118:1
+{-@ reflect isValTy @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:128:1
+{-@ reflect isExprTy @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:138:1
+{-@ reflect opIn @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:144:1
+{-@ reflect opOut @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:150:1
+{-@ reflect lookupTEnv @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:159:1
+{-@ reflect isStoTy @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:171:1
+{-@ evalOp_safe
+      :: o:Op -> v1:{Val | isValTy v1 (opIn o)} -> v2:{Val | isValTy v2 (opIn o)}
+      -> { isResTy (evalOp o v1 v2) (opOut o) }
+  @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:181:1
+{-@ evalOp_res_safe
+      :: o:Op -> r1:{Result | isResTy r1 (opIn o)} -> r2:{Result | isResTy r2 (opIn o)}
+      -> { isResTy (seq2 (evalOp o) r1 r2) (opOut o) }
+  @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:192:1
+{-@ lookup_safe
+      :: g:TEnv -> s:{VEnv | isStoTy g s} -> x:Var -> t:{Type | lookupTEnv x g == Just t}
+      -> (w :: Val, {z:() | lookupVEnv x s ==  Just w && isValTy w t})
+  @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:206:1
+{-@ eval_safe
+      :: g:TEnv -> s:{VEnv | isStoTy g s} -> e:Expr -> t:{Type | isExprTy g e t}
+      -> {isResTy (eval s e) t}
+  @-}
+
+-- FILE tests/ple/pos/STLCB1.hs:228:1
+{-@ withProof :: forall a b <pa :: a -> Bool, pb :: b -> Bool>. x:a<pa> -> b<pb> -> {v:a<pa> | v = x} @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:4:1
+{-@ LIQUID "--ple"           @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:5:1
+{-@ LIQUID "--etabeta"       @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:6:1
+{-@ LIQUID "--reflection"    @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:7:1
+{-@ LIQUID "--dependantcase" @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:14:1
+{-@ assume reflect id as myid @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:15:1
+{-@ reflect $  @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:16:1
+{-@ infix $    @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:18:1
+{-@ reflect myid @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:22:1
+{-@ reflect .  @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:23:1
+{-@ infix .    @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:34:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:50:1
+{-@ reflect push @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:54:1
+{-@ reflect execOpCode @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:55:1
+{-@ execOpCode :: o:OpCode -> { v:Stack | len v >= minStackSize o } -> Stack @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:61:1
+{-@ reflect minStackSize @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:67:1
+{-@ PNil :: Prop (Program id) @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:69:1
+{-@ PCons :: op:OpCode
+          -> p:(Stack -> { v:Stack | len v >= minStackSize op }) -> Prop (Program p)
+          -> Prop (Program (execOpCode op . p)) @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:75:1
+{-@ reflect compose @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:76:1
+{-@ compose :: p1:(Stack -> Stack) -> p2:(Stack -> Stack)
+            -> Prop (Program p1) -> Prop (Program p2)
+            -> Prop (Program (p2 . p1)) @-}
+
+-- FILE tests/ple/pos/StackCompiler.hs:84:1
+{-@ compile :: e:Expr -> Prop (Program (push $ eval e)) @-}
+
+-- FILE tests/ple/pos/StlcBug.hs:3:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/StlcBug.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/StlcBug.hs:5:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/StlcBug.hs:27:1
+{-@ reflect isResTy @-}
+
+-- FILE tests/ple/pos/StlcBug.hs:32:1
+{-@ reflect isValTy @-}
+
+-- FILE tests/ple/pos/StlcBug.hs:38:1
+{-@ reflect opIn @-}
+
+-- FILE tests/ple/pos/StlcBug.hs:43:1
+{-@ foo :: o:Op -> v1:{Val | isValTy v1 (opIn o)} -> () @-}
+
+-- FILE tests/ple/pos/StlcBug.hs:47:1
+{-@ bar :: o:Op -> r:{Result | isResTy r (opIn o)} -> () @-}
+
+-- FILE tests/ple/pos/T1173.hs:3:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/ple/pos/T1173.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/T1173.hs:9:1
+{-@ prop1 :: [Int] -> [{v:Int | v == 10}] @-}
+
+-- FILE tests/ple/pos/T1173.hs:14:1
+{-@ prop2 :: [Int] -> [{v:Int | v == 10}] @-}
+
+-- FILE tests/ple/pos/T1173.hs:18:1
+{-@ reflect mkQQ @-}
+
+-- FILE tests/ple/pos/T1173.hs:22:1
+{-@ filterQQ :: q:QQ -> [Int] -> [{v:Int | evalQQ q v}] @-}
+
+-- FILE tests/ple/pos/T1173.hs:33:1
+{-@ reflect evalQQ @-}
+
+-- FILE tests/ple/pos/T1173.hs:41:1
+{-@ filter :: f:(a -> Bool) -> [a] -> [{v:a | f v}] @-}
+
+-- FILE tests/ple/pos/T1190.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/T1190.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/T1190.hs:9:1
+{-@ reflect sem_ij @-}
+
+-- FILE tests/ple/pos/T1190.hs:10:1
+{-@ sem_ij :: i:Int -> j:Int -> S.Set Int / [j - i] @-}
+
+-- FILE tests/ple/pos/T1190.hs:16:1
+{-@ lem_mem :: f:Int -> t:Int -> x:{Int| x < f || t <= x} -> { not (S.member x (sem_ij f t)) } / [t - f]
+  @-}
+
+-- FILE tests/ple/pos/T1190.hs:23:1
+{-@ lem_disj :: f1:_ -> t1:_ -> f2:{Int | t1 <= f2 } -> t2:Int  ->
+                   { S.intersection (sem_ij f1 t1) (sem_ij f2 t2) = S.empty } / [t2 - f2]
+  @-}
+
+-- FILE tests/ple/pos/T1257.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/T1257.hs:5:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/T1257.hs:21:1
+{-@ reflect silly @-}
+
+-- FILE tests/ple/pos/T1257.hs:26:1
+{-@ test :: {silly B C = F} @-}
+
+-- FILE tests/ple/pos/T1289.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/T1289.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/T1289.hs:6:1
+{-@ reflect intId @-}
+
+-- FILE tests/ple/pos/T1289.hs:12:1
+{-@ thm1 :: x:Int -> {intId x = x} @-}
+
+-- FILE tests/ple/pos/T1289.hs:16:1
+{-@ measure charId @-}
+
+-- FILE tests/ple/pos/T1302b.hs:5:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/ple/pos/T1302b.hs:6:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/T1302b.hs:7:1
+{-@ LIQUID "--no-totality"    @-}
+
+-- FILE tests/ple/pos/T1302b.hs:8:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/T1302b.hs:18:1
+{-@ reflect admin @-}
+
+-- FILE tests/ple/pos/T1302b.hs:21:1
+{-@ data Tagged a <p :: User -> Bool> = Tagged { content :: a } @-}
+
+-- FILE tests/ple/pos/T1302b.hs:26:1
+{-@ data variance Tagged covariant contravariant @-}
+
+-- FILE tests/ple/pos/T1302b.hs:28:1
+{-@ output :: forall <p :: User -> Bool>.
+             msg:Tagged <p> a 
+          -> User<p>
+          -> ()
+@-}
+
+-- FILE tests/ple/pos/T1302b.hs:38:1
+{-@ data RefinedFilter record typ <p :: User -> Bool> = RefinedFilter
+      { refinedFilterField  :: EntityField record typ
+      , refinedFilterValue  :: typ
+      , refinedFilterFilter :: RefinedPersistFilter
+      } 
+  @-}
+
+-- FILE tests/ple/pos/T1302b.hs:45:1
+{-@ data variance RefinedFilter covariant covariant contravariant @-}
+
+-- FILE tests/ple/pos/T1302b.hs:52:1
+{-@ filter :: f:(a -> Bool) -> [a] -> [{v:a | f v}] @-}
+
+-- FILE tests/ple/pos/T1302b.hs:60:1
+{-@ reflect evalQCreditCardNumber @-}
+
+-- FILE tests/ple/pos/T1302b.hs:64:1
+{-@ reflect evalQCreditCardHolder @-}
+
+-- FILE tests/ple/pos/T1302b.hs:68:1
+{-@ reflect evalQCreditCard @-}
+
+-- FILE tests/ple/pos/T1302b.hs:74:1
+{-@ reflect evalQsCreditCard @-}
+
+-- FILE tests/ple/pos/T1302b.hs:79:1
+{-@ assume selectCreditCard :: forall <p :: User -> Bool>. f:[RefinedFilter<p> CreditCard typ]
+                -> Tagged<p> [{v:CreditCard | evalQsCreditCard f v}] @-}
+
+-- FILE tests/ple/pos/T1302b.hs:88:1
+{-@ reflect filterCreditCardNumber @-}
+
+-- FILE tests/ple/pos/T1302b.hs:89:1
+{-@ filterCreditCardNumber :: RefinedPersistFilter -> Int -> RefinedFilter<{\u -> u == admin}> CreditCard Int @-}
+
+-- FILE tests/ple/pos/T1302b.hs:93:1
+{-@ filterCreditCardHolder :: RefinedPersistFilter -> [Char] -> RefinedFilter<{\u -> u == admin}> CreditCard [Char] @-}
+
+-- FILE tests/ple/pos/T1302b.hs:101:1
+{-@
+data CreditCard = CreditCard
+	{ creditCardNumber :: Int
+	, creditCardHolder :: [Char]
+	}
+@-}
+
+-- FILE tests/ple/pos/T1302b.hs:108:1
+{-@
+data EntityField Creditcard typ where 
+   T1302b.CreditCardNumber :: EntityField CreditCard {v:_ | True}
+   T1302b.CreditCardHolder :: EntityField CreditCard {v:_ | True}
+@-}
+
+-- FILE tests/ple/pos/T1302b.hs:114:1
+{-@ assume error :: [Char] -> a @-}
+
+-- FILE tests/ple/pos/T1302b.hs:120:1
+{-@ reflect testFilter @-}
+
+-- FILE tests/ple/pos/T1302b.hs:121:1
+{-@ testFilter :: RefinedFilter <{\u -> u == admin}> CreditCard Int @-}
+
+-- FILE tests/ple/pos/T1302b.hs:124:1
+{-@ selectTaggedData :: () -> Tagged<{\u -> u == admin}> [{v:CreditCard | creditCardNumber v == 3}] @-}
+
+-- FILE tests/ple/pos/T1371.hs:1:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/ple/pos/T1371.hs:2:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/ple/pos/T1371.hs:22:1
+{-@ reflect bar @-}
+
+-- FILE tests/ple/pos/T1371.hs:24:1
+{-@ bar :: _ -> _ -> { 1 + 2 == 3 } @-}
+
+-- FILE tests/ple/pos/T1371_NNF.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/T1371_NNF.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/T1371_NNF.hs:14:1
+{-@ reflect lookup @-}
+
+-- FILE tests/ple/pos/T1371_NNF.hs:22:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/T1371_NNF.hs:29:1
+{-@ lazy    nnf @-}
+
+-- FILE tests/ple/pos/T1371_NNF.hs:30:1
+{-@ reflect nnf @-}
+
+-- FILE tests/ple/pos/T1371_NNF.hs:37:1
+{-@ lazy    nnf' @-}
+
+-- FILE tests/ple/pos/T1371_NNF.hs:38:1
+{-@ reflect nnf' @-}
+
+-- FILE tests/ple/pos/T1371_NNF.hs:49:1
+{-@ thm :: s:[Bool] -> p:Pred -> { eval s p = eval s (nnf p) } @-}
+
+-- FILE tests/ple/pos/T1382.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/T1382.hs:5:1
+{-@ LIQUID "--ple-local"  @-}
+
+-- FILE tests/ple/pos/T1382.hs:25:1
+{-@ infixr ++  @-}
+
+-- FILE tests/ple/pos/T1382.hs:26:1
+{-@ reflect ++ @-}
+
+-- FILE tests/ple/pos/T1382.hs:35:1
+{-@ lemma_app_assoc0 :: xs:_ -> ys:_ -> zs:_ -> 
+      { (xs ++ ys) ++ zs = xs ++ (ys ++ zs) } @-}
+
+-- FILE tests/ple/pos/T1382.hs:56:1
+{-@ ple lemma_app_assoc1 @-}
+
+-- FILE tests/ple/pos/T1382.hs:57:1
+{-@ lemma_app_assoc1 :: xs:_ -> ys:_ -> zs:_ -> 
+      { (xs ++ ys) ++ zs = xs ++ (ys ++ zs) } @-}
+
+-- FILE tests/ple/pos/T1382.hs:66:1
+{-@ ple lemma_app_assoc2 @-}
+
+-- FILE tests/ple/pos/T1382.hs:67:1
+{-@ lemma_app_assoc2 :: xs:_ -> ys:_ -> zs:_ -> 
+      { (xs ++ ys) ++ zs = xs ++ (ys ++ zs) } @-}
+
+-- FILE tests/ple/pos/T1382.hs:86:1
+{-@ foo :: forall a b <pa :: a -> Bool, pb :: b -> Bool>. a<pa> -> b<pb> -> a<pa> @-}
+
+-- FILE tests/ple/pos/T1382.hs:92:1
+{-@ (???) :: forall a b <pa :: a -> Bool, pb :: b -> Bool>. a<pa> -> b<pb> -> a<pa> @-}
+
+-- FILE tests/ple/pos/T1409.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/T1409.hs:2:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/T1409.hs:8:1
+{-@ reflect isEven @-}
+
+-- FILE tests/ple/pos/T1409.hs:14:1
+{-@ foo :: n:{ isEven n } -> {v:Int | v = 0} @-}
+
+-- FILE tests/ple/pos/T1424.hs:7:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/T1424.hs:8:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/T1424.hs:20:1
+{-@ reflect funky @-}
+
+-- FILE tests/ple/pos/T1424.hs:25:1
+{-@ test1 :: xig:_ -> yong:_ -> {v:_ | v == funky xig yong} @-}
+
+-- FILE tests/ple/pos/T1424.hs:31:1
+{-@ reflect proj @-}
+
+-- FILE tests/ple/pos/T1424.hs:36:1
+{-@ reflect add @-}
+
+-- FILE tests/ple/pos/T1424.hs:40:1
+{-@ test2 :: _ -> TT @-}
+
+-- FILE tests/ple/pos/T1424.hs:46:1
+{-@ projW :: f:_ -> x:_ -> { v:_ | v = proj f x } @-}
+
+-- FILE tests/ple/pos/T1424.hs:50:1
+{-@ test3 :: _ -> TT @-}
+
+-- FILE tests/ple/pos/T1424A.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/T1424A.hs:5:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/ple/pos/T1424A.hs:13:1
+{-@ data RefinedFilter record <r :: record -> Bool, q :: record -> User -> Bool> = RefinedFilter (Filter record) @-}
+
+-- FILE tests/ple/pos/T1424A.hs:16:1
+{-@
+data User = User
+     { userId   :: Int,
+       userName :: String
+     , userFriend :: Int
+     , userSSN    :: Int
+     }
+@-}
+
+-- FILE tests/ple/pos/T1424A.hs:27:1
+{-@
+data EntityField record typ where
+   UserName :: EntityField User String
+   UserFriend :: EntityField User Int
+   UserSSN :: EntityField  User Int
+@-}
+
+-- FILE tests/ple/pos/T1424A.hs:38:1
+{-@ reflect policy @-}
+
+-- FILE tests/ple/pos/T1424A.hs:44:1
+{-@ reflect project @-}
+
+-- FILE tests/ple/pos/T1424A.hs:50:1
+{-@
+(==.) :: field:EntityField a b -> val:b -> RefinedFilter<{\row -> project field row == val}, {\row v -> policy field row v}> a
+@-}
+
+-- FILE tests/ple/pos/T2582.hs:6:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/ple/pos/T2582.hs:7:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/pos/T2582.hs:13:1
+{-@ reflect inferType @-}
+
+-- FILE tests/ple/pos/T2582.hs:19:1
+{-@ type IntExpr = {e:Expr | inferType e = TInt} @-}
+
+-- FILE tests/ple/pos/T2582.hs:21:1
+{-@ foo :: IntExpr @-}
+
+-- FILE tests/ple/pos/T2582.hs:25:1
+{-@ bar :: [IntExpr] @-}
+
+-- FILE tests/ple/pos/T2652.hs:1:1
+{-@ LIQUID "--modern" @-}
+
+-- FILE tests/ple/pos/T2652.hs:5:1
+{-@ reflect f @-}
+
+-- FILE tests/ple/pos/T2652.hs:9:1
+{-@ reflect g @-}
+
+-- FILE tests/ple/pos/T2652.hs:13:1
+{-@ test :: { f = g } @-}
+
+-- FILE tests/ple/pos/TestLF780.hs:1:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/ple/pos/TestLF780.hs:11:1
+{-@ data State s a <p :: s -> Bool, q :: s -> a -> s -> Bool>
+      = State (x:s<p> -> (a, s)<\w -> {v:s<q x w> | true}>)
+  @-}
+
+-- FILE tests/ple/pos/TestLF780.hs:16:1
+{-@ runState :: forall <p :: s -> Bool, q :: s -> a -> s -> Bool>.
+                State <p, q> s a -> x:s<p> -> (a, s)<\w -> {v:s<q x w> | true}> @-}
+
+-- FILE tests/ple/pos/TestLF780.hs:20:1
+{-@
+instance Functor (State s) where
+  fmap :: forall < p  :: s -> Bool
+                 , q :: s -> a -> s -> Bool
+                 , q2 :: s -> a -> s -> Bool
+                 , pa :: a -> Bool
+                 , pb :: b -> Bool
+                 >.
+            {x::a<pa>, s0::s<p>, y::b<pb> |- s<q s0 x> <: s<q2 s0 y>}
+            (a<pa> -> b<pb>)
+         -> State <p, q> s a<pa>
+         -> State <p, q2> s b<pb>
+@-}
+
+-- FILE tests/ple/pos/TestLF780.hs:33:3
+  {-@ ignore fmap @-}
+
+-- FILE tests/ple/pos/TestLF780.hs:37:1
+{-@
+instance Applicative (State s) where
+  pure :: forall <p :: s -> Bool>.
+                x:a -> State <p, \w0 y -> {w1:s<p> | w0 == w1 && y == x}> s a
+@-}
+
+-- FILE tests/ple/pos/TestLF780.hs:49:1
+{-@
+instance Monad (State s) where
+  >>= :: forall < p  :: s -> Bool
+                    , p2 :: a -> s -> Bool
+                    , r  :: a -> Bool
+                    , q1 :: s -> a -> s -> Bool
+                    , q2 :: a -> s -> b -> s -> Bool
+                    , q  :: s -> b -> s -> Bool>.
+            {x::a<r>, w::s<p>|- s<q1 w x> <: s<p2 x>}
+            {w::s<p>, x::a, w1::s<q1 w x>, y::b |- s<q2 x w1 y> <: s<q w y>}
+            {x::a, w::s, w2::s<q1 w x>|- {v:a | v = x} <: a<r>}
+            State <p, q1> s a
+         -> (x:a<r> -> State <{v:s<p2 x> | true}, \w1 y -> {v:s<q2 x w1 y> | true}> s b)
+         -> State <p, q> s b ;
+  >>  :: forall < p   :: s -> Bool
+                    , p2  :: s -> Bool
+                    , q1 :: s -> a -> s -> Bool
+                    , q2 :: s -> b -> s -> Bool
+                    , q :: s -> b -> s -> Bool>.
+            {x::a, w::s<p>|- s<q1 w x> <: s<p2>}
+            {w::s<p>, w2::s<p2>, x::b, y::a |- s<q2 w2 x> <: s<q w x>}
+            State <p, q1> s a
+         -> State <p2, q2> s b
+         -> State <p, q> s b  ;
+  return :: forall <p :: s -> Bool>.
+                x:a -> State <p, \w0 y -> {w1:s<p> | w0 == w1 && y == x}> s a
+@-}
+
+-- FILE tests/ple/pos/TestLF780.hs:83:1
+{-@
+get :: forall <p :: s -> Bool>.
+   State <p, {\s0 v s -> v = s && s = s0}> s s<p>
+@-}
+
+-- FILE tests/ple/pos/TestLF780.hs:90:1
+{-@
+put :: forall <p :: s -> Bool>.
+   s0:s -> State <p, {\_ v s -> s = s0}> s ()
+@-}
+
+-- FILE tests/ple/pos/TestLF780.hs:97:1
+{-@ reflect gt0 @-}
+
+-- FILE tests/ple/pos/TestLF780.hs:101:1
+{-@
+stFun
+  :: i:Int
+  -> State
+       <{\m0 ->  gt0 i }
+       , {\m0 v m -> v > 0 }>
+       _ _
+@-}
+
+-- FILE tests/ple/pos/Tmp.hs:1:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/Tmp.hs:2:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/Tmp.hs:3:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/Tmp.hs:19:1
+{-@ reflect toWff @-}
+
+-- FILE tests/ple/pos/Tmp.hs:26:1
+{-@ reflect lookup @-}
+
+-- FILE tests/ple/pos/Tmp.hs:32:1
+{-@ reflect eval @-}
+
+-- FILE tests/ple/pos/Tmp.hs:39:1
+{-@ reflect evalNNF @-}
+
+-- FILE tests/ple/pos/Tmp.hs:46:1
+{-@ toNNF :: s:[Bool] -> p:Wff -> { q: NNF | eval s p = evalNNF s q } @-}
+
+-- FILE tests/ple/pos/Tmp1.hs:1:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/ple/pos/Tmp1.hs:2:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/ple/pos/Tmp1.hs:3:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/ple/pos/Tmp1.hs:9:1
+{-@ reflect ev @-}
+
+-- FILE tests/ple/pos/Tmp1.hs:14:1
+{-@ goo :: n:_ -> {b:Bool | b = ev n} @-}
+

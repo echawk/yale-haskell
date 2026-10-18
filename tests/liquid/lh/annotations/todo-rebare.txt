@@ -1,0 +1,148 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/todo-rebare/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/todo-rebare/DataKinds.hs:11:1
+{-@ sizeOfMember :: Proxy a -> Nat @-}
+
+-- FILE tests/todo-rebare/Inst01_UNSAFE.hs:14:3
+  {-@ instance Compare Int where 
+	cmax :: Odd -> Odd -> Odd ;
+	cmin :: Int -> Int -> Odd
+    @-}
+
+-- FILE tests/todo-rebare/Inst01_UNSAFE.hs:38:1
+{-@ foo :: Odd -> Odd -> Odd @-}
+
+-- FILE tests/todo-rebare/NatClass.hs:3:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/todo-rebare/NatClass.hs:10:1
+{-@ data N [toInt] = Zero | Suc N @-}
+
+-- FILE tests/todo-rebare/NatClass.hs:13:1
+{-@ measure toInt @-}
+
+-- FILE tests/todo-rebare/NatClass.hs:14:1
+{-@ toInt :: N -> Nat @-}
+
+-- FILE tests/todo-rebare/NatClass.hs:19:1
+{-@ class VerifiedEq a where
+      eq :: a -> a -> Bool
+      refl :: x:a -> { v:Proof | eq x x }
+  @-}
+
+-- FILE tests/todo-rebare/NatClass.hs:29:1
+{-@ axiomatize eqN  @-}
+
+-- FILE tests/todo-rebare/NatClass.hs:35:1
+{-@ eqNRefl :: x:N -> { eqN x x } @-}
+
+-- FILE tests/todo-rebare/NatClass.hs:50:3
+  {-@ define $ceq = eqN @-}
+
+-- FILE tests/todo-rebare/Strata.hs:3:1
+{-@ LIQUID "--strata" @-}
+
+-- FILE tests/todo-rebare/Strata.hs:10:1
+{-@ data L [llen] @-}
+
+-- FILE tests/todo-rebare/Strata.hs:12:1
+{-@ measure llen @-}
+
+-- FILE tests/todo-rebare/Strata.hs:14:1
+{-@ llen :: L a -> Nat @-}
+
+-- FILE tests/todo-rebare/Strata.hs:18:1
+{-@ Cons :: forall <l>.a -> L^l a -> L^l a @-}
+
+-- FILE tests/todo-rebare/Strata.hs:20:1
+{-@ lazy repeat @-}
+
+-- FILE tests/todo-rebare/T1089b.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/todo-rebare/T1089b.hs:11:1
+{-@ data Iso a b = Iso { to   :: a -> b
+                       , from :: b -> a
+                       , tof  :: y:b -> { to (from y) == y }
+                       , fot  :: x:a -> { from (to x) == x }
+                       }
+  @-}
+
+-- FILE tests/todo-rebare/T1089b.hs:24:1
+{-@ reflect identity @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_NEG.hs:5:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_NEG.hs:21:1
+{-@ class VerifiedMonoid a where
+    mempty  :: a
+    mappend :: a -> a -> a
+    leftId  :: x:a -> {v:Proof | mappend mempty x = x }
+    rightId :: x:a -> {v:Proof | mappend x mempty = x }
+    assoc   :: x:a -> y:a -> z:a -> {v:Proof | mappend x (mappend y z) = mappend (mappend x y) z}
+  @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_NEG.hs:34:1
+{-@ data List a = N | C {hd :: a, tl :: List a} @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_NEG.hs:71:1
+{-@ measure mappend :: a -> a -> a @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_NEG.hs:72:1
+{-@ measure mempty  :: a @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_NEG.hs:77:1
+{-@ measure mappendList :: List a -> List a -> List a @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_NEG.hs:78:1
+{-@ measure memptyList  :: List a @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_NEG.hs:84:1
+{-@ instance VerifiedMonoid (List a) where
+  assume mempty  :: {v:List a | (v = N) && (v = memptyList) };
+  assume mappend :: {v:(x:List a -> y:List a
+                 -> {v:List a | (v = mappendList x y) && (if (is$Data.Monoid.N x) then (v == y) else (v == C (lqdc##select##C##1 x) (mappendList (lqdc##select##C##2 x) y) )) })  | v == mappendList};
+  leftId  :: x:List a -> {v:Proof | mappendList memptyList x = x } ;
+  rightId :: x:List a -> {v:Proof | mappendList x memptyList = x } ;
+  assoc   :: x:List a -> y:List a -> z:List a -> {v:Proof | mappendList x (mappendList y z) = mappendList (mappendList x y) z}
+  @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_POS.hs:5:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_POS.hs:19:1
+{-@ class VerifiedMonoid a where
+    mempty  :: a
+    mappend :: a -> a -> a
+    leftId  :: x:a -> {v:Proof | mappend mempty x = x }
+    rightId :: x:a -> {v:Proof | mappend x mempty = x }
+    assoc   :: x:a -> y:a -> z:a -> {v:Proof | mappend x (mappend y z) = mappend (mappend x y) z}
+  @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_POS.hs:31:1
+{-@ data List a = N | C {hd :: a, tl :: List a} @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_POS.hs:79:1
+{-@ measure mappend :: a -> a -> a @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_POS.hs:80:1
+{-@ measure mempty  :: a @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_POS.hs:85:1
+{-@ measure mappendList :: List a -> List a -> List a @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_POS.hs:86:1
+{-@ measure memptyList  :: List a @-}
+
+-- FILE tests/todo-rebare/VerifiedMonoid_POS.hs:92:1
+{-@ instance VerifiedMonoid (List a) where
+  assume mempty  :: {v:List a | (v = N) && (v = memptyList) };
+  assume mappend :: {v:(x:List a -> y:List a
+                 -> {v:List a | (v = mappendList x y) && (if (is$Data.Monoid.N x) then (v == y) else (v == C (Data.Monoid.hd x) (mappendList (Data.Monoid.tl x) y) )) })  | v == mappendList};
+  leftId  :: x:List a -> {v:Proof | mappendList memptyList x = x } ;
+  rightId :: x:List a -> {v:Proof | mappendList x memptyList = x } ;
+  assoc   :: x:List a -> y:List a -> z:List a -> {v:Proof | mappendList x (mappendList y z) = mappendList (mappendList x y) z}
+  @-}
+

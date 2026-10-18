@@ -1,0 +1,297 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/Diff/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/Diff/Diff.hs:1:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/Diff/Diff.hs:113:1
+{-@ data PolyDiff a b = First a | Second b | Both a b @-}
+
+-- FILE tests/Diff/Diff.hs:131:1
+{-@ type ValidListDiff a b = { d : PolyDiff [a] [b] | validListDiff d }@-}
+
+-- FILE tests/Diff/Diff.hs:133:1
+{-@ type GroupedDiff a b = { d : ValidListDiff a b | nonEmptyDiff d } @-}
+
+-- FILE tests/Diff/Diff.hs:135:1
+{-@
+inline validListDiff
+define length x = len x
+@-}
+
+-- FILE tests/Diff/Diff.hs:146:1
+{-@ inline nonEmptyDiff @-}
+
+-- FILE tests/Diff/Diff.hs:154:1
+{-@ reflect headIsFirst @-}
+
+-- FILE tests/Diff/Diff.hs:155:1
+{-@ reflect headIsSecond @-}
+
+-- FILE tests/Diff/Diff.hs:156:1
+{-@ reflect headIsBoth @-}
+
+-- FILE tests/Diff/Diff.hs:169:1
+{-@ reflect noStuttering @-}
+
+-- FILE tests/Diff/Diff.hs:178:1
+{-@ reflect noFFSS @-}
+
+-- FILE tests/Diff/Diff.hs:194:1
+{-@
+data DL = DL
+    { poi  :: Nat
+    , poj  :: Nat
+    , path :: { p : [DI] | len p <= poi + poj }
+    }
+@-}
+
+-- FILE tests/Diff/Diff.hs:216:1
+{-@ dLength :: d : DL -> { n : Nat | n <= poi d + poj d }  @-}
+
+-- FILE tests/Diff/Diff.hs:223:1
+{-@ type DLN D = { x : DL | len (path x) = D } @-}
+
+-- FILE tests/Diff/Diff.hs:225:1
+{-@ reflect boundedNodes @-}
+
+-- FILE tests/Diff/Diff.hs:228:1
+{-@ boundedNodes :: Nat -> [DL] -> Bool @-}
+
+-- FILE tests/Diff/Diff.hs:233:1
+{-@ inline kdiag @-}
+
+-- FILE tests/Diff/Diff.hs:239:1
+{-@ reflect wfDiags @-}
+
+-- FILE tests/Diff/Diff.hs:240:1
+{-@ wfDiags :: Int -> xs : [DL] -> Bool / [len xs] @-}
+
+-- FILE tests/Diff/Diff.hs:249:1
+{-@ type WaveFront D K = {xs : [DLN D] | wfDiags K xs} @-}
+
+-- FILE tests/Diff/Diff.hs:265:1
+{-@ furthestReaching ::  x : DL
+                     -> {y : DL | kdiag x = kdiag y}
+                     -> {v : DL | v = x || v = y} @-}
+
+-- FILE tests/Diff/Diff.hs:293:1
+{-@ type BoundedPred B = (i : Nat -> j : Nat -> {b : Bool | (i >= B || j >= B) => b == False}) @-}
+
+-- FILE tests/Diff/Diff.hs:315:1
+{-@
+dstep
+  :: boundary : Nat
+  -> BoundedPred boundary
+  -> d : Nat
+  -> {nodes : WaveFront d (kdiag (head nodes)) | len nodes > 0 && boundedNodes boundary nodes}
+  -> {v : WaveFront (d + 1) (kdiag (head nodes) + 1) | len v = len nodes + 1}
+@-}
+
+-- FILE tests/Diff/Diff.hs:332:5
+    {-@ hStep
+          :: {x : DLN d | poi x <= b && poj x <= b}
+          -> {v : DLN (d + 1) | kdiag v = kdiag x + 1} @-}
+
+-- FILE tests/Diff/Diff.hs:336:5
+    {-@ vStep
+          :: {x : DLN d | poi x <= b && poj x <= b}
+          -> {v : DLN (d + 1) | kdiag v = kdiag x - 1} @-}
+
+-- FILE tests/Diff/Diff.hs:342:5
+    {-@ stepAndMerge
+          :: {prev : DLN d | poi prev <= b && poj prev <= b}
+          -> {rest : WaveFront d (kdiag prev - 2) | boundedNodes b rest}
+          -> {v : WaveFront (d + 1) (kdiag prev - 1) | len v = len rest + 1}
+          / [len rest] @-}
+
+-- FILE tests/Diff/Diff.hs:360:1
+{-@
+addsnake :: boundary : Nat
+         -> BoundedPred boundary
+         -> {dl : DL | poi dl <= boundary + 1 && poj dl <= boundary + 1}
+         -> {v : DL | path v == path dl && kdiag v = kdiag dl}
+         / [(boundary + 1 - poi dl) + (boundary + 1 - poj dl)]
+@-}
+
+-- FILE tests/Diff/Diff.hs:377:1
+{-@ ignore ses @-}
+
+-- FILE tests/Diff/Diff.hs:436:1
+{-@ getGroupedDiff :: Eq a => [a] -> [a]
+                           -> {v:[GroupedDiff a a] | noStuttering v} @-}
+
+-- FILE tests/Diff/Diff.hs:455:1
+{-@ getGroupedDiffBy :: (a -> b -> Bool) -> [a] -> [b]
+                     -> {vs : [GroupedDiff a b] | noStuttering vs} @-}
+
+-- FILE tests/Diff/Diff.hs:460:1
+{-@ groupDiff :: xs : [PolyDiff a b]
+              -> {vs : [GroupedDiff a b] | noStuttering vs
+                  // The following predicates allow LiquidHaskell keep track
+                  // of the head constructor in each recursive call.
+                  && (headIsFirst xs  <=> headIsFirst vs)
+                  && (headIsSecond xs <=> headIsSecond vs)
+                  && (headIsBoth xs   <=> headIsBoth vs)} @-}
+
+-- FILE tests/Diff/Diff.hs:476:1
+{-@ leadingFirsts :: xs : [PolyDiff a b]
+                   -> {v : ([a], [PolyDiff a b]) | not (headIsFirst (snd v))
+                       // Here and in the analogous helpers,
+                       // the length comparison is needed for termination check.
+                       && len (snd v) <= len xs
+                       && (headIsSecond xs => headIsSecond (snd v))
+                       && (headIsBoth xs   => headIsBoth (snd v))} @-}
+
+-- FILE tests/Diff/Diff.hs:488:1
+{-@ leadingSeconds :: xs : [PolyDiff a b]
+                    -> {v : ([b], [PolyDiff a b]) | not (headIsSecond (snd v))
+                        && len (snd v) <= len xs
+                        && (headIsFirst xs => headIsFirst (snd v))
+                        && (headIsBoth xs  => headIsBoth (snd v))} @-}
+
+-- FILE tests/Diff/Diff.hs:498:1
+{-@ leadingBoths :: xs : [PolyDiff a b]
+                  -> {v : ([a], [b], [PolyDiff a b]) | not (headIsBoth (thd3 v))
+                      && len (thd3 v) <= len xs
+                      && (headIsFirst xs  => headIsFirst (thd3 v))
+                      && (headIsSecond xs => headIsSecond (thd3 v))
+                      && len (fst3 v) == len (snd3 v)} @-}
+
+-- FILE tests/Diff/DiffContext.hs:1:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/Diff/DiffContext.hs:2:1
+{-@ LIQUID "--ple-with-undecided-guards" @-}
+
+-- FILE tests/Diff/DiffContext.hs:31:1
+{-@ type ContextDiff c = [Hunk c] @-}
+
+-- FILE tests/Diff/DiffContext.hs:35:1
+{-@ type Hunk c = { h : [ValidListDiff c c] | noStuttering h} @-}
+
+-- FILE tests/Diff/DiffContext.hs:44:1
+{-@ splitBothBoth :: {ds:[ValidListDiff c c] | noFFSS ds} -> [Hunk c] @-}
+
+-- FILE tests/Diff/DiffContext.hs:48:5
+    {-@ go
+          :: g:Hunk c
+          -> {xs : [ValidListDiff c c] | noFFSS xs && not (headAlike g xs) }
+          -> [Hunk c] / [len xs]
+      @-}
+
+-- FILE tests/Diff/DiffContext.hs:62:1
+{-@ type ContextSize = Nat @-}
+
+-- FILE tests/Diff/DiffContext.hs:65:1
+{-@ opaque-reflect reverse @-}
+
+-- FILE tests/Diff/DiffContext.hs:67:1
+{-@ assume lemmaReverseStuttering
+      :: xs:_ -> { noStuttering (reverse xs) = noStuttering xs } @-}
+
+-- FILE tests/Diff/DiffContext.hs:72:1
+{-@ reflect headAlike  @-}
+
+-- FILE tests/Diff/DiffContext.hs:108:1
+{-@
+getContextDiff ::
+  Eq a
+  => Maybe ContextSize
+  -> [a]
+  -> [a]
+  -> ContextDiff (Numbered a)
+@-}
+
+-- FILE tests/Diff/DiffContext.hs:127:1
+{-@ unNumberContextDiff :: ContextDiff (Numbered a) -> [[Diff [a]]] @-}
+
+-- FILE tests/Diff/DiffContext.hs:138:1
+{-@
+getContextDiffNumbered ::
+  Eq a
+  => Maybe ContextSize
+  -> [Numbered a]
+  -> [Numbered a]
+  -> ContextDiff (Numbered a)
+@-}
+
+-- FILE tests/Diff/DiffContext.hs:171:7
+      {-@ doPrefix ::  h : Hunk c
+                   -> {v : [ValidListDiff c c] | noFFSS v
+                       && (headIsFirst h <=> headIsFirst v)
+                       && (headIsSecond h <=> headIsSecond v)} / [len h, 0] @-}
+
+-- FILE tests/Diff/DiffContext.hs:192:7
+      {-@ doSuffix ::  h : Hunk c
+                   -> {v : [ValidListDiff c c] | noFFSS v
+                       && (headIsFirst h <=> headIsFirst v)
+                       && (headIsSecond h <=> headIsSecond v)} / [len h, 1] @-}
+
+-- FILE tests/Diff/DiffOutput.hs:1:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/Diff/DiffOutput.hs:21:1
+{-@ type NonEmpty a = {xs : [a] | len xs >0}@-}
+
+-- FILE tests/Diff/DiffOutput.hs:23:1
+{-@ reflect coherentDiff @-}
+
+-- FILE tests/Diff/DiffOutput.hs:36:1
+{-@ type StringDiff = {d : Diff (NonEmpty String) | coherentDiff d } @-}
+
+-- FILE tests/Diff/DiffOutput.hs:41:1
+{-@ diffToLineRanges :: [StringDiff] -> [DiffOperation LineRange]@-}
+
+-- FILE tests/Diff/DiffOutput.hs:48:11
+          {-@ toLineRange :: {l:Int | l >= 1}
+                          -> {r:Int | r >= 1}
+                          -> diffs : [StringDiff]
+                          -> [DiffOperation LineRange] / [len diffs, 0] @-}
+
+-- FILE tests/Diff/DiffOutput.hs:78:11
+          {-@ toChange :: {l:Int | l >= 1}
+                       -> {r:Int | r >= 1}
+                       -> {lf:[String] | len lf > 0}
+                       -> {ls:[String] | len ls > 0}
+                       -> diffs : [StringDiff]
+                       -> [DiffOperation LineRange] / [len diffs, 1] @-}
+
+-- FILE tests/Diff/DiffOutput.hs:94:1
+{-@ ppDiff :: [StringDiff] -> String @-}
+
+-- FILE tests/Diff/DiffOutput.hs:138:5
+    {-@ doParse :: [DiffOperation LineRange] -> diffs : [String] -> [DiffOperation LineRange] / [len diffs] @-}
+
+-- FILE tests/Diff/DiffOutput.hs:148:5
+    {-@ parseDiff :: s:{[String] | len s > 0} -> {v:(Maybe (DiffOperation LineRange), [String]) | len (snd v) < len s} @-}
+
+-- FILE tests/Diff/DiffOutput.hs:163:5
+    {-@ parseDel :: (Nat, Nat) -> String -> rs:[String] -> {v:(Maybe (DiffOperation LineRange), [String]) | len (snd v) <= len rs} @-}
+
+-- FILE tests/Diff/DiffOutput.hs:173:5
+    {-@ parseAdd :: (Nat, Nat) -> String -> rs:[String] -> {v:(Maybe (DiffOperation LineRange), [String]) | len (snd v) <= len rs} @-}
+
+-- FILE tests/Diff/DiffOutput.hs:183:5
+    {-@ parseChange :: (Nat, Nat) -> String -> rs:[String] -> {v:(Maybe (DiffOperation LineRange), [String]) | len (snd v) <= len rs} @-}
+
+-- FILE tests/Diff/DiffOutput.hs:199:5
+    {-@ parseRange :: String -> {v : ((Nat, Nat), String) | fst (fst v) <= snd (fst v)} @-}
+
+-- FILE tests/Diff/DiffOutput.hs:225:1
+{-@
+data LineRange = LineRange { lrNumbers :: {range : (Nat, Nat) | fst range <= snd range}
+                           , lrContents :: {contents : [String] | snd lrNumbers - fst lrNumbers = len contents - 1}
+                           }
+@-}
+
+-- FILE tests/Diff/DiffOutput.hs:238:1
+{-@ mkLineRange :: start:Nat -> contents:{[String] | len contents > 0} -> LineRange @-}
+
+-- FILE tests/Diff/LiftedFunctions.hs:5:1
+{-@
+measure fst3
+measure snd3
+measure thd3
+@-}
+

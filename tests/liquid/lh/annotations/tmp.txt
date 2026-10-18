@@ -1,0 +1,270 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/tmp/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/tmp/Class2.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/tmp/Class2.hs:13:1
+{-@ (!!) :: xs:MList a -> {v:Nat | v < sz xs} -> a @-}
+
+-- FILE tests/tmp/Class2.hs:18:1
+{-@ class measure sz :: forall a. a -> Int  @-}
+
+-- FILE tests/tmp/Class2.hs:20:1
+{-@ class Sized s where
+      size :: forall a. x:s a -> {v:Nat | v = sz x}
+  @-}
+
+-- FILE tests/tmp/Class2.hs:27:3
+  {-@ instance measure sz :: MList a -> Int
+      sz (Nil)       = 0
+      sz (Cons x xs) = 1 + sz xs
+    @-}
+
+-- FILE tests/tmp/Class2.hs:33:1
+{-@ length :: xs:MList a -> {v:Nat | v = sz xs} @-}
+
+-- FILE tests/tmp/Class2.hs:38:1
+{-@ bob :: xs:MList a -> {v:Nat | v = sz xs} @-}
+
+-- FILE tests/tmp/Class2.hs:44:3
+  {-@ instance measure sz :: [a] -> Int
+      sz ([])   = 0
+      sz (x:xs) = 1 + (sz xs)
+    @-}
+
+-- FILE tests/tmp/Class2.hs:51:1
+{-@ class (Sized s) => Indexable s where
+      index :: forall a. x:s a -> {v:Nat | v < sz x} -> a
+  @-}
+
+-- FILE tests/tmp/Class2.hs:62:1
+{-@ sum :: Indexable s => s Int -> Int @-}
+
+-- FILE tests/tmp/Class2.hs:72:1
+{-@ sumMList :: MList Int -> Int @-}
+
+-- FILE tests/tmp/Class2.hs:82:1
+{-@ mlist3 :: {v:MList Int | sz v = 3}  @-}
+
+-- FILE tests/tmp/Class3.hs:5:1
+{-@ class Pos s where
+      allPos :: x:s Int -> {v:Bool | Prop v <=> allPos x}
+  @-}
+
+-- FILE tests/tmp/Class3.hs:12:3
+  {-@ instance measure allPos :: [Int] -> Bool
+      allPos ([])   = true
+      allPos (x:xs) = ((x > 0) && (allPos xs))          @-}
+
+-- FILE tests/tmp/LiquidR.hs:52:1
+{-@ type ListN a N =
+      {v:[a] | (size v) = N}
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:56:1
+{-@ measure product :: [Mode.Numeric] -> real
+      product([]) = 1
+      product(x:xs) = (fromJust x) * (product xs)
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:61:1
+{-@ data Array a = Array{
+      shape :: (NonEmptyList PositiveNumeric),
+      elems :: (ListN a (product shape))
+    }
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:67:1
+{-@ type NonEmptyList a =
+      {v:[a] | (size v) > 0}
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:71:1
+{-@ type NonNegativeNumeric =
+      {v:Mode.Numeric |
+        (isJust v) =>
+          (fromJust v) >= 0 }
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:77:1
+{-@ type PositiveNumeric =
+      {v:Mode.Numeric |
+        (isJust v) =>
+          (fromJust v) > 0 }
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:83:1
+{-@ measure nonNegativeNumeric :: (Mode.Numeric) -> Bool @-}
+
+-- FILE tests/tmp/LiquidR.hs:87:1
+{-@ measure nonPositiveNumeric :: (Mode.Numeric) -> Bool @-}
+
+-- FILE tests/tmp/LiquidR.hs:91:1
+{-@ type NonPositiveNumeric =
+      {v:Mode.Numeric |
+        (isJust v) =>
+          (fromJust v) >= 0 }
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:97:1
+{-@ class measure allNonNegative :: (R a) -> Bool @-}
+
+-- FILE tests/tmp/LiquidR.hs:98:1
+{-@ instance measure allNonNegative :: (Array a) -> Bool
+  allNonNegative (Array shape elems) = allNonNegative elems
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:102:1
+{-@ instance measure allNonNegative :: [(Mode.Numeric)] -> Bool @-}
+
+-- FILE tests/tmp/LiquidR.hs:106:1
+{-@ class measure allNonPositive :: (R a) -> Bool @-}
+
+-- FILE tests/tmp/LiquidR.hs:107:1
+{-@ instance measure allNonPositive :: (Array a) -> Bool
+  allNonPositive (Array shape elems) = allNonPositive elems
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:110:1
+{-@ instance measure allNonPositive :: [(Mode.Numeric)] -> Bool @-}
+
+-- FILE tests/tmp/LiquidR.hs:114:1
+{-@ instance measure size :: [a] -> Int
+    size ([])   = 0
+    size (x:xs) = 1 + (size xs)
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:119:1
+{-@ instance measure size :: (Array a) -> Int
+  size (Array shape elems)   = len elems
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:136:1
+{-@ type RNonEmpty t m =
+      {v:(R t m) | (size v) > 0}
+  @-}
+
+-- FILE tests/tmp/LiquidR.hs:140:1
+{-@ type RNonEmptyOf t m =
+      {v:(ROf t m) | (size v) > 0}
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:150:1
+{-@ measure lsize :: [[a]] -> Int
+    lsize ([])   = 0
+    lsize (x:xs) = (size x) + (lsize xs)
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:155:1
+{-@ combine ::
+     ys:([[_]]) ->
+     {v:([_]) | (size v) = (lsize ys)}
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:249:1
+{-@ predicate ArithmeticResult A B C =
+      if (size A) = 0 || (size B) = 0
+      then (size C) = 0
+      else if (size A) >= (size B)
+           && (size A) mod (size B) = 0
+        then (size C) = (size A)
+      else if (size A) < (size B)
+           && (size B) mod (size A) = 0
+        then (size C) = (size B)
+      else false
+@-}
+
+-- FILE tests/tmp/LiquidR.hs:304:1
+{-@ instance (Mode.IntoLogical t, Mode.IntoLogical u)
+    => Conjunction (Vector t) (Vector u) (Vector Mode.Logical) where
+    and :: a:(Vector t) ->
+           b:(Vector u) ->
+          {c:(Vector Mode.Logical) | ArithmeticResult a b c }
+@-}
+
+-- FILE tests/tmp/LiquidR2.hs:1:1
+{-@ LIQUID "--prune-unsorted" @-}
+
+-- FILE tests/tmp/LiquidR2.hs:2:1
+{-@ LIQUID "--total"          @-}
+
+-- FILE tests/tmp/LiquidR2.hs:25:1
+{-@ class measure size :: forall a. a -> Int @-}
+
+-- FILE tests/tmp/LiquidR2.hs:27:1
+{-@ instance measure size :: xs:[a] -> Int
+    size []     = 0
+    size (_:xs) = 1 + size xs   @-}
+
+-- FILE tests/tmp/LiquidR2.hs:31:1
+{-@ listLength :: xs:[a] -> {v:Nat | v = size xs} @-}
+
+-- FILE tests/tmp/LiquidR2.hs:36:1
+{-@ type ListN a N = {v:[a] | size v = N} @-}
+
+-- FILE tests/tmp/LiquidR2.hs:37:1
+{-@ type ListNE a = {v:[a] | size v > 0}  @-}
+
+-- FILE tests/tmp/LiquidR2.hs:38:1
+{-@ type Pos      = {v:Int | 0 < v}       @-}
+
+-- FILE tests/tmp/LiquidR2.hs:42:1
+{-@ class R c where
+      index  :: forall a. c a -> Int -> a
+      length :: forall a. me:c a -> {v:Nat | v = size me}
+  @-}
+
+-- FILE tests/tmp/LiquidR2.hs:52:1
+{-@ type RNE c a = {v:c a | 0 < size v} @-}
+
+-- FILE tests/tmp/LiquidR2.hs:58:1
+{-@ instance measure size :: Vector a -> Int
+    size (V xs) = size xs
+  @-}
+
+-- FILE tests/tmp/LiquidR2.hs:78:1
+{-@ measure product @-}
+
+-- FILE tests/tmp/LiquidR2.hs:83:1
+{-@ data Array a = Array {
+      shape :: ListNE Pos,
+      elems :: ListN a (product shape)
+    }                                     @-}
+
+-- FILE tests/tmp/LiquidR2.hs:102:1
+{-@ type Dim = {v:Numeric | isJust v} @-}
+
+-- FILE tests/tmp/LiquidR2.hs:122:1
+{-@ array :: (R sh, R el, Mode v) => RNE sh Dim -> RNE el v -> Array v @-}
+
+-- FILE tests/tmp/LiquidR2.hs:126:1
+{-@ type VectorN a N = {v:Vector a | size v = N} @-}
+
+-- FILE tests/tmp/LiquidR2.hs:128:1
+{-@ indexNullary :: (R c) => a:(c m) -> VectorN m (size a) @-}
+
+-- FILE tests/tmp/LiquidR2.hs:136:1
+{-@ append :: xs:_ -> ys:_ -> ListN _ {size xs + size ys} @-}
+
+-- FILE tests/tmp/LiquidR2.hs:142:1
+{-@ measure lsize :: [[a]] -> Int
+    lsize []     = 0
+    lsize (x:xs) = size x + lsize xs
+  @-}
+
+-- FILE tests/tmp/LiquidR2.hs:147:1
+{-@ combine :: ys:[[a]] -> ListN a (lsize ys) @-}
+
+-- FILE tests/tmp/T776.hs:16:1
+{-@ LIQUID "--prune-unsorted" @-}
+
+-- FILE tests/tmp/T776.hs:20:1
+{-@ measure size @-}
+
+-- FILE tests/tmp/T776.hs:25:1
+{-@ measure prod @-}
+
+-- FILE tests/tmp/T777.hs:3:1
+{-@ instance measure glub @-}
+

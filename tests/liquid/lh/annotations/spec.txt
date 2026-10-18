@@ -1,0 +1,30 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/spec/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/spec/neg/Compose1.hs:1:1
+{-@ incr :: x:_ -> {v:_ | v = x + 1} @-}
+
+-- FILE tests/spec/neg/Compose1.hs:6:1
+{-@ assume GHC.Base.. :: (b -> c) -> (a -> b) -> a -> c @-}
+
+-- FILE tests/spec/neg/Compose1.hs:9:1
+{-@ incr2 :: x:_ -> {v:_ | v = x + 2} @-}
+
+-- FILE tests/spec/pos/BS1.hs:7:1
+{-@ bar :: _ -> {v:_ | v >= 0} @-}
+
+-- FILE tests/spec/pos/Compose.hs:1:1
+{-@ incr :: x:_ -> {v:_ | v = x + 1} @-}
+
+-- FILE tests/spec/pos/Compose.hs:5:1
+{-@ incr2 :: x:_ -> {v:_ | v = x + 2} @-}
+
+-- FILE tests/spec/pos/Compose1.hs:2:1
+{-@ assume GHC.Base.. :: (b -> c) -> (a -> b) -> a -> c @-}
+
+-- FILE tests/spec/pos/Compose1.hs:4:1
+{-@ incr :: Nat -> Nat @-}
+
+-- FILE tests/spec/pos/Compose1.hs:8:1
+{-@ incr2 :: Nat -> Nat @-}
+

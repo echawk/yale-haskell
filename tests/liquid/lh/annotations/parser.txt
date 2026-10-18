@@ -1,0 +1,132 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/parser/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/parser/pos/NestedTuples.hs:4:1
+{-@ reflect f @-}
+
+-- FILE tests/parser/pos/NestedTuples.hs:8:1
+{-@ reflect g @-}
+
+-- FILE tests/parser/pos/NestedTuples.hs:12:1
+{-@ reflect p @-}
+
+-- FILE tests/parser/pos/NestedTuples.hs:16:1
+{-@ foo :: x:Int -> y:Int -> {z:Int | p (g z (f x, (true, f y)))} @-}
+
+-- FILE tests/parser/pos/Parens.hs:3:1
+{-@ data Node a = Branch (BranchList a) @-}
+
+-- FILE tests/parser/pos/Parens.hs:7:1
+{-@ test :: v:a -> (a, a) @-}
+
+-- FILE tests/parser/pos/Parens.hs:11:1
+{-@ measure listlen :: [a] -> Int
+      listlen [] = 0
+      listlen (x:xs) = 1 + listlen xs
+@-}
+
+-- FILE tests/parser/pos/ReflectedInfix.hs:2:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/parser/pos/ReflectedInfix.hs:7:1
+{-@ infix ++ @-}
+
+-- FILE tests/parser/pos/ReflectedInfix.hs:8:1
+{-@ reflect ++ @-}
+
+-- FILE tests/parser/pos/ReflectedInfix.hs:13:1
+{-@ appendNilId :: xs:[a] -> { xs ++ [] = xs } @-}
+
+-- FILE tests/parser/pos/ReflectedInfix.hs:17:1
+{-@ nilAppendId :: xs:[a] -> { [] ++ xs = xs } @-}
+
+-- FILE tests/parser/pos/T1012.hs:3:1
+{-@
+measure select_Product_1 :: Product f g p -> f p
+measure select_Product_2 :: Product f g p -> g p
+measure select_Product_1_ :: Product f g p -> (f p)
+measure select_Product_2_ :: Product f g p -> (g p)
+@-}
+
+-- FILE tests/parser/pos/T1481.hs:4:1
+{-@
+class Monad m => Filter filter m where
+  q :: forall a . Int -> Int -> Int -> m (filter a)
+  qq :: forall a . filter a -> m Int
+@-}
+
+-- FILE tests/parser/pos/T1531.hs:3:1
+{-@
+data IncList a
+  = Emp
+  | (:<) { hd :: a, tl :: IncList {v:a | hd <= v} }
+@-}
+
+-- FILE tests/parser/pos/T1531.hs:13:1
+{-@
+data IncListt a =
+    Empp
+  | (:<<) { hdd :: a, tll :: IncListt {v:a | hdd <= v} }
+@-}
+
+-- FILE tests/parser/pos/T338.hs:7:1
+{-@ type BoolP P = {v:Bool | v <=> P} @-}
+
+-- FILE tests/parser/pos/T338.hs:14:1
+{-@ inline gt @-}
+
+-- FILE tests/parser/pos/T338.hs:18:1
+{-@ isNat :: x:Int -> BoolP {gt x 0} @-}
+
+-- FILE tests/parser/pos/T871.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/parser/pos/T871.hs:4:1
+{-@ data Vec [vlen] t = Nil | Cons {td :: t, tl :: Vec t} @-}
+
+-- FILE tests/parser/pos/T871.hs:7:1
+{-@ reflect vlen @-}
+
+-- FILE tests/parser/pos/T871.hs:12:1
+{-@ data Vec2 [vlen2] t = Nil2 | Cons2 t (Vec2 t) @-}
+
+-- FILE tests/parser/pos/T871.hs:15:1
+{-@ reflect vlen2 @-}
+
+-- FILE tests/parser/pos/T873.hs:3:1
+{-@ type TypeName = String @-}
+
+-- FILE tests/parser/pos/T873.hs:6:1
+{-@
+data Type <p :: Int -> Bool>
+  = TVar (v :: Int <p v>)
+  | TCon TypeName [Type <p>]  // TypeName has to be within parens
+@-}
+
+-- FILE tests/parser/pos/T884.hs:3:1
+{-@ isEmpty :: x:[Int] -> {v:Bool | v <=> len x == 0} @-}
+
+-- FILE tests/parser/pos/T892.hs:11:1
+{-@ predicate BoundInt X = 0 < X + 10000 && X < 10000 @-}
+
+-- FILE tests/parser/pos/T892.hs:14:1
+{-@ instance CheckedNum Int where
+      (-) :: x:Int -> y:{v:Int | BoundInt (x - v)} -> {v: Int | v == x - y}
+      (+) :: x:Int -> y:{v:Int | BoundInt (x + v)} -> {v: Int | v == x + y}
+  @-}
+
+-- FILE tests/parser/pos/TokensAsPrefixes.hs:3:1
+{-@ instancesB :: Int -> Int @-}
+
+-- FILE tests/parser/pos/Tuples.hs:4:1
+{-@ reflect f @-}
+
+-- FILE tests/parser/pos/Tuples.hs:8:1
+{-@ reflect g @-}
+
+-- FILE tests/parser/pos/Tuples.hs:12:1
+{-@ reflect p @-}
+
+-- FILE tests/parser/pos/Tuples.hs:16:1
+{-@ foo :: x:Int -> y:Int -> {z:Int | p (g z (f x, f y))} @-}
+

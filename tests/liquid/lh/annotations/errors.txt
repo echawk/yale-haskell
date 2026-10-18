@@ -1,0 +1,1417 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/errors/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/errors/AmbiguousInline.hs:1:1
+{-@ LIQUID "--short-names" @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:28:1
+{-@ chunksBS :: Int -> b:BS.ByteString -> [BS.ByteString] / [(bLength b)] @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:50:1
+{-@ indicesSpec :: t:ByteStringNE -> s:BS.ByteString -> [OkPos t s] @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:64:1
+{-@ indices :: Alg -> t:ByteStringNE -> s:BS.ByteString -> [OkPos t s] @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:91:1
+{-@ data MatchIdxs
+      = Small { targ    :: ByteStringNE
+              , bs      :: {v:BS.ByteString | bLength v < bLength targ}
+              }
+
+      | MatchIdxs
+              { targ    :: ByteStringNE
+              , input   :: {v : Int | v >= bLength targ}
+              , left    :: {v : BS.ByteString | bLength v == bLength targ - 1}
+              , matches :: [{v:Int | v <= input - bLength targ}]
+              , right   :: {v : BS.ByteString | bLength v == bLength targ - 1}
+              }
+  @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:111:1
+{-@ myIndices :: Alg -> t:ByteStringNE -> BS.ByteString -> MatchIdxsT t @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:127:1
+{-@ type OkPos Targ Str = {v:Nat | v <= bLength Str - bLength Targ} @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:128:1
+{-@ type ByteStringNE   = {v:BS.ByteString | bLength v > 0 }   @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:129:1
+{-@ type ByteStringN N  = {v:BS.ByteString | bLength v == N}   @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:130:1
+{-@ type MatchIdxsT T   = {v:MatchIdxs | targ v == T}          @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:132:1
+{-@ assume BS.isSuffixOf :: targ:_ -> s:_ -> {v:_ | v => (bLength targ <= bLength s) } @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:133:1
+{-@ assume BS.length  :: b:BS.ByteString -> {v:Nat | v == bLength b}  @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:134:1
+{-@ assume BS.empty   :: {v:BS.ByteString | bLength v == 0}    @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:135:1
+{-@ assume BS.take    :: n:Nat -> b:BS.ByteString -> ByteStringN {min n (bLength b)} @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:136:1
+{-@ assume BS.drop    :: n:Nat -> b:{BS.ByteString | n <= bLength b} -> ByteStringN {bLength b - n} @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:137:1
+{-@ assume BS.inits   :: b:BS.ByteString -> [{v:BS.ByteString | bLength v <= bLength b}] @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:138:1
+{-@ assume BS.append  :: b1:BS.ByteString -> b2:BS.ByteString -> ByteStringN {bLength b1 + bLength b2} @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:139:1
+{-@ assume BS.null    :: b:BS.ByteString -> {v:Bool | v <=> (bLength b == 0)} @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:140:1
+{-@ assume BS.splitAt :: n:Nat -> b:BS.ByteString -> (ByteStringN {min n (bLength b)}, ByteStringN {max 0 (bLength b - n)}) @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:141:1
+{-@ assume BS.head    :: BS.ByteString -> _ @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:143:1
+{-@ measure target @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:148:1
+{-@ inline min @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:152:1
+{-@ inline max @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:157:1
+{-@ mmempty :: t:ByteStringNE -> MatchIdxsT t @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:160:1
+{-@ mmconcat :: (Foldable t) => Alg -> tg:ByteStringNE -> t (MatchIdxsT tg) -> (MatchIdxsT tg) @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:163:1
+{-@ qualif BB(v:Int, n:Int, d:Int, b:BS.ByteString) { v <= (n + d) - bLength b  } @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:165:1
+{-@ mmappend :: Alg -> t:ByteStringNE -> MatchIdxsT t -> MatchIdxsT t -> MatchIdxsT t @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:196:1
+{-@ indicesBS' :: Alg -> Int -> Int -> ByteStringNE -> BS.ByteString -> [Int] @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:201:1
+{-@ indicesBS, indicesNaive :: Int -> Int -> ByteStringNE -> BS.ByteString -> [Int] @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:205:1
+{-@ isInfixOfBS :: Int -> Int -> ByteStringNE -> BS.ByteString -> Bool @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:209:1
+{-@ invariant {v:BS.ByteString | 0 <= bLength v } @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:210:1
+{-@ measure bLength :: BS.ByteString -> Int @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:211:1
+{-@ type LNat N = {v:Nat | v < N} @-}
+
+-- FILE tests/errors/AmbiguousInline.hs:216:1
+{-@ assumeIndices :: t:ByteStringNE -> s:BS.ByteString -> [OkPos t s] @-}
+
+-- FILE tests/errors/AmbiguousReflect.hs:1:1
+{-@ LIQUID "--expect-error-containing=Ambiguous specification symbol `mappend`"  @-}
+
+-- FILE tests/errors/AmbiguousReflect.hs:2:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/errors/AmbiguousReflect.hs:8:1
+{-@ reflect mappend @-}
+
+-- FILE tests/errors/AmbiguousReflect.hs:11:1
+{-@ mappend :: x:D -> D -> {v:D | v == x} @-}
+
+-- FILE tests/errors/BadAliasApp.hs:1:1
+{-@ LIQUID "--expect-error-containing=Malformed application of type alias `ListN`" @-}
+
+-- FILE tests/errors/BadAliasApp.hs:4:1
+{-@ type ListN a N = {v:[a] | len v = N} @-}
+
+-- FILE tests/errors/BadAliasApp.hs:6:1
+{-@ foo :: ListN 0 0 @-}
+
+-- FILE tests/errors/BadAnnotation.hs:1:1
+{-@ LIQUID "--expect-error-containing=Malformed annotation" @-}
+
+-- FILE tests/errors/BadAnnotation.hs:4:1
+{-@ incr :: x:Int -> {v:Int | x < v } -}
+
+-- FILE tests/errors/BadAnnotation1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Malformed annotation" @-}
+
+-- FILE tests/errors/BadAnnotation1.hs:4:1
+{-@ incr :: x:Int 
+         -> {v:Int | x < v } 
+  -}
+
+-- FILE tests/errors/BadData0.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown type constructor `Zoog`" @-}
+
+-- FILE tests/errors/BadData0.hs:5:1
+{-@ data Zoog = Z { mkZ :: Nat } @-}
+
+-- FILE tests/errors/BadData1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Data constructors in refinement do not match original datatype for `EntityField`" @-}
+
+-- FILE tests/errors/BadData1.hs:16:5
+    {-@ data EntityField record typ where
+           BlobXVal :: EntityField Blob {v:Int | v >= 0}
+           BlobYVal :: EntityField Blob Int
+    @-}
+
+-- FILE tests/errors/BadData1.hs:25:1
+{-@ data Blob  = B { xVal :: {v:Int | v >= 0}, yVal :: Int } @-}
+
+-- FILE tests/errors/BadData1.hs:28:1
+{-@ blobXVal :: EntityField Blob {v:Int | v >= 0} @-}
+
+-- FILE tests/errors/BadData2.hs:1:1
+{-@ LIQUID "--expect-error-containing=Data constructors in refinement do not match original datatype for `Hog`" @-}
+
+-- FILE tests/errors/BadData2.hs:7:1
+{-@ data Hog where  
+      Cuthb :: Nat -> T 
+  @-}
+
+-- FILE tests/errors/BadDataCon2.hs:1:1
+{-@ LIQUID "--expect-error-containing=GHC and Liquid specifications have different numbers of fields for `BadDataCon2.Cuthb`" @-}
+
+-- FILE tests/errors/BadDataCon2.hs:4:1
+{-@ data T = Cuthb { fldX :: Int, fldY :: Int } @-}
+
+-- FILE tests/errors/BadDataConType.hs:1:1
+{-@ LIQUID "--expect-error-containing=Illegal type specification for `BadDataConType.fldY`" @-}
+
+-- FILE tests/errors/BadDataConType.hs:2:1
+{-@ LIQUID "--expect-error-containing=Specified type does not refine Haskell type for `BadDataConType.fldY`" @-}
+
+-- FILE tests/errors/BadDataConType.hs:5:1
+{-@ data T = C { fldX :: Int, fldY :: Bool } @-}
+
+-- FILE tests/errors/BadDataConType1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Specified type does not refine Haskell type for `BadDataConType1.fldY`" @-}
+
+-- FILE tests/errors/BadDataConType1.hs:2:1
+{-@ LIQUID "--expect-error-containing=Illegal type specification for `BadDataConType1.fldY`" @-}
+
+-- FILE tests/errors/BadDataConType1.hs:5:1
+{-@ data T = C { fldX :: Int, fldY :: String } @-}
+
+-- FILE tests/errors/BadDataConType2.hs:1:1
+{-@ LIQUID "--expect-error-containing=different numbers of fields for `BadDataConType2.C`" @-}
+
+-- FILE tests/errors/BadDataConType2.hs:4:1
+{-@ data T = C { fldX :: Int } @-}
+
+-- FILE tests/errors/BadDataDeclTyVars.hs:1:1
+{-@ LIQUID "--expect-error-containing=Mismatch in number of type variables for `L`" @-}
+
+-- FILE tests/errors/BadDataDeclTyVars.hs:8:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/errors/BadDataDeclTyVars.hs:9:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/errors/BadDataDeclTyVars.hs:13:1
+{-@ data L = Emp | Cons {x::a, xs:: (L a)} @-}
+
+-- FILE tests/errors/BadDataDeclTyVars.hs:18:1
+{-@ reflect sz @-}
+
+-- FILE tests/errors/BadDataDeclTyVars.hs:23:1
+{-@ test :: {(sz (Cons 1 Emp)) = 1} @-}
+
+-- FILE tests/errors/BadDataSelectorTypes.hs:1:1
+{-@ LIQUID "--expect-error-containing=(A) ox :: GHC.Internal.Types.Int" @-}
+
+-- FILE tests/errors/BadDataSelectorTypes.hs:2:1
+{-@ LIQUID "--expect-error-containing=(B) ox :: GHC.Internal.Types.Bool" @-}
+
+-- FILE tests/errors/BadDataSelectorTypes.hs:6:1
+{-@ data Clash
+      = A { ox :: Int  }
+      | B { ox :: Bool }
+  @-}
+
+-- FILE tests/errors/BadGADT.hs:1:1
+{-@ LIQUID "--expect-error-containing=Specified type does not refine Haskell type for `BadGADT.Nil2`" @-}
+
+-- FILE tests/errors/BadGADT.hs:4:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/errors/BadGADT.hs:8:1
+{-@ data List a where
+       Nil  :: List a
+       Cons :: listHead:a -> listTail:List a -> List a
+@-}
+
+-- FILE tests/errors/BadGADT.hs:13:1
+{-@ data List1 a b where
+       Nil1  :: List1 a b
+       Cons1 :: listHead:a -> listTail:List a -> List1 a b
+@-}
+
+-- FILE tests/errors/BadGADT.hs:18:1
+{-@ data List2 a b <p :: a -> Bool> where
+       Nil2  :: List2 a
+       Cons2 :: listHead:a -> listTail:List a -> List2 a b
+@-}
+
+-- FILE tests/errors/BadPredApp.hs:1:1
+{-@ LIQUID "--expect-error-containing=Malformed predicate application" @-}
+
+-- FILE tests/errors/BadPredApp.hs:4:1
+{-@ data X <q :: Int -> Int -> Bool> = X (x0 :: Int) (x1 :: Int<q x0>) @-}
+
+-- FILE tests/errors/BadPredApp.hs:7:1
+{-@ data T <p :: Int -> Int -> Int -> Int -> Bool> = C { x :: Int, y :: Int, z :: X<p x y> } @-}
+
+-- FILE tests/errors/BadQualifier.hs:3:1
+{-@ measure tv :: RGRef a -> a @-}
+
+-- FILE tests/errors/BadQualifier.hs:4:1
+{-@ qualif TERMINALVALUE(r:RGRef a) { (tv r)  } @-}
+
+-- FILE tests/errors/BadQualifier.hs:10:1
+{-@ qualif Foo(x:A, y:B) { (x == y)  } @-}
+
+-- FILE tests/errors/BadSig0.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `pro`" @-}
+
+-- FILE tests/errors/BadSig0.hs:4:1
+{-@ measure prop :: a -> b @-}
+
+-- FILE tests/errors/BadSig0.hs:5:1
+{-@ type Prop E = {v:_ | pro v = E} @-}
+
+-- FILE tests/errors/BadSig0.hs:8:1
+{-@ foo :: n:Int -> Prop 10 @-}
+
+-- FILE tests/errors/BadSig1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `pro`" @-}
+
+-- FILE tests/errors/BadSig1.hs:20:1
+{-@ measure prop :: a -> b @-}
+
+-- FILE tests/errors/BadSig1.hs:22:1
+{-@ type Prop E = {v:_ | pro v = E} @-}
+
+-- FILE tests/errors/BadSig1.hs:25:1
+{-@ data Ev where
+        EZ  :: Prop (Ev Z)
+        ESS :: evn:Peano -> {evpf:Ev | prop evpf = Ev evn} -> {zing : Ev | prop zing = Ev (S (S evn)) }
+  @-}
+
+-- FILE tests/errors/BadSig1.hs:30:1
+{-@ test :: n:Peano -> {v:Ev | prop v = Ev (S (S n))} -> {v:Ev | prop v = Ev n} @-}
+
+-- FILE tests/errors/BadSyn1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Malformed application of type alias `Fooz`" @-}
+
+-- FILE tests/errors/BadSyn1.hs:6:1
+{-@ type Fooz = {v:Int | 1 < v} @-}
+
+-- FILE tests/errors/BadSyn1.hs:8:1
+{-@ bob :: Fooz 1000 @-}
+
+-- FILE tests/errors/BadSyn2.hs:1:1
+{-@ LIQUID "--expect-error-containing=Malformed application of type alias `BadSyn2.Foo`" @-}
+
+-- FILE tests/errors/BadSyn2.hs:6:1
+{-@ bob :: Foo 1000 @-}
+
+-- FILE tests/errors/BadSyn3.hs:1:1
+{-@ LIQUID "--expect-error-containing=Malformed application of type alias `BadSyn3.Foo`" @-}
+
+-- FILE tests/errors/BadSyn3.hs:6:1
+{-@ bob :: Foo String @-}
+
+-- FILE tests/errors/BadSyn4.hs:1:1
+{-@ LIQUID "--expect-error-containing=Malformed application of type alias `BadSyn4.Point`" @-}
+
+-- FILE tests/errors/BadSyn4.hs:7:1
+{-@ foo :: n:Nat -> Point n @-}
+
+-- FILE tests/errors/CyclicExprAlias0.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition" @-}
+
+-- FILE tests/errors/CyclicExprAlias0.hs:4:1
+{-@ expression CyclicA1 Q = CyclicA1 Q @-}
+
+-- FILE tests/errors/CyclicExprAlias1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition" @-}
+
+-- FILE tests/errors/CyclicExprAlias1.hs:4:1
+{-@ expression CyclicB1 Q = CyclicB2 Q @-}
+
+-- FILE tests/errors/CyclicExprAlias1.hs:5:1
+{-@ expression CyclicB2 Q = CyclicB1 Q @-}
+
+-- FILE tests/errors/CyclicExprAlias2.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition" @-}
+
+-- FILE tests/errors/CyclicExprAlias2.hs:4:1
+{-@ expression CyclicC1 Q = (CyclicC2 Q) && (CyclicC3 Q) @-}
+
+-- FILE tests/errors/CyclicExprAlias2.hs:5:1
+{-@ expression CyclicC2 Q = CyclicC1 Q @-}
+
+-- FILE tests/errors/CyclicExprAlias2.hs:6:1
+{-@ expression CyclicC3 Q = CyclicC1 Q @-}
+
+-- FILE tests/errors/CyclicExprAlias3.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition" @-}
+
+-- FILE tests/errors/CyclicExprAlias3.hs:4:1
+{-@ expression CyclicD1 Q = CyclicD2 Q @-}
+
+-- FILE tests/errors/CyclicExprAlias3.hs:5:1
+{-@ expression CyclicD2 Q = CyclicD3 Q @-}
+
+-- FILE tests/errors/CyclicExprAlias3.hs:6:1
+{-@ expression CyclicD3 Q = CyclicD1 Q @-}
+
+-- FILE tests/errors/CyclicPredAlias0.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition for `CyclicA1`" @-}
+
+-- FILE tests/errors/CyclicPredAlias0.hs:4:1
+{-@ predicate CyclicA1 Q = CyclicA1 Q @-}
+
+-- FILE tests/errors/CyclicPredAlias1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition for `CyclicB1`" @-}
+
+-- FILE tests/errors/CyclicPredAlias1.hs:4:1
+{-@ predicate CyclicB1 Q = CyclicB2 Q @-}
+
+-- FILE tests/errors/CyclicPredAlias1.hs:5:1
+{-@ predicate CyclicB2 Q = CyclicB1 Q @-}
+
+-- FILE tests/errors/CyclicPredAlias2.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition for `CyclicC1`" @-}
+
+-- FILE tests/errors/CyclicPredAlias2.hs:5:1
+{-@ predicate CyclicC1 Q = CyclicC2 Q && CyclicC3 Q @-}
+
+-- FILE tests/errors/CyclicPredAlias2.hs:6:1
+{-@ predicate CyclicC2 Q = CyclicC1 Q @-}
+
+-- FILE tests/errors/CyclicPredAlias2.hs:7:1
+{-@ predicate CyclicC3 Q = CyclicC1 Q @-}
+
+-- FILE tests/errors/CyclicPredAlias3.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition for `CyclicD1`" @-}
+
+-- FILE tests/errors/CyclicPredAlias3.hs:4:1
+{-@ predicate CyclicD1 Q = CyclicD2 Q @-}
+
+-- FILE tests/errors/CyclicPredAlias3.hs:5:1
+{-@ predicate CyclicD2 Q = CyclicD3 Q @-}
+
+-- FILE tests/errors/CyclicPredAlias3.hs:6:1
+{-@ predicate CyclicD3 Q = CyclicD1 Q @-}
+
+-- FILE tests/errors/CyclicTypeAlias0.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition for `CyclicA1`" @-}
+
+-- FILE tests/errors/CyclicTypeAlias0.hs:4:1
+{-@ type CyclicA1 = CyclicA2 @-}
+
+-- FILE tests/errors/CyclicTypeAlias0.hs:5:1
+{-@ type CyclicA2 = CyclicA1 @-}
+
+-- FILE tests/errors/CyclicTypeAlias1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition for `CyclicB1`" @-}
+
+-- FILE tests/errors/CyclicTypeAlias1.hs:4:1
+{-@ type CyclicB1 = CyclicB2 @-}
+
+-- FILE tests/errors/CyclicTypeAlias1.hs:5:1
+{-@ type CyclicB2 = CyclicB3 @-}
+
+-- FILE tests/errors/CyclicTypeAlias1.hs:6:1
+{-@ type CyclicB3 = CyclicB1 @-}
+
+-- FILE tests/errors/CyclicTypeAlias2.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition for `CyclicC`" @-}
+
+-- FILE tests/errors/CyclicTypeAlias2.hs:4:1
+{-@ type CyclicC = [CyclicC] @-}
+
+-- FILE tests/errors/CyclicTypeAlias3.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cyclic type alias definition for `CyclicD2" @-}
+
+-- FILE tests/errors/CyclicTypeAlias3.hs:4:1
+{-@ type CyclicD1 = CyclicD2 @-}
+
+-- FILE tests/errors/CyclicTypeAlias3.hs:5:1
+{-@ type CyclicD2 = CyclicD3 @-}
+
+-- FILE tests/errors/CyclicTypeAlias3.hs:6:1
+{-@ type CyclicD3 = CyclicD2 @-}
+
+-- FILE tests/errors/DupAlias.hs:1:1
+{-@ LIQUID "--expect-error-containing=Multiple definitions of Type Alias `BoundedNat`" @-}
+
+-- FILE tests/errors/DupAlias.hs:2:1
+{-@ LIQUID "--expect-error-containing=Multiple definitions of Pred Alias `Foo`" @-}
+
+-- FILE tests/errors/DupAlias.hs:7:1
+{-@ type BoundedNat N = {v:Nat | v < N } @-}
+
+-- FILE tests/errors/DupAlias.hs:8:1
+{-@ predicate Foo V N = V < N            @-}
+
+-- FILE tests/errors/DupAlias.hs:13:1
+{-@ type BoundedNat N = {v:Nat | v <= N } @-}
+
+-- FILE tests/errors/DupAlias.hs:14:1
+{-@ predicate Foo V N = V <= N            @-}
+
+-- FILE tests/errors/DupAlias.hs:17:1
+{-@ foo :: n:Int -> m:(BoundedNat n) -> Nat @-}
+
+-- FILE tests/errors/DupData.hs:1:1
+{-@ LIQUID "--expect-error-containing=Multiple specifications for `OVec`" @-}
+
+-- FILE tests/errors/DupData.hs:10:1
+{-@ data OVec a = ONil
+               | (:>>) {oHd :: a,
+                        oTl :: OVec {v:a | v >= oHd}} @-}
+
+-- FILE tests/errors/DupData.hs:15:1
+{-@ data OVec [mylen] @-}
+
+-- FILE tests/errors/DupData.hs:16:1
+{-@ measure mylen @-}
+
+-- FILE tests/errors/DupData.hs:17:1
+{-@ mylen :: OVec a -> Nat @-}
+
+-- FILE tests/errors/DupData.hs:22:1
+{-@ badVec :: OVec Int @-}
+
+-- FILE tests/errors/DupFunSigs.hs:1:1
+{-@ LIQUID "--expect-error-containing=Multiple specifications for `DupFunSigs.fromWeekDayNum`" @-}
+
+-- FILE tests/errors/DupFunSigs.hs:8:1
+{-@ type WeekDayNum = { i:Int | 0 < i && i <= 7 } @-}
+
+-- FILE tests/errors/DupFunSigs.hs:14:1
+{-@ weekdays :: { wd:[WeekDay] | len wd == 7 } @-}
+
+-- FILE tests/errors/DupFunSigs.hs:18:1
+{-@ fromWeekDayNum :: WeekDayNum -> WeekDay @-}
+
+-- FILE tests/errors/DupFunSigs.hs:22:1
+{-@ fromWeekDayNum :: WeekDay -> WeekDayNum @-}
+
+-- FILE tests/errors/DupMeasure.hs:1:1
+{-@ LIQUID "--expect-error-containing=Multiple specifications for `lenA`" @-}
+
+-- FILE tests/errors/DupMeasure.hs:5:1
+{-@ measure lenA :: [a] -> Int 
+      lenA [] = 0
+      lenA (x:xs) = 1 + lenA xs 
+  @-}
+
+-- FILE tests/errors/DupMeasure.hs:10:1
+{-@ measure lenA :: [a] -> Int 
+      lenA [] = 0
+      lenA (x:xs) = 1 + lenA xs 
+  @-}
+
+-- FILE tests/errors/DupMeasure.hs:15:1
+{-@ zorg :: {v:[Int] | lenA v == 3} @-}
+
+-- FILE tests/errors/ElabLocation.hs:6:1
+{-@ LIQUID "--expect-error-containing=ElabLocation.hs:15:14" @-}
+
+-- FILE tests/errors/EmptyData.hs:1:1
+{-@ LIQUID "--expect-error-containing=one or more fields in the data declaration for `A`" @-}
+
+-- FILE tests/errors/EmptyData.hs:6:1
+{-@ data A @-}
+
+-- FILE tests/errors/ErrLocation.hs:1:1
+{-@ LIQUID "--expect-error-containing=ErrLocation.hs:10:13" @-}
+
+-- FILE tests/errors/ErrLocation.hs:5:1
+{-@ inc :: Nat -> Nat @-}
+
+-- FILE tests/errors/ErrLocation2.hs:1:1
+{-@ LIQUID "--expect-error-containing=ErrLocation2.hs:12:20" @-}
+
+-- FILE tests/errors/ErrLocation2.hs:5:1
+{-@ inc :: Nat -> Nat @-}
+
+-- FILE tests/errors/ExportMeasure0.hs:5:1
+{-@ data LL [llen] @-}
+
+-- FILE tests/errors/ExportMeasure0.hs:8:1
+{-@ invariant {v:LL a | (llen v) >= 0} @-}
+
+-- FILE tests/errors/ExportMeasure0.hs:10:1
+{-@ measure llen @-}
+
+-- FILE tests/errors/ExportMeasure0.hs:15:1
+{-@ lmap :: (a -> b) -> xs:(LL a) -> {v: LL b | llen v = llen xs } @-}
+
+-- FILE tests/errors/ExportReflect0.hs:3:1
+{-@ LIQUID "--higherorder" @-}
+
+-- FILE tests/errors/ExportReflect0.hs:9:1
+{-@ reflect identity @-}
+
+-- FILE tests/errors/ExportReflect0.hs:13:1
+{-@ reflect identity2 @-}
+
+-- FILE tests/errors/ExportReflect0.hs:17:1
+{-@ reflect identity3 @-}
+
+-- FILE tests/errors/ExportReflect0.hs:21:1
+{-@ foo :: x:a -> { identity x == x } @-}
+
+-- FILE tests/errors/ExportReflect0.hs:25:1
+{-@ reflect zogbert @-}
+
+-- FILE tests/errors/ExtraAbsRefArgs.hs:1:1
+{-@ LIQUID "--expect-error-containing=does not accept abstract refinement arguments" @-}
+
+-- FILE tests/errors/ExtraAbsRefArgs.hs:10:1
+{-@ data Pair a b <p :: a -> b -> Bool> = MkPair { pfst :: a, psnd :: b<p pfst> } @-}
+
+-- FILE tests/errors/ExtraAbsRefArgs.hs:14:1
+{-@ foo :: Pair Int Int <{\x y -> x <= y}> @-}
+
+-- FILE tests/errors/Fractional.hs:1:1
+{-@ LIQUID "--expect-error-containing=Illegal type specification for `Fractional.f`" @-}
+
+-- FILE tests/errors/Fractional.hs:2:1
+{-@ LIQUID "--expect-error-containing=Illegal type specification for `Fractional.g`" @-}
+
+-- FILE tests/errors/Fractional.hs:5:1
+{-@ f :: (Num a) => {v:a | v > 0.0} -> a @-}
+
+-- FILE tests/errors/Fractional.hs:9:1
+{-@ g :: (Num a) => {v:a | v > 0.0} -> a @-}
+
+-- FILE tests/errors/HigherOrderBinder.hs:1:1
+{-@ LIQUID "--expect-error-containing=Liquid Type Mismatch" @-}
+
+-- FILE tests/errors/HigherOrderBinder.hs:4:1
+{-@ foo :: a: Int -> f: (Int -> Int) -> {v : Int | v = 123 + (f a) } @-}
+
+-- FILE tests/errors/HoleCrash1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Illegal type specification for `HoleCrash1.t`" @-}
+
+-- FILE tests/errors/HoleCrash1.hs:2:1
+{-@ LIQUID "--expect-error-containing=Illegal type specification for `HoleCrash1.C`" @-}
+
+-- FILE tests/errors/HoleCrash1.hs:7:1
+{-@ type Geq N = {v:_ | N <= v} @-}
+
+-- FILE tests/errors/HoleCrash1.hs:9:1
+{-@ data Poo a = C { t :: Poo (Geq 0) } @-}
+
+-- FILE tests/errors/HoleCrash2.hs:1:1
+{-@ LIQUID "--expect-error-containing=Malformed application of type alias `Geq`" @-}
+
+-- FILE tests/errors/HoleCrash2.hs:6:1
+{-@ type Geq a N = {v:a | N <= v} @-}
+
+-- FILE tests/errors/HoleCrash2.hs:8:1
+{-@ data Poo a = C { t :: Poo (Geq 0) } @-}
+
+-- FILE tests/errors/HoleCrash3.hs:1:1
+{-@ LIQUID "--expect-error-containing=Specified type does not refine Haskell type for `HoleCrash3.countUp`" @-}
+
+-- FILE tests/errors/HoleCrash3.hs:8:1
+{-@ countUp :: n:Int -> List Int @-}
+
+-- FILE tests/errors/Inconsistent0.hs:1:1
+{-@ LIQUID "--expect-error-containing=Specified type does not refine Haskell type for `Inconsistent0.id1`" @-}
+
+-- FILE tests/errors/Inconsistent0.hs:5:1
+{-@ LIQUID "--no-positivity-check" @-}
+
+-- FILE tests/errors/Inconsistent0.hs:12:1
+{-@ measure isExprIndex @-}
+
+-- FILE tests/errors/Inconsistent0.hs:17:1
+{-@ measure isTypeIndex @-}
+
+-- FILE tests/errors/Inconsistent0.hs:27:1
+{-@
+  data AstF f <ix :: AstIndex -> Bool>
+    = Lit {l1 :: Int, i :: AstIndex<ix>}
+    | Var {v1 :: String, i :: AstIndex<ix>}
+    | App (fn :: f) (arg :: f)
+    | Paren (ast :: f)
+  @-}
+
+-- FILE tests/errors/Inconsistent0.hs:35:1
+{-@ type AstFE = AstF <{\ix -> isExprIndex ix}> @-}
+
+-- FILE tests/errors/Inconsistent0.hs:36:1
+{-@ type AstFT = AstF <{\ix -> isTypeIndex ix}> @-}
+
+-- FILE tests/errors/Inconsistent0.hs:45:1
+{-@ type AstE = Fix AstFE @-}
+
+-- FILE tests/errors/Inconsistent0.hs:46:1
+{-@ type AstT = Fix AstFT @-}
+
+-- FILE tests/errors/Inconsistent0.hs:48:1
+{-@ astExpr :: AstE  @-}
+
+-- FILE tests/errors/Inconsistent0.hs:52:1
+{-@ astType :: AstT @-}
+
+-- FILE tests/errors/Inconsistent0.hs:56:1
+{-@ app :: forall <p :: AstIndex -> Bool>. Fix (AstF<p>) -> Fix (AstF<p>) -> Fix (AstF<p>) @-}
+
+-- FILE tests/errors/Inconsistent0.hs:59:1
+{-@ id1 :: forall <p :: AstIndex -> Bool>. Fix (AstF p) -> Fix (AstF p)  @-}
+
+-- FILE tests/errors/Inconsistent0.hs:63:1
+{-@ wrong :: AstT @-}
+
+-- FILE tests/errors/Inconsistent1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Specified type does not refine Haskell type for `Inconsistent1.incr` (Checked)" @-}
+
+-- FILE tests/errors/Inconsistent1.hs:4:1
+{-@ incr :: Int -> Bool @-}
+
+-- FILE tests/errors/Inconsistent2.hs:1:1
+{-@ LIQUID "--expect-error-containing=Specified type does not refine Haskell type for `Inconsistent2.foo` (Checked)" @-}
+
+-- FILE tests/errors/Inconsistent2.hs:4:1
+{-@ foo :: Nat @-}
+
+-- FILE tests/errors/InlineSubExp0.hs:1:1
+{-@ LIQUID "--expect-error-containing=== f B C" @-}
+
+-- FILE tests/errors/InlineSubExp0.hs:5:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/errors/InlineSubExp0.hs:6:1
+{-@ LIQUID "--short-names" @-}
+
+-- FILE tests/errors/InlineSubExp0.hs:16:1
+{-@ reflect f @-}
+
+-- FILE tests/errors/InlineSubExp0.hs:21:1
+{-@ prop :: {f B C == F} @-}
+
+-- FILE tests/errors/InlineSubExp1.hs:1:1
+{-@ LIQUID "--expect-error-containing== f B ?a" @-}
+
+-- FILE tests/errors/InlineSubExp1.hs:5:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/errors/InlineSubExp1.hs:6:1
+{-@ LIQUID "--short-names" @-}
+
+-- FILE tests/errors/InlineSubExp1.hs:16:1
+{-@ reflect f @-}
+
+-- FILE tests/errors/InlineSubExp1.hs:22:1
+{-@ reflect g @-}
+
+-- FILE tests/errors/IrregularData.hs:1:1
+{-@ LIQUID "--expect-error-containing=is not a subtype of the required type" @-}
+
+-- FILE tests/errors/IrregularData.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/errors/IrregularData.hs:29:1
+{-@ reflect consTree @-}
+
+-- FILE tests/errors/IrregularData.hs:42:1
+{-@ phi :: FingerTree a -> Nat @-}
+
+-- FILE tests/errors/IrregularData.hs:43:1
+{-@ reflect phi @-}
+
+-- FILE tests/errors/IrregularData.hs:49:1
+{-@ dang :: Digit a -> { n:Int | n == 0 || n == 1 } @-}
+
+-- FILE tests/errors/IrregularData.hs:50:1
+{-@ reflect dang @-}
+
+-- FILE tests/errors/IrregularData.hs:57:1
+{-@ consT :: a -> FingerTree a -> Nat @-}
+
+-- FILE tests/errors/IrregularData.hs:58:1
+{-@ reflect consT @-}
+
+-- FILE tests/errors/IrregularData.hs:67:1
+{-@ amortizedConsP :: x:a -> q:FingerTree a -> { consT x q + phi (consTree x q) - phi q <= 3 } @-}
+
+-- FILE tests/errors/KVars.hs:1:1
+{-@ LIQUID "--expect-error-containing=v < 0" @-}
+
+-- FILE tests/errors/KVars.hs:6:1
+{-@ intId :: forall <p :: Int -> Bool> . Int<p> -> Int<p> @-}
+
+-- FILE tests/errors/KVars.hs:10:1
+{-@ test :: {x:Int | x < 0} -> {v:Int | v > 0} @-}
+
+-- FILE tests/errors/LiftMeasureCase.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cannot create measure 'LiftMeasureCase.foo': Does not have a case-of at the top-level" @-}
+
+-- FILE tests/errors/LiftMeasureCase.hs:8:1
+{-@ measure foo @-}
+
+-- FILE tests/errors/LiftMeasureCase.hs:12:1
+{-@ measure lllen @-}
+
+-- FILE tests/errors/LiftMeasureCase.hs:14:1
+{-@ lllen :: xs:[a] -> {v:Int| (lllen xs) = v} @-}
+
+-- FILE tests/errors/LocalHole.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `nowhere`" @-}
+
+-- FILE tests/errors/LocalHole.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/errors/LocalHole.hs:9:5
+    {-@ go :: i:{Nat | i <= nowhere} -> _ -> _ @-}
+
+-- FILE tests/errors/MissingAssume.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown variable `goober`" @-}
+
+-- FILE tests/errors/MissingAssume.hs:6:1
+{-@ type UList a = {v:[a] | ListUnique v} @-}
+
+-- FILE tests/errors/MissingAssume.hs:8:1
+{-@ assume goober :: Nat -> Nat @-}
+
+-- FILE tests/errors/MissingAssume.hs:10:1
+{-@ assume reverse :: xs:(UList a) -> {v: UList a | EqElts v xs}  @-}
+
+-- FILE tests/errors/MissingAssume.hs:12:1
+{-@ predicate ListUnique LS = (Set_emp (listDup LS)) @-}
+
+-- FILE tests/errors/MissingAssume.hs:14:1
+{-@ predicate EqElts X Y    = ((Data.Set.listElts X) = (Data.Set.listElts Y)) @-}
+
+-- FILE tests/errors/MissingAssume.hs:16:1
+{-@
+  measure listDup :: [a] -> (Data.Set.Set a)
+    listDup []    = {v | Set_emp v }
+    listDup (x:xs) = {v | v = if (Set_mem x (Data.Set.listElts xs)) then (Set_cup (Set_sng x) (listDup xs)) else (listDup xs) }
+  @-}
+
+-- FILE tests/errors/MissingAssume.hs:22:1
+{-@ foo :: xs:(UList a) -> {v: UList a | EqElts v xs} @-}
+
+-- FILE tests/errors/MissingField1.hs:7:1
+{-@ data Foo = F { goober :: Int } @-}
+
+-- FILE tests/errors/MissingReflect.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `foo`" @-}
+
+-- FILE tests/errors/MissingReflect.hs:2:1
+{-@ LIQUID "--reflection"                     @-}
+
+-- FILE tests/errors/MissingReflect.hs:3:1
+{-@ LIQUID "--ple"                                @-}
+
+-- FILE tests/errors/MissingReflect.hs:13:1
+{-@ foo  :: Nat ->  xs: [Nat] -> Nat -> Bool / [len xs ]@-}
+
+-- FILE tests/errors/MissingReflect.hs:18:1
+{-@ empty_foo :: lo:Nat -> hi:{Nat | lo <= hi } -> {foo lo [] hi} @-}
+
+-- FILE tests/errors/MissingSizeFun.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `llen2`" @-}
+
+-- FILE tests/errors/MissingSizeFun.hs:2:1
+{-@ LIQUID "--nostruct" @-}
+
+-- FILE tests/errors/MissingSizeFun.hs:6:1
+{-@ data List [llen] a = N | C {lhead :: a, ltail :: List a} @-}
+
+-- FILE tests/errors/MissingSizeFun.hs:9:1
+{-@ measure llen @-}
+
+-- FILE tests/errors/MissingSizeFun.hs:15:1
+{-@ data List2 [llen2] a = N2 | C2 {lhead2 :: a, ltail2 :: List2 a} @-}
+
+-- FILE tests/errors/MultiInstMeasures.hs:1:1
+{-@ LIQUID "--expect-error-containing=Multiple instance measures `sizeOf` for type `GHC.Internal.Ptr.Ptr`" @-}
+
+-- FILE tests/errors/MultiInstMeasures.hs:7:1
+{-@ class measure sizeOf :: forall a . Ptr a -> Int @-}
+
+-- FILE tests/errors/MultiInstMeasures.hs:9:1
+{-@ instance measure sizeOf :: (Ptr Word16) -> Int
+      sizeOf (Ptr x) = 2
+@-}
+
+-- FILE tests/errors/MultiInstMeasures.hs:13:1
+{-@ instance measure sizeOf :: (Ptr Word32) -> Int
+      sizeOf (Ptr y) = 4
+@-}
+
+-- FILE tests/errors/MultiInstMeasures.hs:17:1
+{-@ bar :: { p : Ptr Word32 | plen p >= (sizeOf p) } -> () @-}
+
+-- FILE tests/errors/MultiInstMeasures.hs:21:1
+{-@ qux :: { p : Ptr Word32 | plen p >= 0 } -> () @-}
+
+-- FILE tests/errors/MultiRecSels.hs:1:1
+{-@ LIQUID "--expect-error-containing=Duplicated definitions for field `left`" @-}
+
+-- FILE tests/errors/MultiRecSels.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/errors/MultiRecSels.hs:10:1
+{-@ ok :: { v: RBTree Int | false} @-}
+
+-- FILE tests/errors/MultiRecSels.hs:17:1
+{-@ data RBTree a = Leaf
+                  | Node { c     :: Color
+                         , key   :: a
+                         , left  :: RBTree ({v:a | v < key})
+                         , left  :: RBTree ({v:a | key < v})
+                         }
+  @-}
+
+-- FILE tests/errors/Positivity1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Negative occurence of Positivity1.Rec" @-}
+
+-- FILE tests/errors/Positivity1.hs:14:1
+{-@ foo :: n:Nat -> {v:Nat | v < n} @-}
+
+-- FILE tests/errors/Positivity1.hs:22:1
+{-@ assert :: b:{Bool | b} -> () @-}
+
+-- FILE tests/errors/Positivity2.hs:1:1
+{-@ LIQUID "--expect-error-containing=Negative occurence of Positivity2.Evil in Positivity2.Very" @-}
+
+-- FILE tests/errors/Positivity2.hs:6:1
+{-@ type Bot = {v: () | false} @-}
+
+-- FILE tests/errors/Positivity2.hs:8:1
+{-@ bad :: Evil Bot -> Bot @-}
+
+-- FILE tests/errors/Positivity2.hs:13:1
+{-@ worse :: Bot @-}
+
+-- FILE tests/errors/PositivityCheck.hs:1:1
+{-@ LIQUID "--expect-error-containing=Negative occurence of PositivityCheck.Bad1" @-}
+
+-- FILE tests/errors/PositivityCheck.hs:2:1
+{-@ LIQUID "--expect-error-containing=Negative occurence of PositivityCheck.Bad2" @-}
+
+-- FILE tests/errors/PositivityCheck.hs:3:1
+{-@ LIQUID "--expect-error-containing=Negative occurence of PositivityCheck.Bad3" @-}
+
+-- FILE tests/errors/PositivityCheck.hs:4:1
+{-@ LIQUID "--expect-error-containing=Negative occurence of PositivityCheck.Bad4" @-}
+
+-- FILE tests/errors/PositivityCheck.hs:5:1
+{-@ LIQUID "--expect-error-containing=Negative occurence of PositivityCheck.BadRec1" @-}
+
+-- FILE tests/errors/PositivityCheck.hs:6:1
+{-@ LIQUID "--expect-error-containing=Negative occurence of PositivityCheck.BadRec2" @-}
+
+-- FILE tests/errors/PredArityMismatch.hs:1:1
+{-@ LIQUID "--expect-error-containing=Malformed predicate application" @-}
+
+-- FILE tests/errors/PredArityMismatch.hs:8:1
+{-@ data Pair a b <p :: a -> b -> Bool> = MkPair { pfst :: a, psnd :: b<p pfst> } @-}
+
+-- FILE tests/errors/PredArityMismatch.hs:11:1
+{-@ foo :: Pair <{\x y z -> x <= y}> Int Int @-}
+
+-- FILE tests/errors/ReWrite5.hs:1:1
+{-@ LIQUID "--expect-error-containing=parameter \"xs\" contains an inner refinement" @-}
+
+-- FILE tests/errors/ReWrite5.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/errors/ReWrite5.hs:5:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/errors/ReWrite5.hs:6:1
+{-@ infix ++ @-}
+
+-- FILE tests/errors/ReWrite5.hs:10:1
+{-@ reflect lt5 @-}
+
+-- FILE tests/errors/ReWrite5.hs:14:1
+{-@ reflect filter @-}
+
+-- FILE tests/errors/ReWrite5.hs:19:1
+{-@ rw :: xs :  [{ v: Int | v > 5 }] -> { filter lt5 xs = [] } @-}
+
+-- FILE tests/errors/ReWrite5.hs:24:1
+{-@ rewriteWith bad [rw] @-}
+
+-- FILE tests/errors/ReWrite5.hs:25:1
+{-@ bad :: xs : [Int] -> { filter lt5 xs = [] } @-}
+
+-- FILE tests/errors/ReWrite6.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unable to use ReWrite6.bad as a rewrite because it does not prove an equality" @-}
+
+-- FILE tests/errors/ReWrite6.hs:5:1
+{-@ rewrite bad @-}
+
+-- FILE tests/errors/ReWrite6.hs:6:1
+{-@ bad :: {1 < 2} @-}
+
+-- FILE tests/errors/ReWrite7.hs:1:1
+{-@ LIQUID "--expect-error-containing=Could not generate any rewrites from equality" @-}
+
+-- FILE tests/errors/ReWrite7.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/errors/ReWrite7.hs:4:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/errors/ReWrite7.hs:6:1
+{-@ reflect f @-}
+
+-- FILE tests/errors/ReWrite7.hs:12:1
+{-@ rewrite bad @-}
+
+-- FILE tests/errors/ReWrite7.hs:13:1
+{-@ bad :: x : [Int] -> y : [Int] -> { f x = f y } @-}
+
+-- FILE tests/errors/ReWrite8.hs:1:1
+{-@ LIQUID "--expect-error-containing=Could not generate any rewrites from equality" @-}
+
+-- FILE tests/errors/ReWrite8.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/errors/ReWrite8.hs:5:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/errors/ReWrite8.hs:6:1
+{-@ infix ++ @-}
+
+-- FILE tests/errors/ReWrite8.hs:10:1
+{-@ measure length @-}
+
+-- FILE tests/errors/ReWrite8.hs:15:1
+{-@ reflect head @-}
+
+-- FILE tests/errors/ReWrite8.hs:16:1
+{-@ head :: {xs : [a] | length xs >= 1} -> a @-}
+
+-- FILE tests/errors/ReWrite8.hs:19:1
+{-@ rewrite singleProof @-}
+
+-- FILE tests/errors/ReWrite8.hs:20:1
+{-@ assume singleProof :: 
+          { xs : [a] | True } 
+      ->  { ys : [a] | True } 
+      ->  { xs = ys ++ [] } @-}
+
+-- FILE tests/errors/ReWrite8.hs:28:1
+{-@ sp :: 
+          { xs : [a] | True } 
+      ->  { ys : [a] | True } 
+      ->  { xs = ys ++ [] } @-}
+
+-- FILE tests/errors/ReWrite8.hs:36:1
+{-@ reflect ++ @-}
+
+-- FILE tests/errors/ReflectLam.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/errors/ReflectLam.hs:8:1
+{-@ reflect bar @-}
+
+-- FILE tests/errors/ReflectLam.hs:12:1
+{-@ reflect mymap @-}
+
+-- FILE tests/errors/ShadowFieldInline.hs:1:1
+{-@ LIQUID "--expect-error-containing=Multiple specifications for `pig`" @-}
+
+-- FILE tests/errors/ShadowFieldInline.hs:8:1
+{-@ data Zig = Zonk { pig :: Int } @-}
+
+-- FILE tests/errors/ShadowFieldInline.hs:11:1
+{-@ prop :: z:Zig -> {v:Int | v = pig z} @-}
+
+-- FILE tests/errors/ShadowFieldInline.hs:15:1
+{-@ inline pig @-}
+
+-- FILE tests/errors/ShadowFieldReflect.hs:1:1
+{-@ LIQUID "--expect-error-containing=Multiple specifications for `pig`" @-}
+
+-- FILE tests/errors/ShadowFieldReflect.hs:8:1
+{-@ data Zig = Zonk { pig :: Int } @-}
+
+-- FILE tests/errors/ShadowFieldReflect.hs:11:1
+{-@ prop :: z:Zig -> {v:Int | v = pig z} @-}
+
+-- FILE tests/errors/ShadowFieldReflect.hs:15:1
+{-@ reflect pig @-}
+
+-- FILE tests/errors/ShadowMeasure.hs:1:1
+{-@ LIQUID "--expect-error-containing=Multiple specifications for `shadow`" @-}
+
+-- FILE tests/errors/ShadowMeasure.hs:11:1
+{-@ measure shadow :: Poo -> Int
+      shadow (Poo n) = n
+  @-}
+
+-- FILE tests/errors/ShadowMeasure.hs:15:1
+{-@ test :: p:Poo -> {v:Int | v = shadow p} @-}
+
+-- FILE tests/errors/ShadowMeasure.hs:19:1
+{-@ measure shadow @-}
+
+-- FILE tests/errors/ShadowMeasureVar.hs:7:1
+{-@ measure shadow :: Poo -> Int
+    shadow (Poo n) = n
+  @-}
+
+-- FILE tests/errors/ShadowMeasureVar.hs:11:1
+{-@ test :: p:Poo -> {v:Int | v = shadow p} @-}
+
+-- FILE tests/errors/SplitSubtype.hs:1:1
+{-@ LIQUID "--expect-error-containing=> 5}" @-}
+
+-- FILE tests/errors/SplitSubtype.hs:4:1
+{-@ foo :: {v:Int | v > 0 && v > 5 && v < 10 } -> Int @-}
+
+-- FILE tests/errors/StratNoLex.hs:2:1
+{-@ LIQUID "--expect-error-containing=The constructor StratNoLex.MkFoo of the type StratNoLex.Foo was declared stratified but it has a recursive occurence whose index StratNoLex.Foo" @-}
+
+-- FILE tests/errors/StratNoLex.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/errors/StratNoLex.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/errors/StratNoLex.hs:11:1
+{-@ stratified Foo @-}
+
+-- FILE tests/errors/StratNoLex.hs:13:3
+  {-@ Swap :: x:N -> y:N -> Prop (Foo x (S y)) -> Prop (Foo (S x) y) @-}
+
+-- FILE tests/errors/StratNoLex.hs:15:3
+  {-@ MkFoo :: x:N -> y:N -> (Prop (Foo (S x) y) -> FF) -> Prop (Foo x (S y)) @-}
+
+-- FILE tests/errors/StratNoLex.hs:19:1
+{-@ bad :: x:N -> y:N -> Prop (Foo x y) -> { v:Bool | not v } @-}
+
+-- FILE tests/errors/StratNoLex.hs:25:1
+{-@ verybad :: Prop (Foo Z (S Z)) @-}
+
+-- FILE tests/errors/StratNoLex.hs:29:1
+{-@ terrible :: { v:Bool | not v } @-}
+
+-- FILE tests/errors/StratNoPropRec.hs:2:1
+{-@ LIQUID "--expect-error-containing=The constructor StratNoPropRec.VArr of the type StratNoPropRec.Val was declared stratified but it has a recursive occurence of type StratNoPropRec.Val which is not an indexed type" @-}
+
+-- FILE tests/errors/StratNoPropRec.hs:9:1
+{-@ stratified Val @-}
+
+-- FILE tests/errors/StratNoPropRec.hs:11:3
+  {-@ VInt :: Int -> Prop (Val TInt) @-}
+
+-- FILE tests/errors/StratNoPropRec.hs:13:3
+  {-@ VArr :: t1:Ty -> t2:Ty -> (Prop (Val t1) -> Val) -> Prop (Val (TArr t1 t2)) @-}
+
+-- FILE tests/errors/StratNoPropRet.hs:2:1
+{-@ LIQUID "--expect-error-containing=The constructor StratNoPropRet.VArr of the type StratNoPropRet.Val was declared stratified but it does not return an indexed type, instead it returns StratNoPropRet.Val" @-}
+
+-- FILE tests/errors/StratNoPropRet.hs:9:1
+{-@ stratified Val @-}
+
+-- FILE tests/errors/StratNoPropRet.hs:11:3
+  {-@ VInt :: Int -> Prop (Val TInt) @-}
+
+-- FILE tests/errors/StratNoPropRet.hs:13:3
+  {-@ VArr :: t1:Ty -> t2:Ty -> (Prop (Val t1) -> Prop (Val t2)) -> Val @-}
+
+-- FILE tests/errors/StratNoRefCtor.hs:2:1
+{-@ LIQUID "--expect-error-containing=The constructor StratNoRefCtor.VInt of the type StratNoRefCtor.Val was declared stratified but it is not a refinement constructor (i.e. it has no refinement)" @-}
+
+-- FILE tests/errors/StratNoRefCtor.hs:9:1
+{-@ stratified Val @-}
+
+-- FILE tests/errors/StratNoRefCtor.hs:13:3
+  {-@ VArr :: t1:Ty -> t2:Ty -> (Prop (Val t1) -> Prop (Val t2)) -> Prop (Val (TArr t1 t2)) @-}
+
+-- FILE tests/errors/StratNonLocal.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown locally-defined type constructor `Maybe`" @-}
+
+-- FILE tests/errors/StratNonLocal.hs:3:1
+{-@ stratified Maybe @-}
+
+-- FILE tests/errors/StratNotAdt.hs:1:1
+{-@ LIQUID "--expect-error-containing=Val was declared stratified but it is not an algebraic data type" @-}
+
+-- FILE tests/errors/StratNotAdt.hs:4:1
+{-@ stratified Val @-}
+
+-- FILE tests/errors/StratRecOccNotSmall.hs:2:1
+{-@ LIQUID "--expect-error-containing=The constructor StratRecOccNotSmall.VArr of the type StratRecOccNotSmall.Val was declared stratified but it has a recursive occurence whose index StratRecOccNotSmall.Val (StratRecOccNotSmall.TArr t1 t2) is not smaller than the return index StratRecOccNotSmall.Val (StratRecOccNotSmall.TArr t1 t2)" @-}
+
+-- FILE tests/errors/StratRecOccNotSmall.hs:9:1
+{-@ stratified Val @-}
+
+-- FILE tests/errors/StratRecOccNotSmall.hs:11:3
+  {-@ VInt :: Int -> Prop (Val TInt) @-}
+
+-- FILE tests/errors/StratRecOccNotSmall.hs:13:3
+  {-@ VArr :: t1:Ty -> t2:Ty -> (Prop (Val (TArr t1 t2)) -> Prop (Val t2)) -> Prop (Val (TArr t1 t2)) @-}
+
+-- FILE tests/errors/T1140.hs:1:1
+{-@ LIQUID "--expect-error-containing=Specified type does not refine Haskell type for `T1140.foo`" @-}
+
+-- FILE tests/errors/T1140.hs:9:1
+{-@ foo :: Label -> Label -> Label -> Proof @-}
+
+-- FILE tests/errors/T1498.hs:1:1
+{-@ LIQUID "--expect-error-containing=Standalone class method refinement" @-}
+
+-- FILE tests/errors/T1498.hs:8:3
+  {-@ f :: _ -> {x : Int | 0 < x} @-}
+
+-- FILE tests/errors/T1498.hs:11:1
+{-@ x :: {x : Int | 0 < x} @-}
+
+-- FILE tests/errors/T1498A.hs:1:1
+{-@ LIQUID "--expect-error-containing=Bad Data Specification" @-}
+
+-- FILE tests/errors/T1498A.hs:8:1
+{-@ instance A Int where
+      f :: _ -> {x : Int | 0 < x}
+  @-}
+
+-- FILE tests/errors/T2346.hs:1:1
+{-@ LIQUID "--expect-error-containing=?b == GHC.Internal.Types.[]" @-}
+
+-- FILE tests/errors/T2346.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/errors/T2346.hs:31:1
+{-@ reflect append @-}
+
+-- FILE tests/errors/T2346.hs:36:1
+{-@ append_empty_right :: xs:[a] -> { append xs [] == xs } @-}
+
+-- FILE tests/errors/T2650.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/errors/T2650.hs:17:1
+{-@ LIQUID "--expect-error-containing=T2650.isGood" @-}
+
+-- FILE tests/errors/T2650.hs:25:1
+{-@ inline isEmpty @-}
+
+-- FILE tests/errors/T2650.hs:31:1
+{-@ reflect isGood @-}
+
+-- FILE tests/errors/T2650.hs:36:1
+{-@
+test ::
+  s0 : State ->
+  { s1 : State | isEmpty s1 <=> isGood s1 }
+@-}
+
+-- FILE tests/errors/T2736.hs:1:1
+{-@ LIQUID "--expect-error-containing=The decreasing parameters should be of same type" @-}
+
+-- FILE tests/errors/T2736.hs:13:1
+{-@ autosize Tree @-}
+
+-- FILE tests/errors/T2736.hs:14:1
+{-@ autosize Forest @-}
+
+-- FILE tests/errors/T2737.hs:1:1
+{-@ LIQUID "--expect-error-containing=PLE is not enabled for `prop`" @-}
+
+-- FILE tests/errors/T2737.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/errors/T2737.hs:8:1
+{-@ reflect double @-}
+
+-- FILE tests/errors/T2737.hs:12:1
+{-@ automatic-instances prop @-}
+
+-- FILE tests/errors/T2737.hs:13:1
+{-@ prop :: {v:() | double 2 == 4} @-}
+
+-- FILE tests/errors/T773.hs:1:1
+{-@ LIQUID "--expect-error-containing=Illegal type specification for `T773.incr`" @-}
+
+-- FILE tests/errors/T773.hs:8:1
+{-@ measure goober :: String -> Int @-}
+
+-- FILE tests/errors/T773.hs:10:1
+{-@ incr :: x:Int -> {v:Bool | goober x == 0} @-}
+
+-- FILE tests/errors/T774.hs:1:1
+{-@ LIQUID "--expect-error-containing=Illegal type specification for `T774.incr`" @-}
+
+-- FILE tests/errors/T774.hs:7:1
+{-@ measure goober :: String -> Int @-}
+
+-- FILE tests/errors/T774.hs:9:1
+{-@ incr :: x:Int -> y:Int -> {v:Bool | goober x == goober y} @-}
+
+-- FILE tests/errors/TODOUnboundAbsRef.hs:9:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/errors/TODOUnboundAbsRef.hs:12:1
+{-@
+data List [llen] a <p :: x0:a -> x1:a -> Bool>
+  = Nil
+  | Cons { lHd :: a, lTl :: List <p> (a <p mickeymouse>) }
+@-}
+
+-- FILE tests/errors/TODOUnboundAbsRef.hs:18:1
+{-@ measure llen :: (List a) -> Int
+    llen(Nil)       = 0
+    llen(Cons x xs) = 1 + (llen xs)
+  @-}
+
+-- FILE tests/errors/TODOUnboundAbsRef.hs:23:1
+{-@ invariant {v:(List a) | ((llen v) >= 0)} @-}
+
+-- FILE tests/errors/TODOVarInTypeAlias.hs:2:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/errors/TODOVarInTypeAlias.hs:3:1
+{-@ LIQUID "--totality"       @-}
+
+-- FILE tests/errors/TODOVarInTypeAlias.hs:9:1
+{-@ data VerifiedSemigroup a = VerifiedSemigroup { sappend :: a -> a -> a } @-}
+
+-- FILE tests/errors/TODOVarInTypeAlias.hs:15:1
+{-@ type VSappendAssoc a GR = x:a -> y:a -> z:a
+                           -> { v: Proof | sappend GR x (sappend GR y z) == sappend GR (sappend gR x y) z }
+  @-}
+
+-- FILE tests/errors/TODOVarInTypeAlias.hs:20:1
+{-@ axiomatize sappendInv @-}
+
+-- FILE tests/errors/TODOVarInTypeAlias.hs:27:1
+{-@ sappendInvAssoc :: sappendA:(a -> a -> a)
+                    -> sappendAAssoc:(i:a -> j:a -> k:a -> { sappendA i (sappendA j k) == sappendA (sappendA i j) k })
+                    -> f:(a -> b)
+                    -> g:(b -> a)
+                    -> gof:(z:a -> { g (f z) == z })
+                    -> x:b
+                    -> y:b
+                    -> z:b
+                    -> { sappendInv sappendA f g x (sappendInv sappendA f g y z) == sappendInv sappendA f g (sappendInv sappendA f g x y) z }
+@-}
+
+-- FILE tests/errors/TODOVarInTypeAlias.hs:55:1
+{-@ reflect vsemigroupInv @-}
+
+-- FILE tests/errors/TODOVarInTypeAlias.hs:56:1
+{-@ vsemigroupInv :: f:(a -> b)
+                  -> g:(b -> a)
+                  -> gof:(x:a -> { g (f x) == x })
+                  -> VerifiedSemigroup a
+                  -> VerifiedSemigroup b
+@-}
+
+-- FILE tests/errors/TODOVarInTypeAlias.hs:68:1
+{-@ vsgiAssoc :: f:(a -> b)
+              -> g:(b -> a)
+              -> gof:(x:a -> { g (f x) == x })
+              -> poopa:(VerifiedSemigroup a)
+              -> VSappendAssoc a poopa
+              -> SappendAssoc b
+
+  @-}
+
+-- FILE tests/errors/TerminationExprNum.hs:1:1
+{-@ LIQUID "--expect-error-containing=Illegal termination specification for `TerminationExprNum.showSep`" @-}
+
+-- FILE tests/errors/TerminationExprNum.hs:4:1
+{-@ showSep :: _ -> xs:_ -> _ / [xs] @-}
+
+-- FILE tests/errors/TerminationExprSort.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `ys`" @-}
+
+-- FILE tests/errors/TerminationExprSort.hs:4:1
+{-@ showSep :: _ -> xs:_ -> _ / [len ys] @-}
+
+-- FILE tests/errors/TerminationExprUnb.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `nn`" @-}
+
+-- FILE tests/errors/TerminationExprUnb.hs:9:5
+    {-@ go :: i:_ -> _ -> _ / [nn - i] @-}
+
+-- FILE tests/errors/UnboundAbsRef.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cannot apply unbound abstract refinement `p`" @-}
+
+-- FILE tests/errors/UnboundAbsRef.hs:10:1
+{-@ ide :: a<p> -> a<p> @-}
+
+-- FILE tests/errors/UnboundCheckVar.hs:1:1
+{-@ LIQUID "--checks=ink" @-}
+
+-- FILE tests/errors/UnboundFunInSpec.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `cnt`" @-}
+
+-- FILE tests/errors/UnboundFunInSpec.hs:8:1
+{-@ three :: {v:Int | (cnt v) = 3} @-}
+
+-- FILE tests/errors/UnboundFunInSpec1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `rubbish`" @-}
+
+-- FILE tests/errors/UnboundFunInSpec1.hs:2:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `this`" @-}
+
+-- FILE tests/errors/UnboundFunInSpec1.hs:5:1
+{-@ foo :: xs:_ -> {v:_ | this = rubbish } @-}
+
+-- FILE tests/errors/UnboundFunInSpec2.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `hi`" @-}
+
+-- FILE tests/errors/UnboundFunInSpec2.hs:2:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `wow`" @-}
+
+-- FILE tests/errors/UnboundFunInSpec2.hs:3:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `rubbish`" @-}
+
+-- FILE tests/errors/UnboundFunInSpec2.hs:4:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `this`" @-}
+
+-- FILE tests/errors/UnboundFunInSpec2.hs:7:1
+{-@ foo :: Num a => { z : (xs:t -> {v : (t -> a) | this = rubbish }) | wow = hi } @-}
+
+-- FILE tests/errors/UnboundVarInAssume.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `x`" @-}
+
+-- FILE tests/errors/UnboundVarInAssume.hs:4:1
+{-@ assume incr :: Int -> {v : Int | v == x} @-}
+
+-- FILE tests/errors/UnboundVarInLocSig.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `barg0`" @-}
+
+-- FILE tests/errors/UnboundVarInLocSig.hs:4:1
+{-@ foo :: x:_ -> y:_ -> {v:Int | v = x + y} @-}
+
+-- FILE tests/errors/UnboundVarInLocSig.hs:8:5
+    {-@ bar :: x:_ -> {v:Int | v = x + barg0} @-}
+
+-- FILE tests/errors/UnboundVarInSpec.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown logic name `y`" @-}
+
+-- FILE tests/errors/UnboundVarInSpec.hs:5:1
+{-@ foo :: forall <p :: s -> s -> Bool>.
+                   xs:s<p y> -> s<p xs> @-}
+

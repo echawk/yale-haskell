@@ -1,0 +1,44 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/liquidhaskell-test/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/liquidhaskell-test/QuotRem.hs:18:1
+{-@ ignore prop_divModSMTEuclideanDivision @-}
+
+-- FILE tests/liquidhaskell-test/QuotRem.hs:23:1
+{-@ ignore prop_quotRemAltEuclideanDivision @-}
+
+-- FILE tests/liquidhaskell-test/QuotRem.hs:28:1
+{-@ ignore prop_quotRemAlt @-}
+
+-- FILE tests/liquidhaskell-test/QuotRem.hs:32:1
+{-@
+quotSMT :: a:Int
+      -> {b:Int | b != 0}
+      -> {v:Int | v = quot a b} @-}
+
+-- FILE tests/liquidhaskell-test/QuotRem.hs:42:1
+{-@
+remSMT :: a:Int
+     -> {b:Int | b != 0}
+     -> {v:Int | v = rem a b}
+@-}
+
+-- FILE tests/liquidhaskell-test/QuotRem.hs:53:1
+{-@
+modSMT
+  :: a:Int
+  -> {b:Int | b != 0}
+  -> {v:Int | v = a mod b}
+@-}
+
+-- FILE tests/liquidhaskell-test/QuotRem.hs:63:1
+{-@
+divSMT
+  :: a:Int
+  -> {b:Int| b != 0}
+  -> {v:Int | v = a / b} / [ divSMTTermination a b ]
+@-}
+
+-- FILE tests/liquidhaskell-test/QuotRem.hs:89:1
+{-@ inline divSMTTermination @-}
+

@@ -1,0 +1,354 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/relational/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/relational/neg/Abs.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/relational/neg/Abs.hs:7:1
+{-@ relational abs ~ abs :: {x1:Int -> Int ~ x2:Int -> Int
+                         | x1 < x2 :=> r1 x1 < r2 x2} @-}
+
+-- FILE tests/relational/neg/ApSum.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/relational/neg/ApSum.hs:7:1
+{-@ relational apsum ~ apsum 
+        :: {n1:Int -> a1:Int -> Int ~ n2:Int -> a2:Int -> Int
+        | n1 == n2 :=> a1 <= a2 :=> r1 n1 a1 < r2 n2 a2} @-}
+
+-- FILE tests/relational/neg/ApSumAsync.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/relational/neg/ApSumAsync.hs:7:1
+{-@ relational apsum ~ apsum
+        :: {n1:Int -> a1:Nat -> Nat ~ n2:Int -> a2:Nat -> Nat
+        | n1 <= n2 :=> a1 <= a2 :=> r1 n1 a1 <= r2 n2 a2} @-}
+
+-- FILE tests/relational/neg/ApSumAsync.hs:16:1
+{-@ relational foo ~ foo :: {n1:_ -> _ ~ n2:_ -> _
+                         | n1 < n2 :=> r1 n1 <= r2 n2} @-}
+
+-- FILE tests/relational/neg/Axiom.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/relational/neg/Axiom.hs:10:1
+{-@ relational foo ~ bar :: {x1:Int -> Int ~ x2:Int -> Int 
+                         | x1 /= x2 |- true :=> r1 x1 = r2 x2} @-}
+
+-- FILE tests/relational/neg/CaseOnRec.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/relational/neg/CaseOnRec.hs:6:1
+{-@ f :: n:Int -> Parity / [if n >= 0 then n else -n] @-}
+
+-- FILE tests/relational/neg/CaseOnRec.hs:13:1
+{-@ relational f ~ f :: {n1:_ -> _ ~ n2:_ -> _ 
+                     | true :=> ((r1 n1 == r2 n2) <=> (((n1 - n2) mod 2) == 1))} @-}
+
+-- FILE tests/relational/neg/CheckedImp.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/relational/neg/CheckedImp.hs:10:1
+{-@ relational foo ~ foo :: {x1:_ -> y1:_ -> _ ~ x2:_ -> y2:_ -> _ | true !=> x1 = x2 !=> r1 x1 y1 = r2 x2 y2} @-}
+
+-- FILE tests/relational/neg/CheckedImp.hs:16:1
+{-@ relational bar ~ baz :: {_ -> _ ~ _ -> _ | true :=> true} @-}
+
+-- FILE tests/relational/neg/SndOrdPred.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/relational/neg/SndOrdPred.hs:4:1
+{-@ assume relational foo ~ foo :: {x1:_ -> _ ~ x2:_ -> _ 
+                         | x1 < x2 :=> r1 < r2} @-}
+
+-- FILE tests/relational/neg/SndOrdPred.hs:10:1
+{-@ assume relational bar ~ bar :: {f1:(x1':_ -> _) -> x1:_ -> _ 
+                          ~ f2:(x2':_ -> _) -> x2:_ -> _ 
+                         | (x1' < x2' => r1 < r2) :=> x1 < x2 :=> r1 f1 x1 < r2 f2 x2} @-}
+
+-- FILE tests/relational/neg/SndOrdPred.hs:16:1
+{-@ assume relational bar' ~ bar' :: {x1:_ -> f1:(x1':_ -> _) -> _ 
+                          ~ x2:_ -> f2:(x2':_ -> _) -> _ 
+                         | x1 < x2 :=> (x1' < x2' => r1 < r2) :=> r1 x1 f1 < r2 x2 f2} @-}
+
+-- FILE tests/relational/neg/SndOrdPred.hs:40:1
+{-@  relational baz ~ baz :: {x1:Int -> Int ~ x2:Int -> Int | true :=> true} @-}
+
+-- FILE tests/relational/pos/Abs.hs:8:1
+{-@ relational abs ~ abs :: { x1:Int -> Int 
+                            ~ x2:Int -> Int 
+                            | 0 <= x1 && x1 < x2 :=> r1 x1 < r2 x2 } @-}
+
+-- FILE tests/relational/pos/AsynchCase.hs:4:1
+{-@ assume relational foo ~ foo :: { x1:Int -> Int ~ x2:Int -> Int | x1 < x2 :=> r1 x1 < r2 x2 } @-}
+
+-- FILE tests/relational/pos/AsynchCase.hs:8:1
+{-@ relational bar ~ bar :: { a1:Bool -> b1:Bool -> Int ~ a2:Bool -> b2:Bool -> Int 
+                         | a1 && not a2 :=> true :=> r1 a1 b1 < r2 a2 b2 } @-}
+
+-- FILE tests/relational/pos/Axiom.hs:9:1
+{-@ relational foo ~ bar :: { x1:Int -> Int ~ x2:Int -> Int 
+                         | x1 = x2 |- true :=> r1 x1 = r2 x2 } @-}
+
+-- FILE tests/relational/pos/CheckedImp.hs:3:1
+{-@ relational foo ~ foo :: { x1:_ -> _ ~ x2:_ -> _ | x1 = x2 !=> r1 x1 = r2 x2 } @-}
+
+-- FILE tests/relational/pos/CheckedImp.hs:7:1
+{-@ relational bar ~ baz :: { _ ~ _ | r1 = r2 } @-}
+
+-- FILE tests/relational/pos/Isort.hs:1:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/relational/pos/Isort.hs:2:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/relational/pos/Isort.hs:10:1
+{-@ infix   >>= @-}
+
+-- FILE tests/relational/pos/Isort.hs:11:1
+{-@ infix   >=> @-}
+
+-- FILE tests/relational/pos/Isort.hs:12:1
+{-@ infix   :   @-}
+
+-- FILE tests/relational/pos/Isort.hs:36:1
+{-@ relational isort ~ isort :: {xs1:[Int] -> Tick [Int]
+                              ~ xs2:[Int] -> Tick [Int]
+                             | Isort.sorted xs1 && len xs1 = len xs2 :=> 
+                                  Isort.tcost (r1 xs1) <= Isort.tcost (r2 xs2)} @-}
+
+-- FILE tests/relational/pos/Isort.hs:43:1
+{-@ reflect leq @-}
+
+-- FILE tests/relational/pos/Isort.hs:48:1
+{-@ reflect sorted @-}
+
+-- FILE tests/relational/pos/Isort.hs:57:1
+{-@ measure length @-}
+
+-- FILE tests/relational/pos/Isort.hs:58:1
+{-@ length :: [a] -> Nat @-}
+
+-- FILE tests/relational/pos/Isort.hs:63:1
+{-@ reflect cons @-}
+
+-- FILE tests/relational/pos/Isort.hs:64:1
+{-@ cons :: x:a -> xs:[a] -> {z:[a] | z == x:xs && length z == length xs + 1} @-}
+
+-- FILE tests/relational/pos/Isort.hs:71:1
+{-@ data Tick a = Tick { tcost :: Int, tval :: a } @-}
+
+-- FILE tests/relational/pos/Isort.hs:73:1
+{-@ reflect pure @-}
+
+-- FILE tests/relational/pos/Isort.hs:77:1
+{-@ reflect fmap @-}
+
+-- FILE tests/relational/pos/Isort.hs:81:1
+{-@ reflect liftA2 @-}
+
+-- FILE tests/relational/pos/Isort.hs:85:1
+{-@ reflect >=> @-}
+
+-- FILE tests/relational/pos/Isort.hs:89:1
+{-@ reflect >>= @-}
+
+-- FILE tests/relational/pos/Isort.hs:90:1
+{-@ (>>=) :: mx:Tick a -> m:(a -> Tick b) -> {t:Tick b | tcost t == tcost mx + tcost (m (tval mx)) } @-}
+
+-- FILE tests/relational/pos/Isort.hs:94:1
+{-@ reflect bbind @-}
+
+-- FILE tests/relational/pos/Isort.hs:95:1
+{-@ bbind :: n:Int -> mx:Tick a -> m:(a -> {t:Tick b | tcost t <= n }) 
+          -> {t:Tick b | tcost t <= tcost mx + n } @-}
+
+-- FILE tests/relational/pos/Isort.hs:100:1
+{-@ reflect ebind @-}
+
+-- FILE tests/relational/pos/Isort.hs:101:1
+{-@ ebind :: n:Int -> mx:Tick a -> m:(a -> {t:Tick b | tcost t == n }) 
+          -> {t:Tick b | tcost t == tcost mx + n } @-}
+
+-- FILE tests/relational/pos/Isort.hs:106:1
+{-@ reflect step @-}
+
+-- FILE tests/relational/pos/Isort.hs:115:1
+{-@ assert :: b:{Bool | b } -> {b} @-}
+
+-- FILE tests/relational/pos/Isort.hs:119:1
+{-@ (==.) :: x:a -> { y:a | x == y } -> { v:a | x == v && y == v } @-}
+
+-- FILE tests/relational/pos/Isort.hs:125:1
+{-@ (***) :: a -> QED -> Proof  @-}
+
+-- FILE tests/relational/pos/Isort.hs:131:1
+{-@ (?) :: x:a -> Proof -> { v:a | x == v } @-}
+
+-- FILE tests/relational/pos/Isort.hs:140:1
+{-@ (<=>) :: t1:Tick a 
+          -> t2:{Tick a | tval t1 == tval t2 && tcost t2 == tcost t1} 
+          -> {t:Tick a | t == t2 && tval t1 == tval t && tval t2 == tval t && tcost t == tcost t2 && tcost t2 == tcost t } @-}
+
+-- FILE tests/relational/pos/Isort.hs:147:1
+{-@ (>==) :: t1:Tick a -> i:Int
+          -> t2:{Tick a | tval t1 == tval t2 && tcost t1 == i + tcost t2} 
+          -> {t:Tick a | t == t2 && tval t1 == tval t && tval t2 == tval t && 
+                         tcost t1 == i + tcost t && tcost t == tcost t2 } @-}
+
+-- FILE tests/relational/pos/Isort.hs:159:1
+{-@ (<==) :: t1:Tick a -> i:Int
+          -> t2:{Tick a | tval t1 == tval t2 && i + tcost t1 ==  tcost t2} 
+          -> {t:Tick a | t == t2 && tval t1 == tval t && tval t2 == tval t && 
+                         i + tcost t1 == tcost t && tcost t == tcost t2 } @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:1:1
+{-@ LIQUID "--reflection"  @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:2:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:11:1
+{-@ infix   >>= @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:12:1
+{-@ infix   >=> @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:13:1
+{-@ infix   :   @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:15:1
+{-@ reflect mapM @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:16:1
+{-@ mapM :: (Int -> Tick Int) -> xs:[Int] -> Tick {os:[Int] | length os == length xs} @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:31:1
+{-@ relational seqMap ~ compMap :: {f1:(Int -> Tick Int) -> g1:(Int -> Tick Int) -> xs1:[Int] -> {v:Tick [Int]|v = mapM f1 xs1 >>= mapM g1}
+                                 ~ f2:(Int -> Tick Int) -> g2:(Int -> Tick Int) -> xs2:[Int] -> {v:Tick [Int]|v = mapM (f2 >=> g2) xs2}
+                                | f1 = f2 :=> g1 = g2 :=> xs1 = xs2 :=> 
+                                    MapFusion.tcost (r1 f1 g1 xs1) = len xs1 + MapFusion.tcost (r2 f2 g2 xs2) &&
+                                      MapFusion.tval (r1 f1 g1 xs1) = MapFusion.tval (r2 f2 g2 xs2)} @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:38:1
+{-@ mapFusion :: f:(Int -> Tick Int) -> g:(Int -> Tick Int) -> xs:[Int] 
+              -> { (tval (mapM f xs >>= mapM g)  == tval (mapM (f >=> g) xs)) && 
+                   (tcost (mapM f xs >>= mapM g) == length xs  + tcost (mapM (f >=> g) xs))
+                 }
+  @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:50:1
+{-@ measure length @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:51:1
+{-@ length :: [a] -> Nat @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:56:1
+{-@ reflect cons @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:57:1
+{-@ cons :: x:a -> xs:[a] -> {z:[a] | z == x:xs && length z == length xs + 1} @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:64:1
+{-@ data Tick a = Tick { tcost :: Int, tval :: a } @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:66:1
+{-@ reflect pure @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:70:1
+{-@ reflect liftA2 @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:74:1
+{-@ reflect >=> @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:78:1
+{-@ reflect >>= @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:79:1
+{-@ (>>=) :: mx:Tick a -> m:(a -> Tick b) -> {t:Tick b | tcost t == tcost mx + tcost (m (tval mx)) } @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:83:1
+{-@ reflect bbind @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:84:1
+{-@ bbind :: n:Int -> mx:Tick a -> m:(a -> {t:Tick b | tcost t <= n }) 
+          -> {t:Tick b | tcost t <= tcost mx + n } @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:89:1
+{-@ reflect ebind @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:90:1
+{-@ ebind :: n:Int -> mx:Tick a -> m:(a -> {t:Tick b | tcost t == n }) 
+          -> {t:Tick b | tcost t == tcost mx + n } @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:95:1
+{-@ reflect step @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:104:1
+{-@ assert :: b:{Bool | b } -> {b} @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:108:1
+{-@ (==.) :: x:a -> { y:a | x == y } -> { v:a | x == v && y == v } @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:114:1
+{-@ (***) :: a -> QED -> Proof  @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:120:1
+{-@ (?) :: x:a -> Proof -> { v:a | x == v } @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:129:1
+{-@ (<=>) :: t1:Tick a 
+          -> t2:{Tick a | tval t1 == tval t2 && tcost t2 == tcost t1} 
+          -> {t:Tick a | t == t2 && tval t1 == tval t && tval t2 == tval t && tcost t == tcost t2 && tcost t2 == tcost t } @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:136:1
+{-@ (>==) :: t1:Tick a -> i:Int
+          -> t2:{Tick a | tval t1 == tval t2 && tcost t1 == i + tcost t2} 
+          -> {t:Tick a | t == t2 && tval t1 == tval t && tval t2 == tval t && 
+                         tcost t1 == i + tcost t && tcost t == tcost t2 } @-}
+
+-- FILE tests/relational/pos/MapFusion.hs:148:1
+{-@ (<==) :: t1:Tick a -> i:Int
+          -> t2:{Tick a | tval t1 == tval t2 && i + tcost t1 ==  tcost t2} 
+          -> {t:Tick a | t == t2 && tval t1 == tval t && tval t2 == tval t && 
+                         i + tcost t1 == tcost t && tcost t == tcost t2 } @-}
+
+-- FILE tests/relational/pos/MutRec.hs:5:1
+{-@ reflect not @-}
+
+-- FILE tests/relational/pos/MutRec.hs:12:1
+{-@ reflect divBy2 @-}
+
+-- FILE tests/relational/pos/MutRec.hs:17:1
+{-@ relational isEven ~ isEven :: {n1:_ -> _ ~ n2:_ -> _ 
+                               | (n1 = n2 && ((n1  mod 2) == 0) && ((n2 mod 2) == 0)) :=> (r1 n1 && r2 n2 && r1 n1 <=> (n1 mod 2 == 0) && r2 n2 <=> (n2 mod 2 == 0) )} @-}
+
+-- FILE tests/relational/pos/MutRec.hs:19:1
+{-@ isEven :: n:Nat -> Bool / [if n >= 0 then n else 0, 0] @-}
+
+-- FILE tests/relational/pos/MutRec.hs:27:1
+{-@ relational isOdd ~ isOdd :: { n1:_ -> _ ~ n2:_ -> _ 
+                             | (n1 = n2 && ((n1  mod 2) == 1) && ((n2 mod 2) == 1)) !=> (r1 n1 && r2 n2 && r1 n1 <=> (n1 mod 2 == 1) && r2 n2 <=> (n2 mod 2 == 1) )} @-}
+
+-- FILE tests/relational/pos/MutRec.hs:29:1
+{-@ isOdd :: n:Nat -> Bool  / [if n >= 0 then n else 0, 1] @-}
+
+-- FILE tests/relational/pos/SndOrdPredNonRel.hs:3:1
+{-@ reflect foo @-}
+
+-- FILE tests/relational/pos/SndOrdPredNonRel.hs:7:1
+{-@ relational bar ~ bar :: { f1:(x1':_ -> _) -> x1:_ -> _ 
+                            ~ f2:(x2':_ -> _) -> x2:_ -> _ 
+                            | (x1' < x2' => r1 x1' < r2 x2') :=> x1 < x2 :=> r1 f1 x1 < r2 f2 x2} @-}
+
+-- FILE tests/relational/pos/SndOrdPredNonRel.hs:13:1
+{-@ relational bar' ~ bar' :: { x1:_ -> f1:(x1':_ -> _) -> _ 
+                              ~ x2:_ -> f2:(x2':_ -> _) -> _ 
+                              | x1 < x2 :=> (x1' < x2' => r1 x1' < r2 x2') :=> r1 x1 f1 < r2 x2 f2} @-}
+
+-- FILE tests/relational/pos/SndOrdPredNonRel.hs:37:1
+{-@ relational baz ~ baz :: { x1:Int -> Int ~ x2:Int -> Int | x1 < x2 :=> r1 x1 <= r2 x2 } @-}
+
+-- FILE tests/relational/pos/SndOrdPredNonRel.hs:41:1
+{-@ relational baz' ~ baz' :: { x1:Int -> Int ~ x2:Int -> Int | x1 < x2 :=> r1 x1 <= r2 x2 } @-}
+

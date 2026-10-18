@@ -1,0 +1,15 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/name-resolution/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/name-resolution/pos/AData.hs:3:1
+{-@ data Dat = C1A | C2A @-}
+
+-- FILE tests/name-resolution/pos/B.hs:7:1
+{-@ measure measureExp @-}
+
+-- FILE tests/name-resolution/pos/BData.hs:3:1
+{-@ data Dat = C1B @-}
+
+-- FILE tests/name-resolution/pos/CData.hs:7:1
+{-@ ys :: AData.Dat @-}
+

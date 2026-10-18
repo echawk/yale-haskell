@@ -1,0 +1,590 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/names/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/names/neg/AmbiguousTypeAlias.hs:1:1
+{-@ LIQUID "--expect-error-containing=Ambiguous specification symbol" @-}
+
+-- FILE tests/names/neg/AmbiguousTypeAlias.hs:10:1
+{-@ test :: INat @-}
+
+-- FILE tests/names/neg/Assume00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/names/neg/Assume00.hs:10:1
+{-@ plus :: x:Thing -> Thing -> {v:Thing | false } @-}
+
+-- FILE tests/names/neg/Capture01.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/names/neg/Capture01.hs:7:1
+{-@ type Exactly N = { n:Int | n == N } @-}
+
+-- FILE tests/names/neg/Capture01.hs:9:1
+{-@ incr :: n:Int -> Exactly { n + 1 } @-}
+
+-- FILE tests/names/neg/DuplicatedAliases.hs:1:1
+{-@ LIQUID "--expect-error-containing=Multiple definitions of Type Alias" @-}
+
+-- FILE tests/names/neg/DuplicatedAliases.hs:4:1
+{-@ type Foo = {v:Bool | v == True} @-}
+
+-- FILE tests/names/neg/DuplicatedAliases.hs:6:1
+{-@ type Foo = {v:Bool | v == False} @-}
+
+-- FILE tests/names/neg/Local00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/names/neg/Local00.hs:6:5
+    {-@ incr :: Nat -> Nat @-}
+
+-- FILE tests/names/neg/Nat1.hs:5:1
+{-@ type INat = {v:Int | v >= 0} @-}
+
+-- FILE tests/names/neg/Nat2.hs:7:1
+{-@ type INat = {v:Int32 | v >= 0}@-}
+
+-- FILE tests/names/neg/Set00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/names/neg/Set00.hs:9:1
+{-@ add :: x:a -> [a] -> {v:[a] | Set_mem x (listElts v)} @-}
+
+-- FILE tests/names/neg/Set01.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/names/neg/Set01.hs:9:1
+{-@ add :: x:a -> [a] -> {v:[a] | member x (listElts v)} @-}
+
+-- FILE tests/names/neg/Set02.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/names/neg/Set02.hs:6:1
+{-@ add :: x:a -> [a] -> {v:[a] | S.member x (listElts v)} @-}
+
+-- FILE tests/names/neg/T1078.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/names/neg/UnqualifiedTypeAlias.hs:1:1
+{-@ LIQUID "--expect-error-containing=Unknown type constructor" @-}
+
+-- FILE tests/names/neg/UnqualifiedTypeAlias.hs:7:1
+{-@ test :: INat @-}
+
+-- FILE tests/names/neg/Vector0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/names/neg/Vector1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/names/neg/Vector1.hs:11:1
+{-@ prop :: [TT] @-}
+
+-- FILE tests/names/pos/Alias00.hs:6:1
+{-@ predicate MMin V X Y = (if X < Y then V = X else V = Y) @-}
+
+-- FILE tests/names/pos/Alias00.hs:10:1
+{-@ thing :: { MMin 1 1 2 } @-}
+
+-- FILE tests/names/pos/Assume00.hs:9:1
+{-@ plus :: x:Thing -> Thing -> {v:Thing | v = x} @-}
+
+-- FILE tests/names/pos/Assume01.hs:5:1
+{-@ type UList a = {v:[a] | ListUnique v} @-}
+
+-- FILE tests/names/pos/Assume01.hs:9:1
+{-@ assume reverse :: xs:(UList a) -> {v: UList a | EqElts v xs}  @-}
+
+-- FILE tests/names/pos/Assume01.hs:11:1
+{-@ predicate ListUnique LS = (Set_emp (listDup LS)) @-}
+
+-- FILE tests/names/pos/Assume01.hs:13:1
+{-@ predicate EqElts X Y    = ((listElts X) = (listElts Y)) @-}
+
+-- FILE tests/names/pos/Assume01.hs:15:1
+{-@ measure listDup :: [a] -> Set a
+      listDup []     = {v | Set_emp v }
+      listDup (x:xs) = {v | v = if (Set_mem x (listElts xs)) then (Set_cup (Set_sng x) (listDup xs)) else (listDup xs) }
+  @-}
+
+-- FILE tests/names/pos/Assume01.hs:21:1
+{-@ foo :: xs:(UList a) -> {v: UList a | EqElts v xs} @-}
+
+-- FILE tests/names/pos/BasicLambdas00.hs:1:1
+{-@ LIQUID "--reflection"      @-}
+
+-- FILE tests/names/pos/BasicLambdas00.hs:9:1
+{-@ reflect id @-}
+
+-- FILE tests/names/pos/BasicLambdas00.hs:13:1
+{-@ fmap_id' :: x:(r -> a) -> {v:Proof | (\roo:r -> id (x roo)) ==  (\moo:r -> (x moo)) } @-}
+
+-- FILE tests/names/pos/BasicLambdas01.hs:1:1
+{-@ LIQUID "--reflection"      @-}
+
+-- FILE tests/names/pos/BasicLambdas01.hs:10:1
+{-@ axiomatize id @-}
+
+-- FILE tests/names/pos/BasicLambdas01.hs:14:1
+{-@ fmap_id' 
+     :: x:(r -> a)
+     -> {v:Proof | (\roo:r -> id (x roo)) ==  (\moo:r -> (x moo) ) } @-}
+
+-- FILE tests/names/pos/BasicLambdas01.hs:23:1
+{-@ fun_eq :: f:(a -> b) -> g:(a -> b) 
+      -> (x:a -> {f x == g x}) -> {f == g} 
+  @-}
+
+-- FILE tests/names/pos/Capture01.hs:7:1
+{-@ type Exactly N = { n:Int | n == N } @-}
+
+-- FILE tests/names/pos/Capture01.hs:9:1
+{-@ incr :: n:Int -> Exactly { n + 1 } @-}
+
+-- FILE tests/names/pos/Capture02.hs:7:1
+{-@ exactly :: x:Int -> { n:Int | n = x } @-}
+
+-- FILE tests/names/pos/Capture02.hs:11:1
+{-@ incr :: n:Int -> {v:_ | v = n + 1 } @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:6:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:25:1
+{-@ measure height @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:26:1
+{-@ height :: Tree a -> Nat @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:32:1
+{-@ data Tree a = Leaf a
+                | Node { ht   :: Nat
+                       , kids :: VectorN (TreeH a ht) 32
+                       }
+  @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:40:1
+{-@ type VectorN a N     = {v:V.Vector a | V.vlen v = N }  @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:44:1
+{-@ type TreeH     a H = {v:Tree a | height v = H}       @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:48:1
+{-@ type NodeT a = {v:Tree a | height v > 0} @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:49:1
+{-@ type LeafT a = {v:Tree a | height v = 0} @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:59:1
+{-@ data Vec a = Vec { vShift :: Nat
+                     , vTree  :: TreeLevel a vShift
+                     }
+  @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:64:1
+{-@ type TreeLevel a L = {v:Tree a | L = 5 * height v} @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:71:5
+    {-@ loop :: level:Int -> TreeLevel a level -> Maybe a @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:84:1
+{-@ mask :: x:Int -> y:Nat -> {v:Nat | v <= y} @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:92:1
+{-@ getNode :: t:NodeT a -> {v:Nat | v <= 31} -> {v:Tree a | height v = height t - 1}  @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:97:1
+{-@ getValue :: LeafT a -> a @-}
+
+-- FILE tests/names/pos/ClojurVector.hs:102:1
+{-@ impossible :: {v:String | false} -> a @-}
+
+-- FILE tests/names/pos/DataFields.hs:6:1
+{-@ data F a = F { fxx :: a, fy :: a, fz :: a}
+             | G { fxx :: a }
+  @-}
+
+-- FILE tests/names/pos/DataFields.hs:10:1
+{-@ fooG :: x:a -> {v : F a | (fxx v) >= x} @-}
+
+-- FILE tests/names/pos/DataFields.hs:14:1
+{-@ foo :: x:a -> {v : F a | (fxx v) >= x} @-}
+
+-- FILE tests/names/pos/DefineLenResolve.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/names/pos/DefineLenResolve.hs:5:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/names/pos/DefineLenResolve.hs:9:1
+{-@ reflect ms @-}
+
+-- FILE tests/names/pos/DefineLenResolve.hs:10:1
+{-@ ms :: [[Int]] -> Nat @-}
+
+-- FILE tests/names/pos/DefineLenResolve.hs:15:1
+{-@
+define length x = len x
+@-}
+
+-- FILE tests/names/pos/DefineLenResolve.hs:19:1
+{-@ f :: xs:[[Int]] -> Int / [ms xs] @-}
+
+-- FILE tests/names/pos/DependentPairAlias.hs:5:1
+{-@ type T ty R = { val:ty | val = R } @-}
+
+-- FILE tests/names/pos/DependentPairAlias.hs:7:1
+{-@ foo :: (v::Int, { r:Int | r = v }) @-}
+
+-- FILE tests/names/pos/DependentPairAlias.hs:11:1
+{-@ bar :: (v::Int, T Int v) @-}
+
+-- FILE tests/names/pos/DependentPairShorthand.hs:6:1
+{-@ bar :: (n::Nat, Int -> { n >= 0 }) @-}
+
+-- FILE tests/names/pos/ExpandsDependentPairs.hs:8:1
+{-@ type Id = {v:Int | v >= 0} @-}
+
+-- FILE tests/names/pos/ExpandsDependentPairs.hs:10:1
+{-@ lemma :: l:Id -> (id::Id, { true }) @-}
+
+-- FILE tests/names/pos/ExprAliases.hs:9:1
+{-@ predicate InSomeRange X = X >= 1  && X <= 10@-}
+
+-- FILE tests/names/pos/ExprAliases.hs:11:1
+{-@ predicate Divides X Y = (Y mod X) = 0 @-}
+
+-- FILE tests/names/pos/ExprAliases.hs:13:1
+{-@ predicate Negative X = X < 0 @-}
+
+-- FILE tests/names/pos/ExprAliases.hs:15:1
+{-@ predicate LessThanSomeNum X =  X < 3 @-}
+
+-- FILE tests/names/pos/ExprAliases.hs:21:1
+{-@ define isNegative n = (n < 0) @-}
+
+-- FILE tests/names/pos/ExprAliases.hs:22:1
+{-@ isNegative :: (Num a, Ord a) => {n:a | Negative n} -> {v:Bool | v = True}@-}
+
+-- FILE tests/names/pos/ExprAliases.hs:26:1
+{-@ inline successor @-}
+
+-- FILE tests/names/pos/ExprAliases.hs:32:1
+{-@ negValue :: { x:Int | x > 0 } -> { y:Int | isNegative y} @-}
+
+-- FILE tests/names/pos/ExprAliases.hs:36:1
+{-@ successorGT :: n:Int -> { _:() | successor n > n}@-}
+
+-- FILE tests/names/pos/ExprAliases.hs:44:1
+{-@ measure unSetS @-}
+
+-- FILE tests/names/pos/ExprAliases.hs:47:1
+{-@ predicate Member E S = Set.member E (unSetS S) @-}
+
+-- FILE tests/names/pos/ExprAliases.hs:49:1
+{-@ addToEmptySetS :: n:Int -> { s:SetS | unSetS s = Set.empty }
+                   -> { v:SetS | unSetS v = Set.singleton n } @-}
+
+-- FILE tests/names/pos/ExprAliases.hs:54:1
+{-@ emptySetS :: { s:SetS | unSetS s = Set.empty }@-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:9:1
+{-@ predicate InSomeRange X = X >= 11 && X <= 20 @-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:11:1
+{-@ predicate Divides X Y = (Y mod X) = 0 @-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:13:1
+{-@ predicate Negative X = X < 0 @-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:15:1
+{-@ predicate LessThanSomeNum X =  X < 3 @-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:17:1
+{-@ define isNegative n = (n < 0) @-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:18:1
+{-@ isNegative :: (Num a, Ord a) => {n:a | Negative n} -> {v:Bool | v = True}@-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:22:1
+{-@ inline successor @-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:26:1
+{-@ measure unSetS @-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:29:1
+{-@ predicate Member E S = Set.member E (unSetS S) @-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:31:1
+{-@ addToEmptySetS :: n:Int -> { s:SetS | unSetS s = Set.empty }
+                   -> { v:SetS | unSetS v = Set.singleton n } @-}
+
+-- FILE tests/names/pos/ExprAliasesCopycat.hs:36:1
+{-@ emptySetS :: { s:SetS | unSetS s = Set.empty }@-}
+
+-- FILE tests/names/pos/HideName00.hs:8:1
+{-@ measure length @-}
+
+-- FILE tests/names/pos/HidePrelude.hs:8:1
+{-@ incr :: Nat -> Nat @-}
+
+-- FILE tests/names/pos/ImportedTypeAlias.hs:46:1
+{-@ foo :: INat @-}
+
+-- FILE tests/names/pos/ImportedTypeAlias.hs:50:1
+{-@ bar :: Prelude.Nat @-}
+
+-- FILE tests/names/pos/ImportedTypeAlias.hs:54:1
+{-@ baz :: TypeAliasShadowing.Nat @-}
+
+-- FILE tests/names/pos/ImportedTypeAlias.hs:58:1
+{-@ testFoo :: NatFoo @-}
+
+-- FILE tests/names/pos/ImportedTypeAlias.hs:62:1
+{-@ testFoo' :: QualifiedTypeAliases.NatFoo @-}
+
+-- FILE tests/names/pos/ImportedTypeAlias.hs:66:1
+{-@ testFoo'' :: TypeAliasShadowing.NatFoo @-}
+
+-- FILE tests/names/pos/List00.hs:7:1
+{-@ zoo :: [Int] @-}
+
+-- FILE tests/names/pos/Local00.hs:3:1
+{-@ foo :: Nat @-}
+
+-- FILE tests/names/pos/Local00.hs:6:5
+    {-@ incr :: Nat -> Nat @-}
+
+-- FILE tests/names/pos/Local00.hs:11:1
+{-@ globalThing :: Nat -> Nat @-}
+
+-- FILE tests/names/pos/Local01.hs:3:1
+{-@ foo :: Nat @-}
+
+-- FILE tests/names/pos/Local01.hs:6:5
+    {-@ incr :: Nat -> Nat -> Nat @-}
+
+-- FILE tests/names/pos/Local01.hs:11:1
+{-@ bar :: {v:Int | v < 0} @-}
+
+-- FILE tests/names/pos/Local01.hs:14:5
+    {-@ decr :: x:Int -> {v:Int | v < x} @-}
+
+-- FILE tests/names/pos/Local02.hs:3:1
+{-@ foo :: x:_ -> y:_ -> {v:Int | v = x + y} @-}
+
+-- FILE tests/names/pos/Local02.hs:7:5
+    {-@ bar :: x:_ -> {v:Int | v = x + arg0} @-}
+
+-- FILE tests/names/pos/Local03.hs:6:1
+{-@ foo :: Nat -> Nat @-}
+
+-- FILE tests/names/pos/LocalAssume.hs:6:1
+{-@ f :: {v: Int | v > 0} @-}
+
+-- FILE tests/names/pos/LocalAssume.hs:10:5
+    {-@ assume g :: {v:Int | v > 0} @-}
+
+-- FILE tests/names/pos/LocalSpec.hs:8:5
+    {-@ bar :: Nat -> Nat @-}
+
+-- FILE tests/names/pos/LocalSpec.hs:12:1
+{-@ bar :: a -> {v:Int | v = 9} @-}
+
+-- FILE tests/names/pos/Nat1.hs:8:1
+{-@ type INat = {v:Int | v >= 0} @-}
+
+-- FILE tests/names/pos/Nat2.hs:9:1
+{-@ type INat = {v:Int32 | v >= 0}@-}
+
+-- FILE tests/names/pos/NatFoo.hs:4:1
+{-@ type NatFoo = {v:Nat | v >= 1}@-}
+
+-- FILE tests/names/pos/Ord.hs:3:1
+{-@ bigger :: x:_ -> y:_ -> {v:_ | v >= x && v >= y} @-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:28:1
+{-@ predicate DiffBound X Y Z = abs (X - Y) <= abs Z @-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:30:1
+{-@ translate :: n:Int -> p:(Int,Int) ->
+               { p':(Int,Int) | DiffBound (fst p') (snd p') (fst p - snd p) } @-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:38:1
+{-@ predicate LessThanSomeNum X = X < 10 @-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:40:1
+{-@ seven :: { n:Integer | LessThanSomeNum n }@-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:44:1
+{-@ seven' :: { n:Integer | not ( ExprAliases.LessThanSomeNum n) }@-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:52:1
+{-@ one :: {z:Int | ExprAliases.InSomeRange z}@-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:57:1
+{-@ two :: {z:Int | InSomeRange z}@-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:62:1
+{-@ eleven :: {z:Int | Copy.InSomeRange z}@-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:69:1
+{-@ twoStep :: n:Int -> { v:Int | v = n + 2 && v = Copy.successor (successor n) } @-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:73:1
+{-@ twoStep' :: n:Int -> { v:Int | v = n + 2 && v = successor (Copy.successor n) } @-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:81:1
+{-@ type Negative = { v:Integer | Negative v } @-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:83:1
+{-@ negPosInt :: { v:Int | v > 0 } -> Negative @-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:90:1
+{-@ x :: { v:Int | isNegative v }@-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:94:1
+{-@ x' :: { v:Integer | isNegative v }@-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:98:1
+{-@ y :: { v:Int | Negative v }@-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:102:1
+{-@ y' :: { v:Integer | Negative v }@-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:108:1
+{-@ mult3 :: x:Negative -> { y:Int | isNegative y } -> { z:Int | Copy.isNegative z } ->
+           { v:Int | (Copy.Negative v) && (v <= successor (x * y * z)) } @-}
+
+-- FILE tests/names/pos/QualifiedPredAliases.hs:118:1
+{-@ singletonSetS :: n:Int -> {s:SetS | Member n s} @-}
+
+-- FILE tests/names/pos/QualifiedTypeAliases.hs:21:1
+{-@ llength :: [a] -> INat @-}
+
+-- FILE tests/names/pos/QualifiedTypeAliases.hs:26:1
+{-@ llength' :: [a] -> N.INat @-}
+
+-- FILE tests/names/pos/QualifiedTypeAliases.hs:31:1
+{-@ test :: Nat2.INat@-}
+
+-- FILE tests/names/pos/QualifiedTypeAliases.hs:35:1
+{-@ testFoo :: NatFoo@-}
+
+-- FILE tests/names/pos/Set00.hs:8:1
+{-@ add :: x:a -> [a] -> {v:[a] | Set_mem x (listElts v)} @-}
+
+-- FILE tests/names/pos/Set01.hs:8:1
+{-@ add :: x:a -> [a] -> {v:[a] | member x (listElts v)} @-}
+
+-- FILE tests/names/pos/Set02.hs:5:1
+{-@ add :: x:a -> [a] -> {v:[a] | S.member x (listElts v)} @-}
+
+-- FILE tests/names/pos/Shadow00.hs:5:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/names/pos/Shadow00.hs:6:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/names/pos/Shadow00.hs:16:1
+{-@ reflect negb @-}
+
+-- FILE tests/names/pos/Shadow00.hs:21:1
+{-@ reflect even @-}
+
+-- FILE tests/names/pos/Shadow00.hs:27:1
+{-@ thmEvenS :: n:Peano -> { even (S n) == negb (even n) } @-}
+
+-- FILE tests/names/pos/Shadow01.hs:6:1
+{-@ incr :: map:Int -> {v:Int | v = map + 1} @-}
+
+-- FILE tests/names/pos/T1521.hs:7:1
+{-@ measure bar :: Int -> Bool @-}
+
+-- FILE tests/names/pos/T675.hs:11:1
+{-@ extract :: ibs : { ibs : ByteString | bslen ibs >= 100 } -> { obs : ByteString | bslen obs == 4 } @-}
+
+-- FILE tests/names/pos/T675.hs:15:1
+{-@ extractETA :: ibs : { ibs : ByteString | bslen ibs >= 100 } -> { obs : ByteString | bslen obs == 4 } @-}
+
+-- FILE tests/names/pos/T675.hs:19:1
+{-@ ok :: x:Int -> {v:Int | v == x + 3} @-}
+
+-- FILE tests/names/pos/T675.hs:23:1
+{-@ bad :: x:Int -> {v:Int | v == x + 3} @-}
+
+-- FILE tests/names/pos/TransitivePredAliases.hs:25:1
+{-@ nine :: { n : Integer | LessThanSomeNum n }@-}
+
+-- FILE tests/names/pos/TransitivePredAliases.hs:29:1
+{-@ twenty :: { n:Int | InSomeRange n }@-}
+
+-- FILE tests/names/pos/TransitivePredAliases.hs:33:1
+{-@ oneDividesAll :: n:Int -> { _:() | Divides 1 n } @-}
+
+-- FILE tests/names/pos/TransitivePredAliases.hs:37:1
+{-@ negTwo :: { v:Int | Negative v }@-}
+
+-- FILE tests/names/pos/TransitivePredAliases.hs:41:1
+{-@ transThree :: p:(Int,Int) ->
+               { p':(Int,Int) | DiffBound (fst p') (snd p') (fst p - snd p) } @-}
+
+-- FILE tests/names/pos/TupleParse.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/names/pos/TupleParse.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/names/pos/TupleParse.hs:9:1
+{-@ type Ix typ E = {v:typ | prop v = E} @-}
+
+-- FILE tests/names/pos/TupleParse.hs:12:3
+  {-@ MkFoo :: x:Int -> Ix Foo (x, x) @-}
+
+-- FILE tests/names/pos/TupleParse.hs:16:1
+{-@ type Alias a B = { v:a | B = B } @-}
+
+-- FILE tests/names/pos/TupleParse.hs:17:1
+{-@ tuples :: Alias (a, b) 1 -> Alias (b, a) 1 @-}
+
+-- FILE tests/names/pos/TupleParse.hs:21:1
+{-@ goldbachsconjecture  :: { (1, 2) /= (2, 1) } @-}
+
+-- FILE tests/names/pos/TypeAliasShadowing.hs:14:1
+{-@ type Nat = {v:Integer | v >= 0} @-}
+
+-- FILE tests/names/pos/TypeAliasShadowing.hs:16:1
+{-@ foo :: Nat @-}
+
+-- FILE tests/names/pos/TypeAliasShadowing.hs:20:1
+{-@ bar :: TypeAliasShadowing.Nat @-}
+
+-- FILE tests/names/pos/TypeAliasShadowing.hs:24:1
+{-@ baz :: Prelude.Nat @-}
+
+-- FILE tests/names/pos/Uniques.hs:13:1
+{-@ uniques :: (Eq a) => xs:_ -> {v:ListE a xs | noDups v} @-}
+
+-- FILE tests/names/pos/Uniques.hs:17:5
+    {-@ go :: (Eq a) => xs:_ -> acc:_ -> {v:ListU a acc xs | _ } @-}
+
+-- FILE tests/names/pos/Uniques.hs:23:1
+{-@ isIn:: (Eq a) => x:a -> ys:[a] -> {v:Bool | v = S.member x (S.listElts ys)} @-}
+
+-- FILE tests/names/pos/Uniques.hs:31:1
+{-@ measure noDups @-}
+
+-- FILE tests/names/pos/Uniques.hs:36:1
+{-@ type ListE a X   = {v:[a] | S.listElts v = S.listElts X} @-}
+
+-- FILE tests/names/pos/Uniques.hs:37:1
+{-@ type ListU a X Y = {v:[a] | S.listElts v = S.union (S.listElts X) (S.listElts Y)} @-}
+
+-- FILE tests/names/pos/Vector0.hs:10:1
+{-@ prop :: [TT] @-}
+
+-- FILE tests/names/pos/Vector04.hs:10:1
+{-@ foo :: Vector Int -> Int  @-}
+
+-- FILE tests/names/pos/Vector1.hs:10:1
+{-@ prop :: [TT] @-}
+

@@ -1,0 +1,385 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/measure/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/measure/neg/Bag.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/Bag.hs:7:1
+{-@ zorg :: {v:Bag Int | v = B.empty} @-}
+
+-- FILE tests/measure/neg/Bag.hs:11:1
+{-@ measure elems @-}
+
+-- FILE tests/measure/neg/Bag.hs:16:1
+{-@ prop0 :: x:_ -> TT @-}
+
+-- FILE tests/measure/neg/Bag.hs:22:1
+{-@ prop2 :: x:_ -> y:_ -> TT @-}
+
+-- FILE tests/measure/neg/Fst00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/Fst00.hs:7:1
+{-@ splitter :: x:Int -> {v:(Int, Int) | myFst v + mySnd v = x + 1 } @-}
+
+-- FILE tests/measure/neg/Fst00.hs:12:1
+{-@ joiner :: y:Int -> {v:Int | v = y} @-}
+
+-- FILE tests/measure/neg/Fst00.hs:17:1
+{-@ measure myFst @-}
+
+-- FILE tests/measure/neg/Fst00.hs:20:1
+{-@ measure mySnd @-}
+
+-- FILE tests/measure/neg/Fst01.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/Fst01.hs:7:1
+{-@ splitter :: x:Int -> {v:(Int, Int) | fst v + snd v = x + 1} @-}
+
+-- FILE tests/measure/neg/Fst01.hs:12:1
+{-@ joiner :: y:Int -> {v:Int | v = y} @-}
+
+-- FILE tests/measure/neg/Fst02.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/Fst02.hs:7:1
+{-@ foo :: z:_ -> {v:_ | v = snd z} @-}
+
+-- FILE tests/measure/neg/GList00Lib.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/GList00Lib.hs:4:1
+{-@ die :: {v: () | false} -> a @-}
+
+-- FILE tests/measure/neg/GList00Lib.hs:8:1
+{-@ safeHead :: {v:[a] | 0 <= llen v} -> a @-}
+
+-- FILE tests/measure/neg/GList00Lib.hs:13:1
+{-@ measure llen @-}
+
+-- FILE tests/measure/neg/GList00Lib.hs:14:1
+{-@ llen :: [a] -> Nat @-}
+
+-- FILE tests/measure/neg/Len00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/Len00.hs:6:1
+{-@ die :: {v:_ | false} -> a @-}
+
+-- FILE tests/measure/neg/Len00.hs:10:1
+{-@ safeHd :: { v : [a] | 0 < len v } -> a @-}
+
+-- FILE tests/measure/neg/Len01.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/Len01.hs:11:1
+{-@ safeHd :: { v : [a] | 0 < len v } -> a @-}
+
+-- FILE tests/measure/neg/Len01.hs:15:1
+{-@ die :: {v:_ | false} -> a @-}
+
+-- FILE tests/measure/neg/List00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/List00.hs:8:1
+{-@ measure kons @-}
+
+-- FILE tests/measure/neg/List00.hs:13:1
+{-@ foo :: l:List apple -> {v:Int | v = kons l} @-}
+
+-- FILE tests/measure/neg/List01.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/List01.hs:8:1
+{-@ measure size @-}
+
+-- FILE tests/measure/neg/List01.hs:13:1
+{-@ append :: xs:List a -> ys: List a -> {v:List a | size v = size xs + size ys} @-}
+
+-- FILE tests/measure/neg/List02.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/List02.hs:10:1
+{-@ type NN = {v:Int | 0 <= v} @-}
+
+-- FILE tests/measure/neg/List02.hs:12:1
+{-@ measure size @-}
+
+-- FILE tests/measure/neg/List02.hs:13:1
+{-@ size :: List zoob -> NN @-}
+
+-- FILE tests/measure/neg/List02.hs:18:1
+{-@ test :: xs:List a -> Int -> NN @-}
+
+-- FILE tests/measure/neg/Ple0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/Ple0.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/measure/neg/Ple0.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/measure/neg/Ple0.hs:7:1
+{-@ reflect adder @-}
+
+-- FILE tests/measure/neg/Ple0.hs:11:1
+{-@ prop :: { v : () | adder 5 6 == 12 } @-}
+
+-- FILE tests/measure/neg/Ple1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/Ple1.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/measure/neg/Ple1.hs:5:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/measure/neg/Ple1.hs:11:1
+{-@ check :: _ -> { adder 10 20 == 300 } @-}
+
+-- FILE tests/measure/neg/Ple1Lib.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/Ple1Lib.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/measure/neg/Ple1Lib.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/measure/neg/Ple1Lib.hs:7:1
+{-@ reflect adder @-}
+
+-- FILE tests/measure/neg/Ple1Lib.hs:11:1
+{-@ prop :: _ -> { adder 5 6 == 12 } @-}
+
+-- FILE tests/measure/neg/Using00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/measure/neg/Using00.hs:4:1
+{-@ using [a] as {v : [a] | (len v) > 0 } @-}
+
+-- FILE tests/measure/pos/AbsMeasure.hs:5:1
+{-@ measure foo :: Int -> Int @-}
+
+-- FILE tests/measure/pos/AbsMeasure.hs:7:1
+{-@ prop :: x:Int -> {v:Int | foo v = foo x} @-}
+
+-- FILE tests/measure/pos/AbsMeasure.hs:11:1
+{-@ measure fooBool :: Int -> Bool @-}
+
+-- FILE tests/measure/pos/AbsMeasure.hs:13:1
+{-@ propBool :: x:Int -> {v:Int | fooBool v = fooBool x} @-}
+
+-- FILE tests/measure/pos/Bag.hs:5:1
+{-@ measure bag @-}
+
+-- FILE tests/measure/pos/Bag.hs:6:1
+{-@ bag :: Ord a => [a] -> Bag a @-}
+
+-- FILE tests/measure/pos/Bag.hs:11:1
+{-@ prop0 :: x:_ -> TT @-}
+
+-- FILE tests/measure/pos/Bag.hs:17:1
+{-@ prop1 :: x:_ -> TT @-}
+
+-- FILE tests/measure/pos/Bag.hs:23:1
+{-@ prop2 :: x:_ -> y:_ -> TT @-}
+
+-- FILE tests/measure/pos/ExactFunApp.hs:3:1
+{-@ LIQUID "--no-totality"     @-}
+
+-- FILE tests/measure/pos/ExactFunApp.hs:4:1
+{-@ LIQUID "--reflection"      @-}
+
+-- FILE tests/measure/pos/ExactFunApp.hs:9:1
+{-@ bar :: xy:Maybe (a -> a) -> z: a -> {v: a | v == from_Just xy z} @-}
+
+-- FILE tests/measure/pos/ExactFunApp.hs:12:1
+{-@ measure from_Just @-}
+
+-- FILE tests/measure/pos/Fst00.hs:6:1
+{-@ splitter :: x:Int -> {v:(Int, Int) | myFst v + mySnd v = x } @-}
+
+-- FILE tests/measure/pos/Fst00.hs:11:1
+{-@ joiner :: y:Int -> {v:Int | v = y} @-}
+
+-- FILE tests/measure/pos/Fst00.hs:16:1
+{-@ measure myFst @-}
+
+-- FILE tests/measure/pos/Fst00.hs:19:1
+{-@ measure mySnd @-}
+
+-- FILE tests/measure/pos/Fst01.hs:6:1
+{-@ splitter :: x:Int -> {v:(Int, Int) | fst v + snd v = x } @-}
+
+-- FILE tests/measure/pos/Fst01.hs:11:1
+{-@ joiner :: y:Int -> {v:Int | v = y} @-}
+
+-- FILE tests/measure/pos/Fst02.hs:8:1
+{-@ foo :: z:_ -> {v:_ | v = fst z} @-}
+
+-- FILE tests/measure/pos/GList000.hs:5:1
+{-@ safeHead :: {v:[a] | false } -> a  @-}
+
+-- FILE tests/measure/pos/GList00Lib.hs:3:1
+{-@ die :: {v: () | false} -> a @-}
+
+-- FILE tests/measure/pos/GList00Lib.hs:7:1
+{-@ safeHead :: {v:[a] | llen v > 0} -> a @-}
+
+-- FILE tests/measure/pos/GList00Lib.hs:12:1
+{-@ measure llen @-}
+
+-- FILE tests/measure/pos/GList00Lib.hs:13:1
+{-@ llen :: [a] -> Nat @-}
+
+-- FILE tests/measure/pos/HiddenData.hs:5:1
+{-@ foo :: Nat -> Nat @-}
+
+-- FILE tests/measure/pos/HiddenDataLib.hs:3:1
+{-@ data Thing = Red Nat | Blue Nat @-}
+
+-- FILE tests/measure/pos/HiddenDataLib.hs:6:1
+{-@ blub :: Nat -> Nat @-}
+
+-- FILE tests/measure/pos/Len00.hs:10:1
+{-@ safeHd :: { v : [a] | 0 < len v } -> a @-}
+
+-- FILE tests/measure/pos/Len00.hs:14:1
+{-@ die :: {v:_ | false} -> a @-}
+
+-- FILE tests/measure/pos/Len01.hs:10:1
+{-@ safeHd :: { v : [a] | 0 < len v } -> a @-}
+
+-- FILE tests/measure/pos/Len01.hs:14:1
+{-@ die :: {v:_ | false} -> a @-}
+
+-- FILE tests/measure/pos/List00.hs:5:1
+{-@ test :: {v:Int | v = 0 } @-}
+
+-- FILE tests/measure/pos/List00.hs:9:1
+{-@ bar :: l:List apple -> {v:Int | v = kons l} @-}
+
+-- FILE tests/measure/pos/List00Lib.hs:7:1
+{-@ measure kons @-}
+
+-- FILE tests/measure/pos/List00Lib.hs:12:1
+{-@ foo :: l:List apple -> {v:Int | v = kons l} @-}
+
+-- FILE tests/measure/pos/List01.hs:7:1
+{-@ measure size @-}
+
+-- FILE tests/measure/pos/List01.hs:12:1
+{-@ append :: xs:List a -> ys: List a -> {v:List a | size v = size xs + size ys} @-}
+
+-- FILE tests/measure/pos/List02.hs:7:1
+{-@ bloop :: xs:List a -> {v:Int | v = size xs} -> NN @-}
+
+-- FILE tests/measure/pos/List02Lib.hs:9:1
+{-@ type NN = {v:Int | 0 <= v} @-}
+
+-- FILE tests/measure/pos/List02Lib.hs:11:1
+{-@ measure size @-}
+
+-- FILE tests/measure/pos/List02Lib.hs:12:1
+{-@ size :: List zoob -> NN @-}
+
+-- FILE tests/measure/pos/List02Lib.hs:17:1
+{-@ test :: xs:List a -> {v:Int | v = size xs} -> NN @-}
+
+-- FILE tests/measure/pos/MeasureGadt.hs:13:1
+{-@ measure m @-}
+
+-- FILE tests/measure/pos/MeasureGadt.hs:14:1
+{-@ m :: T a -> Int @-}
+
+-- FILE tests/measure/pos/MeasureGadt.hs:18:1
+{-@ go :: v : T a -> { n : Int | n = m v } @-}
+
+-- FILE tests/measure/pos/Ple00.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/measure/pos/Ple00.hs:7:1
+{-@ reflect adder @-}
+
+-- FILE tests/measure/pos/Ple00.hs:11:1
+{-@ prop :: { v: Int | adder 5 6 == 11 } @-}
+
+-- FILE tests/measure/pos/Ple01.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/measure/pos/Ple01.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/measure/pos/Ple01.hs:8:1
+{-@ reflect adder @-}
+
+-- FILE tests/measure/pos/Ple01.hs:12:1
+{-@ prop :: { v: () | adder 5 6 == 11 } @-}
+
+-- FILE tests/measure/pos/Ple1.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/measure/pos/Ple1.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/measure/pos/Ple1.hs:10:1
+{-@ check :: { adder 10 20 == 30 } @-}
+
+-- FILE tests/measure/pos/Ple1Lib.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/measure/pos/Ple1Lib.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/measure/pos/Ple1Lib.hs:8:1
+{-@ reflect adder @-}
+
+-- FILE tests/measure/pos/Ple1Lib.hs:12:1
+{-@ prop :: { adder 5 6 == 11 } @-}
+
+-- FILE tests/measure/pos/PruneHO.hs:12:1
+{-@ foo :: Nat @-}
+
+-- FILE tests/measure/pos/RecordAccessors.hs:3:1
+{-@ type Big = {v:Int | v > 666} @-}
+
+-- FILE tests/measure/pos/RecordAccessors.hs:6:1
+{-@ data Foo = F { thing :: Big } @-}
+
+-- FILE tests/measure/pos/RecordAccessors.hs:9:1
+{-@ bar :: Foo -> Big @-}
+
+-- FILE tests/measure/pos/RecordAccessors.hs:12:1
+{-@ baz :: Foo -> Big @-}
+
+-- FILE tests/measure/pos/Unpack2629.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/measure/pos/Unpack2695.hs:7:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/measure/pos/Unpack2695.hs:21:1
+{-@
+data LHVec [vlen] a where
+  Nil  :: LHVec a
+  Cons :: forall a. a -> LHVec a -> LHVec a
+@-}
+
+-- FILE tests/measure/pos/Unpack2695.hs:32:1
+{-@
+measure vlen
+vlen :: LHVec a -> Nat
+@-}
+
+-- FILE tests/measure/pos/Unpack2695.hs:40:1
+{-@
+reflect head
+head :: { xs : LHVec a | vlen xs > 0 } -> a
+@-}
+
+-- FILE tests/measure/pos/Using00.hs:5:1
+{-@ using [a] as {v : [a] | (len v) > 0 } @-}
+

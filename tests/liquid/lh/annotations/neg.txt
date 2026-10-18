@@ -1,0 +1,2720 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/neg/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/neg/AbsApp.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/AbsApp.hs:9:1
+{-@ id2 :: forall <p :: Int -> Bool>. Int<p> -> Int<p> @-}
+
+-- FILE tests/neg/AbsApp.hs:13:1
+{-@ type Neg = Int<{\x -> x < 0}> @-}
+
+-- FILE tests/neg/AbsApp.hs:15:1
+{-@ three :: Neg @-}
+
+-- FILE tests/neg/AbsNegTest.hs:1:1
+{-@ LIQUID "--expect-error-containing=AbsNegTest.hs:6:1" @-}
+
+-- FILE tests/neg/AbsNegTest.hs:4:1
+{-@ f :: Int -> {n:Int | n < 0} @-}
+
+-- FILE tests/neg/AdtPeano0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/AdtPeano0.hs:2:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/neg/AdtPeano0.hs:8:1
+{-@ reflect thing @-}
+
+-- FILE tests/neg/AdtPeano0.hs:12:1
+{-@ reflect bling @-}
+
+-- FILE tests/neg/AdtPeano0.hs:16:1
+{-@ test :: m:Influx -> { thing m = bling m} @-}
+
+-- FILE tests/neg/AdtPeano1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/AdtPeano1.hs:2:1
+{-@ LIQUID "--higherorder"                         @-}
+
+-- FILE tests/neg/AdtPeano1.hs:8:1
+{-@ test1:: n:Int -> m:Int -> { v:() | Silly n /= Silly m } -> { n == m } @-}
+
+-- FILE tests/neg/AdtPeano1.hs:12:1
+{-@ reflect moo @-}
+
+-- FILE tests/neg/Alias00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Alias00.hs:4:1
+{-@ type NegInt = {v: Int | v <= 0} @-}
+
+-- FILE tests/neg/Alias00.hs:5:1
+{-@ myabs :: Int -> NegInt @-}
+
+-- FILE tests/neg/Alias00.hs:9:1
+{-@ type NNList a = {v: [a] | len(v) = 0} @-}
+
+-- FILE tests/neg/Alias00.hs:10:1
+{-@ single :: a -> NNList a @-}
+
+-- FILE tests/neg/Ass0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Ass0.hs:6:1
+{-@ assert foo :: x:a -> {v: a | (v != x) } @-}
+
+-- FILE tests/neg/Ass0.hs:13:1
+{-@ bar :: Nat -> Nat @-}
+
+-- FILE tests/neg/Ast.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Ast.hs:5:1
+{-@ LIQUID "--no-positivity-check" @-}
+
+-- FILE tests/neg/Ast.hs:11:1
+{-@ measure isExprIndex @-}
+
+-- FILE tests/neg/Ast.hs:16:1
+{-@ measure isTypeIndex @-}
+
+-- FILE tests/neg/Ast.hs:26:1
+{-@
+  data AstF f <ix :: AstIndex -> Bool>
+    = Lit {lv :: Int   , i :: AstIndex<ix>}
+    | Var {vv :: String, i :: AstIndex<ix>}
+    | App (fn :: f) (arg :: f)
+    | Paren (ast :: f)
+  @-}
+
+-- FILE tests/neg/Ast.hs:34:1
+{-@ type AstFE = AstF <{\ix -> isExprIndex ix}> @-}
+
+-- FILE tests/neg/Ast.hs:35:1
+{-@ type AstFT = AstF <{\ix -> isTypeIndex ix}> @-}
+
+-- FILE tests/neg/Ast.hs:44:1
+{-@ type AstE = Fix AstFE @-}
+
+-- FILE tests/neg/Ast.hs:45:1
+{-@ type AstT = Fix AstFT @-}
+
+-- FILE tests/neg/Ast.hs:47:1
+{-@ astExpr :: Fix (AstF <{\ix -> isExprIndex ix}>)  @-}
+
+-- FILE tests/neg/Ast.hs:51:1
+{-@ id1 :: forall <p :: AstIndex -> Bool>. Fix (AstF <p>) -> Fix (AstF <p>)  @-}
+
+-- FILE tests/neg/Ast.hs:55:1
+{-@ wrong :: AstT @-}
+
+-- FILE tests/neg/AutoSize.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/AutoTerm1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/AutoTerm1.hs:6:1
+{-@ data F [lenF] @-}
+
+-- FILE tests/neg/AutoTerm1.hs:8:1
+{-@ measure lenF @-}
+
+-- FILE tests/neg/AutoTerm1.hs:12:1
+{-@ lenF :: xs:F -> {v:Int | v >= 1000 } @-}
+
+-- FILE tests/neg/Automate.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Automate.hs:2:1
+{-@ LIQUID "--ple-local" @-}
+
+-- FILE tests/neg/Automate.hs:9:1
+{-@ axiomatize fibA @-}
+
+-- FILE tests/neg/Automate.hs:10:1
+{-@ fibA :: Nat -> Nat @-}
+
+-- FILE tests/neg/Automate.hs:16:1
+{-@ reflect fibR @-}
+
+-- FILE tests/neg/Automate.hs:17:1
+{-@ fibR :: Nat -> Nat @-}
+
+-- FILE tests/neg/Automate.hs:22:1
+{-@ prop :: () -> {fibA 30 == 832040 } @-}
+
+-- FILE tests/neg/Automate.hs:28:1
+{-@ propUNSAFE :: () -> {fibA 30 == 832042 } @-}
+
+-- FILE tests/neg/Automate.hs:35:1
+{-@ propR :: () -> {fibR 30 == 832040 } @-}
+
+-- FILE tests/neg/BadNats.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/BadNats.hs:4:1
+{-@ poo :: {v:Int | v == 0 } @-}
+
+-- FILE tests/neg/BadNats.hs:13:1
+{-@ axiomatize one @-}
+
+-- FILE tests/neg/BadNats.hs:17:1
+{-@ axiomatize zero @-}
+
+-- FILE tests/neg/Bag1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Bag1.hs:7:1
+{-@ zorg :: {v:Bag Int | v = B.empty} @-}
+
+-- FILE tests/neg/Bag1.hs:11:1
+{-@ measure elems @-}
+
+-- FILE tests/neg/Bag1.hs:12:1
+{-@ elems :: Ord a => [a] -> Bag a @-}
+
+-- FILE tests/neg/Bag1.hs:17:1
+{-@ prop0 :: x:_ -> TT @-}
+
+-- FILE tests/neg/Baz.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Baz.hs:2:1
+{-@ LIQUID "--short-names" @-}
+
+-- FILE tests/neg/Baz.hs:6:1
+{-@ incr :: x:Int -> {v:Int | v < x } @-}
+
+-- FILE tests/neg/Baz.hs:11:1
+{-@ iincr :: x:Int -> {v:Int | v < x } @-}
+
+-- FILE tests/neg/BigNum.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/BigNum.hs:4:1
+{-@ type Foo = { v : Integer | 0 <= v && v < 4611686018427387903 * 8 } @-}
+
+-- FILE tests/neg/BigNum.hs:6:1
+{-@ f :: i : Foo -> { o : Foo | i < o } @-}
+
+-- FILE tests/neg/BinarySearchOverflow.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/BinarySearchOverflow.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/BinarySearchOverflow.hs:11:1
+{-@ invariant {v:V.Vector a | 0 <= vlen v && BoundInt (vlen v)} @-}
+
+-- FILE tests/neg/BinarySearchOverflow.hs:19:1
+{-@ type Idx Vec = {v:Nat | v < vlen Vec} @-}
+
+-- FILE tests/neg/BinarySearchOverflow.hs:21:1
+{-@ type BoundNat = {v:Nat | BoundInt v} @-}
+
+-- FILE tests/neg/BinarySearchOverflow.hs:23:1
+{-@ loop :: Ord a => a -> vec:V.Vector a -> lo:Idx vec -> {hi:Idx vec | lo <= hi} -> Maybe Nat @-}
+
+-- FILE tests/neg/Books.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Books.hs:21:1
+{-@ inline customerGetsDiscount @-}
+
+-- FILE tests/neg/Books.hs:25:1
+{-@ inline discount @-}
+
+-- FILE tests/neg/Books.hs:29:1
+{-@ type Discount i = {v:Int | v == discount i} @-}
+
+-- FILE tests/neg/Books.hs:35:1
+{-@ calculateDiscount' :: c:Customer -> i:{Int | customerGetsDiscount c i} -> Discount i @-}
+
+-- FILE tests/neg/Books.hs:42:1
+{-@ calculateDiscount :: Int -> Nat -> Nat @-}
+
+-- FILE tests/neg/Books.hs:54:1
+{-@ misCalculateDiscount :: Int -> Nat -> Nat @-}
+
+-- FILE tests/neg/Card.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Card.hs:2:1
+{-@ LIQUID "--smtsolver=CVC5" @-}
+
+-- FILE tests/neg/Card.hs:9:1
+{-@ insert :: x:Int -> xs:[Int] -> {v:[Int] | Set.size (Set.fromList v) == Set.size (Set.fromList xs)} @-}
+
+-- FILE tests/neg/CastedTotality.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/CharLiterals.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/CharLiterals.hs:6:1
+{-@ fails :: {v:Bool | v} @-}
+
+-- FILE tests/neg/CharLiterals.hs:9:1
+{-@ ok :: {v:Bool | v} @-}
+
+-- FILE tests/neg/CheckRefinements.hs:2:1
+{-@ LIQUID "--expect-error-containing=Liquid Type Mismatch" @-}
+
+-- FILE tests/neg/CheckRefinements.hs:4:1
+{-@ LIQUID "--check-refinements" @-}
+
+-- FILE tests/neg/CheckRefinements.hs:5:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/CheckRefinements.hs:9:1
+{-@ reflect positive @-}
+
+-- FILE tests/neg/CheckRefinements.hs:10:1
+{-@ positive :: {v:Int | v > 0} -> Bool @-}
+
+-- FILE tests/neg/CheckRefinements.hs:16:1
+{-@ bad :: x:Int -> {v:Bool | positive x} @-}
+
+-- FILE tests/neg/CheckRefinements.hs:22:1
+{-@ measure mylen @-}
+
+-- FILE tests/neg/CheckRefinements.hs:23:1
+{-@ mylen :: List a -> Nat @-}
+
+-- FILE tests/neg/CheckRefinements.hs:28:1
+{-@ reflect get @-}
+
+-- FILE tests/neg/CheckRefinements.hs:29:1
+{-@ get :: n:{Int | 0 <= n } -> {v:List Int | n < mylen v} -> Int @-}
+
+-- FILE tests/neg/CheckRefinements.hs:34:1
+{-@ test :: () -> {v:() | get 0 Nil == 0 } @-}
+
+-- FILE tests/neg/CheckedNum.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/CheckedNum.hs:13:1
+{-@ predicate BoundInt X = 0 < X + 10000 && X < 10000 @-}
+
+-- FILE tests/neg/CheckedNum.hs:16:1
+{-@ instance CheckedNum Int where
+      - :: x:Int -> y:{v:Int | BoundInt (x - v)} -> {v: Int | v == x - y} ;
+      + :: x:Int -> y:{v:Int | BoundInt (x + v)} -> {v: Int | v == x + y}
+  @-}
+
+-- FILE tests/neg/CheckedNum.hs:24:1
+{-@ good :: {v:Int | v == 9999} @-}
+
+-- FILE tests/neg/CheckedNum.hs:28:1
+{-@ bad :: {v:Int | v == 10001} @-}
+
+-- FILE tests/neg/CheckedNumLib.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/CheckedNumLib.hs:13:1
+{-@ predicate BoundInt X = 0 < X + 10000 && X < 10000 @-}
+
+-- FILE tests/neg/CheckedNumLib.hs:16:1
+{-@ instance CheckedNum Int where 
+      - :: x:Int -> y:{v:Int | BoundInt (x - v)} -> {v: Int | v == x - y} ;  
+      + :: x:Int -> y:{v:Int | BoundInt (x + v)} -> {v: Int | v == x + y} 
+  @-}
+
+-- FILE tests/neg/CheckedNumLib.hs:24:1
+{-@ good :: {v:Int | v == 9999} @-}
+
+-- FILE tests/neg/CheckedNumLib.hs:28:1
+{-@ bad :: {v:Int | v == 10001} @-}
+
+-- FILE tests/neg/Class1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Class1.hs:3:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/Class1.hs:10:1
+{-@ qualif Sz(v:int, xs:a) { v = (sz xs)  } @-}
+
+-- FILE tests/neg/Class1.hs:12:1
+{-@ data List a = Nil | Cons (hd::a) (tl::(List a)) @-}
+
+-- FILE tests/neg/Class1.hs:15:1
+{-@ length :: xs:List a -> {v:Nat | v = (sz xs)} @-}
+
+-- FILE tests/neg/Class1.hs:20:1
+{-@ (!!) :: xs:List a -> {v:Nat | v < (sz xs)} -> a @-}
+
+-- FILE tests/neg/Class1.hs:26:1
+{-@ class measure sz :: forall a. a -> Int @-}
+
+-- FILE tests/neg/Class1.hs:27:1
+{-@ class Sized s where
+      size :: forall a. x:s a -> {v:Nat | v = (sz x)}
+  @-}
+
+-- FILE tests/neg/Class1.hs:34:3
+  {-@ instance measure sz :: List a -> Int
+        sz (Nil)       = 0
+        sz (Cons x xs) = 1 + (sz xs)
+    @-}
+
+-- FILE tests/neg/Class1.hs:40:1
+{-@ class (Sized s) => Indexable s where
+      index :: forall a. x:s a -> {v:Nat | v < (sz x)} -> a
+  @-}
+
+-- FILE tests/neg/Class1.hs:50:1
+{-@ sum :: Indexable s => s Int -> Int @-}
+
+-- FILE tests/neg/Class1.hs:60:1
+{-@ sumList :: List Int -> Int @-}
+
+-- FILE tests/neg/Class3.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Class3.hs:3:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/Class3.hs:10:1
+{-@ qualif Sz(v:int, xs:a) { v = (sz xs)  } @-}
+
+-- FILE tests/neg/Class3.hs:14:1
+{-@ class measure sz :: forall a. a -> Int @-}
+
+-- FILE tests/neg/Class3.hs:15:1
+{-@ class Sized s where
+      size :: forall a. x:s a -> {v:Nat | v = 23 + sz x}
+  @-}
+
+-- FILE tests/neg/Class3.hs:22:3
+  {-@ instance measure sz :: List a -> Int
+        sz (Nil)       = 0
+        sz (Cons x xs) = 1 + (sz xs)
+    @-}
+
+-- FILE tests/neg/Class4.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Class4.hs:3:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/Class4.hs:13:1
+{-@ class Frog a where
+      mkInt :: a -> Int
+  @-}
+
+-- FILE tests/neg/CompareConstraints.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/CompareConstraints.hs:2:1
+{-@ LIQUID "--no-totality" @-}
+
+-- FILE tests/neg/CompareConstraints.hs:9:1
+{-@ mycmp :: forall <p :: a -> Bool, q :: a -> Bool>.
+           {x::a<p>, y::a<q> |-  a <: {v:a | x <= y} }
+           Ord a =>
+           [a<p>] -> [a<q>] -> Bool @-}
+
+-- FILE tests/neg/CompareConstraints.hs:17:1
+{-@ mycmp' :: forall <p :: a -> Bool, q :: a -> Bool>.
+           {x::a<p> , y::a<q> |- a <: {v:a | x <= y} }
+           Ord a =>
+           a<p> -> a<q> -> Bool @-}
+
+-- FILE tests/neg/Concat.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Concat1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Concat2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Constraints.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Constraints.hs:4:1
+{-@
+cmp :: forall < pref :: b -> Bool, postf :: b -> c -> Bool
+              , pre  :: a -> Bool, postg :: a -> b -> Bool
+              , post :: a -> c -> Bool
+              >.
+       {xx::a<pre>,  w::b<postg xx> |- c<postf w> <: c<post xx>}
+       {ww::a<pre> |- b<postg ww> <: b<pref>}
+       f:(y:b<pref> -> c<postf y>)
+    -> g:(z:a<pre > -> b<postg z>)
+    -> x: a<pre> -> c<post x>
+@-}
+
+-- FILE tests/neg/Constraints.hs:24:1
+{-@ incr :: x:Nat -> {v:Nat | v == x + 1} @-}
+
+-- FILE tests/neg/Constraints.hs:29:1
+{-@ incr2 :: x:Nat -> {v:Nat | v == x + 3} @-}
+
+-- FILE tests/neg/ConstraintsAppend.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ConstraintsAppend.hs:4:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/ConstraintsAppend.hs:8:1
+{-@ type OList a = [a]<{\x v -> v >= x}> @-}
+
+-- FILE tests/neg/ConstraintsAppend.hs:11:1
+{-@ app :: forall <p :: a -> Bool, q :: a -> Bool, r :: a -> Bool>.
+        {x::a<p> |- a<q> <: {v:a| x <= v}}
+        {a<p> <: a<r>}
+        {a<q> <: a<r>}
+        Ord a => OList (a<p>) -> OList (a<q>) -> OList a<r> @-}
+
+-- FILE tests/neg/ConstraintsAppend.hs:21:1
+{-@ takeL :: Ord a => x:a -> [a] -> [{v:a|v<=x}] @-}
+
+-- FILE tests/neg/ConstraintsAppend.hs:26:1
+{-@ takeGE :: Ord a => x:a -> [a] -> [{v:a|v>=x}] @-}
+
+-- FILE tests/neg/ConstraintsAppend.hs:31:1
+{-@ quicksort :: (Ord a) => xs:[a] -> [a]<{\fld v -> (v >= fld)}>  @-}
+
+-- FILE tests/neg/ConstraintsAppend.hs:37:1
+{-@ qsort :: (Ord a) => xs:[a] -> [a]<{\fld v -> (v >= fld)}>  @-}
+
+-- FILE tests/neg/Contra0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Contra0.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/Contra0.hs:3:1
+{-@ LIQUID "--short-names"    @-}
+
+-- FILE tests/neg/Contra0.hs:11:1
+{-@ data variance IO bivariant @-}
+
+-- FILE tests/neg/Contra0.hs:12:1
+{-@ data variance IORef bivariant @-}
+
+-- FILE tests/neg/Coretologic.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Coretologic.hs:10:1
+{-@ type IsEmp a = {v:[a] | listElts v = Data.Set.empty } @-}
+
+-- FILE tests/neg/Coretologic.hs:12:1
+{-@ foo :: IsEmp Int @-}
+
+-- FILE tests/neg/Coretologic.hs:16:1
+{-@ bar :: IsEmp Int @-}
+
+-- FILE tests/neg/Coretologic.hs:20:1
+{-@ measure goo @-}
+
+-- FILE tests/neg/CosNegTest.hs:1:1
+{-@ LIQUID "--expect-error-containing=CosNegTest.hs:6:1" @-}
+
+-- FILE tests/neg/CosNegTest.hs:4:1
+{-@ test :: a -> {x:a | x > 1} @-}
+
+-- FILE tests/neg/Csv.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Csv.hs:11:1
+{-@ data CSV = Csv { headers :: [String]
+                   , rows    :: [{v:[String] | (len v) = (len headers)}]
+                   }
+  @-}
+
+-- FILE tests/neg/Datacon_eq.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Datacon_eq.hs:8:1
+{-@ foo :: Int -> {v:G | v = A} @-}
+
+-- FILE tests/neg/DependentTypes.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/DependentTypes.hs:27:1
+{-@ Small :: forall (s :: Symbol). {v:String | s ~~ v } -> MI s @-}
+
+-- FILE tests/neg/Elim000.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Elim000.hs:4:1
+{-@ prop2 :: Int -> Nat @-}
+
+-- FILE tests/neg/Elim000.hs:10:1
+{-@ glap :: (a -> b) -> a -> b @-}
+
+-- FILE tests/neg/Elim_ex_compose.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Elim_ex_compose.hs:4:1
+{-@ prop :: x:Nat -> {v:Int | v = x + 5} @-}
+
+-- FILE tests/neg/Elim_ex_compose.hs:8:1
+{-@ incr :: dog:Int -> {v:Int | v == dog + 1} @-}
+
+-- FILE tests/neg/Elim_ex_let.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Elim_ex_list.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Elim_ex_map_1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Elim_ex_map_1.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/Elim_ex_map_2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Elim_ex_map_2.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/Elim_ex_map_3.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Elim_ex_map_3.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/Errmsg.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Errmsg.hs:2:1
+{-@ LIQUID "--short-names" @-}
+
+-- FILE tests/neg/Errmsg.hs:12:1
+{-@ foo :: (Eq a) => x:a -> xs:[a] -> {v:Bool | v <=> (Data.Set.member x (Data.Set.fromList xs))} @-}
+
+-- FILE tests/neg/Errmsg.hs:17:1
+{-@ measure elements @-}
+
+-- FILE tests/neg/Errorloc.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Errorloc.hs:6:1
+{-@ zoo :: {v: Int | v > 0} -> {v: Int | v > 0} -> Int @-}
+
+-- FILE tests/neg/Eval.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/EvalQuery.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/EvalQuery.hs:3:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/neg/EvalQuery.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/neg/EvalQuery.hs:16:1
+{-@ data Blob  = B { xVal :: Int, yVal :: Int } @-}
+
+-- FILE tests/neg/EvalQuery.hs:20:1
+{-@ reflect evalA @-}
+
+-- FILE tests/neg/EvalQuery.hs:26:1
+{-@ reflect evalQ @-}
+
+-- FILE tests/neg/EvalQuery.hs:32:1
+{-@ filterQ :: q:Query -> [Blob] -> [{b:Blob | evalQ b q}] @-}
+
+-- FILE tests/neg/EvalQuery.hs:39:1
+{-@ test1 :: [Blob] -> [{v: Blob | xVal v <= 5}] @-}
+
+-- FILE tests/neg/EvalQuery.hs:44:1
+{-@ test2 :: [Blob] -> [{v: Blob | xVal v <= 10 && yVal v <= 20}] @-}
+
+-- FILE tests/neg/Ex0_unsafe.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Ex0_unsafe.hs:2:1
+{-@ LIQUID "--pruneunsorted" @-}
+
+-- FILE tests/neg/Ex0_unsafe.hs:7:1
+{-@ foldN :: forall a <p :: x0000:Int -> x1111:a -> Bool>. 
+                (i:Int -> a<p i> -> a<p (i+1)>)
+              -> n:{v: Int | v >= 0}
+              -> a <p 0>
+              -> a <p n>
+  @-}
+
+-- FILE tests/neg/Ex0_unsafe.hs:26:1
+{-@ count :: m: {v: Int | v > 0 } -> {v: Int | v = 44 } @-}
+
+-- FILE tests/neg/Ex1_unsafe.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Ex1_unsafe.hs:2:1
+{-@ LIQUID "--pruneunsorted" @-}
+
+-- FILE tests/neg/Ex1_unsafe.hs:16:1
+{-@ measure llen     :: forall a. Vec a -> Int
+      llen (Nil)       = 0
+      llen (Cons x xs) = 1 + llen(xs)
+  @-}
+
+-- FILE tests/neg/Ex1_unsafe.hs:25:1
+{-@ sizeOf :: xs:Vec a -> {v: Int | v = llen(xs)} @-}
+
+-- FILE tests/neg/Ex1_unsafe.hs:38:1
+{-@ efoldr :: forall a b <p :: x0:Vec a -> x1:b -> Bool>. 
+                (xs:Vec a -> x:a -> b <p xs> -> b <p (Ex1_unsafe.Cons x xs)>)
+              -> b <p Ex1_unsafe.Nil>
+              -> ys: Vec a
+              -> b <p ys>
+  @-}
+
+-- FILE tests/neg/Ex1_unsafe.hs:56:1
+{-@ size :: xs:Vec a -> {v: Int | v = llen(xs)} @-}
+
+-- FILE tests/neg/Ex1_unsafe.hs:60:1
+{-@ suc :: x:Int -> {v: Int | v = x + 1} @-}
+
+-- FILE tests/neg/Ex1_unsafe.hs:65:1
+{-@ app  :: xs: Vec a -> ys: Vec a -> {v: Vec a | llen(v) = 1 + llen(xs) + llen(ys) } @-}
+
+-- FILE tests/neg/ExactADT6.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ExactADT6.hs:7:1
+{-@ data EntityField typ where
+        BlobXVal :: EntityField {v:Int | v >= 0}
+        BlobYVal :: EntityField Int
+  @-}
+
+-- FILE tests/neg/ExactADT6.hs:16:1
+{-@ blobXVal :: EntityField {v:Int | v >= 0} @-}
+
+-- FILE tests/neg/ExactADT6.hs:26:1
+{-@ createUpdate :: EntityField a -> a -> Update a @-}
+
+-- FILE tests/neg/ExactGADT6.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ExactGADT6.hs:11:5
+    {-@ data EntityField Blob typ where
+           BlobXVal :: EntityField Blob {v:Int | v >= 0}
+           BlobYVal :: EntityField Blob Int
+    @-}
+
+-- FILE tests/neg/ExactGADT6.hs:19:1
+{-@ data Blob  = B { xVal :: {v:Int | v >= 0}, yVal :: Int } @-}
+
+-- FILE tests/neg/ExactGADT6.hs:27:1
+{-@ createUpdate :: EntityField record a -> a -> Update record a @-}
+
+-- FILE tests/neg/ExactGADT7.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ExactGADT7.hs:5:1
+{-@ LIQUID "--prune-unsorted" @-}
+
+-- FILE tests/neg/ExactGADT7.hs:13:1
+{-@ measure isBool @-}
+
+-- FILE tests/neg/ExactGADT7.hs:18:1
+{-@ type Thing = { v: Some Bool | isBool v } @-}
+
+-- FILE tests/neg/ExactGADT7.hs:20:1
+{-@ a :: Thing @-}
+
+-- FILE tests/neg/ExactGADT7.hs:23:1
+{-@ b :: {v: Some Int | isBool v} @-}
+
+-- FILE tests/neg/ExpNegTest.hs:1:1
+{-@ LIQUID "--expect-error-containing=ExpNegTest.hs:6:1" @-}
+
+-- FILE tests/neg/ExpNegTest.hs:4:1
+{-@ test :: a -> {x:a | x <= 0} @-}
+
+-- FILE tests/neg/Exponential1NegTest.hs:1:1
+{-@ LIQUID "--expect-error-containing=Exponential1NegTest.hs:5:1" @-}
+
+-- FILE tests/neg/Exponential2NegTest.hs:1:1
+{-@ LIQUID "--expect-error-containing=Exponential2NegTest.hs:6:20" @-}
+
+-- FILE tests/neg/Exponential2NegTest.hs:4:1
+{-@ ex6 :: {n:Float | n /= 0} -> Int -> Float @-}
+
+-- FILE tests/neg/ExponentiationNegTest.hs:1:1
+{-@ LIQUID "--expect-error-containing=ExponentiationNegTest.hs:5:1" @-}
+
+-- FILE tests/neg/Fail.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Fail.hs:4:1
+{-@ fail incr @-}
+
+-- FILE tests/neg/Fail.hs:5:1
+{-@ incr :: x:Int -> {v:Int |  x < v } @-}
+
+-- FILE tests/neg/Fail.hs:11:1
+{-@ incr2 :: x:Int -> {v:Int | x < v } @-}
+
+-- FILE tests/neg/Fail1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Fail1.hs:5:1
+{-@ fail incr @-}
+
+-- FILE tests/neg/Fail1.hs:6:1
+{-@ incr :: x:Int -> {v:Int |  x < v } @-}
+
+-- FILE tests/neg/FancyTerm.hs:10:1
+{-@ data size (Tree a) tsize @-}
+
+-- FILE tests/neg/FancyTerm.hs:12:1
+{-@ measure tsize :: Tree a -> Nat @-}
+
+-- FILE tests/neg/FancyTerm.hs:13:1
+{-@ data Tree a where 
+      Leaf :: a -> {t:Tree a  | tsize t == 0 } 
+      Node :: f:(Int -> Tree a) 
+           -> Tree a   @-}
+
+-- FILE tests/neg/FancyTerm.hs:18:1
+{-@ ignore node @-}
+
+-- FILE tests/neg/FancyTerm.hs:19:1
+{-@ node :: (Int -> {tin:Tree a |  0 <= tsize tin}) -> {t:Tree a | 0 <= tsize t} @-}
+
+-- FILE tests/neg/FancyTerm.hs:23:1
+{-@ mapTr :: (a -> a) -> t:Tree a -> {o:Tree a | true} / [tsize t] @-}
+
+-- FILE tests/neg/FilterAbs.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/FilterAbs.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/FilterAbs.hs:3:1
+{-@ LIQUID "--short-names"    @-}
+
+-- FILE tests/neg/FilterAbs.hs:11:1
+{-@ filter :: forall <p :: a -> Bool, q :: a -> Bool -> Bool>.
+                  {y::a, flag :: {v:Bool<q y> | v} |- {v:a | v = y} <: a<p>}
+                  (x:a -> Bool<q x>) -> [a] -> [a<p>]
+  @-}
+
+-- FILE tests/neg/FilterAbs.hs:21:1
+{-@ isPos :: x:Int -> {v:Bool | v <=> x > 0} @-}
+
+-- FILE tests/neg/FilterAbs.hs:26:1
+{-@ isNeg :: x:Int -> {v:Bool | v <=> x < 0} @-}
+
+-- FILE tests/neg/FilterAbs.hs:36:1
+{-@ positives :: [Int] -> [{v:Int | v > 0}] @-}
+
+-- FILE tests/neg/FilterAbs.hs:39:1
+{-@ negatives :: [Int] -> [{v:Int | v < 0}] @-}
+
+-- FILE tests/neg/FilterAbs.hs:42:1
+{-@ positivesBAD :: [Int] -> [{v:Int | v < 0}] @-}
+
+-- FILE tests/neg/FoldN.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/FoldN.hs:2:1
+{-@ LIQUID "--pruneunsorted" @-}
+
+-- FILE tests/neg/FoldN.hs:7:1
+{-@ foldN :: forall a <p :: x0:Int -> x1:a -> Bool>. 
+                (i:Int -> a<p i> -> a<p (i+1)>)
+              -> n:{v: Int | v >= 0}
+              -> a <p 0>
+              -> a <p 42>
+  @-}
+
+-- FILE tests/neg/FoldN1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/FoldN1.hs:2:1
+{-@ LIQUID "--pruneunsorted" @-}
+
+-- FILE tests/neg/FoldN1.hs:5:1
+{-@ foldN :: forall a <p :: x0:Int -> x1:a -> Bool>. 
+                (i:Int -> a<p i> -> a<p (i+1)>)
+              -> n:{v: Int | v >= 0}
+              -> a <p 0>
+              -> {v : a | 0=1}
+  @-}
+
+-- FILE tests/neg/FunSoundness.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/FunSoundness.hs:5:1
+{-@ deadfun :: {v:a | false} -> a @-}
+
+-- FILE tests/neg/FunctionRef.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/FunctionRef.hs:2:1
+{-@ LIQUID "--higherorder"     @-}
+
+-- FILE tests/neg/FunctionRef.hs:5:1
+{-@ measure ackF :: Int -> Int -> Int  @-}
+
+-- FILE tests/neg/FunctionRef.hs:7:1
+{-@ assume ack :: n:Int -> {v: (x:Int -> {v:Int | v == ackF n x}) | v == ackF n } @-}
+
+-- FILE tests/neg/FunctionRef.hs:12:1
+{-@ bar :: n:Int -> {v:_ | false } @-}
+
+-- FILE tests/neg/GeneralizedTermination.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/GeneralizedTermination.hs:2:1
+{-@ LIQUID "--no-totality" @-}
+
+-- FILE tests/neg/GeneralizedTermination.hs:6:1
+{-@ foo :: n:Nat -> m:Nat -> Nat /[n+m] @-}
+
+-- FILE tests/neg/GeneralizedTermination.hs:13:1
+{-@ cond :: Int -> Bool @-}
+
+-- FILE tests/neg/Grty0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Grty0.hs:4:1
+{-@ stupid :: Int -> Int @-}
+
+-- FILE tests/neg/Grty0.hs:8:1
+{-@ myId :: x:a -> {v:a | v = x } @-}
+
+-- FILE tests/neg/Grty0.hs:11:1
+{-@ assert single :: a -> {v: [a] | len(v) = 0} @-}
+
+-- FILE tests/neg/Grty1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Grty1.hs:2:1
+{-@ LIQUID "--no-totality" @-}
+
+-- FILE tests/neg/Grty1.hs:8:1
+{-@ insert      :: (Ord a) => x:a -> xs: [a]<{\fld v -> (v >= fld)}> -> {v: [a]<{\fld v -> (v >= fld)}> | len(v) = (1 + len(xs)) } @-}
+
+-- FILE tests/neg/Grty2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Grty2.hs:6:1
+{-@ insert      :: (Ord a) => x:a -> xs: [a]<{\fld v -> (v >= fld)}> -> {v: [a]<{\fld v -> (v >= fld)}> | len(v) = (1 + len(xs)) } @-}
+
+-- FILE tests/neg/Grty3.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Grty3.hs:5:1
+{-@ choo :: [a] -> {v: Int | v > 0 } @-}
+
+-- FILE tests/neg/HasElem.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/HasElem.hs:4:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/HasElem.hs:5:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/neg/HasElem.hs:6:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/neg/HasElem.hs:10:1
+{-@ reflect hasElem @-}
+
+-- FILE tests/neg/HasElem.hs:15:1
+{-@ prop, prop1, prop2 :: {v:Bool | v} @-}
+
+-- FILE tests/neg/Hex00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Hex00.hs:4:1
+{-@ foo :: {x:Int | x = 0x7} -> {y:Int | y = 0x6} -> {v:Int | v = 0xF} @-}
+
+-- FILE tests/neg/HigherOrder.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/HigherOrder.hs:2:1
+{-@ LIQUID "--higherorder" @-}
+
+-- FILE tests/neg/HigherOrder.hs:6:1
+{-@ foo :: a: Int -> f: (Int -> Int) -> {v : Int | v = 123 + (f a) } @-}
+
+-- FILE tests/neg/HolesTop.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/HolesTop.hs:6:1
+{-@ foo :: _ -> Bool @-}
+
+-- FILE tests/neg/IgnoreMethodOutside.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cannot ignore `m`" @-}
+
+-- FILE tests/neg/IgnoreMethodOutside.hs:4:1
+{-@ class MyClass a where
+      m :: a -> {v:Int | v >= 1}
+@-}
+
+-- FILE tests/neg/IgnoreMethodOutside.hs:11:1
+{-@ ignore m @-}
+
+-- FILE tests/neg/IgnoreNonMethodInInstance.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cannot ignore `helper`" @-}
+
+-- FILE tests/neg/IgnoreNonMethodInInstance.hs:7:1
+{-@ class MyClass a where
+      m :: a -> {v:Int | v >= 1}
+@-}
+
+-- FILE tests/neg/IgnoreNonMethodInInstance.hs:13:1
+{-@ helper :: Int -> Int @-}
+
+-- FILE tests/neg/IgnoreNonMethodInInstance.hs:18:3
+  {-@ ignore helper @-}
+
+-- FILE tests/neg/IgnoreOtherMethodInInstance.hs:1:1
+{-@ LIQUID "--expect-error-containing=Cannot ignore `m2`" @-}
+
+-- FILE tests/neg/IgnoreOtherMethodInInstance.hs:14:3
+  {-@ ignore m2 @-}
+
+-- FILE tests/neg/Inc2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Inc2.hs:9:1
+{-@ inc :: x:Int -> {v:Int | v > x} @-}
+
+-- FILE tests/neg/IntAbsRef.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/IntAbsRef.hs:5:1
+{-@ data Foo a <p :: Int -> Bool> = Foo { x::Int<p>}@-}
+
+-- FILE tests/neg/IntAbsRef.hs:9:1
+{-@ foo :: Foo <{\v -> v /= 1}> Int @-}
+
+-- FILE tests/neg/LazyWhere.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/LazyWhere.hs:6:1
+{-@ pos :: Nat -> Int @-}
+
+-- FILE tests/neg/LazyWhere.hs:11:1
+{-@ lazyvar z @-}
+
+-- FILE tests/neg/LazyWhere1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/LazyWhere1.hs:6:1
+{-@ pos :: Nat -> Int @-}
+
+-- FILE tests/neg/LazyWhere1.hs:10:1
+{-@ safeDiv :: Int -> {v:Int| v != 0} -> Int @-}
+
+-- FILE tests/neg/LazyWhere1.hs:19:1
+{-@ lazyvar z @-}
+
+-- FILE tests/neg/LetRecStack.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/LetRecStack.hs:2:1
+{-@ LIQUID "--eliminate=all" @-}
+
+-- FILE tests/neg/LetRecStack.hs:20:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/LetRecStack.hs:43:1
+{-@ prop :: Peano -> Nat @-}
+
+-- FILE tests/neg/List00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ListConcat.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ListConcat.hs:2:1
+{-@ LIQUID "--pruneunsorted" @-}
+
+-- FILE tests/neg/ListConcat.hs:8:1
+{-@ measure llElts :: [[a]] -> (Set a) 
+      llElts []   = {v | Set_emp v }
+      llElts (x:xs) = {v | v = Set_cup (listElts x) (llElts xs) }
+  @-}
+
+-- FILE tests/neg/ListConcat.hs:14:1
+{-@ concat :: ys:[[a]] -> {v:[a] | listElts v = llElts ys } @-}
+
+-- FILE tests/neg/ListElem.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ListElem.hs:6:1
+{-@ listElem :: (Eq a)
+             => y:a
+             -> xs:[a]
+             -> {v:Bool | v <=> Set_mem y (listElts xs)}
+  @-}
+
+-- FILE tests/neg/ListKeys.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ListKeys.hs:2:1
+{-@ LIQUID "--pruneunsorted" @-}
+
+-- FILE tests/neg/ListKeys.hs:7:1
+{-@ measure listKeys :: [(k, v)] -> (Set k)
+      listKeys([])   = {v | Set_emp v }
+      listKeys(x:xs) = {v | v = Set_cup (Set_sng (fst x)) (listKeys xs) }
+  @-}
+
+-- FILE tests/neg/ListKeys.hs:13:1
+{-@ getFsts :: ys:[(a, a)] -> {v:[a] | listElts v = listKeys ys } @-}
+
+-- FILE tests/neg/ListMSort.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ListMSort.hs:20:1
+{-@ mergesort :: (Ord a) => xs:[a] -> [a]<{\fld v -> (v < fld)}>  @-}
+
+-- FILE tests/neg/ListRange.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Listne.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Listne.hs:4:1
+{-@ type ListNE a = {v:[a] | 0 < len v} @-}
+
+-- FILE tests/neg/Listne.hs:6:1
+{-@ junkProp :: ListNE Int @-}
+
+-- FILE tests/neg/Lit.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Lit.hs:4:1
+{-@ test :: {v:Int | v == 30} @-}
+
+-- FILE tests/neg/LocalSpec.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/LocalSpec.hs:9:5
+    {-@ bar :: Nat -> Nat @-}
+
+-- FILE tests/neg/LocalSpec.hs:13:1
+{-@ bar :: a -> {v:Int | v = 9} @-}
+
+-- FILE tests/neg/LogNegTest.hs:1:1
+{-@ LIQUID "--expect-error-containing=LogNegTest.hs:5:1" @-}
+
+-- FILE tests/neg/Mapreduce.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Mapreduce_tiny.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Maps.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Maps.hs:4:1
+{-@ prop1 :: x:_ -> y:{_ | y == x} -> TT @-}
+
+-- FILE tests/neg/Maps.hs:11:1
+{-@ prop2 :: x:_ -> y:{_ | y == x} -> TT @-}
+
+-- FILE tests/neg/Maps.hs:22:1
+{-@ embed Map as Map_t @-}
+
+-- FILE tests/neg/Maps.hs:23:1
+{-@ measure Map_select :: Map k v -> k -> v @-}
+
+-- FILE tests/neg/Maps.hs:24:1
+{-@ measure Map_store  :: Map k v -> k -> v -> Map k v @-}
+
+-- FILE tests/neg/Maps.hs:29:1
+{-@ get :: k:k -> m:Map k v -> {v:v | v = Map_select m k} @-}
+
+-- FILE tests/neg/Maps.hs:33:1
+{-@ put :: k:k -> v:v -> m:Map k v -> {n:Map k v | n = Map_store m k v} @-}
+
+-- FILE tests/neg/Maybe.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/MaybeMonad.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/MaybeMonad.hs:7:1
+{-@ monadicStyle :: Pos -> [a] -> Maybe [a] @-}
+
+-- FILE tests/neg/MaybeMonad.hs:12:1
+{-@ maybeStyle :: Pos -> [a] -> Maybe [a] @-}
+
+-- FILE tests/neg/MaybeMonad.hs:19:1
+{-@ type Pos = {v:Int | 0 < v } @-}
+
+-- FILE tests/neg/MaybeMonad.hs:21:1
+{-@
+checkSizeMaybe :: 
+       n:Nat
+    -> (bs:{[a] | n <= len bs } -> b)
+    -> bs:[a]
+    -> {v:Maybe b | isJust v => n <= len bs}
+@-}
+
+-- FILE tests/neg/MaybeMonad.hs:34:1
+{-@ take :: i:Nat -> xs:{[a] | i <= len xs} -> [a] @-}
+
+-- FILE tests/neg/Meas0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Meas2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Meas3.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Meas7.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Meas7.hs:13:1
+{-@ foo :: [a] -> {v: Int | v = 0} @-}
+
+-- FILE tests/neg/Meas9.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Meas9.hs:6:1
+{-@ myid :: xs:[a] -> {v:[a]| listElts(v) = listElts(xs)} @-}
+
+-- FILE tests/neg/Meas9.hs:10:1
+{-@ myapp :: xs:[a] -> ys:[a] -> {v:[a] | listElts(v) = Set_cup (listElts xs) (listElts xs) } @-}
+
+-- FILE tests/neg/MeasureContains.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/MeasureContains.hs:6:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/MeasureContains.hs:8:1
+{-@ measure binderContainsV @-}
+
+-- FILE tests/neg/MeasureContains.hs:16:1
+{-@ measure containsV @-}
+
+-- FILE tests/neg/MeasureDups.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/MeasureDups.hs:6:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/MeasureDups.hs:7:1
+{-@ measure elements @-}
+
+-- FILE tests/neg/MeasureDups.hs:8:1
+{-@ measure dups @-}
+
+-- FILE tests/neg/MeasureDups.hs:24:1
+{-@ foo :: (Ord a) => x:F a -> {v:Set a | (dups x) = v} @-}
+
+-- FILE tests/neg/MeasureDups.hs:32:1
+{-@ prop :: { v: Bool | v } @-}
+
+-- FILE tests/neg/MergeSort.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/MergeSort.hs:10:1
+{-@ type OList a    = [a]<{\fld v -> (v >= fld)}> @-}
+
+-- FILE tests/neg/MergeSort.hs:12:1
+{-@ type OListN a N = {v:OList a | len v == N} @-}
+
+-- FILE tests/neg/MergeSort.hs:19:1
+{-@ sort :: (Ord a) => xs:[a] -> OListN a {len xs} @-}
+
+-- FILE tests/neg/MergeSort.hs:32:1
+{-@ type Halves a Xs = {v: (Half a Xs, Half a Xs) | len (fst v) + len (snd v) == len Xs} @-}
+
+-- FILE tests/neg/MergeSort.hs:36:1
+{-@ type Half a Xs  = {v:[a] | 2 * len v < 1 + len Xs} @-}
+
+-- FILE tests/neg/MergeSort.hs:40:1
+{-@ split :: xs:[a] -> Halves a xs @-}
+
+-- FILE tests/neg/MergeSort.hs:47:1
+{-@ merge :: Ord a => xs:OList a -> ys:OList a -> OListN a {len xs + len ys} / [(len xs + len ys)] @-}
+
+-- FILE tests/neg/Monad3.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Monad4.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Monad5.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Monad6.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Monad6.hs:6:1
+{-@ gpp :: Monad m => m {v:Int|v>=0} -> m {v:Int|v>0} @-}
+
+-- FILE tests/neg/Monad7.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Monad7.hs:6:1
+{-@ type OList a = [a]<{\fld v -> (v >= fld)}> @-}
+
+-- FILE tests/neg/Monad7.hs:7:1
+{-@ gpp :: (Ord a, Monad m) => [a] -> m (OList a) @-}
+
+-- FILE tests/neg/Monad7.hs:11:1
+{-@ insertSort :: (Ord a) => xs:[a] -> OList a @-}
+
+-- FILE tests/neg/Mr00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/MultiParamTypeClasses.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/MultiParamTypeClasses.hs:10:1
+{-@ instance (Num k) => Add k k where 
+     rAdd :: 
+        x : {v : [k] | len v > 0} 
+        -> {v : [k] | (len v = len x) && len v > 0} 
+        -> {v : [k] | len v > 0}
+
+@-}
+
+-- FILE tests/neg/Multi_pred_app_00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Multi_pred_app_00.hs:4:1
+{-@ bar :: forall < p :: Int -> Bool, q :: Int -> Bool>. Int<p> -> Int<p, q> @-}
+
+-- FILE tests/neg/MultipleInvariants.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/MultipleInvariants.hs:8:1
+{-@ measure sizeOf :: forall a . Ptr a -> Int @-}
+
+-- FILE tests/neg/MultipleInvariants.hs:10:1
+{-@ invariant {v:Ptr Word16 | sizeOf v = 2} @-}
+
+-- FILE tests/neg/MultipleInvariants.hs:11:1
+{-@ invariant {v:Ptr Word32 | sizeOf v = 4} @-}
+
+-- FILE tests/neg/MultipleInvariants.hs:14:1
+{-@ bar :: p:_ -> {v:_ | sizeOf p == 4 }@-}
+
+-- FILE tests/neg/MultipleInvariants.hs:18:1
+{-@ foo :: p:_ -> {v:_ | sizeOf p == 2 }@-}
+
+-- FILE tests/neg/MultipleInvariants.hs:23:1
+{-@ unsound :: _ -> {v:_ | false} @-}
+
+-- FILE tests/neg/MyBag.hs:5:1
+{-@ embed Bag as Bag_t @-}
+
+-- FILE tests/neg/MyBag.hs:8:1
+{-@ assume empty :: {v:Bag k | v = Bag_empty 0} @-}
+
+-- FILE tests/neg/MyBag.hs:12:1
+{-@ assume sng :: (Ord k) => k:k -> {v:Bag k | v = Bag_sng k 1} @-}
+
+-- FILE tests/neg/MyBagDefine.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/MyBagDefine.hs:7:1
+{-@ define empty = (Bag_empty 0) @-}
+
+-- FILE tests/neg/MyBagDefine.hs:8:1
+{-@ define sng k = (Bag_sng k 1) @-}
+
+-- FILE tests/neg/MyBagDefine.hs:10:1
+{-@ thm_emp :: x:k -> { empty /= sng x } @-}
+
+-- FILE tests/neg/NameResolution.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/NameResolution.hs:8:1
+{-@ bar :: () -> Int @-}
+
+-- FILE tests/neg/NameResolution.hs:15:1
+{-@ (==..) :: x:a -> y:{a | x == y} -> {v:a | v == y && v == x} @-}
+
+-- FILE tests/neg/NameResolution.hs:19:1
+{-@ foo :: () -> Int @-}
+
+-- FILE tests/neg/NameResolution.hs:26:1
+{-@ (++) :: a -> a -> a @-}
+
+-- FILE tests/neg/NestedRecursion.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/NoExhaustiveGuardsError.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Null.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Pair.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Pair.hs:6:1
+{-@ data Pair a b <p :: a -> b -> Bool> = P { pX :: a, pY :: b<p pX> } @-}
+
+-- FILE tests/neg/Pair0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/PairMeasure.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/PairMeasure.hs:4:1
+{-@ LIQUID "--bscope" @-}
+
+-- FILE tests/neg/PairMeasure.hs:6:1
+{-@ measure getfst @-}
+
+-- FILE tests/neg/PairMeasure.hs:10:1
+{-@ type Pair a b   = {v0 : ({v:a | v = (getfst v0)}, b) | true } @-}
+
+-- FILE tests/neg/PairMeasure.hs:12:1
+{-@ type OPList a b = [(Pair a b)]<\h -> {v: (Pair a b) | (getfst v) >= (getfst h)}> @-}
+
+-- FILE tests/neg/PairMeasure.hs:14:1
+{-@ type OList a    = [a]<\h -> {v: a | (v >= h)}> @-}
+
+-- FILE tests/neg/PairMeasure.hs:16:1
+{-@ getFsts :: OPList a b -> OList a @-}
+
+-- FILE tests/neg/PairMeasure.hs:20:1
+{-@ canary :: a -> {v:a | false} @-}
+
+-- FILE tests/neg/Pargs.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Pargs.hs:4:1
+{-@ foo :: forall a <p :: x0:Int -> x1:a -> Bool>. 
+             (i:Int -> a<p i>) -> {v:Int| v=0}
+              -> a <p 1>
+  @-}
+
+-- FILE tests/neg/Pargs1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Pargs1.hs:2:1
+{-@ LIQUID "--pruneunsorted" @-}
+
+-- FILE tests/neg/Pargs1.hs:5:1
+{-@ foo :: forall a <p :: x0:Int -> x1:a -> Bool>. 
+             (i:Int  -> j : Int-> a<p (i)>) ->
+               ii:Int -> jj:Int
+              -> a <p (ii+jj)>
+  @-}
+
+-- FILE tests/neg/Partial.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Partial.hs:4:1
+{-@ posPlus :: x:{v: Int | v >= 0} -> {v: Int | v >= x} @-}
+
+-- FILE tests/neg/Partial.hs:12:1
+{-@ poo :: x:Int -> {v: Int | v >= x } @-}
+
+-- FILE tests/neg/Poly0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Poly1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Poly2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Poly2_degenerate.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Polypred.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Poslist.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Pred.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Pred.hs:4:1
+{-@ predicate Gt X Y = (X < Y) @-}
+
+-- FILE tests/neg/Pred.hs:6:1
+{-@ incr :: x:Int -> {v:Int | Gt v x} @-}
+
+-- FILE tests/neg/Propability.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Propability.hs:2:1
+{-@ LIQUID "--prune-unsorted" @-}
+
+-- FILE tests/neg/Propability.hs:6:1
+{-@ type Propability = {v:Double | ((0.0 <= v) && (v <= 1.0)) } @-}
+
+-- FILE tests/neg/Propability.hs:8:1
+{-@ p :: Propability @-}
+
+-- FILE tests/neg/Propability.hs:12:1
+{-@ q :: Propability @-}
+
+-- FILE tests/neg/Propability.hs:20:1
+{-@ data DPD k = DPD (val::{v:[Pair k Propability]|(total v) = 1.0 }) @-}
+
+-- FILE tests/neg/Propability.hs:22:1
+{-@ measure total @-}
+
+-- FILE tests/neg/Propability.hs:27:1
+{-@ measure sndP @-}
+
+-- FILE tests/neg/Propability0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Propability0.hs:3:1
+{-@ LIQUID "--prune-unsorted" @-}
+
+-- FILE tests/neg/Propability0.hs:7:1
+{-@ type Propability = {v:Double | ((0.0 <= v) && (v <= 1.0)) } @-}
+
+-- FILE tests/neg/Propability0.hs:9:1
+{-@ p :: Propability @-}
+
+-- FILE tests/neg/Propability0.hs:13:1
+{-@ q :: Propability @-}
+
+-- FILE tests/neg/Propability0.hs:21:1
+{-@ data DPD k = DPD (val::{v:[(k, Propability)]|(total v) = 1.0 }) @-}
+
+-- FILE tests/neg/Propability0.hs:23:1
+{-@ measure total @-}
+
+-- FILE tests/neg/Propability0.hs:28:1
+{-@ measure mySnd @-}
+
+-- FILE tests/neg/Prune0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Prune0.hs:17:1
+{-@ measure vsize :: forall a. a -> Int @-}
+
+-- FILE tests/neg/Prune0.hs:20:1
+{-@ type      OkIdx X     = {v:Nat | v < vsize X} @-}
+
+-- FILE tests/neg/Prune0.hs:24:1
+{-@ assume unsafeRead  
+      :: (PrimMonad m, MVector v a) 
+      => xorp:(v (PrimState m) a) 
+      -> (OkIdx xorp) 
+      -> m a       
+  @-}
+
+-- FILE tests/neg/QQTySig.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/QQTySyn1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/QQTySyn2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/RG.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/RG.hs:45:1
+{-@ data RGRef a <p :: a -> Bool, r :: a -> a -> Bool>
+	= Wrap { rr :: IORef a<p> } @-}
+
+-- FILE tests/neg/RG.hs:54:1
+{-@ stable_monocount :: x:{v:Int | v > 0 } -> y:{v:Int | x <= v } -> {v:Int | ((v = y) && (v > 0)) } @-}
+
+-- FILE tests/neg/RG.hs:59:1
+{-@ generic_accept_stable :: forall <p :: a -> Bool, r :: a -> a -> Bool >.
+                    f:(x:a<p> -> y:a<r x> -> {v:a<p> | (v = y)}) ->
+                    ()
+                    @-}
+
+-- FILE tests/neg/RG.hs:66:1
+{-@ proves_reflexivity :: x:{v:Int | v > 0} -> y:{v:Int | v > 0} -> {v:Int | v > 0} @-}
+
+-- FILE tests/neg/RG.hs:73:1
+{-@ proves_nothing :: x:a -> y:a -> {v:a | (v = y)} @-}
+
+-- FILE tests/neg/RG.hs:79:1
+{-@ newRGRef :: forall <p :: a -> Bool, r :: a -> a -> Bool >.
+                    e:a<p> ->
+                    e2:a<r e> ->
+                    f:(x:a<p> -> y:a<r x> -> {v:a<p> | (v = y)}) ->
+                    IO (RGRef <p, r> a) @-}
+
+-- FILE tests/neg/RG.hs:91:1
+{-@ readRGRef :: forall <p :: a -> Bool, r :: a -> a -> Bool >.
+                    RGRef<p, r> a -> IO (a<p>) @-}
+
+-- FILE tests/neg/RG.hs:128:1
+{-@ unused_contra :: RGRef <{\x -> x > 0}, {\x y -> x <= y}> Int -> RGRef <{\x -> x > 0}, {\x y -> false}> Int @-}
+
+-- FILE tests/neg/RG.hs:133:1
+{-@ unused_covar :: RGRef <{\x -> x > 0}, {\x y -> false}> Int -> RGRef <{\x -> x > 0}, {\x y -> x <= y}> Int @-}
+
+-- FILE tests/neg/Range.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ReWrite.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ReWrite.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/ReWrite.hs:5:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/neg/ReWrite.hs:6:1
+{-@ infix ++ @-}
+
+-- FILE tests/neg/ReWrite.hs:11:1
+{-@ rewrite assoc @-}
+
+-- FILE tests/neg/ReWrite.hs:12:1
+{-@ assoc :: xs:[a] -> ys:[a] -> zs:[a] 
+          -> { xs ++ (ys ++ zs) == (xs ++ ys) ++ zs } @-}
+
+-- FILE tests/neg/ReWrite.hs:17:1
+{-@ reflect ++ @-}
+
+-- FILE tests/neg/ReWrite2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ReWrite2.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/ReWrite2.hs:5:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/neg/ReWrite2.hs:6:1
+{-@ infix ++ @-}
+
+-- FILE tests/neg/ReWrite2.hs:11:1
+{-@ rewrite assoc @-}
+
+-- FILE tests/neg/ReWrite2.hs:12:1
+{-@ assoc :: xs:[a] -> ys:[a] -> zs:[a] 
+          -> { xs ++ (ys ++ zs) == (xs ++ ys) ++ zs } @-}
+
+-- FILE tests/neg/ReWrite2.hs:17:1
+{-@ rewrite assoc' @-}
+
+-- FILE tests/neg/ReWrite2.hs:18:1
+{-@ assoc' :: xs:[a] -> ys:[a] -> zs:[a] 
+          -> { xs ++ (ys ++ zs) == (xs ++ ys) ++ zs } @-}
+
+-- FILE tests/neg/ReWrite2.hs:23:1
+{-@ reflect ++ @-}
+
+-- FILE tests/neg/ReWrite3.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ReWrite3.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/ReWrite3.hs:5:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/neg/ReWrite3.hs:6:1
+{-@ infix ++ @-}
+
+-- FILE tests/neg/ReWrite3.hs:10:1
+{-@ rewrite assoc @-}
+
+-- FILE tests/neg/ReWrite3.hs:11:1
+{-@ assoc :: xs:[a] -> ys:[a] -> zs:[a] 
+          -> { xs ++ (ys ++ zs) == (xs ++ ys) ++ zs } @-}
+
+-- FILE tests/neg/ReWrite3.hs:17:1
+{-@ assoc' :: xs:[a] -> ys:[a] -> zs:[a]
+          -> { xs ++ (ys ++ zs) == (xs ++ ys) ++ zs } @-}
+
+-- FILE tests/neg/ReWrite3.hs:22:1
+{-@ reflect ++ @-}
+
+-- FILE tests/neg/ReWrite4.hs:2:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/ReWrite4.hs:5:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/ReWrite4.hs:6:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/neg/ReWrite4.hs:7:1
+{-@ infix ++ @-}
+
+-- FILE tests/neg/ReWrite4.hs:11:1
+{-@ measure length @-}
+
+-- FILE tests/neg/ReWrite4.hs:12:1
+{-@ length :: [a] -> Int @-}
+
+-- FILE tests/neg/ReWrite4.hs:17:1
+{-@ reflect drop @-}
+
+-- FILE tests/neg/ReWrite4.hs:18:1
+{-@ drop :: Int -> [a] -> [a] @-}
+
+-- FILE tests/neg/ReWrite4.hs:24:1
+{-@ dropProof :: n : Int -> { xs : [a] | length xs >= n } -> { drop n xs = [] } @-}
+
+-- FILE tests/neg/ReWrite4.hs:30:1
+{-@ rewriteWith dropProof' [dropProof]  @-}
+
+-- FILE tests/neg/ReWrite4.hs:31:1
+{-@ dropProof' :: nn : Int -> xs : [a] -> { drop nn xs = [] } @-}
+
+-- FILE tests/neg/Rebind.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Rebind.hs:11:1
+{-@ plus :: x:Nat -> y:Nat -> {v:Nat | v = x + y} @-}
+
+-- FILE tests/neg/Rebind.hs:15:1
+{-@ test :: {v:Nat | v = 100} @-}
+
+-- FILE tests/neg/RecQSort.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/RecQSort.hs:4:1
+{-@ type OList a =  [a]<{\fld v -> (v >= fld)}>  @-}
+
+-- FILE tests/neg/RecQSort.hs:6:1
+{-@ sort3 :: (Ord a) => [a] -> OList a @-}
+
+-- FILE tests/neg/RecQSort.hs:13:1
+{-@ qsort:: (Ord a) => xs:[a] -> OList a / [(len xs), 0] @-}
+
+-- FILE tests/neg/RecQSort.hs:18:1
+{-@ qpart  :: (Ord a) => x:a -> q:[a] -> r:[{v:a | v < x}] -> p:[{v:a | v >= x}] -> OList a / [((len r)+(len q)+(len p)), ((len q)+1)]@-}
+
+-- FILE tests/neg/RecQSort.hs:27:1
+{-@ app :: Ord a => x:a -> (OList ({v:a | v < x})) -> (OList ({v:a| v >= x})) -> OList a @-}
+
+-- FILE tests/neg/RecSelector.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/RecSelector.hs:6:1
+{-@ data F a = F { fxx :: a, fy :: a, fz :: a}
+             | G { fxx :: a } 
+  @-}
+
+-- FILE tests/neg/RecSelector.hs:10:1
+{-@ fooG :: x:a -> {v : F a | (fxx v) > x} @-}
+
+-- FILE tests/neg/RecSelector.hs:14:1
+{-@ foo :: x:a -> {v : F a | (fxx v) > x} @-}
+
+-- FILE tests/neg/Record0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Record0.hs:4:1
+{-@ data LL a = BXYZ { size  :: {v: Int | v > 0 }
+                     , elems :: {v: [a] | (len v) = size }
+                     }
+  @-}
+
+-- FILE tests/neg/Record0.hs:13:1
+{-@ mk :: a -> Int -> LL a @-}
+
+-- FILE tests/neg/Record0.hs:16:1
+{-@ clone :: x:a -> n:Int -> {v:[a]| (len v) = n} @-}
+
+-- FILE tests/neg/RefCtor.hs:9:1
+{-@ type K X Y = { _:F | X = Y } @-}
+
+-- FILE tests/neg/RefCtor.hs:12:1
+{-@ LIQUID "--expect-error-containing=Refinement of the data constructor RefCtor.MkF doesn't admit an arbitrary refinements on the return type" @-}
+
+-- FILE tests/neg/RefCtor.hs:13:1
+{-@ MkF :: x:Int -> y:Int -> K x y @-}
+
+-- FILE tests/neg/RefCtor.hs:16:1
+{-@ falseProof :: { false } @-}
+
+-- FILE tests/neg/RefinedProp.hs:8:1
+{-@ MkId :: Prop (Id 12) @-}
+
+-- FILE tests/neg/RefinedProp.hs:13:1
+{-@ fail bad @-}
+
+-- FILE tests/neg/RefinedProp.hs:14:1
+{-@ bad :: { v:Prop (Id 12) | False } @-}
+
+-- FILE tests/neg/Revshape.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Revshape.hs:2:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/Revshape.hs:10:1
+{-@ measure rank @-}
+
+-- FILE tests/neg/Revshape.hs:15:1
+{-@ type DIM1 = {v:Shape | (rank v) = 1} @-}
+
+-- FILE tests/neg/Revshape.hs:16:1
+{-@ type DIM2 = {v:Shape | (rank v) = 2} @-}
+
+-- FILE tests/neg/Revshape.hs:18:1
+{-@ oneDim :: DIM1 @-}
+
+-- FILE tests/neg/Revshape.hs:21:1
+{-@ twoDim :: DIM2 @-}
+
+-- FILE tests/neg/Revshape.hs:25:1
+{-@ twoDim' :: DIM2 @-}
+
+-- FILE tests/neg/Revshape.hs:28:1
+{-@ reverseShape :: sh:Shape -> {v:Shape | (rank v) = (rank sh)} @-}
+
+-- FILE tests/neg/Revshape.hs:31:9
+        {-@ go ::  a:Shape -> b:Shape -> {v:Shape | (rank v) = (rank a) + (rank b)} @-}
+
+-- FILE tests/neg/Risers.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Risers.hs:4:1
+{-@ predicate NonNull X = ((len X) > 0) @-}
+
+-- FILE tests/neg/SafePartialFunctions.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/SinNegTest.hs:1:1
+{-@ LIQUID "--expect-error-containing=SinNegTest.hs:6:1" @-}
+
+-- FILE tests/neg/SinNegTest.hs:4:1
+{-@ test :: a -> {x:a | x > 1} @-}
+
+-- FILE tests/neg/Solver.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Solver.hs:2:1
+{-@ LIQUID "--pruneunsorted"  @-}
+
+-- FILE tests/neg/Solver.hs:3:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/Solver.hs:4:1
+{-@ LIQUID "--short-names"    @-}
+
+-- FILE tests/neg/Solver.hs:5:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/neg/Solver.hs:6:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/neg/Solver.hs:31:1
+{-@ solve :: f:Formula -> Maybe {a:Asgn | not (sat a f)} @-}
+
+-- FILE tests/neg/Solver.hs:36:1
+{-@ find :: forall <p :: a -> Bool, w :: a -> Bool -> Bool>.
+            {y::a, b::{v:Bool<w y> | v} |- {v:a | v == y} <: a<p>}
+            (x:a -> Bool<w x>) -> [a] -> Maybe (a<p>) @-}
+
+-- FILE tests/neg/Solver.hs:67:1
+{-@ reflect sat @-}
+
+-- FILE tests/neg/Solver.hs:72:1
+{-@ reflect satCls @-}
+
+-- FILE tests/neg/Solver.hs:78:1
+{-@ reflect satLit @-}
+
+-- FILE tests/neg/Solver.hs:83:1
+{-@ reflect isTrue @-}
+
+-- FILE tests/neg/Solver.hs:88:1
+{-@ reflect isFalse @-}
+
+-- FILE tests/neg/Solver.hs:93:1
+{-@ measure isVTrue @-}
+
+-- FILE tests/neg/Solver.hs:98:1
+{-@ measure isVFalse @-}
+
+-- FILE tests/neg/Solver.hs:103:1
+{-@ measure myFst @-}
+
+-- FILE tests/neg/Solver.hs:107:1
+{-@ measure mySnd @-}
+
+-- FILE tests/neg/SqrtNegTest.hs:1:1
+{-@ LIQUID "--expect-error-containing=SqrtNegTest.hs:5:1" @-}
+
+-- FILE tests/neg/Stacks.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Stacks.hs:5:1
+{-@ type DList a = [a]<{\fld v -> (v != fld)}> @-}
+
+-- FILE tests/neg/Stacks.hs:7:1
+{-@ data Stack a = St { focus  :: a    
+                      , up     :: DList {v: a | v != focus}
+                      , down   :: DList {v: a | v != focus}
+                      } 
+  @-}
+
+-- FILE tests/neg/Stacks.hs:20:1
+{-@ bad0 :: a -> Stack a @-}
+
+-- FILE tests/neg/Stacks.hs:25:1
+{-@ bad1 :: a -> Stack a @-}
+
+-- FILE tests/neg/Stacks.hs:29:1
+{-@ bad2 :: Int -> Stack Int @-}
+
+-- FILE tests/neg/Stacks.hs:33:1
+{-@ bad3 :: Int -> Stack Int @-}
+
+-- FILE tests/neg/State0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/State0.hs:6:1
+{-@ data ST a <p1 :: State -> Bool,
+               p2 :: State -> Bool> 
+     = S (x::(f:State<p1> -> (a, State<p2>)))
+  @-}
+
+-- FILE tests/neg/State0.hs:11:1
+{-@ fresh :: ST <{\v -> v>=0}, {\v -> v>=0}> Int @-}
+
+-- FILE tests/neg/State00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/State00.hs:7:1
+{-@ fresh :: ST Int {v:Int|v>=0} @-}
+
+-- FILE tests/neg/StateConstraints.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/StateConstraints.hs:6:1
+{-@ data ST s <p :: s -> Bool, q :: s -> s -> Bool> = ST (runState :: x:s<p> -> s<q x>) @-}
+
+-- FILE tests/neg/StateConstraints.hs:8:2
+ {-@ runState :: forall <p :: s -> Bool, q :: s -> s -> Bool>. ST <p, q> s -> x:s<p> -> s<q x> @-}
+
+-- FILE tests/neg/StateConstraints.hs:12:1
+{-@
+cmp :: forall < pref :: s -> Bool, postf :: s -> s -> Bool
+              , pre  :: s -> Bool, postg :: s -> s -> Bool
+              , post :: s -> s -> Bool
+              >.
+       {xx::s<pre>, w::s<postg xx> |- s<postf w> <: s<post xx>}
+       {ww::s<pre> |- s<postg ww> <: s<pref>}
+       (ST <pref, postf> s)
+    -> (ST <pre, postg> s)
+    -> (ST <pre, post> s)
+@-}
+
+-- FILE tests/neg/StateConstraints.hs:32:1
+{-@ incr :: ST <{\x -> x >= 0}, {\x v -> v = x + 1}>  Nat   @-}
+
+-- FILE tests/neg/StateConstraints.hs:37:1
+{-@ incr2 :: ST <{\x -> x >= 0}, {\x v -> v = x + 5}>  Nat  @-}
+
+-- FILE tests/neg/StateConstraints.hs:41:1
+{-@ incr3 :: ST <{\x -> x >= 0}, {\x v -> v = x + 4}>  Nat  @-}
+
+-- FILE tests/neg/StateConstraints.hs:47:1
+{-@ foo :: {v:Nat |  v = 10} @-}
+
+-- FILE tests/neg/StateConstraints0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/StateConstraints0.hs:16:1
+{-@ data ST s a <p :: s -> Bool, q :: s -> s -> Bool, r :: s -> a -> Bool>
+      = ST (runState :: x:s<p> -> (a<r x>, s<q x>)) @-}
+
+-- FILE tests/neg/StateConstraints0.hs:19:1
+{-@ runState :: forall <p :: s -> Bool, q :: s -> s -> Bool, r :: s -> a -> Bool>. ST <p, q, r> s a -> x:s<p> -> (a<r x>, s<q x>) @-}
+
+-- FILE tests/neg/StateConstraints0.hs:28:3
+  {-@ instance Monad ST s where
+        return :: forall s a <p :: s -> Bool >. x:a -> ST <p, {\s v -> v == s}, {\s v -> x == v}> s a;
+        >>= :: forall s a b  < pref :: s -> Bool, postf :: s -> s -> Bool
+                  , pre  :: s -> Bool, postg :: s -> s -> Bool
+                  , post :: s -> s -> Bool
+                  , rg   :: s -> a -> Bool
+                  , rf   :: s -> b -> Bool
+                  , r    :: s -> b -> Bool
+                  , pref0 :: a -> Bool
+                  >.
+           {x::s<pre> |- a<rg x> <: a<pref0>}
+           {x::s<pre>, y::s<postg x> |- b<rf y> <: b<r x>}
+           {xx::s<pre>, w::s<postg xx> |- s<postf w> <: s<post xx>}
+           {ww::s<pre> |- s<postg ww> <: s<pref>}
+           (ST <pre, postg, rg> s a)
+          -> (a<pref0> -> ST <pref, postf, rf> s b)
+          -> (ST <pre, post, r> s b) ;
+        >>  :: forall s a b  < pref :: s -> Bool, postf :: s -> s -> Bool
+                  , pre  :: s -> Bool, postg :: s -> s -> Bool
+                  , post :: s -> s -> Bool
+                  , rg   :: s -> a -> Bool
+                  , rf   :: s -> b -> Bool
+                  , r    :: s -> b -> Bool
+                  >.
+           {x::s<pre>, y::s<postg x> |- b<rf y> <: b<r x>}
+           {xx::s<pre>, w::s<postg xx> |- s<postf w> <: s<post xx>}
+           {ww::s<pre> |- s<postg ww> <: s<pref>}
+           (ST <pre, postg, rg> s a)
+          -> (ST <pref, postf, rf> s b)
+          -> (ST <pre, post, r> s b)
+
+    @-}
+
+-- FILE tests/neg/StateConstraints0.hs:69:1
+{-@ incr :: ST <{\x -> true}, {\x v -> v = x + 1}, {\x v -> v = x}>  Int Int @-}
+
+-- FILE tests/neg/StateConstraints0.hs:73:1
+{-@ foo :: ST <{\x -> true}, {\x v -> true}, {\x v -> v = 0}>  Bool Int @-}
+
+-- FILE tests/neg/StateConstraints0.hs:77:1
+{-@ incr2 :: ST <{\x -> true}, {\x v -> v = x + 3}, {\x v -> v = x + 2}>  Int Int @-}
+
+-- FILE tests/neg/StateConstraints0.hs:83:1
+{-@ run :: ({v:Int |  v = 1}, {v:Int |  v = 2}) @-}
+
+-- FILE tests/neg/StateConstraints0.hs:88:1
+{-@
+cmp :: forall < pref :: s -> Bool, postf :: s -> s -> Bool
+              , pre  :: s -> Bool, postg :: s -> s -> Bool
+              , post :: s -> s -> Bool
+              , rg   :: s -> a -> Bool
+              , rf   :: s -> b -> Bool
+              , r    :: s -> b -> Bool
+              >.
+       {x::s<pre>, y::s<postg x> |- b<rf y> <: b<r x>}
+       {xx::s<pre>, w::s<postg xx> |- s<postf w> <: s<post xx>}
+       {ww::s<pre> |- s<postg ww> <: s<pref>}
+       (ST <pre, postg, rg> s a)
+    -> (ST <pref, postf, rf> s b)
+    -> (ST <pre, post, r> s b)
+@-}
+
+-- FILE tests/neg/StateConstraints0.hs:110:1
+{-@
+bind :: forall < pref :: s -> Bool, postf :: s -> s -> Bool
+              , pre  :: s -> Bool, postg :: s -> s -> Bool
+              , post :: s -> s -> Bool
+              , rg   :: s -> a -> Bool
+              , rf   :: s -> b -> Bool
+              , r    :: s -> b -> Bool
+              , pref0 :: a -> Bool
+              >.
+       {x::s<pre> |- a<rg x> <: a<pref0>}
+       {x::s<pre>, y::s<postg x> |- b<rf y> <: b<r x>}
+       {xx::s<pre>, w::s<postg xx> |- s<postf w> <: s<post xx>}
+       {ww::s<pre> |- s<postg ww> <: s<pref>}
+       (ST <pre, postg, rg> s a)
+    -> (a<pref0> -> ST <pref, postf, rf> s b)
+    -> (ST <pre, post, r> s b)
+@-}
+
+-- FILE tests/neg/StateConstraints00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/StateConstraints00.hs:12:1
+{-@ data ST s a <r :: a -> Bool>
+      = ST (runState :: x:s -> (a<r>, s)) @-}
+
+-- FILE tests/neg/StateConstraints00.hs:15:1
+{-@ runState :: forall <r :: a -> Bool>. ST <r> s a -> x:s -> (a<r>, s) @-}
+
+-- FILE tests/neg/StateConstraints00.hs:23:3
+  {-@ instance Foo ST s where
+        return :: forall s a. x:a -> ST <{\v -> x == v}> s a
+    @-}
+
+-- FILE tests/neg/StateConstraints00.hs:29:1
+{-@ foo :: w:a -> ST <{v:a | v > w}>  Bool a @-}
+
+-- FILE tests/neg/StrictPair0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/StrictPair0.hs:6:1
+{-@ measure tsnd @-}
+
+-- FILE tests/neg/StrictPair0.hs:10:1
+{-@ type Foo  a = ((a, Int), Int)<{\z v -> v <= (tsnd z)}> @-}
+
+-- FILE tests/neg/StrictPair0.hs:12:1
+{-@ poo :: a -> Int -> (Foo a) @-}
+
+-- FILE tests/neg/StrictPair1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/StrictPair1.hs:18:1
+{-@ qualif PSnd(v: a, x:b) { v = (psnd x)                             } @-}
+
+-- FILE tests/neg/StrictPair1.hs:20:1
+{-@ data PairS a b <p :: x0:a -> b -> Bool> = (:*:) { spX ::a, spY ::b<p spX> }  @-}
+
+-- FILE tests/neg/StrictPair1.hs:22:1
+{-@ measure pfst @-}
+
+-- FILE tests/neg/StrictPair1.hs:26:1
+{-@ measure psnd @-}
+
+-- FILE tests/neg/StrictPair1.hs:30:1
+{-@ type FooS a = PairS <{\z v -> v <= (psnd z)}> (PairS a Int) Int @-}
+
+-- FILE tests/neg/StrictPair1.hs:32:1
+{-@ moo :: a -> Int -> (FooS a) @-}
+
+-- FILE tests/neg/String00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Strings.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Strings.hs:8:1
+{-@ bar :: () -> {x:String | x ~~ "boo"} @-}
+
+-- FILE tests/neg/SumPoly.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/SumPoly.hs:4:1
+{-@ sumPoly :: forall <p ::a -> Bool>. (Num a, Ord a) => [a<p>] -> a<p> @-}
+
+-- FILE tests/neg/Sumk.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1095C.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1095C.hs:2:1
+{-@ LIQUID "--max-case-expand=0" @-}
+
+-- FILE tests/neg/T1095C.hs:3:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/T1095C.hs:12:1
+{-@ measure size @-}
+
+-- FILE tests/neg/T1095C.hs:13:1
+{-@ size :: z:Foo -> {v:Nat | v > size z} @-}
+
+-- FILE tests/neg/T1126.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1126.hs:12:1
+{-@ instance OptEq a where 
+      ==. :: x:a -> y:{a| x == y} -> a
+  @-}
+
+-- FILE tests/neg/T1126.hs:23:1
+{-@ instance OptEq2 a where 
+      cmp :: x:a -> y:{a| x == y} -> a
+  @-}
+
+-- FILE tests/neg/T1126.hs:33:1
+{-@ ok :: x:Int -> {v:Int | v = x} -> Int @-}
+
+-- FILE tests/neg/T1198_3.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1198_3.hs:4:1
+{-@ data Tree [sz] @-}
+
+-- FILE tests/neg/T1198_3.hs:7:1
+{-@ measure sz @-}
+
+-- FILE tests/neg/T1286.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1286.hs:4:1
+{-@ fails :: {v:Bool | v} @-}
+
+-- FILE tests/neg/T1286.hs:7:1
+{-@ ok :: {v:Bool | v} @-}
+
+-- FILE tests/neg/T1288.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1288.hs:4:1
+{-@ measure foo @-}
+
+-- FILE tests/neg/T1288.hs:8:1
+{-@ blub :: {v:Int | v = 100} @-}
+
+-- FILE tests/neg/T1490.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1490.hs:7:1
+{-@ data U a = U {unU :: a -> ()} @-}
+
+-- FILE tests/neg/T1490.hs:14:1
+{-@ bad :: x:U a -> y:Id a -> {x /= x} @-}
+
+-- FILE tests/neg/T1490.hs:19:1
+{-@ ok0 :: x:U a -> y:Id a -> () @-}
+
+-- FILE tests/neg/T1490.hs:24:1
+{-@ ok1 :: x:U a -> y:a -> {x /= x} @-}
+
+-- FILE tests/neg/T1490A.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1490A.hs:6:1
+{-@ autosize LTT @-}
+
+-- FILE tests/neg/T1490A.hs:7:1
+{-@ data LTT = Pi { piTyA :: Embed LTT, piTyB :: LTT }
+             | Universe
+             | Var @-}
+
+-- FILE tests/neg/T1490A.hs:14:1
+{-@ measure isLttDev @-}
+
+-- FILE tests/neg/T1490A.hs:23:1
+{-@ fb :: Bool -> Nat @-}
+
+-- FILE tests/neg/T1490A.hs:27:1
+{-@ foo :: B -> Nat @-}
+
+-- FILE tests/neg/T1498.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1498.hs:8:1
+{-@ instance FromTo Int where 
+      from :: Int -> {v:Int | 0 <= v };
+      to   :: {v:Int | 0 <= v } -> Int 
+@-}
+
+-- FILE tests/neg/T1498.hs:21:1
+{-@ instance A Int where
+      f :: Int -> {x : Int | 0 < x}
+  @-}
+
+-- FILE tests/neg/T1498.hs:27:1
+{-@ g :: Int -> {n : Int | 0 < n} @-}
+
+-- FILE tests/neg/T1498A.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1498A.hs:9:1
+{-@ class FromTo a where 
+      from :: a -> {v:Int | 10 <= v } 
+      to   :: Int -> a  
+  @-}
+
+-- FILE tests/neg/T1498A.hs:15:1
+{-@ instance FromTo Int where 
+      from :: Int -> {v:Int | 0 <= v };
+      to   :: x:{Int | 0 <= x } -> {v:Int | v ==  x} 
+  @-}
+
+-- FILE tests/neg/T1546.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1546.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/T1546.hs:3:1
+{-@ LIQUID "--rankNTypes" @-}
+
+-- FILE tests/neg/T1546.hs:11:1
+{-@ reflect first @-}
+
+-- FILE tests/neg/T1546.hs:16:1
+{-@ lemma :: g:((a,z) -> (b,z)) -> x:(a,z) -> {v:() | g x == first (fOfG g) x } @-}
+
+-- FILE tests/neg/T1546.hs:20:1
+{-@ reflect fOfG @-}
+
+-- FILE tests/neg/T1553.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1553.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/T1553.hs:7:1
+{-@ assume negPos :: (a -> {v:() | 0 == 1 }) -> {v:() | 0 == 1 } @-}
+
+-- FILE tests/neg/T1553.hs:11:1
+{-@ testBad :: a -> {v:() | 0 == 1 } @-}
+
+-- FILE tests/neg/T1553.hs:14:1
+{-@ getUnsound :: () -> {v:() | 0 == 1 } @-}
+
+-- FILE tests/neg/T1553.hs:19:1
+{-@ posPos :: a -> {v:() | 0 == 1 } -> {v:() | 0 == 1 } @-}
+
+-- FILE tests/neg/T1553.hs:23:1
+{-@ testOK :: a -> {v:() | 0 == 1 } @-}
+
+-- FILE tests/neg/T1553A.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1553A.hs:2:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/neg/T1553A.hs:3:1
+{-@ LIQUID "--extensionality" @-}
+
+-- FILE tests/neg/T1553A.hs:7:1
+{-@ assume extensionality :: f:(a -> b) -> g:(a -> b) -> (x:a -> { f x == g x }) -> {f == g} @-}
+
+-- FILE tests/neg/T1553A.hs:12:1
+{-@ bar :: f:(a -> b) -> g:(a -> b) -> {f == g} @-}
+
+-- FILE tests/neg/T1555.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1555.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/T1555.hs:3:1
+{-@ LIQUID "--rankNTypes" @-}
+
+-- FILE tests/neg/T1555.hs:14:1
+{-@ unsound :: ForAll a -> {v:ForAll a | false } @-}
+
+-- FILE tests/neg/T1577.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1577.hs:2:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/neg/T1577.hs:3:1
+{-@ LIQUID "--extensionality" @-}
+
+-- FILE tests/neg/T1577.hs:4:1
+{-@ LIQUID "--ple"            @-}
+
+-- FILE tests/neg/T1577.hs:10:1
+{-@ reflect plus1 @-}
+
+-- FILE tests/neg/T1577.hs:11:1
+{-@ reflect plus1' @-}
+
+-- FILE tests/neg/T1577.hs:16:1
+{-@ thm1 :: () -> { plus1' /= plus1 } @-}
+
+-- FILE tests/neg/T1577.hs:20:1
+{-@ reflect first @-}
+
+-- FILE tests/neg/T1577.hs:26:1
+{-@ thm2 :: f:(a -> b) -> g:(b -> c) -> { (first g) . (first f) /= first (g . f) } @-}
+
+-- FILE tests/neg/T1577.hs:32:1
+{-@ thm3 :: f:(a -> b) -> g:(a -> b) -> { first f == first g => f /= g } @-}
+
+-- FILE tests/neg/T1604.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1604.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/T1604.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/neg/T1604.hs:7:1
+{-@ data Val = V { val :: Int } @-}
+
+-- FILE tests/neg/T1604.hs:8:1
+{-@ type ValN N = {v:Val | val v == N} @-}
+
+-- FILE tests/neg/T1604.hs:10:1
+{-@ reflect ex1 @-}
+
+-- FILE tests/neg/T1604.hs:11:1
+{-@ ex1 :: ValN 5 @-}
+
+-- FILE tests/neg/T1604.hs:16:1
+{-@ test1 :: {v:Bool | v} @-}
+
+-- FILE tests/neg/T1604.hs:19:1
+{-@ test2 :: () -> {v:() | val ex1 == 6} @-}
+
+-- FILE tests/neg/T1604.hs:22:1
+{-@ test3 :: () -> {v:() | 1 == 2} @-}
+
+-- FILE tests/neg/T1613.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1613.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/T1613.hs:9:1
+{-@ reflect myid @-}
+
+-- FILE tests/neg/T1613.hs:13:1
+{-@ data MyApplicative f = CMyApplicative
+      { p1MyApplicative :: MyFunctor f
+      , myprop :: forall a b. x:f a -> f:(a -> b) -> {myid x /= x}
+      } @-}
+
+-- FILE tests/neg/T1642A.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1642A.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/T1642A.hs:11:1
+{-@ measure eqT :: a -> a -> Bool @-}
+
+-- FILE tests/neg/T1642A.hs:12:1
+{-@ type EqRT a E1 E2 = {v:EqT a | eqT E1 E2} @-}
+
+-- FILE tests/neg/T1642A.hs:15:1
+{-@ eqSMT :: Eq a => w:a -> x:a -> y:a -> {v:() | x == y} -> EqRT a {x} {w} @-}
+
+-- FILE tests/neg/T1642A.hs:19:1
+{-@ eqFun :: w:(a -> b) -> f:(a -> b) -> g:(a -> b) 
+          -> (x:a -> {v:EqT b | eqT (f x) (g x)}) -> EqRT (a -> b) {f} {w}  @-}
+
+-- FILE tests/neg/T1642A.hs:25:1
+{-@
+data EqT :: * -> * where 
+   EqSMT  :: Eq a => x:a -> y:a -> {v:() | x == y} -> EqRT a {x} {y}   
+   EqFun  :: f:(a -> b) -> g:(a -> b) -> (x:a -> {v:EqT b | eqT (f x) (g x)}) -> EqRT (a -> b) {f} {g}
+@-}
+
+-- FILE tests/neg/T1657.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1657.hs:4:1
+{-@ data I <p :: Int -> Bool> = I _ @-}
+
+-- FILE tests/neg/T1657.hs:7:1
+{-@ getI :: forall <p :: Int -> Bool>. 
+             { {x: Int<p> | True} <: {x:Int | x > 0} }
+             I <p>
+@-}
+
+-- FILE tests/neg/T1657.hs:14:1
+{-@ shouldPass :: I<{\z -> true}> @-}
+
+-- FILE tests/neg/T1657A.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1657A.hs:4:1
+{-@ data I <pigbert :: Int -> Bool> = I Int @-}
+
+-- FILE tests/neg/T1657A.hs:7:1
+{-@ getI :: forall <pp :: Int -> Bool>. 
+             { bloop :: Int <pp> |- {v: Int | v = bloop} <: {v:Int | v > 1984} }
+             I <pp>
+@-}
+
+-- FILE tests/neg/T1657A.hs:16:1
+{-@ pleaseFail :: I<{\_ -> True}> @-}
+
+-- FILE tests/neg/T1659.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1659.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/T1659.hs:6:1
+{-@
+data LWW  = LWW {
+    lwwTime  :: Int
+  }
+@-}
+
+-- FILE tests/neg/T1659.hs:19:1
+{-@ claw :: x : Operation LWW -> { x /= x} @-}
+
+-- FILE tests/neg/T1659.hs:24:1
+{-@ claw2 :: x : LWW -> { x /= x} @-}
+
+-- FILE tests/neg/T1659.hs:29:1
+{-@ claw3 :: x : Operation LWW -> { x /= x} @-}
+
+-- FILE tests/neg/T1814.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1814.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/neg/T1814.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/neg/T1814.hs:17:1
+{-@ exec :: c:Code -> (a::Acc, {m:Mem Int | validMem m c a}) -> Config @-}
+
+-- FILE tests/neg/T1814.hs:23:1
+{-@ reflect validMem @-}
+
+-- FILE tests/neg/T1814.hs:29:1
+{-@ type ValidCode = {c:Code | validMem MEmp c 0 } @-}
+
+-- FILE tests/neg/T1814.hs:30:1
+{-@ code :: ValidCode  @-}
+
+-- FILE tests/neg/T1814.hs:35:1
+{-@ reflect get   @-}
+
+-- FILE tests/neg/T1814.hs:41:1
+{-@ measure memAddrs @-}
+
+-- FILE tests/neg/T1814.hs:46:1
+{-@ get :: addr : Int -> { mem : Mem v | S.member addr (memAddrs mem) } -> v @-}
+
+-- FILE tests/neg/T1907.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T1907.hs:7:1
+{-@ foldr' :: forall <inv :: [a] -> b -> Bool>.
+              (a -> b -> b) -> b<inv []> -> xs:[a] -> b<inv xs>
+  @-}
+
+-- FILE tests/neg/T1907.hs:12:5
+    {-@ go :: forall <inv :: [a] -> b -> Bool>.
+              xs:[a] -> b<inv xs>
+      @-}
+
+-- FILE tests/neg/T1907.hs:19:1
+{-@ mlength :: zs:[a] -> {v:_ | v == 42 * (len zs) } @-}
+
+-- FILE tests/neg/T602.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T602.hs:5:1
+{-@
+class Fractional a => Foo a where
+    foo :: { x : a | x /= 0.0 } -> a
+@-}
+
+-- FILE tests/neg/T743.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T743.hs:4:1
+{-@ checkNat :: Nat -> Int @-}
+
+-- FILE tests/neg/T743_mini.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/T743_mini.hs:4:1
+{-@ bar :: Nat @-}
+
+-- FILE tests/neg/T743_mini.hs:12:1
+{-@ mkDict :: Foo Int -> Dict @-}
+
+-- FILE tests/neg/T743_mini.hs:19:1
+{-@ readListPrecDefault :: Dict -> Foo Int @-}
+
+-- FILE tests/neg/TermReal.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/TermReal.hs:4:1
+{-@ search :: { hi : Int | 0 < hi } -> Int @-}
+
+-- FILE tests/neg/TerminationNum.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/TerminationNum.hs:4:1
+{-@ fak2 :: (Ord a, Eq a, Num a) => y:{x: a | x >= 0} -> a /[y]@-}
+
+-- FILE tests/neg/TerminationNum0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/TerminationNum0.hs:4:1
+{-@fak2 :: (Ord a, Eq a, Num a) => {x: a | x >= 0} -> a @-}
+
+-- FILE tests/neg/TerminationNum0.hs:10:1
+{-@ fak :: {x: Int | x >= 0} -> a -> Int @-}
+
+-- FILE tests/neg/TerminationNum0.hs:16:1
+{-@ fak1 :: {x: Int | x >= 0} -> a -> Int @-}
+
+-- FILE tests/neg/Test00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Test00a.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Test00b.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Test00c.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Test00c.hs:4:1
+{-@ ok
+      :: Int -> Nat
+  @-}
+
+-- FILE tests/neg/Test00c.hs:10:1
+{-@ inc :: Int -> Nat @-}
+
+-- FILE tests/neg/Test1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Test2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/TopLevel.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/TotalHaskell.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/TotalHaskell.hs:7:1
+{-@ LIQUID "--total-Haskell"   @-}
+
+-- FILE tests/neg/TotalHaskell.hs:8:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/neg/Trans.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Trans.hs:4:1
+{-@ assert compre :: xs:[a] -> {v:[(a,a)] | len(v) = len(xs) } @-}
+
+-- FILE tests/neg/Trans.hs:7:1
+{-@ assert transpose :: n: Int -> [{v:[a] | len(v) = n}] -> {v: [[a]] | len(v) > n} @-}
+
+-- FILE tests/neg/Truespec.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Truespec.hs:6:1
+{-@ foo :: Int -> Int @-}
+
+-- FILE tests/neg/Tyclass0_unsafe.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Tyclass0_unsafe.hs:8:1
+{-@ zoom :: (Zog a) => a -> Int @-}
+
+-- FILE tests/neg/Tyclass0_unsafe.hs:11:1
+{-@ poop :: (Zog a) => a -> Nat @-}
+
+-- FILE tests/neg/TypeLitNat.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/TypeLitNat.hs:27:1
+{-@ Small :: forall (s :: Nat). {v:Int | s ~~ v } -> MI s @-}
+
+-- FILE tests/neg/Variance.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Variance.hs:4:1
+{-@ data variance Foo invariant bivariant covariant contravariant @-}
+
+-- FILE tests/neg/Variance.hs:7:1
+{-@ check_covariant :: Foo a b {v:Int | v > 0} c -> Foo a b {v:Int | v = 1} c @-}
+
+-- FILE tests/neg/Variance.hs:11:1
+{-@ check_contravariant :: Foo a b c {v:Int | v = 1} -> Foo a b c {v:Int | v > 0 } @-}
+
+-- FILE tests/neg/Variance.hs:15:1
+{-@ check_bivariant :: Foo a {v: Int | v > 0 } c d -> Foo a {v:Int | ((v > 0) && (v < 2))} c d @-}
+
+-- FILE tests/neg/Variance.hs:20:1
+{-@ check_invariant :: Foo {v: Int | v = 1} b c d -> Foo {v:Int | ((v > 0) && (v < 3))} b c d @-}
+
+-- FILE tests/neg/Variance1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Variance1.hs:7:1
+{-@ assume error :: { x : String | false } -> a @-}
+
+-- FILE tests/neg/Vector00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Vector0a.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Vector1a.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Vector2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Vector2.hs:8:1
+{-@ predicate Lt X Y      = X < Y                         @-}
+
+-- FILE tests/neg/Vector2.hs:9:1
+{-@ predicate Ge X Y      = not (Lt X Y)                  @-}
+
+-- FILE tests/neg/Vector2.hs:10:1
+{-@ predicate InBound I A = ((Ge I 0) && (Lt I (vlen A))) @-}
+
+-- FILE tests/neg/Vector2.hs:12:1
+{-@ unsafeLookup :: vec:Vector a 
+                 -> {v: Int | (0 <= v && v < (vlen vec)) } 
+                 -> a @-}
+
+-- FILE tests/neg/Vector2.hs:17:1
+{-@ unsafeLookup' :: vec:Vector a -> {v: Int | (InBound v vec)} -> a @-}
+
+-- FILE tests/neg/Vector2.hs:24:1
+{-@ absoluteSum   :: Vector Int -> {v: Int | 0 <= v}  @-}
+
+-- FILE tests/neg/Vector2.hs:46:1
+{-@ dotProduct :: x:(Vector Int) 
+               -> y:{v: Vector Int | (vlen x) = (vlen x)} 
+               -> Int 
+  @-}
+
+-- FILE tests/neg/Vector2.hs:56:1
+{-@ type SparseVector a N = [({v: Int | (0 <= v && v <= N)}, a)] @-}
+
+-- FILE tests/neg/Vector2.hs:58:1
+{-@ sparseDotProduct :: (Num a) => x:(Vector a) -> (SparseVector a {(vlen x)}) -> a @-}
+
+-- FILE tests/neg/VerifiedNum.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/VerifiedNum.hs:13:1
+{-@ predicate BoundInt X = 0 < X + 10000 && X < 10000 @-}
+
+-- FILE tests/neg/VerifiedNum.hs:15:1
+{-@ type OkInt N = {v:Int | BoundInt N => v == N} @-}
+
+-- FILE tests/neg/VerifiedNum.hs:17:1
+{-@ type ValidInt = {v:Int | BoundInt v} @-}
+
+-- FILE tests/neg/VerifiedNum.hs:21:1
+{-@ instance VerifiedNum Int where
+      + :: x:Int -> y:Int -> OkInt {x + y}
+  @-}
+
+-- FILE tests/neg/VerifiedNum.hs:25:1
+{-@ instance VerifiedNum Int where
+      - :: x:Int -> y:Int -> OkInt {x - y}
+  @-}
+
+-- FILE tests/neg/VerifiedNum.hs:31:1
+{-@ good :: {v:Int | v == 10} @-}
+
+-- FILE tests/neg/Wrap0.hs:2:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Wrap0.hs:7:1
+{-@ data Foo a <p :: a -> Bool> = F (f :: a <p>) @-}
+
+-- FILE tests/neg/Wrap0.hs:12:1
+{-@ assert flibberty :: (Eq a) => a -> Bool @-}
+
+-- FILE tests/neg/Wrap0.hs:16:1
+{-@ assert flibInt :: (Num a, Ord a) => a -> Bool @-}
+
+-- FILE tests/neg/Wrap0.hs:20:1
+{-@ assert flibXs :: a -> Bool @-}
+
+-- FILE tests/neg/Wrap1.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/neg/Wrap1.hs:19:1
+{-@ assert flibXs :: a -> Bool @-}
+
+-- FILE tests/neg/Wrap1.hs:24:1
+{-@ assert nflibXs :: Int -> a -> Bool @-}
+

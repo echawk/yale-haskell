@@ -1,0 +1,28 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/parsing-errors/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/parsing-errors/EmptySig.hs:2:1
+{-@ LIQUID "--expect-error-containing=Cannot parse specification" @-}
+
+-- FILE tests/parsing-errors/EmptySig.hs:6:1
+{-@  :: foo -> x:Int -> {v:Int | v > x} @-}
+
+-- FILE tests/parsing-errors/ParseBind.hs:5:1
+{-@ id :: Foo:Int -> Int  @-}
+
+-- FILE tests/parsing-errors/ParseClass.hs:4:1
+{-@ class Foo where
+      foo :: x:a -> {v:a | v = x}
+  @-}
+
+-- FILE tests/parsing-errors/ParseClass.hs:10:3
+  {-@ instance Foo Int where
+       foo :: x:Int -> {v:Int | v = x + 1 == 9} @-}
+
+-- FILE tests/parsing-errors/ParseClass.hs:15:3
+  {-@ instance Foo Integer where
+       foo :: x:Integer -> {v:Integer | v = x + 1} @-}
+
+-- FILE tests/parsing-errors/app/Main.hs:2:1
+{-@ id :: Foo:Int -> Int @-}
+

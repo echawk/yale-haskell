@@ -1,0 +1,32 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/refcore/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/refcore/Half.hs:1:1
+{-@ LIQUID "--refcore" @-}
+
+-- FILE tests/refcore/Half.hs:2:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/refcore/Half.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/refcore/Half.hs:10:1
+{-@ data Nats where
+        Zero :: Nats
+        Suc :: n:Nats -> Nats @-}
+
+-- FILE tests/refcore/Half.hs:18:1
+{-@ reflect even @-}
+
+-- FILE tests/refcore/Half.hs:19:1
+{-@ even:: n:Nats -> Bool @-}
+
+-- FILE tests/refcore/Half.hs:24:1
+{-@ reflect half @-}
+
+-- FILE tests/refcore/Half.hs:25:1
+{-@ half:: n:{n:Nats | even n} -> Nats @-}
+
+-- FILE tests/refcore/Half.hs:30:1
+{-@ surprise:: {half (Suc (Suc (Suc Zero))) == Suc Zero} @-}
+

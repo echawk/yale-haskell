@@ -1,0 +1,9 @@
+#!/bin/sh
+# Run the yale-liquid tests (tests/liquid/README.md).  Exit status 0 when
+# they pass.  $SBCL picks the Lisp (default sbcl).
+cd "$(dirname "$0")/../.." || exit 2
+exec ${SBCL:-sbcl} --dynamic-space-size 4096 --non-interactive --no-userinit \
+  --eval '(require :asdf)' \
+  --eval '(asdf:load-asd (merge-pathnames "yale-liquid.asd" (uiop:getcwd)))' \
+  --eval '(handler-bind ((warning (function muffle-warning))) (asdf:load-system :yale-liquid/test))' \
+  --eval '(uiop:quit (if (uiop:symbol-call :yale-liquid-tests :run-all) 0 1))'

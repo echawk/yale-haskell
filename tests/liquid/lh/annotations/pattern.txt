@@ -1,0 +1,99 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/pattern/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/pattern/pos/ANF.hs:1:1
+{-@ LIQUID "--no-termination"    @-}
+
+-- FILE tests/pattern/pos/ANF.hs:32:1
+{-@ measure isImm @-}
+
+-- FILE tests/pattern/pos/ANF.hs:43:1
+{-@ measure isAnf @-}
+
+-- FILE tests/pattern/pos/ANF.hs:52:1
+{-@ type AnfExpr = {v:Expr | isAnf v} @-}
+
+-- FILE tests/pattern/pos/ANF.hs:55:1
+{-@ type ImmExpr = {v:Expr | isImm v} @-}
+
+-- FILE tests/pattern/pos/ANF.hs:64:1
+{-@ anf :: Expr -> AnfM AnfExpr @-}
+
+-- FILE tests/pattern/pos/ANF.hs:91:1
+{-@ mkLet :: [(Var, AnfExpr)] -> AnfExpr -> AnfExpr @-}
+
+-- FILE tests/pattern/pos/ANF.hs:96:1
+{-@ imm :: Expr -> AnfM ([(Var, AnfExpr)], ImmExpr) @-}
+
+-- FILE tests/pattern/pos/ANF.hs:105:1
+{-@ immExpr :: Expr -> AnfM ([(Var, AnfExpr)], ImmExpr) @-}
+
+-- FILE tests/pattern/pos/ANF.hs:120:1
+{-@ fresh :: AnfM Var @-}
+
+-- FILE tests/pattern/pos/Contra0.hs:1:1
+{-@ LIQUID "--no-termination"    @-}
+
+-- FILE tests/pattern/pos/Contra0.hs:2:1
+{-@ LIQUID "--short-names"       @-}
+
+-- FILE tests/pattern/pos/Contra0.hs:10:1
+{-@ data variance IO bivariant @-}
+
+-- FILE tests/pattern/pos/Contra0.hs:11:1
+{-@ data variance IORef bivariant @-}
+
+-- FILE tests/pattern/pos/Invariants.hs:3:1
+{-@ LIQUID "--no-termination"    @-}
+
+-- FILE tests/pattern/pos/Invariants.hs:4:1
+{-@ LIQUID "--short-names"       @-}
+
+-- FILE tests/pattern/pos/Invariants.hs:14:1
+{-@ data variance IO bivariant @-}
+
+-- FILE tests/pattern/pos/Invariants.hs:23:1
+{-@ data variance IORef bivariant @-}
+
+-- FILE tests/pattern/pos/Invariants.hs:25:1
+{-@ data variance Foo invariant bivariant covariant contravariant @-}
+
+-- FILE tests/pattern/pos/Invariants.hs:27:1
+{-@ job' :: IORef {v:Int |  v = 4} -> IO () @-}
+
+-- FILE tests/pattern/pos/Invariants.hs:33:1
+{-@ bind :: Monad m => m a -> (a -> m b) -> m b @-}
+
+-- FILE tests/pattern/pos/Monad7.hs:5:1
+{-@ type OList a = [a]<{\fld v -> (v >= fld)}> @-}
+
+-- FILE tests/pattern/pos/Monad7.hs:6:1
+{-@ gpp :: (Ord a, Monad m) => [a] -> m (OList a) @-}
+
+-- FILE tests/pattern/pos/Monad7.hs:10:1
+{-@ gpp' :: (Ord a, Monad m) => [a] -> m (OList a) @-}
+
+-- FILE tests/pattern/pos/Monad7.hs:16:1
+{-@ insertSort :: (Ord a) => xs:[a] -> OList a @-}
+
+-- FILE tests/pattern/pos/MultipleInvariants.hs:8:1
+{-@ measure sizeOf :: forall a . Ptr a -> Int @-}
+
+-- FILE tests/pattern/pos/MultipleInvariants.hs:10:1
+{-@ invariant {v:Ptr Word16 | sizeOf v = 2} @-}
+
+-- FILE tests/pattern/pos/MultipleInvariants.hs:11:1
+{-@ invariant {v:Ptr Word32 | sizeOf v = 4} @-}
+
+-- FILE tests/pattern/pos/MultipleInvariants.hs:13:1
+{-@ bar :: p:_ -> {v:_ | sizeOf p == 4 } @-}
+
+-- FILE tests/pattern/pos/MultipleInvariants.hs:17:1
+{-@ foo :: p:_ -> {v:_ | sizeOf p == 2 } @-}
+
+-- FILE tests/pattern/pos/Return00.hs:6:1
+{-@ silly :: (Monad m) => m Int @-}
+
+-- FILE tests/pattern/pos/Return01.hs:4:1
+{-@ silly :: IO {v:Int | v = 0} @-}
+

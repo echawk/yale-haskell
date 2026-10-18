@@ -1,0 +1,1214 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/strings/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/strings/neg/StringIndexingStep1.hs:7:1
+{-@ LIQUID "--totality"        @-}
+
+-- FILE tests/strings/neg/StringIndexingStep1.hs:8:1
+{-@ LIQUID "--stringtheory"    @-}
+
+-- FILE tests/strings/neg/StringIndexingStep1.hs:25:1
+{-@ MI :: input:s 
+       -> [{i:Int |	 subString input i (stringLen target)  == target }]
+       -> MI s @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:1:1
+{-@ LIQUID "--higherorder"         @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:2:1
+{-@ LIQUID "--totality"            @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:11:1
+{-@ divideAndQunquer
+     :: f:(List i -> List o)
+     -> thm:(x1:List i -> x2:List i -> {f (append x1 x2) == append (f x1) (f x2)} )
+     -> is:List i 
+     -> n:Int 
+     -> m:Int 
+     -> {f is == pmconcat m (map f (chunk n is))}
+     / [llen is] 
+  @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:33:1
+{-@ distributeInput
+     :: f:(List i -> List o)
+     -> thm:(x1:List i -> x2:List i -> {f (append x1 x2) == append (f x1) (f x2)} )
+     -> is:List i 
+     -> n:Int 
+     -> {f is == mconcat (map f (chunk n is))}
+     / [llen is] 
+  @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:70:1
+{-@ pmconcatEquivalence :: i:Int -> is:List (List a) 
+    -> {pmconcat i is == mconcat is} 
+    / [llen is] @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:112:1
+{-@ data List [llen] a = N | C {lhead :: a, ltail :: List a} @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:116:1
+{-@ measure llen @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:117:1
+{-@ llen :: List a -> Nat @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:127:1
+{-@ reflect map @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:128:1
+{-@ map :: (a -> b) -> xs:List a -> {v:List b | llen v == llen xs } @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:133:1
+{-@ reflect chunk @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:134:1
+{-@ chunk :: i:Int -> xs:List a -> {v:List (List a) | if (i <= 1 || llen xs <= i) then (llen v == 1) else (llen v < llen xs) } / [llen xs] @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:144:1
+{-@ reflect drop @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:145:1
+{-@ drop :: i:Nat -> xs:{List a | i <= llen xs } -> {v:List a | llen v == llen xs - i } @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:154:1
+{-@ reflect take @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:155:1
+{-@ take :: i:Nat -> xs:{List a | i <= llen xs } -> {v:List a | llen v == i} @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:166:1
+{-@ reflect mconcat @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:172:1
+{-@ reflect pmconcat @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:174:1
+{-@ pmconcat :: i:Int -> is:List (List a) -> List a  /[llen is] @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:186:1
+{-@ reflect append @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:199:1
+{-@ appendRightIdentity :: xs:List a -> { append xs N == xs } @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:210:1
+{-@ appendAssoc :: x:List a -> y:List a -> z:List a 
+  -> {append (append x y) z == append x (append y z)} @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:230:1
+{-@ mconcatAssocOne :: i:Nat -> xs:{List (List a) | i <= llen xs} 
+     -> {mconcat xs == append (mconcat (take i xs)) (mconcat (drop i xs))}
+     /[i]
+  @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:264:1
+{-@ mconcatAssoc :: 
+    i:Int -> xs:List (List a) 
+  -> { mconcat xs == mconcat (map mconcat (chunk i xs))}
+  /  [llen xs] @-}
+
+-- FILE tests/strings/pos/DivideAndQunquer.hs:293:1
+{-@ appendTakeDrop :: i:Nat -> xs:{List a | i <= llen xs} 
+  -> {xs == append (take i xs) (drop i xs) }  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:1:1
+{-@ LIQUID "--higherorder"     @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:69:1
+{-@ assume todo :: {v:a | false} @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:75:1
+{-@ measure proofBool :: Proof -> Bool @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:78:1
+{-@ (==>) :: p:Proof
+          -> q:Proof
+          -> {v:Proof |
+          ((Prop (proofBool p)) && (Prop (proofBool p) => Prop (proofBool q)))
+          =>
+          ((Prop (proofBool p) && Prop (proofBool q)))
+          } @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:89:1
+{-@ (&&&) :: p:{Proof | Prop (proofBool p) }
+          -> q:{Proof | Prop (proofBool q) }
+          -> {v:Proof | Prop (proofBool p) && Prop (proofBool q) } @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:109:1
+{-@ (<=:) :: x:a -> y:a -> {v:Proof | x <= y } -> {v:a | v == x } @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:113:1
+{-@ (<:) :: x:a -> y:a -> {v:Proof | x < y } -> {v:a | v == x } @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:118:1
+{-@ (>:) :: x:a -> y:a -> {v:Proof | x >y } -> {v:a | v == x } @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:123:1
+{-@ (==:) :: x:a -> y:a -> {v:Proof| x == y} -> {v:a | v == x && v == y } @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:139:1
+{-@ instance ToProve a b where
+  ==? :: x:a -> y:a -> {v:b | v ~~ x }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:145:1
+{-@ instance ToProve a (Proof -> b) where
+  ==? :: x:a -> y:a -> Proof -> {v:b | v ~~ x  }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:155:1
+{-@ instance OptEq a (Proof -> b) where
+  ==. :: x:a -> y:a -> {v:Proof | x == y} -> {v:b | v ~~ x && v ~~ y}
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:161:1
+{-@ instance OptEq a b where
+  ==. :: x:a -> y:{a| x == y} -> {v:b | v ~~ x && v ~~ y }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:172:1
+{-@ instance OptLEq a (Proof -> b) where
+  <=. :: x:a -> y:a -> {v:Proof | x <= y} -> {v:b | v ~~ x }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:178:1
+{-@ instance OptLEq a b where
+  <=. :: x:a -> y:{a | x <= y} -> {v:b | v ~~ x }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:187:1
+{-@ instance OptGEq a (Proof -> a) where
+  >=. :: x:a -> y:a -> {v:Proof| x >= y} -> {v:a | v == x }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:193:1
+{-@ instance OptGEq a a where
+  >=. :: x:a -> y:{a| x >= y} -> {v:a | v == x  }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:203:1
+{-@ instance OptLess a (Proof -> b) where
+  <. :: x:a -> y:a -> {v:Proof | x < y} -> {v:b | v ~~ x  }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:209:1
+{-@ instance OptLess a b where
+  <. :: x:a -> y:{a| x < y} -> {v:b | v ~~ x  }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:219:1
+{-@ instance OptGt a (Proof -> b) where
+  >. :: x:a -> y:a -> {v:Proof| x > y} -> {v:b | v ~~ x }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:225:1
+{-@ instance OptGt a b where
+  >. :: x:a -> y:{a| x > y} -> {v:b | v ~~ x  }
+  @-}
+
+-- FILE tests/strings/pos/ProvesLib.hs:248:1
+{-@ assume (=*=.) :: Arg a => f:(a -> b) -> g:(a -> b) -> (r:a -> {f r == g r}) -> {v:(a -> b) | f == g} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:9:1
+{-@ LIQUID "--cores=10"            @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:10:1
+{-@ LIQUID "--higherorder"         @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:11:1
+{-@ LIQUID "--totality"            @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:31:1
+{-@ symbolVal :: forall n proxy. KnownSymbol n => x:proxy n 
+  -> {v:String | v == n && v == symbolVal x } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:33:1
+{-@ measure symbolVal :: p n -> String @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:39:1
+{-@ distributionOfStringMatching :: MI target -> is:SMTString  -> n:Int -> m:Int
+   -> {toMI is == pmconcat m (map toMI (chunkString n is))} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:85:1
+{-@ reflect toMI @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:107:1
+{-@ data MI target 
+  = MI { input   :: SMTString
+       , indices :: List (GoodIndex input target)
+       } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:112:1
+{-@ type GoodIndex Input Target 
+  = {i:Int | IsGoodIndex Input Target i }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:116:1
+{-@ type GoodIndexTwo Input X Target 
+  = {i:Int | (IsGoodIndex Input Target i)  && (IsGoodIndex (concatString Input X) Target i) }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:121:1
+{-@ predicate IsGoodIndex Input Target I
+  =  (subString Input I (stringLen Target)  == Target)
+  && (I + stringLen Target <= stringLen Input)
+  && (0 <= I)
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:127:1
+{-@ measure indicesMI @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:130:1
+{-@ measure inputMI @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:137:1
+{-@ reflect mempty @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:141:1
+{-@ reflect mconcat @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:146:1
+{-@ reflect pmconcat @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:148:1
+{-@ pmconcat :: forall (target :: Symbol). (KnownSymbol target) => 
+  Int -> is:List (MI target) -> MI target /[llen is] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:163:1
+{-@ reflect mappend @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:174:1
+{-@ reflect shiftStringRight @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:176:1
+{-@ shiftStringRight :: target:SMTString -> left:SMTString -> right:SMTString -> i:GoodIndex right target 
+  -> {v:(GoodIndex {concatString left right} target) | v == i + stringLen left } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:181:1
+{-@ reflect makeNewIndices @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:182:1
+{-@ makeNewIndices :: s1:SMTString -> s2:SMTString -> target:SMTString -> List (GoodIndex {concatString s1 s2} target) @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:192:1
+{-@ reflect maxInt @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:196:1
+{-@ reflect shift @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:203:1
+{-@ reflect castGoodIndexRightList @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:205:1
+{-@ castGoodIndexRightList :: target:SMTString -> input:SMTString -> x:SMTString -> is:List (GoodIndex input target) 
+    -> {v:List (GoodIndexTwo input x target) | v == is} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:213:1
+{-@ reflect castGoodIndexRight @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:215:1
+{-@ castGoodIndexRight :: target:SMTString -> input:SMTString -> x:SMTString -> i:GoodIndex input target 
+   -> {v:(GoodIndexTwo input x target)| v == i} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:224:1
+{-@ reflect makeIndices @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:226:1
+{-@ makeIndices :: input:SMTString -> target:SMTString -> lo:Nat -> hi:Int -> List (GoodIndex input target) 
+  / [hi - lo] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:241:1
+{-@ reflect isGoodIndex @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:243:1
+{-@ isGoodIndex :: input:SMTString -> target:SMTString -> i:Int 
+  -> {b:Bool | Prop b <=> IsGoodIndex input target i} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:256:1
+{-@ data List [llen] a 
+  = N | C {lhead :: a , ltail :: List a} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:260:1
+{-@ measure llen @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:261:1
+{-@ llen :: List a -> Nat @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:266:1
+{-@ reflect map @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:267:1
+{-@ map :: (a -> b) -> is:List a -> {os:List b | llen is == llen os} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:272:1
+{-@ reflect append @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:278:1
+{-@ reflect chunk @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:279:1
+{-@ chunk :: i:Int -> xs:List a -> {v:List (List a) | if (i <= 1 || llen xs <= i) then (llen v == 1) else (llen v < llen xs) } / [llen xs] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:289:1
+{-@ reflect drop @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:290:1
+{-@ drop :: i:Nat -> xs:{List a | i <= llen xs } -> {v:List a | llen v == llen xs - i } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:299:1
+{-@ reflect take @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:300:1
+{-@ take :: i:Nat -> xs:{List a | i <= llen xs } -> {v:List a | llen v == i} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:314:1
+{-@ reflect chunkString @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:315:1
+{-@ chunkString :: Int -> xs:SMTString -> List (SMTString) / [stringLen xs] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:339:1
+{-@ distributionOfMI :: MI target -> is:SMTString -> n:Int -> {toMI is == mconcat (map toMI (chunkString n is))} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:345:1
+{-@ distributeInput
+     :: f:(SMTString -> MI target)
+     -> thm:(x1:SMTString -> x2:SMTString -> {f (concatString x1 x2) == mappend (f x1) (f x2)} )
+     -> is:SMTString
+     -> n:Int 
+     -> {f is == mconcat (map f (chunkString n is))}
+     / [stringLen is] 
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:384:1
+{-@ distributestoMI :: MI target -> x1:SMTString -> x2:SMTString -> {toMI (concatString x1 x2) == mappend (toMI x1) (toMI x2)} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:573:1
+{-@ pmconcatEquivalence :: i:Int -> is:List (MI target) -> {pmconcat i is == mconcat is} / [llen is] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:611:1
+{-@ mconcatAssocOne :: i:Nat -> xs:{List (MI target) | i <= llen xs} 
+     -> {mconcat xs == mappend (mconcat (take i xs)) (mconcat (drop i xs))}
+     /[i]
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:646:1
+{-@ mconcatAssoc :: i:Int -> xs:List (MI target) 
+  -> { mconcat xs == mconcat (map mconcat (chunk i xs))}
+  /  [llen xs] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:677:1
+{-@ mempty_left :: xs:MI target -> {mappend xs mempty == xs } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:707:1
+{-@ mempty_right :: xs:MI target -> {mappend mempty xs == xs } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:734:1
+{-@ mappend_assoc :: x:MI target -> y:MI target -> z:MI target
+  -> { mappend x (mappend y z) = mappend (mappend x y) z}
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1104:1
+{-@ castAppend :: target:SMTString -> input:SMTString -> x:SMTString 
+     -> is1:List (GoodIndex input target) 
+     -> is2:List (GoodIndex input target) -> 
+   {castGoodIndexRightList target input x (append is1 is2) == append (castGoodIndexRightList target input x is1) (castGoodIndexRightList target input x is2)}
+    @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1117:1
+{-@ castConcat :: tg:SMTString -> xi:SMTString -> yi:SMTString -> zi:SMTString 
+             ->  xis:List (GoodIndex xi tg) 
+        -> {castGoodIndexRightList tg xi (concatString yi zi) xis == castGoodIndexRightList tg (concatString xi yi) zi (castGoodIndexRightList tg xi yi xis)} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1129:1
+{-@ castEq3 :: tg:SMTString -> xi:SMTString -> yi:SMTString -> zi:SMTString 
+             ->  yis:List (GoodIndex yi tg) 
+        -> {castGoodIndexRightList tg (concatString xi yi) zi (map (shiftStringRight tg xi yi) yis) == map (shiftStringRight tg xi (concatString yi zi)) (castGoodIndexRightList tg yi zi yis)} @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1144:1
+{-@ appendNil :: xs:List a -> { append xs N = xs } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1162:1
+{-@ appendGroupNew 
+  :: x1:List a 
+  -> x2:List a 
+  -> x3:List a 
+  -> x4:List a 
+  -> {   (append (append x1 x2) (append x3 x4))
+      == (append (append x1 (append x2 x3)) x4)
+     } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1183:1
+{-@ appendUnGroupNew 
+  :: x1:List a 
+  -> x2:List a 
+  -> x3:List a 
+  -> x4:List a 
+  -> {   ((append (append (append x1 x2) x3) x4))
+      == (append (append x1 (append x2 x3)) x4)
+     } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1200:1
+{-@ appendReorder 
+  :: x1:List a 
+  -> x2:List a 
+  -> x3:List a 
+  -> x4:List a 
+  -> x5:List a 
+  -> {   (append (append x1 x2) (append (append x3 x4) x5))
+      == (append (append (append (append x1 x2) x3) x4) x5)
+     } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1219:1
+{-@ appendAssoc :: x:List a -> y:List a -> z:List a 
+     -> {(append x (append y z)) == (append (append x y) z) } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1238:1
+{-@ mapAppend 
+     :: f:(a -> b) -> xs:List a -> ys:List a 
+     -> {map f (append xs ys) == append (map f xs) (map f ys)}
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1264:1
+{-@ emptyIndices :: mi:MI target
+                 -> is:{List (GoodIndex (inputMI mi) target) | is == indicesMI mi && stringLen (inputMI mi) < stringLen target}
+                 -> { is == N } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1273:1
+{-@ makeNewIndicesNullLeft 
+  :: s:SMTString 
+  -> t:SMTString 
+  -> {makeNewIndices s stringEmp t == N } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1310:1
+{-@ makeNewIndicesNullSmallInput 
+  :: s:SMTString 
+  -> t:{SMTString | 1 + stringLen s <= stringLen t } 
+  -> lo:Nat 
+  -> hi:Int
+  -> {makeIndices s t lo hi == N } / [hi - lo] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1329:1
+{-@ makeNewIndicesNullSmallIndex 
+  :: s:SMTString 
+  -> t:{SMTString | stringLen t < 2 + stringLen s } 
+  -> lo:{Nat | 1 + stringLen s - stringLen t <= lo  } 
+  -> hi:{Int | lo <= hi}
+  -> {makeIndices s t lo hi == N } / [hi - lo] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1346:1
+{-@ makeNewIndicesNullRight 
+  :: s1:SMTString 
+  -> t:SMTString 
+  -> {makeNewIndices stringEmp s1 t == N } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1371:1
+{-@ mapLenFusion :: tg:SMTString -> xi:SMTString -> yi:SMTString -> zi:SMTString 
+            -> zis:List (GoodIndex zi tg) 
+        -> {map (shiftStringRight tg xi (concatString yi zi)) (map (shiftStringRight tg yi zi) zis) == map (shiftStringRight tg (concatString xi yi) zi) zis} 
+        / [llen zis ] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1391:1
+{-@ shiftIndexesRight
+  :: xi:SMTString 
+  -> yi:SMTString 
+  -> zi:SMTString 
+  -> tg:{SMTString | stringLen tg <= stringLen yi } 
+  -> { map (shiftStringRight tg xi (concatString yi zi)) (makeNewIndices yi zi tg) == makeNewIndices (concatString xi yi) zi tg }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1439:1
+{-@ shiftIndexesRight'
+  :: lo:Nat 
+  -> hi:Int  
+  -> x:SMTString 
+  -> input:SMTString 
+  -> target:SMTString
+  -> { map (shiftStringRight target x input) (makeIndices input target lo hi) == makeIndices (concatString x input) target (stringLen x + lo) (stringLen x + hi) }
+  / [if hi < lo then 0 else  hi-lo]
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1493:1
+{-@ shiftIndexesLeft
+  :: xi:SMTString 
+  -> yi:SMTString 
+  -> zi:SMTString 
+  -> tg:{SMTString | stringLen tg <= stringLen yi } 
+  -> {  makeNewIndices xi (concatString yi zi) tg == castGoodIndexRightList tg (concatString xi yi) zi (makeNewIndices xi yi tg)}
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1525:1
+{-@ concatmakeNewIndices
+  :: lo:Nat -> hi:Int
+  -> target: SMTString
+  -> input : {SMTString | hi + stringLen target <= stringLen input } 
+  -> input': SMTString   
+  -> {  makeIndices (concatString input input') target lo hi == makeIndices input target lo hi }
+  / [hi - lo]  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1571:1
+{-@ isGoodIndexConcatFront 
+  :: input:SMTString -> input':SMTString -> tg:SMTString -> i:Nat
+  -> {((isGoodIndex input tg i) <=> isGoodIndex (concatString input' input) tg (stringLen input' + i) )
+     } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1592:1
+{-@ isGoodIndexConcatString 
+  :: input:SMTString -> input':SMTString -> tg:SMTString -> i:{Int | i + stringLen tg <= stringLen input }
+  -> {((isGoodIndex input tg i) <=> isGoodIndex (concatString input input') tg i)
+     } @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1615:1
+{-@ mapShiftZero :: target:SMTString -> i:SMTString -> is:List (GoodIndex i target) 
+  -> {map (shiftStringRight target stringEmp i) is == is } 
+  / [llen is] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1630:1
+{-@ mapShiftIndex :: tg:SMTString -> xi:SMTString -> yi:SMTString -> zi:SMTString -> xs:List (GoodIndex yi tg)
+  -> {map (shiftStringRight tg xi yi) xs == map (shiftStringRight tg xi (concatString yi zi)) xs} / [llen xs] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:1650:1
+{-@ shiftNewIndices
+  :: xi:SMTString 
+  -> yi:SMTString 
+  -> zi:SMTString 
+  -> tg:{SMTString | stringLen yi < stringLen tg  } 
+  -> {  append (makeNewIndices xi (concatString yi zi) tg) (map (shiftStringRight tg xi (concatString yi zi)) (makeNewIndices yi zi tg)) == append (castGoodIndexRightList tg (concatString xi yi) zi (makeNewIndices xi yi tg)) (makeNewIndices (concatString xi yi) zi tg)
+     }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:2086:1
+{-@ smallInput :: input:SMTString -> target:{SMTString | stringLen input < stringLen target } -> lo:Nat -> hi:Int 
+           -> {makeIndices input target lo hi == N } 
+           / [hi -lo]
+  @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:2106:1
+{-@ maxIndices 
+  :: input:SMTString -> target:SMTString -> lo:{Nat | stringLen input < lo + stringLen target} -> hi:Int
+  -> {makeIndices input target lo hi = N}
+  / [hi - lo ] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:2128:1
+{-@ mergeIndices 
+  :: input:SMTString -> target:SMTString -> lo:Nat -> mid:{Int | lo <= mid} -> hi:{Int | mid <= hi} 
+  -> {makeIndices input target lo hi == append (makeIndices input target lo mid) (makeIndices input target (mid+1) hi)} 
+  / [mid] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:2189:1
+{-@ makeNewIndicesGoodLast 
+  :: input:SMTString -> target:SMTString -> lo:Nat -> hi:{Int | lo <= hi && (isGoodIndex input target hi)}
+  -> {makeIndices input target lo hi == append (makeIndices input target lo (hi-1)) (C hi N)}
+  / [hi - lo] @-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:2216:1
+{-@ makeNewIndicesBadLast 
+  :: input:SMTString -> target:SMTString -> lo:Nat -> hi:{Int | lo <= hi && (not (isGoodIndex input target hi))}
+  -> {makeIndices input target lo hi == makeIndices input target lo (hi-1)}
+  / [hi - lo]
+@-}
+
+-- FILE tests/strings/pos/StringIndexing.hs:2245:1
+{-@ catIndices 
+     :: input:SMTString -> x:SMTString 
+     -> target:{SMTString | 0 <= stringLen input - stringLen target + 1} 
+     -> lo:{Nat | lo <= stringLen input - stringLen target } 
+     -> hi:{Int | stringLen input - stringLen target <= hi}
+     -> { makeIndices input target lo hi == makeIndices (concatString input x) target lo (stringLen input - stringLen target) }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep1.hs:7:1
+{-@ LIQUID "--totality"        @-}
+
+-- FILE tests/strings/pos/StringIndexingStep1.hs:8:1
+{-@ LIQUID "--stringtheory"    @-}
+
+-- FILE tests/strings/pos/StringIndexingStep1.hs:25:1
+{-@ MI :: input:s 
+       -> [{i:Int |	 subString input i (stringLen target)  == target }]
+       -> MI s @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:9:1
+{-@ LIQUID "--totality"          @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:10:1
+{-@ LIQUID "--stringtheory"      @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:27:1
+{-@ MI :: input:s 
+       -> [GoodIndex input target]
+       -> MI s @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:32:1
+{-@ type GoodIndex Input Target 
+  = {i:Int |  IsGoodIndex Input Target i}
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:36:1
+{-@ predicate IsGoodIndex Input Target I
+  =  (subString Input I (stringLen Target)  == Target)
+  && (I + stringLen Target < stringLen Input)
+  && (0 <= I)
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:42:1
+{-@ measure stringLen    :: String -> Int @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:43:1
+{-@ measure subString    :: String -> Int -> Int -> String @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:44:1
+{-@ measure concatString :: String -> String -> String @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:61:1
+{-@ symbolVal :: forall n proxy. KnownSymbol n => proxy n -> {v:String | v == n} @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:64:1
+{-@ filterIndex :: input:String -> target:String -> is:[Int] -> [GoodIndex input target] / [len is] @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:74:1
+{-@ isGoodIndex :: input:String -> target:String -> i:Int 
+  -> {b:Bool | Prop b <=> IsGoodIndex input target i} @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:81:1
+{-@ concatString :: x:String -> y:String -> {v:String | v == concatString x y && stringLen v == stringLen x + stringLen y } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:85:1
+{-@ stringLen    :: s:String -> {v:Int | v == stringLen s} @-}
+
+-- FILE tests/strings/pos/StringIndexingStep2.hs:89:1
+{-@ subString  :: s:String -> offset:Int -> ln:Int -> {v:String |v == subString s offset ln } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:18:1
+{-@ LIQUID "--higherorder"         @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:19:1
+{-@ LIQUID "--totality"            @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:82:1
+{-@ Lazy mconcatPar' @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:84:1
+{-@ mconcatPar' :: forall (target :: Symbol). (KnownSymbol target) =>  Int -> xs:[MI target SMTString] -> [MI target SMTString] @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:122:1
+{-@ data MI target s 
+  = MI { input :: SMTString
+       , idxes   :: List Int 
+       } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:134:1
+{-@ measure indixesMI @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:136:1
+{-@ measure inputMI @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:141:1
+{-@ type GoodIndex Input Target 
+  = {i:Int |  IsGoodIndex Input Target i}
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:145:1
+{-@ type GoodIndexTwo Input Input2 Target 
+  = {i:Int |  IsGoodIndex Input Target i && IsGoodIndex (concatString Input Input2) Target i }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:149:1
+{-@ predicate IsGoodIndex Input Target I
+  =  (subString Input I (stringLen Target)  == Target)
+  && (I + stringLen Target <= stringLen Input)
+  && (0 <= I)
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:158:1
+{-@ reflect mempty @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:162:1
+{-@ reflect mappend @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:178:1
+{-@ mempty_left :: xs:MI target SMTString -> {mappend xs mempty == xs } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:205:1
+{-@ mempty_right :: xs:MI target SMTString -> {mappend mempty xs == xs } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:233:1
+{-@ mappend_assoc 
+  :: x:MI target SMTString -> y:MI target SMTString -> z:MI target SMTString
+  -> {v:Proof | mappend x (mappend y z) = mappend (mappend x y) z}
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:495:1
+{-@ assumeGoodIndex :: input:SMTString -> target:SMTString -> is:List Int 
+                    -> {v:List (GoodIndex input target) | v == is} @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:502:1
+{-@ areGoodIndexes :: input:SMTString -> target:SMTString -> is:List Int 
+                   -> Maybe ({v:List (GoodIndex input target) | v == is}) @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:517:1
+{-@ emptyIndexes :: mi:MI target SMTString
+                 -> is:{List (GoodIndex (inputMI mi) target) | is == indixesMI mi && stringLen (inputMI mi) < stringLen target}
+                 -> { is == N } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:526:1
+{-@ shiftIndexes
+  :: xi:SMTString 
+  -> yi:SMTString 
+  -> zi:SMTString 
+  -> tg:{SMTString | stringLen tg <= stringLen yi } 
+  -> {  (makeNewIndices xi (concatString yi zi) tg == makeNewIndices xi yi tg)  
+        && 
+        (map (shift (stringLen xi)) (makeNewIndices yi zi tg) == makeNewIndices (concatString xi yi) zi tg)
+     }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:539:1
+{-@ reflect chunkString @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:540:1
+{-@ chunkString :: Int -> xs:SMTString -> List (SMTString) / [stringLen xs] @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:552:1
+{-@ shiftIndexesLeft
+  :: xi:SMTString 
+  -> yi:SMTString 
+  -> zi:SMTString 
+  -> tg:{SMTString | stringLen tg <= stringLen yi } 
+  -> {  makeNewIndices xi (concatString yi zi) tg == makeNewIndices xi yi tg}
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:584:1
+{-@ concatmakeNewIndices
+  :: lo:Nat -> hi:Int
+  -> target: SMTString
+  -> input : {SMTString | hi + stringLen target <= stringLen input } 
+  -> input': SMTString   
+  -> {  makeIndices (concatString input input') target lo hi == makeIndices input target lo hi }
+  / [hi - lo]  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:630:1
+{-@ isGoodIndexConcatFront 
+  :: input:SMTString -> input':SMTString -> tg:SMTString -> i:Nat
+  -> {((isGoodIndex input tg i) <=> isGoodIndex (concatString input' input) tg (stringLen input' + i) )
+     } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:651:1
+{-@ isGoodIndexConcatString 
+  :: input:SMTString -> input':SMTString -> tg:SMTString -> i:{Int | i + stringLen tg <= stringLen input }
+  -> {((isGoodIndex input tg i) <=> isGoodIndex (concatString input input') tg i)
+     } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:677:1
+{-@ shiftIndexesRight
+  :: xi:SMTString 
+  -> yi:SMTString 
+  -> zi:SMTString 
+  -> tg:{SMTString | stringLen tg <= stringLen yi } 
+  -> { map (shift (stringLen xi)) (makeNewIndices yi zi tg) == makeNewIndices (concatString xi yi) zi tg }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:725:1
+{-@ shiftIndexesRight'
+  :: lo:Nat 
+  -> hi:Int  
+  -> x:SMTString 
+  -> input:SMTString 
+  -> tg:SMTString
+  -> { map (shift (stringLen x)) (makeIndices input tg lo hi) == makeIndices (concatString x input) tg (stringLen x + lo) (stringLen x + hi) }
+  / [if hi < lo then 0 else  hi-lo]
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:779:1
+{-@ shiftNewIndexes
+  :: xi:SMTString 
+  -> yi:SMTString 
+  -> zi:SMTString 
+  -> tg:{SMTString | stringLen yi < stringLen tg  } 
+  -> {  append (makeNewIndices xi (concatString yi zi) tg) (map (shift (stringLen xi)) (makeNewIndices yi zi tg)) == append (makeNewIndices xi yi tg) (makeNewIndices (concatString xi yi) zi tg)
+     }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1211:1
+{-@ maxIndixes 
+  :: input:SMTString -> target:SMTString -> lo:{Nat | stringLen input < lo + stringLen target} -> hi:Int
+  -> {makeIndices input target lo hi = N}
+  / [hi - lo ] @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1233:1
+{-@ mergeIndixes 
+  :: input:SMTString -> target:SMTString -> lo:Nat -> mid:{Int | lo <= mid} -> hi:{Int | mid <= hi} 
+  -> {makeIndices input target lo hi == append (makeIndices input target lo mid) (makeIndices input target (mid+1) hi)} 
+  / [mid] @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1294:1
+{-@ makeNewIndicesGoodLast 
+  :: input:SMTString -> target:SMTString -> lo:Nat -> hi:{Int | lo <= hi && (isGoodIndex input target hi)}
+  -> {makeIndices input target lo hi == append (makeIndices input target lo (hi-1)) (C hi N)}
+  / [hi - lo] @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1321:1
+{-@ makeNewIndicesBadLast 
+  :: input:SMTString -> target:SMTString -> lo:Nat -> hi:{Int | lo <= hi && (not (isGoodIndex input target hi))}
+  -> {makeIndices input target lo hi == makeIndices input target lo (hi-1)}
+  / [hi - lo]
+@-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1350:1
+{-@ catIndixes 
+     :: input:SMTString -> x:SMTString 
+     -> target:{SMTString | 0 <= stringLen input - stringLen target + 1} 
+     -> lo:{Nat | lo <= stringLen input - stringLen target } 
+     -> hi:{Int | stringLen input - stringLen target <= hi}
+     -> { makeIndices input target lo hi == makeIndices (concatString input x) target lo (stringLen input - stringLen target) }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1375:1
+{-@ map_len_fusion 
+  :: xi:SMTString 
+  -> yi:SMTString 
+  -> zis:List Int 
+  -> {  map (shift (stringLen (concatString xi yi))) zis == map (shift (stringLen xi)) (map (shift (stringLen yi)) zis) 
+     }
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1402:1
+{-@ smallInput :: input:SMTString -> target:{SMTString | stringLen input < stringLen target } -> lo:Nat -> hi:Int 
+           -> {makeIndices input target lo hi == N } 
+           / [hi -lo]
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1429:1
+{-@ data List [idxlen] a = N | C {idxhd :: a , idxtl :: List a} @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1432:1
+{-@ measure idxlen @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1433:1
+{-@ idxlen :: List a -> Nat @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1438:1
+{-@ reflect map @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1443:1
+{-@ reflect append @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1448:1
+{-@ reflect shift @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1452:1
+{-@ symbolVal :: forall n proxy. KnownSymbol n => x:proxy n 
+  -> {v:String | v == n && v == symbolVal x } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1454:1
+{-@ measure symbolVal :: p n -> String @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1456:1
+{-@ reflect makeNewIndices @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1457:1
+{-@ makeNewIndices :: s1:SMTString -> s2:SMTString -> target:SMTString -> List (GoodIndex {concatString s1 s2} target) @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1468:1
+{-@ reflect maxInt @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1472:1
+{-@ reflect makeIndices @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1475:1
+{-@ makeIndices :: input:SMTString -> target:SMTString -> lo:{Int | 0 <= lo} -> hi:Int -> List (GoodIndex input target) 
+  / [hi - lo] @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1490:1
+{-@ reflect isGoodIndex @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1492:1
+{-@ isGoodIndex :: input:SMTString -> target:SMTString -> i:Int 
+  -> {b:Bool | Prop b <=> IsGoodIndex input target i} @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1502:1
+{-@ appendEmp :: xs:List a -> {append xs N = xs } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1515:1
+{-@ appendAssoc :: x:List a -> y:List a -> z:List a 
+     -> {(append x (append y z)) == (append (append x y) z) } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1536:1
+{-@ makeNewIndicesNullRight 
+  :: s1:SMTString 
+  -> t:SMTString 
+  -> {makeNewIndices stringEmp s1 t == N } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1563:1
+{-@ appendGroupNew 
+  :: x1:List a 
+  -> x2:List a 
+  -> x3:List a 
+  -> x4:List a 
+  -> {   (append (append x1 x2) (append x3 x4))
+      == (append (append x1 (append x2 x3)) x4)
+     } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1584:1
+{-@ appendUnGroupNew 
+  :: x1:List a 
+  -> x2:List a 
+  -> x3:List a 
+  -> x4:List a 
+  -> {   ((append (append (append x1 x2) x3) x4))
+      == (append (append x1 (append x2 x3)) x4)
+     } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1600:1
+{-@ appendReorder 
+  :: x1:List a 
+  -> x2:List a 
+  -> x3:List a 
+  -> x4:List a 
+  -> x5:List a 
+  -> {   (append (append x1 x2) (append (append x3 x4) x5))
+      == (append (append (append (append x1 x2) x3) x4) x5)
+     } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1624:1
+{-@ map_append 
+     :: f:(a -> b) -> xs:List a -> ys:List a 
+     -> {map f (append xs ys) == append (map f xs) (map f ys)}
+  @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1645:1
+{-@ mapShiftZero :: is:List Int -> {map (shift 0) is == is } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1655:1
+{-@ makeNewIndicesNullRightEmp :: s:SMTString -> t:SMTString -> {makeIndices s t 0 (-1) == N } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1663:1
+{-@ makeNewIndicesNullLeft 
+  :: s:SMTString 
+  -> t:SMTString 
+  -> {makeNewIndices s stringEmp t == N } @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1701:1
+{-@ makeNewIndicesNull1 
+  :: s:SMTString 
+  -> t:{SMTString | 1 + stringLen s <= stringLen t } 
+  -> lo:Nat 
+  -> hi:Int
+  -> {makeIndices s t lo hi == N } / [hi - lo] @-}
+
+-- FILE tests/strings/pos/StringIndexingStep3.hs:1720:1
+{-@ makeNewIndicesNull2 
+  :: s:SMTString 
+  -> t:{SMTString | stringLen t < 2 + stringLen s } 
+  -> lo:{Int | -1 <= lo && 1 + stringLen s - stringLen t <= lo  } 
+  -> hi:{Int | lo <= hi}
+  -> {makeIndices s t lo hi == N } / [hi - lo] @-}
+
+-- FILE tests/strings/pos/StringLib.hs:3:1
+{-@ LIQUID "--higherorder"         @-}
+
+-- FILE tests/strings/pos/StringLib.hs:4:1
+{-@ LIQUID "--totality"            @-}
+
+-- FILE tests/strings/pos/StringLib.hs:13:1
+{-@ embed SMTString as Str @-}
+
+-- FILE tests/strings/pos/StringLib.hs:23:1
+{-@ invariant {s:SMTString | 0 <= stringLen s } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:25:1
+{-@ measure stringEmp    :: SMTString @-}
+
+-- FILE tests/strings/pos/StringLib.hs:26:1
+{-@ measure stringLen    :: SMTString -> Int @-}
+
+-- FILE tests/strings/pos/StringLib.hs:27:1
+{-@ measure subString    :: SMTString -> Int -> Int -> SMTString @-}
+
+-- FILE tests/strings/pos/StringLib.hs:28:1
+{-@ measure concatString :: SMTString -> SMTString -> SMTString @-}
+
+-- FILE tests/strings/pos/StringLib.hs:29:1
+{-@ measure fromString   :: String -> SMTString @-}
+
+-- FILE tests/strings/pos/StringLib.hs:30:1
+{-@ measure takeString   :: Int -> SMTString -> SMTString @-}
+
+-- FILE tests/strings/pos/StringLib.hs:31:1
+{-@ measure dropString   :: Int -> SMTString -> SMTString @-}
+
+-- FILE tests/strings/pos/StringLib.hs:37:1
+{-@ assume concatString :: x:SMTString -> y:SMTString 
+                 -> {v:SMTString | v == concatString x y && stringLen v == stringLen x + stringLen y } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:42:1
+{-@ assume stringEmp :: {v:SMTString | v == stringEmp  && stringLen v == 0 } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:47:1
+{-@ assume stringLen :: x:SMTString -> {v:Nat | v == stringLen x} @-}
+
+-- FILE tests/strings/pos/StringLib.hs:50:1
+{-@ assume subString  :: s:SMTString -> offset:Int -> ln:Int -> {v:SMTString | v == subString s offset ln } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:54:1
+{-@ assume takeString :: i:Nat -> xs:{SMTString | i <= stringLen xs } -> {v:SMTString | stringLen v == i && v == takeString i xs } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:58:1
+{-@ assume dropString :: i:Nat -> xs:{SMTString | i <= stringLen xs } -> {v:SMTString | stringLen v == stringLen xs - i && v == dropString i xs } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:62:1
+{-@ assume fromString :: i:String -> {o:SMTString | i == o && o == fromString i} @-}
+
+-- FILE tests/strings/pos/StringLib.hs:66:1
+{-@ assume isNullString :: i:SMTString -> {b:Bool | Prop b <=> stringLen i == 0 } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:76:1
+{-@ assume stringEmpProp :: x:SMTString  -> { stringLen x == 0 <=> x == stringEmp } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:81:1
+{-@ assume concatStringNeutralLeft :: x:SMTString -> {concatString x stringEmp == x} @-}
+
+-- FILE tests/strings/pos/StringLib.hs:85:1
+{-@ assume concatStringNeutralRight :: x:SMTString -> {concatString stringEmp x == x} @-}
+
+-- FILE tests/strings/pos/StringLib.hs:88:1
+{-@ concatEmpLeft :: xi:{SMTString | stringLen xi == 0} -> yi:SMTString -> {concatString xi yi == yi} @-}
+
+-- FILE tests/strings/pos/StringLib.hs:97:1
+{-@ concatEmpRight :: xi:SMTString -> yi:{SMTString | stringLen yi == 0} -> {concatString xi yi == xi} @-}
+
+-- FILE tests/strings/pos/StringLib.hs:107:1
+{-@ assume concatTakeDrop :: i:Nat -> xs:{SMTString | i <= stringLen xs} 
+    -> {xs == concatString (takeString i xs) (dropString i xs) }  @-}
+
+-- FILE tests/strings/pos/StringLib.hs:113:1
+{-@ assume concatLen :: x:SMTString -> y:SMTString -> { stringLen (concatString x y) == stringLen x + stringLen y } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:117:1
+{-@ assume concatStringAssoc :: x:SMTString -> y:SMTString -> z:SMTString 
+     -> {concatString (concatString x y) z == concatString x (concatString y z) } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:124:1
+{-@ assume subStringConcatBack :: input:SMTString -> input':SMTString -> j:Int -> i:{Int | i + j <= stringLen input }
+  -> { (subString input i j == subString (concatString input input') i j) 
+    && (stringLen input <= stringLen (concatString input input'))
+     } @-}
+
+-- FILE tests/strings/pos/StringLib.hs:132:1
+{-@ assume subStringConcatFront  
+  :: input:SMTString -> input':SMTString -> j:Int -> i:Int 
+  -> { (subString input i j == subString (concatString input' input) (stringLen input' + i) j)
+      && (stringLen (concatString input' input) == stringLen input + stringLen input')
+    } @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:1:1
+{-@ LIQUID "--higherorder"       @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:2:1
+{-@ LIQUID "--totality"          @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:18:1
+{-@ reflect map @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:19:1
+{-@ reflect foldl @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:20:1
+{-@ reflect fstV @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:21:1
+{-@ reflect sndV @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:22:1
+{-@ reflect scanl @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:23:1
+{-@ reflect filter @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:24:1
+{-@ reflect endsWith @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:25:1
+{-@ reflect inits @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:26:1
+{-@ reflect reverse @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:27:1
+{-@ reflect append @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:28:1
+{-@ reflect take @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:29:1
+{-@ reflect range @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:30:1
+{-@ reflect fork @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:59:1
+{-@ map_filter :: f:(a -> b) -> p:(a -> Bool) -> xs:L a 
+    ->  {map fstV (filter sndV (map (fork f p) xs)) == map f (filter p xs) }
+  @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:96:1
+{-@ scan_lemma :: op:(b -> a -> b) -> e:b -> xs:L a 
+  -> {map (foldl op e) (inits xs) == scanl op e xs } @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:145:1
+{-@ endsWith :: L Int -> xs:L Int -> Bool / [length xs] @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:165:5
+    {-@ rng :: L {v:Nat | v <= length xs} @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:167:5
+    {-@ f :: i:{Nat | i <= length xs} -> L a @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:170:1
+{-@ range :: i:Nat -> j:{Nat | i <= j} 
+          -> L {v:Nat | i <= v && v <= j} / [j - i] 
+  @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:182:1
+{-@ measure length @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:183:1
+{-@ length :: L a -> Nat @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:188:1
+{-@ take :: i:Nat -> {v:L a | i <= length v} -> L a @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:220:1
+{-@ data P a b = P {pFs :: a, pSnd :: b} @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:222:1
+{-@ data Bool = True | False @-}
+
+-- FILE tests/strings/todo/Boyer_Moore.hs:229:1
+{-@ data L [length] a = N | C {lhead :: a, lCons :: (L a)} @-}
+
+-- FILE tests/strings/todo/StringIndexing.hs:7:1
+{-@ LIQUID "--totality"        @-}
+
+-- FILE tests/strings/todo/StringIndexing.hs:24:1
+{-@ MI :: input:s 
+       -> [{i:Int |	 str.substr input i (str.len target)  == target }]
+       -> MI s @-}
+
+-- FILE tests/strings/todo/StringIndexing.hs:55:1
+{-@ axiomatize mempty @-}
+
+-- FILE tests/strings/todo/StringIndexing.hs:59:1
+{-@ axiomatize mappend @-}
+
+-- FILE tests/strings/todo/StringIndexing.hs:78:1
+{-@ mempty_left  :: x:MI target s -> {mappend mempty x == x } @-}
+
+-- FILE tests/strings/todo/StringIndexing.hs:83:1
+{-@ mempty_right :: x:MI target s -> {mappend x mempty == x } @-}
+
+-- FILE tests/strings/todo/StringIndexing.hs:87:1
+{-@ mappend_assoc :: x:MI target s -> y:MI target s -> z:MI target s 
+                  -> {mappend x (mappend y z) == mappend (mappend x y) z } @-}
+

@@ -1,0 +1,301 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/datacon/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/datacon/neg/AdtPeano2.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/datacon/neg/AdtPeano2.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/datacon/neg/AdtPeano2.hs:13:1
+{-@ bob :: n:Int -> { v:Influx | v = Silly (n + 1) } -> () @-}
+
+-- FILE tests/datacon/neg/Data00Lib.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/datacon/neg/Data00Lib.hs:4:1
+{-@ data Thing = Thing { fldThing :: {v:Int | 0 <= v} } @-}
+
+-- FILE tests/datacon/neg/Data01.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/datacon/neg/Data01.hs:4:1
+{-@ data Thing = Thing { fldThing :: Nat } @-}
+
+-- FILE tests/datacon/neg/Data02.hs:5:1
+{-@ test4 :: Nat -> Pair @-}
+
+-- FILE tests/datacon/neg/Data02Lib.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/datacon/neg/Data02Lib.hs:4:1
+{-@ data Pair = P { pX :: Nat, pY :: {v:Nat | pX < v} } @-}
+
+-- FILE tests/datacon/neg/Data02Lib.hs:7:1
+{-@ test1 :: Pair -> TT @-}
+
+-- FILE tests/datacon/neg/Date.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/datacon/neg/Date.hs:12:1
+{-@ inline okDay @-}
+
+-- FILE tests/datacon/neg/Date.hs:16:1
+{-@ inline okMonth @-}
+
+-- FILE tests/datacon/neg/Date.hs:20:1
+{-@ inline okYear @-}
+
+-- FILE tests/datacon/neg/Date.hs:32:1
+{-@ data Date = Date
+      { day   :: {v:_ | okDay v }
+      , month :: {v:_ | okMonth day v}
+      , year  :: {v:_ | okYear month day v}
+      }
+ @-}
+
+-- FILE tests/datacon/neg/NewTypes.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/datacon/neg/NewTypes.hs:6:1
+{-@ newtype Foo a = Bar {x :: Nat} @-}
+
+-- FILE tests/datacon/neg/NewTypes.hs:8:1
+{-@ fromFoo :: Foo a -> Nat @-}
+
+-- FILE tests/datacon/neg/NewTypes0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/datacon/neg/NewTypes0.hs:7:1
+{-@ newtype Foo a = Bar {x :: Nat} @-}
+
+-- FILE tests/datacon/neg/NewTypes0.hs:9:1
+{-@ fromFoo :: Foo a -> {v:Int | v == 0 } @-}
+
+-- FILE tests/datacon/pos/AdtPeano2.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/datacon/pos/AdtPeano2.hs:9:1
+{-@ test:: n:Int -> m:Int -> { v:() | Silly n == Silly m } -> { n == m } @-}
+
+-- FILE tests/datacon/pos/Data00.hs:5:1
+{-@ test3 :: Thing -> Nat @-}
+
+-- FILE tests/datacon/pos/Data00.hs:9:1
+{-@ test4 :: Nat -> Thing @-}
+
+-- FILE tests/datacon/pos/Data00Lib.hs:3:1
+{-@ data Thing = Thing { fldThing :: {v:Int | 0 <= v} } @-}
+
+-- FILE tests/datacon/pos/Data00Lib.hs:7:1
+{-@ test1 :: Thing -> Nat @-}
+
+-- FILE tests/datacon/pos/Data00Lib.hs:11:1
+{-@ test2 :: Nat -> Thing @-}
+
+-- FILE tests/datacon/pos/Data01.hs:3:1
+{-@ data Thing = Thing { fldThing :: Nat } @-}
+
+-- FILE tests/datacon/pos/Data01.hs:7:1
+{-@ test1 :: Thing -> Nat @-}
+
+-- FILE tests/datacon/pos/Data01.hs:11:1
+{-@ test2 :: Nat -> Thing @-}
+
+-- FILE tests/datacon/pos/Data02.hs:5:1
+{-@ test3 :: Pair -> TT @-}
+
+-- FILE tests/datacon/pos/Data02.hs:8:1
+{-@ test4 :: Nat -> Pair @-}
+
+-- FILE tests/datacon/pos/Data02Lib.hs:3:1
+{-@ data Pair = P { pX :: Nat, pY :: {v:Nat | pX < v} } @-}
+
+-- FILE tests/datacon/pos/Data02Lib.hs:6:1
+{-@ test1 :: Pair -> TT @-}
+
+-- FILE tests/datacon/pos/Data02Lib.hs:9:1
+{-@ test2 :: Nat -> Pair @-}
+
+-- FILE tests/datacon/pos/Date.hs:10:1
+{-@ inline okDay @-}
+
+-- FILE tests/datacon/pos/Date.hs:14:1
+{-@ inline okMonth @-}
+
+-- FILE tests/datacon/pos/Date.hs:18:1
+{-@ inline okYear @-}
+
+-- FILE tests/datacon/pos/Date.hs:30:1
+{-@ data Date = Date
+      { day   :: {v:_ | okDay v }
+      , month :: {v:_ | okMonth day v}
+      , year  :: {v:_ | okYear month day v}
+      }
+ @-}
+
+-- FILE tests/datacon/pos/Date.hs:53:1
+{-@ assume error :: _ -> _ @-}
+
+-- FILE tests/datacon/pos/NewType.hs:5:1
+{-@ newtype Foo a = Bar { x :: Nat } @-}
+
+-- FILE tests/datacon/pos/NewType.hs:7:1
+{-@ fromFoo :: Foo a -> Nat @-}
+
+-- FILE tests/datacon/pos/NewType2.hs:3:1
+{-@ measure someFoo @-}
+
+-- FILE tests/datacon/pos/NewType2.hs:8:1
+{-@ newtype Foo = Foo { getFoo :: Nat } @-}
+
+-- FILE tests/datacon/pos/NewType2.hs:10:1
+{-@ f :: Foo -> {v:Int | v >= 1} @-}
+
+-- FILE tests/datacon/pos/NewType3.hs:4:1
+{-@ newtype Wrap a = Wrap {unwrap :: a } @-}
+
+-- FILE tests/datacon/pos/NewType3.hs:6:1
+{-@ wrapTheorem :: x:Wrap a -> {x == Wrap (unwrap x)} @-}
+
+-- FILE tests/datacon/pos/T1446.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/datacon/pos/T1446.hs:16:3
+  {-@ data EntityField Blob typ <q :: Entity Blob -> Entity Blob -> Bool> where
+          T1446.BlobName   :: EntityField <{\row v -> entityKey v = bblobFriend (entityVal row)}> Blob {v:_ | True}
+          T1446.BlobFriend :: EntityField <{\row v -> entityKey v = bblobFriend (entityVal row)}> Blob {v:_ | True}
+          T1446.BlobSsn    :: EntityField <{\row v -> entityKey v = entityKey             row }> Blob {v:_ | True}
+    @-}
+
+-- FILE tests/datacon/pos/T1446.hs:26:1
+{-@ data variance EntityField covariant covariant contravariant @-}
+
+-- FILE tests/datacon/pos/T1446.hs:32:1
+{-@ measure bblobFriend @-}
+
+-- FILE tests/datacon/pos/T1446.hs:36:1
+{-@ measure entityKey @-}
+
+-- FILE tests/datacon/pos/T1446.hs:40:1
+{-@ measure entityVal @-}
+
+-- FILE tests/datacon/pos/T1473A.hs:5:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/datacon/pos/T1473A.hs:16:1
+{-@ reflect entityKey @-}
+
+-- FILE tests/datacon/pos/T1473A.hs:20:1
+{-@ reflect entityVal @-}
+
+-- FILE tests/datacon/pos/T1473A.hs:24:1
+{-@ data User = User
+     { userName   :: String
+     , userFriend :: UserId
+     , userSsn    :: Int
+     }
+@-}
+
+-- FILE tests/datacon/pos/T1473A.hs:31:1
+{-@
+data EntityField User field <q :: Entity User -> Entity User -> Bool> where
+    UserId     :: EntityField <{\row v -> entityKey v = entityKey row}>              User {v:_ | True}
+    UserName   :: EntityField <{\row v -> entityKey v = userFriend (entityVal row)}> User {v:_ | True}
+    UserFriend :: EntityField <{\row v -> entityKey v = userFriend (entityVal row)}> User {v:_ | True}
+    UserSsn    :: EntityField <{\row v -> entityKey v = entityKey row}>              User {v:_ | True}
+@-}
+
+-- FILE tests/datacon/pos/T1473A.hs:38:1
+{-@ data variance EntityField covariant covariant contravariant @-}
+
+-- FILE tests/datacon/pos/T1473B.hs:5:1
+{-@ LIQUID "--reflection"     @-}
+
+-- FILE tests/datacon/pos/T1473B.hs:17:1
+{-@ reflect entityKey @-}
+
+-- FILE tests/datacon/pos/T1473B.hs:21:1
+{-@ reflect entityVal @-}
+
+-- FILE tests/datacon/pos/T1473B.hs:25:1
+{-@
+data User = User
+  { userName :: String
+  , userFriend :: UserId
+  , userSsn :: Int
+  }
+@-}
+
+-- FILE tests/datacon/pos/T1473B.hs:33:1
+{-@ data EntityField User field <q :: Entity User -> Entity User -> Bool> where
+        UserId     :: EntityField <{\row v -> entityKey v = entityKey row}>              User {v:_ | True}
+        UserName :: EntityField <{\row v -> entityKey v = userFriend (entityVal row)}>   User {v:_ | True}
+        UserFriend :: EntityField <{\row v -> entityKey v = userFriend (entityVal row)}> User {v:_ | True}
+        UserSsn :: EntityField <{\row v -> entityKey v = entityKey row}>                 User {v:_ | True}
+  @-}
+
+-- FILE tests/datacon/pos/T1473B.hs:39:1
+{-@ data variance EntityField covariant covariant contravariant @-}
+
+-- FILE tests/datacon/pos/T1476.hs:3:1
+{-@ LIQUID "--higherorder"              @-}
+
+-- FILE tests/datacon/pos/T1476.hs:4:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/datacon/pos/T1476.hs:13:1
+{-@ reflect entityKey @-}
+
+-- FILE tests/datacon/pos/T1476.hs:17:1
+{-@ reflect entityVal @-}
+
+-- FILE tests/datacon/pos/T1476.hs:21:1
+{-@
+data User = User
+  { userName :: String
+  , userFriend :: UserId
+  , userSsn :: Int
+  }
+@-}
+
+-- FILE tests/datacon/pos/T1476.hs:29:1
+{-@
+data EntityField User field <q :: Entity User -> Entity User -> Bool> where
+    UserId :: EntityField <{\row v -> True}> User {v:_ | True}
+    UserName :: EntityField <{\row v -> entityKey v = userFriend (entityVal row)}> User {v:_ | True}
+    UserFriend :: EntityField <{\row v -> entityKey v = userFriend (entityVal row)}> User {v:_ | True}
+    UserSsn :: EntityField <{\row v -> entityKey v = entityKey row}> User {v:_ | True}
+@-}
+
+-- FILE tests/datacon/pos/T1476.hs:36:1
+{-@ data variance EntityField covariant covariant contravariant @-}
+
+-- FILE tests/datacon/pos/T1477.hs:10:3
+  {-@ data EntityField User field  where
+          UserId     :: EntityField User _
+          UserName   :: EntityField User _ 
+          UserFriend :: EntityField User _ 
+          UserSsn    :: EntityField User _ 
+    @-}
+
+-- FILE tests/datacon/pos/T1777.hs:10:1
+{-@
+
+data D1 [len1]
+data D2 = A2 Int | B2 Bool
+data D3 [len3] = A3 Int | B3 Bool
+data D4 where
+  A4 :: Int -> D4
+  B4 :: Bool -> D4
+
+data D5 [len5] where
+  A5 :: Int -> D5
+  B5 :: Bool -> D5
+
+measure len1
+measure len3
+measure len5
+
+@-}
+

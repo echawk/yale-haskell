@@ -1,0 +1,43 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/DependentHaskell/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/DependentHaskell/todo/ClassKind.hs:16:3
+  {-@ class Member a where
+       sizeOfMember :: Proxy a -> Nat 
+    @-}
+
+-- FILE tests/DependentHaskell/todo/LF326.hs:1:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/DependentHaskell/todo/LF326.hs:13:1
+{-@ reflect join @-}
+
+-- FILE tests/DependentHaskell/todo/LF326.hs:21:1
+{-@ reflect find @-}
+
+-- FILE tests/DependentHaskell/todo/LF326.hs:30:1
+{-@ reflect step @-}
+
+-- FILE tests/DependentHaskell/todo/LF326.hs:33:1
+{-@ reflect myconst @-}
+
+-- FILE tests/DependentHaskell/todo/LF326.hs:38:1
+{-@ measure prop :: a -> b           @-}
+
+-- FILE tests/DependentHaskell/todo/LF326.hs:39:1
+{-@ theoremMonotonic :: c:Int -> h:Heap
+                     -> h':{v:Heap | v = step c h}
+                     -> {v:_ | prop v = ( HeapLte h h' ) }
+  @-}
+
+-- FILE tests/DependentHaskell/todo/TypeFamilies.hs:29:1
+{-@ LIQUID "--prune-unsorted" @-}
+
+-- FILE tests/DependentHaskell/todo/TypeFamilies.hs:42:1
+{-@ foo ::  ReadPtrN EthernetHeaderBase @-}
+
+-- FILE tests/DependentHaskell/todo/TypeFamilies.hs:46:1
+{-@ data EthernetPacket = EthernetPacket
+      { headerEth :: ReadPtrN EthernetHeaderBase }
+  @-}
+

@@ -1,0 +1,190 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/absref/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/absref/neg/Deppair0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/absref/neg/Deptup0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/absref/neg/Deptup0.hs:6:1
+{-@ data Pair a b <p :: x0:a -> x1:b -> Bool> = P {pX :: a, pY :: b<p pX> } @-}
+
+-- FILE tests/absref/neg/DeptupW.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/absref/neg/DeptupW.hs:6:1
+{-@ data Pair a b <p :: x0:a -> x1:b -> Bool> = P {pX :: a, pY :: b<p pX> } @-}
+
+-- FILE tests/absref/neg/DeptupW.hs:11:1
+{-@ mkP :: forall a <poo :: xx0:a -> xx1:a -> Bool>. zx: a -> zy: a<poo zx> -> Pair <poo> a a @-}
+
+-- FILE tests/absref/neg/FlipArgs.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/absref/neg/FlipArgs.hs:15:1
+{-@ bar :: x:Int -> {y:Int | y < x} -> Int @-}
+
+-- FILE tests/absref/neg/FlipArgs.hs:24:1
+{-@ fooOK :: a:Int -> ({v:Int | v <= a} -> Int) -> Int @-}
+
+-- FILE tests/absref/neg/FlipArgs.hs:69:1
+{-@ assume V.iscanl' :: forall <p :: Int -> Bool, q :: V.Vector b -> Bool>.
+      { vec :: V.Vector b <<q>> |- {n:Int | 0 <= n && n <= vlen vec} <: Int<p> }
+      (Int<p> -> a -> b -> a)
+      -> a 
+      -> xs:(V.Vector b <<q>>) 
+      -> {ys:V.Vector a | 1 + vlen xs == vlen ys}
+  @-}
+
+-- FILE tests/absref/neg/ListISort.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/absref/neg/ListISort_LType.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/absref/neg/ListQSort.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/absref/neg/ListQSort.hs:16:1
+{-@ quicksort :: (Ord a) => xs:[a] -> [a]<{\fld v -> (v < fld)}>  @-}
+
+-- FILE tests/absref/pos/Deppair2.hs:10:1
+{-@ baz  :: Int -> (Int, Int)<{\fld v -> fld < v }> @-}
+
+-- FILE tests/absref/pos/Deppair2.hs:13:1
+{-@ goo :: Int -> (Int, Int, Int)<{\x v -> x < v}, {\x y v -> true}> @-}
+
+-- FILE tests/absref/pos/Deptup0.hs:5:1
+{-@ data Pair a b <p :: x0:a -> x1:b -> Bool> = P {pX :: a, pY :: b<p pX> } @-}
+
+-- FILE tests/absref/pos/DeptupW.hs:5:1
+{-@ data Pair a b <p :: x0:a -> x1:b -> Bool> = P {pX :: a, pY :: b<p pX> } @-}
+
+-- FILE tests/absref/pos/DeptupW.hs:9:1
+{-@ mkP :: forall a <poo :: xx0:a -> xx1:a -> Bool>. zx: a -> zy: a<poo zx> -> Pair <poo> a a @-}
+
+-- FILE tests/absref/pos/FlipArgs.hs:14:1
+{-@ bar :: x:Int -> {y:Int | y < x} -> Int @-}
+
+-- FILE tests/absref/pos/FlipArgs.hs:23:1
+{-@ fooOK :: a:Int -> ({v:Int | v <= a} -> Int) -> Int @-}
+
+-- FILE tests/absref/pos/FlipArgs.hs:48:1
+{-@ fooBAD :: forall <p :: Int -> Bool, q :: Int -> Bool>. 
+                { xq :: Int<q> |- {n:Int | n <= xq} <: Int<p> }
+                (Int<p> -> Int) -> Int<q> -> Int
+  @-}
+
+-- FILE tests/absref/pos/FlipArgs.hs:72:1
+{-@ assume V.iscanl' :: forall <p :: Int -> Bool, q :: V.Vector b -> Bool>.
+      { vec :: V.Vector b <<q>> |- {n:Int | 0 <= n && n < V.vlen vec} <: Int<p> }
+      (Int<p> -> a -> b -> a)
+      -> a 
+      -> xs:(V.Vector b <<q>>) 
+      -> {ys:V.Vector a | 1 + V.vlen xs == V.vlen ys}
+  @-}
+
+-- FILE tests/absref/pos/ListISort.hs:3:1
+{-@ type OList a = [a]<{\fld v -> v >= fld}> @-}
+
+-- FILE tests/absref/pos/ListISort.hs:5:1
+{-@ insertSort    :: (Ord a) => xs:[a] -> {v : OList a | len(v) = len(xs)} @-}
+
+-- FILE tests/absref/pos/ListISort.hs:10:1
+{-@ insertSort'    :: (Ord a) => xs:[a] -> OList a @-}
+
+-- FILE tests/absref/pos/ListISort.hs:15:1
+{-@ insert      :: (Ord a) => x:a -> xs: OList a -> {v: OList a | len(v) = (1 + len(xs)) } @-}
+
+-- FILE tests/absref/pos/ListISort_LType.hs:9:1
+{-@ data List [llen] a <p :: x0:a -> x1:a -> Bool>  
+      = Nil 
+      | Cons { lHd :: a, lTl :: List <p> (a <p lHd>) }
+  @-}
+
+-- FILE tests/absref/pos/ListISort_LType.hs:14:1
+{-@ measure llen @-}
+
+-- FILE tests/absref/pos/ListISort_LType.hs:16:1
+{-@ llen :: List a -> Nat @-}
+
+-- FILE tests/absref/pos/ListQSort.hs:15:1
+{-@ quicksort :: (Ord a) => xs:[a] -> [a]<{\fld v -> (v >= fld)}>  @-}
+
+-- FILE tests/absref/pos/ListQSort.hs:21:1
+{-@ qsort :: (Ord a) => xs:[a] -> [a]<{\fld v -> (v >= fld)}>  @-}
+
+-- FILE tests/absref/pos/Papp00.hs:3:1
+{-@ goo :: forall a <pig :: x0:Int -> x1:a -> Bool>.
+                (i:Int -> a<pig i> -> a<pig (i+1)>) 
+              -> i:{v: Int | 0 <= v}
+              -> n:{v: Int | i <= v}
+              -> a <pig i> 
+              -> a <pig n>
+              / [n - i]
+  @-}
+
+-- FILE tests/absref/pos/ParenAbsRef.hs:7:1
+{-@ data Pair a b <p :: a -> b -> Bool> = Pair { pFst :: a, pSnd :: b<p pFst> } @-}
+
+-- FILE tests/absref/pos/ParenAbsRef.hs:11:1
+{-@ type OrdPair = (Pair Int Int) <{\x y -> x <= y}> @-}
+
+-- FILE tests/absref/pos/ParenAbsRef.hs:13:1
+{-@ mkGood :: OrdPair @-}
+
+-- FILE tests/absref/pos/PartialPredArgs.hs:15:1
+{-@ data Pair a b <p :: a -> a -> b -> Bool>
+      = MkPair { pfst :: a, psnd :: b<p pfst pfst> } @-}
+
+-- FILE tests/absref/pos/PartialPredArgs.hs:19:1
+{-@ foo :: Pair <{\x y -> x >= y}> Int Int @-}
+
+-- FILE tests/absref/pos/State00.hs:5:1
+{-@ data ST s <p :: s -> Bool> = S { act :: (s<p> -> s<p>) } @-}
+
+-- FILE tests/absref/pos/State00.hs:7:1
+{-@ foo :: forall <q :: sip -> Bool>. ST <q> sip @-}
+
+-- FILE tests/absref/pos/VectorLoop.hs:7:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/absref/pos/VectorLoop.hs:11:1
+{-@ data Vec a < dom :: Int -> Bool,
+                 rng :: Int -> a -> Bool >
+      = V {a :: i:Int<dom> -> a <rng i>}  @-}
+
+-- FILE tests/absref/pos/VectorLoop.hs:15:1
+{-@ empty :: forall <p :: Int -> a -> Bool>. 
+               Vec <{v:Int|0=1}, p> a     @-}
+
+-- FILE tests/absref/pos/VectorLoop.hs:20:1
+{-@ set :: forall a <d :: Int -> Bool,
+                     r :: Int -> a -> Bool>.
+           key: Int<d> -> val: a<r key>
+        -> vec: Vec<{v:Int<d>| v /= key},r> a
+        -> Vec <d, r> a                     @-}
+
+-- FILE tests/absref/pos/VectorLoop.hs:42:1
+{-@ loop :: forall a <p :: Int -> a -> Bool>.
+        lo:Nat
+     -> hi:{Nat | lo <= hi}
+     -> base:Vec <{v:Nat | (v < lo)}, p> a
+     -> f:(i:Nat -> Vec <{v:Nat | v < i}, p> a -> Vec <{v:Nat | v < i+1}, p> a)
+     -> Vec <{v:Nat | v < hi}, p> a                          @-}
+
+-- FILE tests/absref/pos/VectorLoop.hs:55:1
+{-@ predicate Seg V I J = (I <= V && V < J) @-}
+
+-- FILE tests/absref/pos/VectorLoop.hs:57:1
+{-@ type IdVec N = Vec <{\v -> (Seg v 0 N)}, 
+                        {\k v -> v=k}> 
+                       Int                  @-}
+
+-- FILE tests/absref/pos/VectorLoop.hs:61:1
+{-@ initUpto :: n:Nat -> (IdVec n) @-}
+
+-- FILE tests/absref/pos/VectorLoop.hs:64:1
+{-@ qualif Foo(v:Int) { v < 0  } @-}
+

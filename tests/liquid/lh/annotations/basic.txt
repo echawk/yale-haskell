@@ -1,0 +1,774 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/basic/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/basic/neg/AssmRefl01.hs:2:1
+{-@ LIQUID "--expect-error-containing=myfoobar must be reflected first using {-@ reflect myfoobar @-}" @-}
+
+-- FILE tests/basic/neg/AssmRefl01.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/neg/AssmRefl01.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/basic/neg/AssmRefl01.hs:11:1
+{-@ assume reflect foobar as myfoobar @-}
+
+-- FILE tests/basic/neg/AssmRefl01.hs:15:1
+{-@ test :: { foobar 5 } @-}
+
+-- FILE tests/basic/neg/AssmRefl02.hs:2:1
+{-@ LIQUID "--expect-error-containing=Duplicate reflection of \"foobar\"" @-}
+
+-- FILE tests/basic/neg/AssmRefl02.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/neg/AssmRefl02.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/basic/neg/AssmRefl02.hs:8:1
+{-@ reflect foobar @-}
+
+-- FILE tests/basic/neg/AssmRefl02.hs:12:1
+{-@ reflect myfoobar @-}
+
+-- FILE tests/basic/neg/AssmRefl02.hs:13:1
+{-@ assume reflect foobar as myfoobar @-}
+
+-- FILE tests/basic/neg/AssmRefl02.hs:17:1
+{-@ test :: { foobar 5 } @-}
+
+-- FILE tests/basic/neg/AssmRefl03.hs:2:1
+{-@ LIQUID "--expect-error-containing=\"AssmRefl03.myfoobar\" and \"AssmRefl03.foobar\" should have the same type." @-}
+
+-- FILE tests/basic/neg/AssmRefl03.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/neg/AssmRefl03.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/basic/neg/AssmRefl03.hs:11:1
+{-@ reflect myfoobar @-}
+
+-- FILE tests/basic/neg/AssmRefl03.hs:12:1
+{-@ assume reflect foobar as myfoobar @-}
+
+-- FILE tests/basic/neg/AssmRefl03.hs:16:1
+{-@ test :: { foobar 5 } @-}
+
+-- FILE tests/basic/neg/AssmRefl04.hs:2:1
+{-@ LIQUID "--expect-error-containing=Duplicate reflection of \"alwaysFalse\"" @-}
+
+-- FILE tests/basic/neg/AssmRefl04.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/neg/AssmRefl04.hs:4:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/basic/neg/AssmRefl04.hs:11:1
+{-@ reflect alwaysTrue @-}
+
+-- FILE tests/basic/neg/AssmRefl04.hs:12:1
+{-@ assume reflect alwaysFalse as alwaysTrue @-}
+
+-- FILE tests/basic/neg/AssmRefl04.hs:16:1
+{-@ reflect alwaysFalse2 @-}
+
+-- FILE tests/basic/neg/AssmRefl04.hs:17:1
+{-@ assume reflect alwaysFalse as alwaysFalse2 @-}
+
+-- FILE tests/basic/neg/AssmRefl04.hs:21:1
+{-@ test :: { alwaysFalse } @-}
+
+-- FILE tests/basic/neg/DuplicateSpecs.hs:2:1
+{-@ LIQUID "--expect-error-containing=Multiple specifications for `DuplicateSpecs.incr`" @-}
+
+-- FILE tests/basic/neg/DuplicateSpecs.hs:6:1
+{-@ incr :: x:_ -> {v:_ | v = x + 1} @-}
+
+-- FILE tests/basic/neg/DuplicateSpecs.hs:10:1
+{-@ incr :: x:_ -> {v:_ | v = x - 1} @-}
+
+-- FILE tests/basic/neg/Inc01.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/basic/neg/Inc01.hs:5:1
+{-@ inc :: {v:Int | v >= 0} -> {v:Int | v >= 0} @-}
+
+-- FILE tests/basic/neg/Inc01.hs:10:1
+{-@ one :: {v:Int | v >= 0} @-}
+
+-- FILE tests/basic/neg/Inc01.hs:14:1
+{-@ plus :: x:Int -> y:Int -> {v:Int| v = x - y} @-}
+
+-- FILE tests/basic/neg/Inc01q.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/basic/neg/Inc01q.hs:5:1
+{-@ inc :: {v:Int | v >= 0} -> {v:Int | v >= 0} @-}
+
+-- FILE tests/basic/neg/Inc01q.hs:9:1
+{-@ one :: {v:Int | v >= 0} @-}
+
+-- FILE tests/basic/neg/Inc01q.hs:13:1
+{-@ plus :: x:Int -> y:Int -> {v:Int| v = x - y} @-}
+
+-- FILE tests/basic/neg/Inc02.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/basic/neg/Inc02.hs:4:1
+{-@ inc :: {v:Int | v >= 0} -> {v:Int | v >= 0} @-}
+
+-- FILE tests/basic/neg/Inc03.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/basic/neg/Inc03.hs:4:1
+{-@ type NN = {v:Int | v <= 0 } @-}
+
+-- FILE tests/basic/neg/Inc03.hs:6:1
+{-@ inc :: NN -> NN @-}
+
+-- FILE tests/basic/neg/Inc04.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/basic/neg/Inc04.hs:7:1
+{-@ test1 :: NN -> NN @-}
+
+-- FILE tests/basic/neg/Inc04Lib.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/basic/neg/Inc04Lib.hs:4:1
+{-@ type NN = {v:Int | 0 <= v } @-}
+
+-- FILE tests/basic/neg/Inc04Lib.hs:6:1
+{-@ decr :: NN -> NN @-}
+
+-- FILE tests/basic/neg/Inc04Lib.hs:10:1
+{-@ incr :: NN -> NN @-}
+
+-- FILE tests/basic/neg/Inc04Lib.hs:14:1
+{-@ down :: x:Int -> {v:Int | v = x - 1} @-}
+
+-- FILE tests/basic/neg/List00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/basic/neg/List00.hs:6:1
+{-@ foo :: List a -> { v : Int | 200 <= v } @-}
+
+-- FILE tests/basic/neg/Poly00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/basic/neg/Poly00.hs:4:1
+{-@ zoo :: x:a -> {v:a | v /= x} @-}
+
+-- FILE tests/basic/neg/ReflExt01A.hs:2:1
+{-@ LIQUID "--expect-error-containing=Symbol exists but is not defined in the current file, and no unfolding is available in the interface files" @-}
+
+-- FILE tests/basic/neg/ReflExt01A.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/neg/ReflExt01A.hs:9:1
+{-@ reflect f @-}
+
+-- FILE tests/basic/neg/ReflExt01B.hs:9:1
+{-@ f :: a:Nat -> b:Nat -> Nat @-}
+
+-- FILE tests/basic/neg/ShadowLogicSymbols.hs:3:1
+{-@ LIQUID "--expect-error-containing=Liquid Type Mismatch" @-}
+
+-- FILE tests/basic/neg/ShadowLogicSymbols.hs:4:1
+{-@ LIQUID "--ple"    	@-}
+
+-- FILE tests/basic/neg/ShadowLogicSymbols.hs:13:1
+{-@ reflect shouldBeId @-}
+
+-- FILE tests/basic/neg/ShadowLogicSymbols.hs:17:1
+{-@ lemma :: {shouldBeId False} @-}
+
+-- FILE tests/basic/neg/T1459.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/basic/neg/T2349.hs:2:1
+{-@ LIQUID "--expect-error-containing=is not a subtype of the required type" @-}
+
+-- FILE tests/basic/neg/T2349.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/neg/T2349.hs:14:1
+{-@
+data Expr t where
+  I :: Int -> Expr Int
+  NIL :: Expr {v:[t] | len v = 0}
+  CONS :: i:Nat -> head:Expr t -> tail:Expr {v:[t] | len v = i} ->
+          Expr {v:[t] | len v = i+1}
+@-}
+
+-- FILE tests/basic/neg/T2349.hs:23:1
+{-@
+bad :: Expr {v:[Int] | len v = 0}
+@-}
+
+-- FILE tests/basic/neg/T2432.hs:2:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/basic/neg/T2432.hs:10:1
+{-@ data T = A | B  @-}
+
+-- FILE tests/basic/neg/T2432.hs:14:1
+{-@ type TyA = { v : T | v == A } @-}
+
+-- FILE tests/basic/neg/T2432.hs:16:1
+{-@ toInt :: TyA -> { i : Nat | i == 2 } @-}
+
+-- FILE tests/basic/pos/Alias00.hs:3:1
+{-@ type RealUp Thing = {v:Int | Thing < v} @-}
+
+-- FILE tests/basic/pos/Alias00.hs:5:1
+{-@ type Up Paw = RealUp Paw @-}
+
+-- FILE tests/basic/pos/Alias00.hs:7:1
+{-@ inc :: x:Int -> (Up x) @-}
+
+-- FILE tests/basic/pos/Alias01.hs:3:1
+{-@ predicate LessThan Thing V = Thing < V @-}
+
+-- FILE tests/basic/pos/Alias01.hs:5:1
+{-@ inc :: x:Int -> {v:Int | LessThan x v} @-}
+
+-- FILE tests/basic/pos/Alias02.hs:3:1
+{-@ predicate Less X Y = X < Y @-}
+
+-- FILE tests/basic/pos/Alias02.hs:5:1
+{-@ inc :: x:Int -> {v:Int | Less x v} @-}
+
+-- FILE tests/basic/pos/Alias03.hs:3:1
+{-@ type Less X = {v:Int | X < v}  @-}
+
+-- FILE tests/basic/pos/Alias03.hs:4:1
+{-@ data Zoo = Z { zA :: Int, zB :: Less zA } @-}
+
+-- FILE tests/basic/pos/Alias04.hs:3:1
+{-@ predicate Less X Y = X < Y @-}
+
+-- FILE tests/basic/pos/Alias04.hs:5:1
+{-@  data Zoo = Z { zA :: Int, zB :: {v:Int | Less zA v} } @-}
+
+-- FILE tests/basic/pos/Alias05.hs:3:1
+{-@ data Zoo = Z { zA :: Int, zB :: {v:Int | less zA v} } @-}
+
+-- FILE tests/basic/pos/Alias05.hs:5:1
+{-@ inline less @-}
+
+-- FILE tests/basic/pos/AssmRefl01.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/AssmRefl01.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/basic/pos/AssmRefl01.hs:10:1
+{-@ reflect myfoobar @-}
+
+-- FILE tests/basic/pos/AssmRefl01.hs:11:1
+{-@ myfoobar :: (n: Nat) -> (m: Nat) -> Nat @-}
+
+-- FILE tests/basic/pos/AssmRefl01.hs:15:1
+{-@ assume reflect foobar as myfoobar @-}
+
+-- FILE tests/basic/pos/AssmRefl01.hs:17:1
+{-@ test :: { foobar 3 4 == 8 } @-}
+
+-- FILE tests/basic/pos/AssmRefl02A.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/AssmRefl02A.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/basic/pos/AssmRefl02B.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/AssmRefl02B.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/basic/pos/AssmRefl02B.hs:9:1
+{-@ reflect myfoobar @-}
+
+-- FILE tests/basic/pos/AssmRefl02B.hs:10:1
+{-@ assume reflect foobar as myfoobar @-}
+
+-- FILE tests/basic/pos/AssmRefl02B.hs:14:1
+{-@ mytest :: { foobar 4 } @-}
+
+-- FILE tests/basic/pos/AssmRefl02C.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/AssmRefl02C.hs:3:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/basic/pos/AssmRefl02C.hs:9:1
+{-@ reflect myfoobar @-}
+
+-- FILE tests/basic/pos/AssmRefl02C.hs:10:1
+{-@ assume reflect foobar as myfoobar @-}
+
+-- FILE tests/basic/pos/AssmRefl02C.hs:14:1
+{-@ mytest :: { foobar 5 } @-}
+
+-- FILE tests/basic/pos/AssmRefl02D.hs:10:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/AssmRefl02D.hs:11:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/basic/pos/AssmRefl02D.hs:19:1
+{-@ test :: { foobar 3 } @-}
+
+-- FILE tests/basic/pos/AssmRefl03.hs:11:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/AssmRefl03.hs:12:1
+{-@ LIQUID "--ple"        @-}
+
+-- FILE tests/basic/pos/AssmRefl03.hs:20:1
+{-@ assume reflect foobar as myfoobar3 @-}
+
+-- FILE tests/basic/pos/AssmRefl03.hs:21:1
+{-@ reflect myfoobar3 @-}
+
+-- FILE tests/basic/pos/AssmRefl03.hs:25:1
+{-@ test :: { foobar 2 } @-}
+
+-- FILE tests/basic/pos/AssmRefl04.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/AssmRefl04.hs:2:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/basic/pos/AssmRefl04.hs:11:1
+{-@ infixr ++ @-}
+
+-- FILE tests/basic/pos/AssmRefl04.hs:16:1
+{-@ lemma :: x:[Int] -> {y:_ | Set.isSubsetOf y (Set.listElts x) } -> { Set.isSubsetOf y (Set.listElts x) } @-}
+
+-- FILE tests/basic/pos/AssmRefl04.hs:20:1
+{-@ reflect append @-}
+
+-- FILE tests/basic/pos/AssmRefl04.hs:21:1
+{-@ assume append :: xs:[a] -> ys:[a] -> {v:[a] | len v = len xs + len ys} @-}
+
+-- FILE tests/basic/pos/AssmRefl04.hs:26:1
+{-@ assume reflect ++ as append @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:3:1
+{-@ LIQUID "--ple"    	@-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:11:1
+{-@ reflect myfilter @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:12:1
+{-@ myfilter :: (a -> Bool) -> xs:[a] -> {v:[a] | len xs >= len v} @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:19:1
+{-@ assume reflect filter as myfilter @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:23:1
+{-@ reflect myLt @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:27:1
+{-@ assume reflect (<=) as myLt @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:31:1
+{-@ reflect onlyBiggerThan @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:35:1
+{-@ g :: xs:[Int] -> {v:[Int] | len xs >= len v} @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:40:1
+{-@ reflect myIsDigit @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:44:1
+{-@ assume reflect isDigit as myIsDigit @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:46:1
+{-@ reflect keepDigits @-}
+
+-- FILE tests/basic/pos/AssmReflFilter.hs:50:1
+{-@ lemma :: {v:[Char] | v == []} @-}
+
+-- FILE tests/basic/pos/DeadBind00.hs:8:1
+{-@ reflect length' @-}
+
+-- FILE tests/basic/pos/DeadBind00.hs:9:1
+{-@ length' :: xs:[a] -> Nat @-}
+
+-- FILE tests/basic/pos/DeadBind00.hs:14:1
+{-@ f :: xs:[a] -> { length' xs >= 0 } @-}
+
+-- FILE tests/basic/pos/Float.hs:4:1
+{-@ roxette :: {v:Float | v > 0} @-}
+
+-- FILE tests/basic/pos/Inc01.hs:4:1
+{-@ inc :: {v:Int | v >= 0} -> {v:Int | v >= 0} @-}
+
+-- FILE tests/basic/pos/Inc01.hs:8:1
+{-@ one :: {v:Int | v >= 0} @-}
+
+-- FILE tests/basic/pos/Inc01.hs:12:1
+{-@ plus :: x:Int -> y:Int -> {v:Int| v = x + y} @-}
+
+-- FILE tests/basic/pos/Inc01q.hs:4:1
+{-@ inc :: {v:Int | v >= 0} -> {v:Int | v >= 0} @-}
+
+-- FILE tests/basic/pos/Inc01q.hs:8:1
+{-@ one :: {v:Int | v >= 0} @-}
+
+-- FILE tests/basic/pos/Inc01q.hs:12:1
+{-@ plus :: x:Int -> y:Int -> {v:Int| v = x + y} @-}
+
+-- FILE tests/basic/pos/Inc02.hs:3:1
+{-@ inc :: {v:Int | v >= 0} -> {v:Int | v >= 0} @-}
+
+-- FILE tests/basic/pos/Inc03.hs:5:1
+{-@ incr2 :: NN -> NN @-}
+
+-- FILE tests/basic/pos/Inc03.hs:9:1
+{-@ incr3 :: NN -> NN @-}
+
+-- FILE tests/basic/pos/Inc03Lib.hs:3:1
+{-@ type NN = {v:Int | 0 <= v} @-}
+
+-- FILE tests/basic/pos/Inc03Lib.hs:5:1
+{-@ incr :: NN -> NN @-}
+
+-- FILE tests/basic/pos/Inc04.hs:3:1
+{-@ inc :: Nat -> Nat @-}
+
+-- FILE tests/basic/pos/List00.hs:5:1
+{-@ foo :: List a -> { v : Int | 20 <= v } @-}
+
+-- FILE tests/basic/pos/MeasureInvTypeSyn.hs:10:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/basic/pos/MeasureInvTypeSyn.hs:15:1
+{-@ measure ms @-}
+
+-- FILE tests/basic/pos/MeasureInvTypeSyn.hs:16:1
+{-@ ms :: Hunk a -> Nat @-}
+
+-- FILE tests/basic/pos/MeasureInvTypeSyn.hs:21:1
+{-@ measure m @-}
+
+-- FILE tests/basic/pos/MeasureInvTypeSyn.hs:22:1
+{-@ m :: Diff [a] -> Nat @-}
+
+-- FILE tests/basic/pos/MeasureInvTypeSyn.hs:28:1
+{-@ measure length' @-}
+
+-- FILE tests/basic/pos/MeasureInvTypeSyn.hs:29:1
+{-@ length' :: xs:[a] -> Nat @-}
+
+-- FILE tests/basic/pos/MeasureInvTypeSyn.hs:34:1
+{-@ f :: xs0:Hunk a -> Int / [ms xs0] @-}
+
+-- FILE tests/basic/pos/MeasureOverlapA.hs:4:1
+{-@
+measure foo :: Bool -> Bool
+  foo False = False
+  foo True = True
+@-}
+
+-- FILE tests/basic/pos/MeasureOverlapB.hs:6:1
+{-@
+measure foo :: Bool -> Bool
+  foo False = True
+  foo True = False
+
+@-}
+
+-- FILE tests/basic/pos/MeasureOverlapC.hs:11:1
+{-@ lemma :: { foo False } @-}
+
+-- FILE tests/basic/pos/MeasureOverlapE.hs:12:1
+{-@ lemma :: { foo False } @-}
+
+-- FILE tests/basic/pos/OpaqueRefl01.hs:3:1
+{-@ LIQUID "--reflection"      @-}
+
+-- FILE tests/basic/pos/OpaqueRefl01.hs:10:1
+{-@ reflect inc @-}
+
+-- FILE tests/basic/pos/OpaqueRefl02.hs:3:1
+{-@ LIQUID "--reflection"      @-}
+
+-- FILE tests/basic/pos/OpaqueRefl02.hs:7:1
+{-@ measure filter :: (a -> Bool) -> [a] -> [a] @-}
+
+-- FILE tests/basic/pos/OpaqueRefl02.hs:8:1
+{-@ assume filter :: p:(a -> Bool) -> xs:[a] -> {v : [a] | v == filter p xs && len v <= len xs} @-}
+
+-- FILE tests/basic/pos/OpaqueRefl02.hs:9:1
+{-@ measure even :: a -> Bool @-}
+
+-- FILE tests/basic/pos/OpaqueRefl02.hs:10:1
+{-@ assume even :: x:a -> {VV : Bool | VV == even x} @-}
+
+-- FILE tests/basic/pos/OpaqueRefl02.hs:12:1
+{-@ reflect keepEvens @-}
+
+-- FILE tests/basic/pos/OpaqueRefl03A.hs:5:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/OpaqueRefl03A.hs:6:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/basic/pos/OpaqueRefl03A.hs:13:1
+{-@ reflect myfoobar3 @-}
+
+-- FILE tests/basic/pos/OpaqueRefl03A.hs:17:1
+{-@ usefulLemma :: n: Int -> m: Int -> {myfoobar3 n m == 2 * myfoobar1 n m} @-}
+
+-- FILE tests/basic/pos/OpaqueRefl03B.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/OpaqueRefl03B.hs:7:1
+{-@ measure azazepoia :: Int -> Int -> Int @-}
+
+-- FILE tests/basic/pos/OpaqueRefl03B.hs:9:1
+{-@ reflect myfoobar2 @-}
+
+-- FILE tests/basic/pos/OpaqueRefl03C.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/OpaqueRefl03C.hs:7:1
+{-@ reflect myfoobar1 @-}
+
+-- FILE tests/basic/pos/OpaqueRefl04.hs:1:1
+{-@ LIQUID "--reflection"      @-}
+
+-- FILE tests/basic/pos/OpaqueRefl04.hs:5:1
+{-@ reflect keepEvens @-}
+
+-- FILE tests/basic/pos/OpaqueRefl05.hs:7:1
+{-@ reflect incChar @-}
+
+-- FILE tests/basic/pos/OpaqueRefl05.hs:11:1
+{-@ opaque-reflect ord @-}
+
+-- FILE tests/basic/pos/OpaqueRefl05.hs:13:1
+{-@ ord' :: c:Char -> { v:Int | v = ord c } @-}
+
+-- FILE tests/basic/pos/OpaqueRefl06.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/OpaqueRefl06.hs:7:1
+{-@ opaque-reflect lookup @-}
+
+-- FILE tests/basic/pos/OpaqueRefl06.hs:8:1
+{-@ smartInsert :: k:String -> v:Int -> l:[(String, Int)] -> {res : [(String, Int)] | lookup k l == Just v || head res == (k , v)} @-}
+
+-- FILE tests/basic/pos/Poly00.hs:3:1
+{-@ zoo :: x:a -> {v:a | v = x} @-}
+
+-- FILE tests/basic/pos/ReflExt01.hs:3:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/basic/pos/ReflExt01.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/ReflExt01.hs:8:1
+{-@ reflect uncurry @-}
+
+-- FILE tests/basic/pos/ReflExt01.hs:10:1
+{-@ reflect otherFn @-}
+
+-- FILE tests/basic/pos/ReflExt01.hs:14:1
+{-@ reflect myAdd @-}
+
+-- FILE tests/basic/pos/ReflExt02A.hs:5:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/basic/pos/ReflExt02A.hs:6:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/ReflExt02A.hs:12:1
+{-@ reflect ReflExt02B.myAdd @-}
+
+-- FILE tests/basic/pos/ReflExt02A.hs:14:1
+{-@ reflect ReflExt02A.myAdd @-}
+
+-- FILE tests/basic/pos/ReflExt02A.hs:19:1
+{-@ lemma :: {ReflExt02B.myAdd 3 2 = 6 } @-}
+
+-- FILE tests/basic/pos/ReflExt03A.hs:3:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/basic/pos/ReflExt03A.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/ReflExt03A.hs:10:1
+{-@ reflect f @-}
+
+-- FILE tests/basic/pos/ReflExt03A.hs:11:1
+{-@ private-reflect ReflExt03B.myAdd @-}
+
+-- FILE tests/basic/pos/ReflExt03A.hs:14:1
+{-@ lemma :: {f 3 2 = 8} @-}
+
+-- FILE tests/basic/pos/ReflExt03A.hs:17:1
+{-@ lemma2 :: { ReflExt03B.myAdd 3 2 = 5} @-}
+
+-- FILE tests/basic/pos/ReflExt03B.hs:10:1
+{-@ f :: a:Nat -> b:Nat -> Nat @-}
+
+-- FILE tests/basic/pos/ReflExt03B.hs:16:1
+{-@ myAdd :: a:Nat -> b:Nat -> Nat / [b] @-}
+
+-- FILE tests/basic/pos/ReflExt04A.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/ReflExt04A.hs:10:1
+{-@ reflect ReflExt04B.f @-}
+
+-- FILE tests/basic/pos/ReflExt04B.hs:10:1
+{-@ f :: a:Nat -> b:Nat -> Nat @-}
+
+-- FILE tests/basic/pos/ReflExt04B.hs:16:1
+{-@ myAdd :: a:Nat -> b:Nat -> Nat / [b] @-}
+
+-- FILE tests/basic/pos/ReflExt05A.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/ReflExt05A.hs:9:1
+{-@ reflect calories @-}
+
+-- FILE tests/basic/pos/ReflExt06A.hs:5:1
+{-@ LIQUID "--ple"         @-}
+
+-- FILE tests/basic/pos/ReflExt06A.hs:6:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/ReflExt06A.hs:14:1
+{-@ reflect calories3 @-}
+
+-- FILE tests/basic/pos/ReflExt06A.hs:19:1
+{-@ lemma :: {calories3 (Banana 3) == 9} @-}
+
+-- FILE tests/basic/pos/ReflExt06B.hs:5:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/ReflExt06B.hs:11:1
+{-@ reflect calories @-}
+
+-- FILE tests/basic/pos/ReflExt06B.hs:13:1
+{-@ reflect calories1 @-}
+
+-- FILE tests/basic/pos/ReflExt06C.hs:5:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/ReflExt06C.hs:11:1
+{-@ reflect calories @-}
+
+-- FILE tests/basic/pos/ReflExt06C.hs:13:1
+{-@ reflect calories2 @-}
+
+-- FILE tests/basic/pos/ReflExt07A.hs:3:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/basic/pos/ReflExt07A.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/ReflExt07A.hs:10:1
+{-@ reflect leftMostEl @-}
+
+-- FILE tests/basic/pos/ReflExt07A.hs:12:1
+{-@ lemma :: {leftMostEl (Leaf 2) == 2} @-}
+
+-- FILE tests/basic/pos/ReflExt07B.hs:14:1
+{-@ measure tsize :: Tree a -> Nat @-}
+
+-- FILE tests/basic/pos/ReflExt07B.hs:15:1
+{-@ data size (Tree a) tsize @-}
+
+-- FILE tests/basic/pos/ReflExt07B.hs:17:1
+{-@ data Tree a where 
+      Leaf :: a -> {t:Tree a  | tsize t == 0 } 
+      Node :: f:(Int -> Tree a) -> Tree a   @-}
+
+-- FILE tests/basic/pos/ReflExt07B.hs:23:1
+{-@ leftMostEl :: t:Tree a -> a / [tsize t] @-}
+
+-- FILE tests/basic/pos/ReflExt08A.hs:3:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/ReflExt08A.hs:9:1
+{-@ reflect fromCal @-}
+
+-- FILE tests/basic/pos/ShadowLogicSymbols.hs:4:1
+{-@ LIQUID "--ple"    	@-}
+
+-- FILE tests/basic/pos/ShadowLogicSymbols.hs:5:1
+{-@ LIQUID "--reflection"    	@-}
+
+-- FILE tests/basic/pos/ShadowLogicSymbols.hs:11:1
+{-@ reflect not @-}
+
+-- FILE tests/basic/pos/ShadowLogicSymbols.hs:15:1
+{-@ lemma :: {ShadowLogicSymbols.not True} @-}
+
+-- FILE tests/basic/pos/T2349.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/basic/pos/T2349.hs:13:1
+{-@
+data Expr t where
+  I :: Int -> Expr Int
+  NIL :: Expr {v:[t] | len v = 0}
+  CONS :: i:Nat -> head:Expr t -> tail:Expr {v:[t] | len v = i} ->
+          Expr {v:[t] | len v = i+1}
+@-}
+
+-- FILE tests/basic/pos/T2349.hs:22:1
+{-@
+good :: Expr {v:[Int] | len v = 1}
+@-}
+
+-- FILE tests/basic/pos/TestAdmit.hs:7:1
+{-@ g :: x:_ -> {v:_ | x == v} @-}
+
+-- FILE tests/basic/pos/TestAdmit.hs:8:1
+{-@ reflect g @-}
+
+-- FILE tests/basic/pos/TestAdmit.hs:13:1
+{-@ f :: { g 1 == 1 } @-}
+
+-- FILE tests/basic/pos/UnicodeConstraints.hs:5:1
+{-@ id10 :: (Ord a) => a -> a @-}
+
+-- FILE tests/basic/pos/UnicodeConstraints.hs:9:1
+{-@ id11 :: (Ord a) => a -> a @-}
+
+-- FILE tests/basic/pos/UnicodeConstraints.hs:13:1
+{-@ id20 ∷ (Ord a) ⇒ a → a @-}
+
+-- FILE tests/basic/pos/UnicodeConstraints.hs:17:1
+{-@ id21 ∷ (Ord a) ⇒ a → a @-}
+
+-- FILE tests/basic/pos/UnicodeSyntax.hs:5:1
+{-@ id10 :: x:Int -> {v:Int | v = x} @-}
+
+-- FILE tests/basic/pos/UnicodeSyntax.hs:9:1
+{-@ id11 :: x:Int -> {v:Int | v = x} @-}
+
+-- FILE tests/basic/pos/UnicodeSyntax.hs:13:1
+{-@ id20 ∷ x:Int → {v:Int | v = x} @-}
+
+-- FILE tests/basic/pos/UnicodeSyntax.hs:17:1
+{-@ id21 ∷ x:Int → {v:Int | v = x} @-}
+
+-- FILE tests/basic/pos/UnicodeSyntax.hs:21:1
+{-@ id3 :: x:Int → {v:Int | v = x} @-}
+
+-- FILE tests/basic/pos/UnicodeSyntax.hs:25:1
+{-@ id4 ∷ x:Int -> {v:Int | v = x} @-}
+

@@ -1,0 +1,179 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/typed-holes/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/typed-holes/Example0.hs:1:1
+{-@ LIQUID "--expect-error-containing=Hole Found" @-}
+
+-- FILE tests/typed-holes/Example0.hs:2:1
+{-@ LIQUID "--warn-on-term-holes" @-}
+
+-- FILE tests/typed-holes/Example0.hs:7:5
+    {-@ listLength :: xs:[a] -> {v : Nat | v == len xs} @-}
+
+-- FILE tests/typed-holes/Example1.hs:1:1
+{-@ LIQUID "--expect-error-containing=Hole Found" @-}
+
+-- FILE tests/typed-holes/Example1.hs:2:1
+{-@ LIQUID "--warn-on-term-holes" @-}
+
+-- FILE tests/typed-holes/Example1.hs:8:5
+    {-@ listLength :: xs:[a] -> {v : Nat | v == len xs} @-}
+
+-- FILE tests/typed-holes/Example1.hs:13:5
+    {-@ measure listLength @-}
+
+-- FILE tests/typed-holes/Example1.hs:15:5
+    {-@ listLengthProof :: xs:[a] -> {listLength xs == len xs} @-}
+
+-- FILE tests/typed-holes/Example2.hs:1:1
+{-@ LIQUID "--expect-error-containing=Hole Found" @-}
+
+-- FILE tests/typed-holes/Example2.hs:2:1
+{-@ LIQUID "--warn-on-term-holes" @-}
+
+-- FILE tests/typed-holes/Example2.hs:11:5
+    {-@ reflect empty @-}
+
+-- FILE tests/typed-holes/Example2.hs:15:5
+    {-@ infix <> @-}
+
+-- FILE tests/typed-holes/Example2.hs:16:5
+    {-@ reflect <> @-}
+
+-- FILE tests/typed-holes/Example2.hs:21:5
+    {-@ leftId  :: x:[a] -> { (empty <> x) == x } @-}
+
+-- FILE tests/typed-holes/Example2.hs:29:5
+    {-@ rightId  :: x:[a] -> { (x <> empty) == x } @-}
+
+-- FILE tests/typed-holes/Example2.hs:33:5
+    {-@ assoc  :: x:[a] -> y:[a] -> z:[a] -> { (x <> (y <> z)) == ((x <> y) <> z) } @-}
+
+-- FILE tests/typed-holes/Example3.hs:1:1
+{-@ LIQUID "--expect-error-containing=Hole Found" @-}
+
+-- FILE tests/typed-holes/Example3.hs:2:1
+{-@ LIQUID "--warn-on-term-holes" @-}
+
+-- FILE tests/typed-holes/Example3.hs:11:5
+    {-@ length :: [a] -> {v:Int | 0 <= v } @-}
+
+-- FILE tests/typed-holes/Example3.hs:15:5
+    {-@ measure length @-}
+
+-- FILE tests/typed-holes/Example3.hs:17:5
+    {-@ reverse :: is:[a] -> {os:[a] | length is == length os} @-}
+
+-- FILE tests/typed-holes/Example3.hs:22:5
+    {-@ (++) :: xs:[a] -> ys:[a] -> {zs:[a] | length zs == length xs + length ys} @-}
+
+-- FILE tests/typed-holes/Example3.hs:26:5
+    {-@ infixl ++ @-}
+
+-- FILE tests/typed-holes/Example3.hs:28:5
+    {-@ reflect reverse @-}
+
+-- FILE tests/typed-holes/Example3.hs:29:5
+    {-@ reflect ++ @-}
+
+-- FILE tests/typed-holes/Example3.hs:33:5
+    {-@ involutionProof :: xs:[a] -> { reverse (reverse xs) == xs } @-}
+
+-- FILE tests/typed-holes/Example3.hs:37:5
+    {-@ distributivityP :: xs:[a] -> ys:[a] -> { reverse (xs ++ ys) == reverse ys ++ reverse xs } @-}
+
+-- FILE tests/typed-holes/Example4.hs:1:1
+{-@ LIQUID "--expect-error-containing=Hole Found" @-}
+
+-- FILE tests/typed-holes/Example4.hs:2:1
+{-@ LIQUID "--warn-on-term-holes" @-}
+
+-- FILE tests/typed-holes/Example4.hs:10:5
+    {-@ length :: [a] -> {v:Int | 0 <= v } @-}
+
+-- FILE tests/typed-holes/Example4.hs:14:5
+    {-@ measure length @-}
+
+-- FILE tests/typed-holes/Example4.hs:16:5
+    {-@ reverse :: is:[a] -> {os:[a] | length is == length os} @-}
+
+-- FILE tests/typed-holes/Example4.hs:21:5
+    {-@ (++) :: xs:[a] -> ys:[a] -> {zs:[a] | length zs == length xs + length ys} @-}
+
+-- FILE tests/typed-holes/Example4.hs:25:5
+    {-@ infixl ++ @-}
+
+-- FILE tests/typed-holes/Example4.hs:27:5
+    {-@ reflect reverse @-}
+
+-- FILE tests/typed-holes/Example4.hs:28:5
+    {-@ reflect ++ @-}
+
+-- FILE tests/typed-holes/Example4.hs:30:5
+    {-@ reverseApp :: xs:[a] -> ys:[a] -> {zs:[a] | zs == reverse xs ++ ys} @-}
+
+-- FILE tests/typed-holes/Example5.hs:1:1
+{-@ LIQUID "--expect-error-containing=Hole Found" @-}
+
+-- FILE tests/typed-holes/Example5.hs:2:1
+{-@ LIQUID "--warn-on-term-holes" @-}
+
+-- FILE tests/typed-holes/Example5.hs:13:5
+    {-@ reflect flatten @-}
+
+-- FILE tests/typed-holes/Example5.hs:19:5
+    {-@ length :: [a] -> {v:Int | 0 <= v } @-}
+
+-- FILE tests/typed-holes/Example5.hs:23:5
+    {-@ measure length @-}
+
+-- FILE tests/typed-holes/Example5.hs:25:5
+    {-@ (++) :: xs:[a] -> ys:[a] -> {zs:[a] | length zs == length xs + length ys} @-}
+
+-- FILE tests/typed-holes/Example5.hs:29:5
+    {-@ infixl ++ @-}
+
+-- FILE tests/typed-holes/Example5.hs:30:5
+    {-@ reflect ++ @-}
+
+-- FILE tests/typed-holes/Example5.hs:33:5
+    {-@ flattenApp :: t:Tree -> ns:[Int] -> { v:[Int] | v == flatten t ++ ns } @-}
+
+-- FILE tests/typed-holes/Example6.hs:1:1
+{-@ LIQUID "--expect-error-containing=Hole Found" @-}
+
+-- FILE tests/typed-holes/Example6.hs:2:1
+{-@ LIQUID "--warn-on-term-holes" @-}
+
+-- FILE tests/typed-holes/Example6.hs:4:1
+{-@ infix    :   @-}
+
+-- FILE tests/typed-holes/Example6.hs:10:5
+    {-@ length :: [a] -> {v:Int | 0 <= v } @-}
+
+-- FILE tests/typed-holes/Example6.hs:14:5
+    {-@ measure length @-}
+
+-- FILE tests/typed-holes/Example6.hs:16:5
+    {-@ (++) :: xs:[a] -> ys:[a] -> {zs:[a] | length zs == length xs + length ys} @-}
+
+-- FILE tests/typed-holes/Example6.hs:20:5
+    {-@ infixl ++ @-}
+
+-- FILE tests/typed-holes/Example6.hs:21:5
+    {-@ reflect ++ @-}
+
+-- FILE tests/typed-holes/Example6.hs:26:5
+    {-@ reflect eval @-}
+
+-- FILE tests/typed-holes/Example6.hs:35:5
+    {-@ reflect exec @-}
+
+-- FILE tests/typed-holes/Example6.hs:42:5
+    {-@ reflect comp @-}
+
+-- FILE tests/typed-holes/Example6.hs:47:5
+    {-@ generalizedCorrectness 
+         :: e:Expr -> s:Stack -> {exec (comp e) s == Just ((eval  e):s) } 
+    @-}
+

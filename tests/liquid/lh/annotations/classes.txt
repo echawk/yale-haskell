@@ -1,0 +1,152 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/classes/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/classes/neg/Class00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/classes/neg/Class00.hs:7:1
+{-@ class Zoo a where 
+      zoo :: {v:Int | v > 0} -> a 
+  @-}
+
+-- FILE tests/classes/neg/Class01.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/classes/neg/Class01.hs:6:1
+{-@ class Foo a where
+      foo :: a -> Nat
+  @-}
+
+-- FILE tests/classes/neg/Inst00.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/classes/neg/Inst00.hs:13:1
+{-@ instance Compare Int where
+      cmax :: Odd -> Odd -> Odd ;
+      cmin :: Int -> Int -> Int
+  @-}
+
+-- FILE tests/classes/neg/Inst00.hs:38:1
+{-@ foo :: Odd -> Odd -> Odd @-}
+
+-- FILE tests/classes/neg/Inst00.hs:42:1
+{-@ unsafe :: Odd -> Odd -> Odd @-}
+
+-- FILE tests/classes/neg/RealProps0.hs:1:1
+{-@ LIQUID "--expect-any-error" @-}
+
+-- FILE tests/classes/pos/Class00.hs:6:1
+{-@ class Zoo a where 
+      zoo :: a -> {v:Int | v > 0} 
+  @-}
+
+-- FILE tests/classes/pos/Class00.hs:10:1
+{-@ zing :: (Zoo a) => a -> {v:Int | v > 0} @-}
+
+-- FILE tests/classes/pos/HiddenMethod00.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/classes/pos/Inst00.hs:14:1
+{-@ instance Compare Int where
+        cmax :: Odd -> Odd -> Odd ;
+        cmin :: Int -> Int -> Int
+  @-}
+
+-- FILE tests/classes/pos/Inst00.hs:39:1
+{-@ foo :: Odd -> Odd -> Odd @-}
+
+-- FILE tests/classes/pos/RealProps0.hs:6:1
+{-@ divId :: x:Double -> {v:Double | v = x} @-}
+
+-- FILE tests/classes/pos/RealProps1.hs:6:1
+{-@ type Valid = {v:Bool | v } @-}
+
+-- FILE tests/classes/pos/RealProps1.hs:8:1
+{-@ mulAssoc :: (Eq a, Fractional a) => a -> a -> a -> Valid @-}
+
+-- FILE tests/classes/pos/RealProps1.hs:12:1
+{-@ mulCommut :: (Eq a, Fractional a) => a -> a -> Valid @-}
+
+-- FILE tests/classes/pos/RealProps1.hs:16:1
+{-@ mulId :: (Eq a, Fractional a) => a -> Valid @-}
+
+-- FILE tests/classes/pos/RealProps1.hs:20:1
+{-@ mulDistr :: Double -> Double -> Double -> Valid @-}
+
+-- FILE tests/classes/pos/RealProps1.hs:24:1
+{-@ divId :: Double -> Valid @-}
+
+-- FILE tests/classes/pos/RealProps1.hs:28:1
+{-@ inverse :: {v:Double | v != 0.0} -> Valid @-}
+
+-- FILE tests/classes/pos/STMonad.hs:4:1
+{-@ LIQUID "--no-pattern-inline" @-}
+
+-- FILE tests/classes/pos/STMonad.hs:5:1
+{-@ LIQUID "--higherorder"       @-}
+
+-- FILE tests/classes/pos/STMonad.hs:11:1
+{-@ data ST s a <pre :: s -> Bool, post :: a -> s -> Bool>
+       = S { runSt :: (x:s<pre> -> ((a, s)<post>)) }
+  @-}
+
+-- FILE tests/classes/pos/STMonad.hs:15:1
+{-@ apply :: forall <p :: s -> Bool, q :: a -> s -> Bool>.
+               ST <p, q> s a -> s<p> -> (a, s)<q>
+  @-}
+
+-- FILE tests/classes/pos/STMonad.hs:29:3
+  {-@ instance Monad (ST s) where
+        return :: forall <p :: a -> s -> Bool>. x:a -> ST <{v:s<p x>| true}, p, {v:a | true}> s a ;
+        >>=    :: forall <pbind :: s -> Bool, qbind :: a -> s -> Bool, rbind :: b -> s -> Bool>.
+                                  ST <pbind, qbind> s a
+                              -> (xbind:a -> ST <{v:s<qbind xbind> | true}, rbind> s b)
+                              -> ST <pbind, rbind> s b;
+        >>    :: forall <pbind :: s -> Bool, qbind :: a -> s -> Bool, rbind :: b -> s -> Bool>.
+                                 ST <pbind, qbind> s a
+                              -> (ST <{v:s| true}, rbind> s b)
+                              -> ST <pbind, rbind> s b
+    @-}
+
+-- FILE tests/classes/pos/STMonad.hs:41:3
+  {-@ ignore (>>) @-}
+
+-- FILE tests/classes/pos/STMonad.hs:43:3
+  {-@ ignore (>>=) @-}
+
+-- FILE tests/classes/pos/STMonad.hs:48:1
+{-@ fresh :: forall <pre :: Int -> Bool>.
+                    { zoo::Int |- Int<pre> <: {v:Int | 0 <= v} }
+                    ST <pre, {\rv v -> ( 0 <= rv && rv + 1 = v )}> Int (Int<pre>)
+  @-}
+
+-- FILE tests/classes/pos/STMonad.hs:59:1
+{-@ incr0 :: ST <{\v -> (0 <= v)}, {\rv v -> (0 <= rv && 1 <= v)}> Int Int @-}
+
+-- FILE tests/classes/pos/STMonad.hs:65:1
+{-@ incr1 :: ST <{\v -> (0 <= v)}, {\rv v -> (0 <= rv && 1 <= v)}> Int Int @-}
+
+-- FILE tests/classes/pos/STMonad.hs:69:1
+{-@ incr2 :: ST <{\v -> (0 == v)}, {\rv v -> (4 == v)}> Int Int @-}
+
+-- FILE tests/classes/pos/STMonad.hs:78:1
+{-@ checkEq :: x:Int -> y:{Int | y = x} -> {v:Int | v = y} @-}
+
+-- FILE tests/classes/pos/TypeEquality00.hs:22:1
+{-@ data EntityFieldPerson typ where                                                                                     
+      PersonNums :: EntityFieldPerson {v:_ | len v > 0}                                                               
+  @-}
+
+-- FILE tests/classes/pos/TypeEquality01.hs:15:1
+{-@ LIQUID "--higherorder"    @-}
+
+-- FILE tests/classes/pos/TypeEquality01.hs:16:1
+{-@ LIQUID "--no-termination" @-}
+
+-- FILE tests/classes/pos/TypeEquality01.hs:33:3
+  {-@ data EntityField Person typ where
+          TypeEquality01.PersonNumber :: EntityField Person {v:_ | 0 <= v   }
+          TypeEquality01.PersonName   :: EntityField Person {v:_ | 0 < len v}
+          TypeEquality01.PersonNums   :: EntityField Person {v:_ | 0 < len v}
+    @-}
+

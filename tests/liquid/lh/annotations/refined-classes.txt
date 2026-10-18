@@ -1,0 +1,100 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/refined-classes/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/refined-classes/semigroup.hs:19:5
+    {-@ reflect mappend @-}
+
+-- FILE tests/refined-classes/semigroup.hs:22:5
+    {-@ lawAssociative 
+     :: x : a
+     -> y : a
+     -> z : a
+     -> {mappend (mappend x y) z = mappend x (mappend y z)}
+     @-}
+
+-- FILE tests/refined-classes/semigroup_desugared.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/refined-classes/semigroup_desugared.hs:28:1
+{-@
+  data SemigroupD a = SemigroupD {
+      sdMappend :: a -> a -> a
+    , sdLawAssociative :: x : a
+        -> y : a
+        -> z : a
+        -> {sdMappend (sdMappend x y) z = sdMappend x (sdMappend y z)}
+    }
+@-}
+
+-- FILE tests/refined-classes/semigroup_desugared.hs:43:1
+{-@ reflect mappendInt @-}
+
+-- FILE tests/refined-classes/semigroup_desugared.hs:53:1
+{-@ lawAssociativeInt
+ :: x : Int
+ -> y : Int
+ -> z : Int
+ -> {mappendInt (mappendInt x y) z = mappendInt x (mappendInt y z)}
+ @-}
+
+-- FILE tests/refined-classes/semigroup_desugared.hs:86:1
+{-@ assume lawAssociative
+ :: d : SemigroupD a
+ -> x : a
+ -> y : a
+ -> z : a
+ -> {sdMappend d (sdMappend d x y) z = sdMappend d x (sdMappend d y z)}
+@-}
+
+-- FILE tests/refined-classes/semigroup_desugared.hs:96:1
+{-@ testLemma
+ :: d : SemigroupD a
+ -> x : a
+ -> y : a
+ -> z : a
+ -> {sdMappend d (sdMappend d x y) z = sdMappend d x (sdMappend d y z) }
+ @-}
+
+-- FILE tests/refined-classes/semigroup_unsound.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/refined-classes/semigroup_unsound.hs:28:1
+{-@
+  data SemigroupD a = SemigroupD {
+      sdMappend :: a -> a -> a
+    , sdLawAssociative :: x : a
+        -> y : a
+        -> z : a
+        -> {sdMappend (sdMappend x y) z = sdMappend x (sdMappend y z)}
+    }
+@-}
+
+-- FILE tests/refined-classes/semigroup_unsound.hs:43:1
+{-@ reflect mappendInt @-}
+
+-- FILE tests/refined-classes/semigroup_unsound.hs:53:1
+{-@ lawAssociativeInt
+ :: x : Int
+ -> y : Int
+ -> z : Int
+ -> {mappendInt (mappendInt x y) z = mappendInt x (mappendInt y z)}
+ @-}
+
+-- FILE tests/refined-classes/semigroup_unsound.hs:96:1
+{-@ sdLawAssociative
+ :: d : SemigroupD a
+ -> x : a
+ -> y : a
+ -> z : a
+ -> {false}
+@-}
+
+-- FILE tests/refined-classes/semigroup_unsound.hs:106:1
+{-@ testLemma
+ :: d : SemigroupD a
+ -> x : a
+ -> y : a
+ -> z : a
+ -> {sdMappend d (sdMappend d x y) z = sdMappend d x (sdMappend d y z) }
+ @-}
+

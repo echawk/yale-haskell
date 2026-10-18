@@ -1,0 +1,23 @@
+# Vendored liquid-fixpoint tests this solver does not get right yet.
+# One per line: the test, then why.  The harness counts them separately and
+# notes when one starts passing.
+#
+# Upstream skips this one in its own native-solver runs (skipNativePos):
+pos/NonLinear-pack.fq       needs kvar packing; upstream's test.hs skips it too
+# Bit vectors are not encoded (sorts BitVec, bvor, ..):
+pos/bitvec.fq               bit-vector theory not encoded
+pos/bitvec-ii.fq            bit-vector theory (and the "app" indexed operators) not encoded
+pos/hex.ts.fq               bit-vector theory not encoded
+# Proof by logical evaluation / rewriting / extensionality are not ported:
+pos/T416.fq                 needs --rewrite (PLE) and --extensionality
+pos/eta_cons.fq             needs --rewrite (PLE) and --etabeta
+pos/ext_double_unfold.fq    needs --extensionality
+pos/ext_lam.fq              needs --extensionality
+pos/ext_lam_multi.fq        needs --extensionality
+pos/localrw.fq              needs --localrewrites
+pos/unicode.fq              needs --rewrite (PLE)
+# kvar elimination (--eliminate) is not ported; these have no qualifiers that work:
+pos/ho00.fq                 needs --eliminate=all
+pos/meas00.fq               needs --eliminate=some (no qualifiers)
+# A test of the command line, not of solving:
+neg/numeric-version.fq      tests "fixpoint --numeric-version" exiting with status 1

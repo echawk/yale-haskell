@@ -1,0 +1,183 @@
+-- {-@ @-} comments extracted verbatim from LiquidHaskell's tests/typeclasses/
+-- (see tests/liquid/README.md for the upstream commit and licence)
+
+-- FILE tests/typeclasses/neg/ClassMethodWithoutTypeclass.hs:1:1
+{-@ LIQUID "--expect-error-containing=This is a class method, but typeclass support is disabled." @-}
+
+-- FILE tests/typeclasses/neg/ClassMethodWithoutTypeclass.hs:6:1
+{-@ succId :: x:Int -> {v:Int | succ x == succ x} @-}
+
+-- FILE tests/typeclasses/pos/All.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/typeclasses/pos/All.hs:3:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/All.hs:4:1
+{-@ LIQUID "--aux-inline" @-}
+
+-- FILE tests/typeclasses/pos/All.hs:5:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/typeclasses/pos/All.hs:19:1
+{-@ data List a = Nil | Cons {lh::a, lt::List a} @-}
+
+-- FILE tests/typeclasses/pos/All.hs:22:1
+{-@ reflect foldrList @-}
+
+-- FILE tests/typeclasses/pos/All.hs:27:1
+{-@ reflect foldlList @-}
+
+-- FILE tests/typeclasses/pos/All.hs:33:1
+{-@ data NonEmpty a = NonEmpty {neh::a, net:: (List a)} @-}
+
+-- FILE tests/typeclasses/pos/All.hs:36:1
+{-@ reflect head' @-}
+
+-- FILE tests/typeclasses/pos/All.hs:40:1
+{-@ reflect tail' @-}
+
+-- FILE tests/typeclasses/pos/All.hs:46:5
+    {-@ mappend :: a -> a -> a @-}
+
+-- FILE tests/typeclasses/pos/All.hs:51:5
+    {-@ lawAssociative :: v:a -> v':a -> v'':a -> {mappend (mappend v v') v'' == mappend v (mappend v' v'')} @-}
+
+-- FILE tests/typeclasses/pos/All.hs:54:5
+    {-@ lawSconcat :: ys:NonEmpty a -> {foldlList mappend (head' ys) (tail' ys) == sconcat ys} @-}
+
+-- FILE tests/typeclasses/pos/All.hs:58:5
+    {-@ mempty :: a @-}
+
+-- FILE tests/typeclasses/pos/All.hs:64:5
+    {-@ lawEmpty :: x:a -> {mappend x mempty == x && mappend mempty x == x} @-}
+
+-- FILE tests/typeclasses/pos/All.hs:67:5
+    {-@ lawMconcat :: xs:List a -> {mconcat xs == foldrList mappend mempty xs} @-}
+
+-- FILE tests/typeclasses/pos/All.hs:72:1
+{-@ assoc4 :: VSemigroup a => x:a -> y:a -> z:a -> h:a -> {mappend x (mappend y (mappend z h)) == mappend (mappend  (mappend x y) z) h} @-}
+
+-- FILE tests/typeclasses/pos/Basic.hs:1:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/Basic.hs:7:5
+    {-@ eq :: a -> a -> Bool @-}
+
+-- FILE tests/typeclasses/pos/BasicImport.hs:1:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/BasicImport.hs:8:5
+    {-@ lawRefl :: v:a -> {eq v v == True} @-}
+
+-- FILE tests/typeclasses/pos/ConstrainedGADT.hs:3:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/ConstrainedGADT.hs:14:1
+{-@ data Box a where
+      Box :: a -> Box a
+  @-}
+
+-- FILE tests/typeclasses/pos/HK1.hs:8:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/HK1.hs:12:3
+  {-@ ret :: a -> m a @-}
+
+-- FILE tests/typeclasses/pos/HK1.hs:16:3
+  {-@ lawRet :: x:a -> y:m a ->
+        { ((y == ret x) ==> (y == ret x)) && ((y == ret x) ==> (y == ret x)) } @-}
+
+-- FILE tests/typeclasses/pos/HK2.hs:9:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/HK2.hs:15:3
+  {-@ lift :: x:a -> {v: (m a) | True } @-}
+
+-- FILE tests/typeclasses/pos/Lemma.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/typeclasses/pos/Lemma.hs:3:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/Lemma.hs:12:1
+{-@ assoc4 :: VSemigroup a => x:a -> y:a -> z:a -> h:a -> {mappend x (mappend y (mappend z h)) == mappend (mappend  (mappend x y) z) h} @-}
+
+-- FILE tests/typeclasses/pos/Lib.hs:1:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/typeclasses/pos/Lib.hs:2:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/Lib.hs:4:1
+{-@ data List a = Nil | Cons {lh::a, lt::List a} @-}
+
+-- FILE tests/typeclasses/pos/Lib.hs:7:1
+{-@ reflect foldrList @-}
+
+-- FILE tests/typeclasses/pos/Lib.hs:12:1
+{-@ reflect foldlList @-}
+
+-- FILE tests/typeclasses/pos/Lib.hs:18:1
+{-@ data NonEmpty a = NonEmpty {neh::a, net:: (List a)} @-}
+
+-- FILE tests/typeclasses/pos/Lib.hs:21:1
+{-@ reflect head' @-}
+
+-- FILE tests/typeclasses/pos/Lib.hs:25:1
+{-@ reflect tail' @-}
+
+-- FILE tests/typeclasses/pos/MethodPrefixP.hs:4:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/typeclasses/pos/MethodPrefixP.hs:5:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/MethodPrefixP.hs:9:3
+  {-@ pnat :: a -> Nat @-}
+
+-- FILE tests/typeclasses/pos/PNat.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/typeclasses/pos/PNat.hs:3:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/PNat.hs:4:1
+{-@ LIQUID "--aux-inline" @-}
+
+-- FILE tests/typeclasses/pos/PNat.hs:5:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/typeclasses/pos/SemigroupLib.hs:2:1
+{-@ LIQUID "--reflection" @-}
+
+-- FILE tests/typeclasses/pos/SemigroupLib.hs:3:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/SemigroupLib.hs:4:1
+{-@ LIQUID "--ple" @-}
+
+-- FILE tests/typeclasses/pos/SemigroupLib.hs:20:5
+    {-@ mappend :: a -> a -> a @-}
+
+-- FILE tests/typeclasses/pos/SemigroupLib.hs:25:5
+    {-@ lawAssociative :: v:a -> v':a -> v'':a -> {mappend (mappend v v') v'' == mappend v (mappend v' v'')} @-}
+
+-- FILE tests/typeclasses/pos/SemigroupLib.hs:28:5
+    {-@ lawSconcat :: ys:NonEmpty a -> {foldlList mappend (head' ys) (tail' ys) == sconcat ys} @-}
+
+-- FILE tests/typeclasses/pos/SemigroupLib.hs:32:5
+    {-@ mempty :: a @-}
+
+-- FILE tests/typeclasses/pos/SemigroupLib.hs:38:5
+    {-@ lawEmpty :: x:a -> {mappend x mempty == x && mappend mempty x == x} @-}
+
+-- FILE tests/typeclasses/pos/SemigroupLib.hs:41:5
+    {-@ lawMconcat :: xs:List a -> {mconcat xs == foldrList mappend mempty xs} @-}
+
+-- FILE tests/typeclasses/pos/SingleMethod.hs:1:1
+{-@ LIQUID "--typeclass" @-}
+
+-- FILE tests/typeclasses/pos/SingleMethod.hs:5:3
+  {-@ nat :: a -> Nat @-}
+
