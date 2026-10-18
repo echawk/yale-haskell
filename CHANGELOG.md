@@ -40,6 +40,11 @@ compiled interface, so a new version recompiles cached units.
   WriterT, RWST, ExceptT and MaybeT needs only `Functor m`; ReaderT's
   Applicative and Alternative need `Applicative m` and `Alternative m`.
 
+- A type family whose result is a type constructor may be applied to
+  more arguments than it has (`Rep1 f a`, `F x Int` with `type instance
+  F X = Maybe`); an equation's right-hand side may be a partial
+  application.
+
 ## 3.0.15.0 (2026-10-17)
 
 - Read has base's `readPrec` and `readListPrec` methods: an instance

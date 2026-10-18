@@ -308,8 +308,19 @@
 
 ;;; The reduced type, or 'stuck.
 (define (reduce-family-app type)
-  (let ((args (ntycon-args type)))
-    (reduce-family-app-1 (synonym-equations (ntycon-tycon type)) args)))
+  (let* ((family (ntycon-tycon type))
+	 (args (ntycon-args type))
+	 ;; (an associated family's arity is its equations')
+	 (eqs (synonym-equations family))
+	 (arity (if (null? eqs)
+		    (length (synonym-args family))
+		    (length (tuple-2-1 (car eqs)))))
+	 (res (reduce-family-app-1 eqs args)))
+    ;; a family whose result is a type constructor, applied to more
+    ;; arguments than it has (Rep1 f a): the result applied to the rest
+    (if (or (eq? res 'stuck) (<= (length args) arity))
+	res
+	(apply-ntype res (list-tail args arity)))))
 
 (define (reduce-family-app-1 eqs args)
   (if (null? eqs)

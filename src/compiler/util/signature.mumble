@@ -231,6 +231,10 @@
 			 (expand-over-applied-synonym type))
 		    (return-from resolve-type-1
 		      (resolve-type-1 type vars partial-ok?)))
+		   ;; a family whose result is a type constructor (Rep1 f a,
+		   ;; util/type-utils.mumble's reduce-family-app)
+		   ((and (> (length args) (tycon-def-arity def))
+			 (synonym? def) (synonym-family? def)))
 		   ((> (length args) (tycon-def-arity def))
 		    (signal-tycon-arity name type))
 		   ((and (< (length args) (tycon-def-arity def))
