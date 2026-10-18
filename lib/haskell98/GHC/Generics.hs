@@ -103,3 +103,65 @@ instance (Foldable f, Foldable g) => Foldable (f :*: g) where
 
 instance (Foldable f, Foldable g) => Foldable (f :.: g) where
   foldMap f (Comp1 x) = foldMap (foldMap f) x
+
+instance Functor V1 where
+  fmap _ v = case v of {}
+instance Foldable V1 where
+  foldMap _ _ = mempty
+instance Traversable V1 where
+  traverse _ v = case v of {}
+
+instance Foldable (K1 i c) where
+  foldMap _ _ = mempty
+instance Traversable (K1 i c) where
+  traverse _ (K1 c) = pure (K1 c)
+
+instance Traversable U1 where
+  traverse _ U1 = pure U1
+instance Traversable Par1 where
+  traverse f (Par1 a) = Par1 <$> f a
+instance Traversable f => Traversable (Rec1 f) where
+  traverse f (Rec1 a) = Rec1 <$> traverse f a
+instance Traversable f => Traversable (M1 i c f) where
+  traverse f (M1 a) = M1 <$> traverse f a
+instance (Traversable f, Traversable g) => Traversable (f :+: g) where
+  traverse f (L1 a) = L1 <$> traverse f a
+  traverse f (R1 a) = R1 <$> traverse f a
+instance (Traversable f, Traversable g) => Traversable (f :*: g) where
+  traverse f (a :*: b) = liftA2 (:*:) (traverse f a) (traverse f b)
+instance (Traversable f, Traversable g) => Traversable (f :.: g) where
+  traverse f (Comp1 x) = Comp1 <$> traverse (traverse f) x
+
+instance Applicative U1 where
+  pure _ = U1
+  _ <*> _ = U1
+instance Alternative U1 where
+  empty = U1
+  _ <|> _ = U1
+instance Applicative Par1 where
+  pure = Par1
+  Par1 f <*> Par1 a = Par1 (f a)
+instance Applicative f => Applicative (Rec1 f) where
+  pure = Rec1 . pure
+  Rec1 f <*> Rec1 a = Rec1 (f <*> a)
+instance Alternative f => Alternative (Rec1 f) where
+  empty = Rec1 empty
+  Rec1 a <|> Rec1 b = Rec1 (a <|> b)
+instance Applicative f => Applicative (M1 i c f) where
+  pure = M1 . pure
+  M1 f <*> M1 a = M1 (f <*> a)
+instance Alternative f => Alternative (M1 i c f) where
+  empty = M1 empty
+  M1 a <|> M1 b = M1 (a <|> b)
+instance (Applicative f, Applicative g) => Applicative (f :*: g) where
+  pure a = pure a :*: pure a
+  (f :*: g) <*> (a :*: b) = (f <*> a) :*: (g <*> b)
+instance (Alternative f, Alternative g) => Alternative (f :*: g) where
+  empty = empty :*: empty
+  (a :*: b) <|> (c :*: d) = (a <|> c) :*: (b <|> d)
+instance (Applicative f, Applicative g) => Applicative (f :.: g) where
+  pure a = Comp1 (pure (pure a))
+  Comp1 f <*> Comp1 a = Comp1 (liftA2 (<*>) f a)
+instance Monoid c => Applicative (K1 i c) where
+  pure _ = K1 mempty
+  K1 a <*> K1 b = K1 (a `mappend` b)
