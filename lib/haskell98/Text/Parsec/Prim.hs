@@ -472,11 +472,8 @@ instance (Monad m) => Stream [tok] m tok where
     {-# INLINE uncons #-}
 
 
-#if !defined(__YALE_HASKELL__)
--- Yale Haskell: a lazy ByteString is the strict one (Data.ByteString.Lazy)
 instance (Monad m) => Stream CL.ByteString m Char where
     uncons = return . CL.uncons
-#endif
 
 instance (Monad m) => Stream C.ByteString m Char where
     uncons = return . C.uncons
@@ -485,12 +482,9 @@ instance (Monad m) => Stream Text.Text m Char where
     uncons = return . Text.uncons
     {-# INLINE uncons #-}
 
-#if !defined(__YALE_HASKELL__)
--- Yale Haskell: a lazy Text is the strict one (Data.Text.Lazy)
 instance (Monad m) => Stream TextL.Text m Char where
     uncons = return . TextL.uncons
     {-# INLINE uncons #-}
-#endif
 
 
 tokens :: (Stream s m t, Eq t)

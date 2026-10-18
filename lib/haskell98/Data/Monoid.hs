@@ -110,3 +110,45 @@ instance (Applicative f, Monoid a) => Monoid (Ap f a) where
 
 instance Functor f => Functor (Ap f) where
   fmap f (Ap x) = Ap (fmap f x)
+
+-- base's Functor, Applicative and Monad instances for the wrappers
+instance Functor Dual where
+  fmap f (Dual a) = Dual (f a)
+instance Applicative Dual where
+  pure = Dual
+  Dual f <*> Dual a = Dual (f a)
+instance Monad Dual where
+  return = pure
+  Dual a >>= k = k a
+
+instance Applicative Sum where
+  pure = Sum
+  Sum f <*> Sum a = Sum (f a)
+instance Monad Sum where
+  return = pure
+  Sum a >>= k = k a
+
+instance Applicative Product where
+  pure = Product
+  Product f <*> Product a = Product (f a)
+instance Monad Product where
+  return = pure
+  Product a >>= k = k a
+
+instance Functor First where
+  fmap f (First a) = First (fmap f a)
+instance Applicative First where
+  pure = First . Just
+  First f <*> First a = First (f <*> a)
+instance Monad First where
+  return = pure
+  First a >>= k = First (a >>= getFirst . k)
+
+instance Functor Last where
+  fmap f (Last a) = Last (fmap f a)
+instance Applicative Last where
+  pure = Last . Just
+  Last f <*> Last a = Last (f <*> a)
+instance Monad Last where
+  return = pure
+  Last a >>= k = Last (a >>= getLast . k)

@@ -9,6 +9,8 @@ module Data.Functor.Contravariant (
 import PreludeModern
 import Data.Functor.Const (Const(Const))
 import Data.Proxy (Proxy(Proxy))
+import Data.Functor.Reverse (Reverse(Reverse))
+import Data.Functor.Compose (Compose(Compose))
 
 infixl 4 >$, >$<, >$$<, $<
 
@@ -88,3 +90,9 @@ instance Contravariant (Const a) where
 
 instance Contravariant Proxy where
   contramap _ _ = Proxy
+
+instance Contravariant f => Contravariant (Reverse f) where
+  contramap f (Reverse a) = Reverse (contramap f a)
+
+instance (Functor f, Contravariant g) => Contravariant (Compose f g) where
+  contramap f (Compose fga) = Compose (fmap (contramap f) fga)

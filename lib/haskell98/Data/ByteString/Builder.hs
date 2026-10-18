@@ -9,6 +9,7 @@ module Data.ByteString.Builder (
 
 import PreludeModern (Semigroup((<>)), Monoid(mempty))
 import Data.ByteString.Internal
+import qualified Data.ByteString.Lazy.Internal as L
 import Data.Word
 import Data.Int
 import Numeric (showHex)
@@ -23,8 +24,8 @@ instance Monoid Builder where
 instance Show Builder where
   show b = show (toLazyByteString b)
 
-toLazyByteString :: Builder -> ByteString
-toLazyByteString (Builder f) = bsFromString (f "")
+toLazyByteString :: Builder -> L.ByteString
+toLazyByteString (Builder f) = L.LBS (bsFromString (f ""))
 
 hPutBuilder :: Handle -> Builder -> IO ()
 hPutBuilder h (Builder f) = hPutStr h (f "")
@@ -32,9 +33,11 @@ hPutBuilder h (Builder f) = hPutStr h (f "")
 str :: String -> Builder
 str s = Builder (s ++)
 
-byteString, lazyByteString :: ByteString -> Builder
+byteString :: ByteString -> Builder
 byteString b = str (unBS b)
-lazyByteString b = str (unBS b)
+
+lazyByteString :: L.ByteString -> Builder
+lazyByteString (L.LBS b) = str (unBS b)
 
 char7, char8, charUtf8 :: Char -> Builder
 char7 c = Builder (c :)

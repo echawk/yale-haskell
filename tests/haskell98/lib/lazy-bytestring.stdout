@@ -1,0 +1,4 @@
+("hello, lazy","abc",11,"Hello")
+("Hello, Lazy","xHello, Lazy","abcd")
+"ab42"
+(["one","two"],[104,105],Just (17," rest"))

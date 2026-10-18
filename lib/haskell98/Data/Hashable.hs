@@ -11,6 +11,7 @@ import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Numeric.Natural (Natural)
@@ -80,6 +81,8 @@ instance Hashable T.Text where
   hashWithSalt s t = T.foldl' (\h c -> combine h (fromEnum c)) (combine s (T.length t)) t
 instance Hashable TL.Text where
   hashWithSalt s t = hashWithSalt s (TL.toStrict t)
+instance Hashable BL.ByteString where
+  hashWithSalt s b = hashWithSalt s (BL.toStrict b)
 instance Hashable B.ByteString where
   hashWithSalt s b = B.foldl' (\h w -> combine h (fromIntegral w)) (combine s (B.length b)) b
 instance (Hashable k, Hashable v) => Hashable (Map.Map k v) where

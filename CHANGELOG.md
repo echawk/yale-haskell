@@ -19,6 +19,17 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## Unreleased
+
+- The lazy ByteString is its own type, as in bytestring (a newtype over
+  the strict one), so a program may give instances for both;
+  Data.ByteString.Lazy and .Lazy.Char8 are generated over it
+  (tools/gen/lazy-bytestring.py), with bytestring's Int64 counts.
+  Builder's toLazyByteString and lazyByteString use it; Parsec has
+  Stream instances for lazy ByteString and lazy Text.
+- base's Functor, Applicative and Monad instances for Dual, Sum,
+  Product, First and Last; Contravariant for Reverse and Compose.
+
 ## 3.0.15.0 (2026-10-17)
 
 - Read has base's `readPrec` and `readListPrec` methods: an instance
