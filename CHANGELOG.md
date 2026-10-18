@@ -64,6 +64,9 @@ compiled interface, so a new version recompiles cached units.
 - Data.Tuple's Solo (MkSolo, the pattern Solo, getSolo) with base's
   instances.
 
+- Control.Applicative has ZipList, WrappedArrow and asum, and exports
+  liftA2 as Applicative's method.
+
 ## 3.0.15.0 (2026-10-17)
 
 - Read has base's `readPrec` and `readListPrec` methods: an instance
