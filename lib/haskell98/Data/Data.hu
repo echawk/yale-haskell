@@ -1,3 +1,4 @@
 :output $LIBRARYBIN/Data/
 :o= all
+:package
 Data.hs

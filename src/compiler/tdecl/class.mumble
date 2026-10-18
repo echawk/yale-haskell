@@ -321,6 +321,17 @@
 	 (mlet (((fun env1) (rename-type-vars (tyapp-fun type) env))
 		((new-types env2) (rename-type-vars/l (tyapp-args type) env1)))
 	   (values (**tyapp fun new-types) env2)))
+	((forall-type? type)
+	 ;; a rank-n argument (cohoist :: (forall x. w x -> v x) -> ...):
+	 ;; its own variables keep their names, the class's are renamed
+	 (let* ((bound  (forall-type-tyvars type))
+		(local  (map (lambda (v) (tuple v v)) bound)))
+	   (mlet (((body env1)
+		   (rename-type-vars (forall-type-type type) (append local env))))
+	     (values (make forall-type (tyvars bound)
+			   (context (forall-type-context type))
+			   (type body))
+		     (lisp:remove-if (lambda (e) (memq e local)) env1)))))
 	(else
 	 (mlet (((new-types env1) (rename-type-vars/l (tycon-args type) env)))
 	   (values (**tycon/def (tycon-def type) new-types) env1)))))

@@ -1,0 +1,160 @@
+;;; data.mumble -- derived Data instances (GHC's DeriveDataTypeable)
+;;;
+;;; For data T a1 ... an = C1 t11 ... | ... | Cm ..., in module M:
+;;;   gfoldl k z (Ci x1 ... xp) = k (... (k (z Ci) x1) ...) xp
+;;;   gunfold k z c = case constrIndex c of 1 -> k (... (z C1)); ...
+;;;   toConstr x = indexConstr (dataTypeOf x) (case x of Ci ... -> i)
+;;;   dataTypeOf _ = dt where dt = mkDataType "M.T"
+;;;                                  [mkConstrTag dt "Ci" i fields fixity, ...]
+;;;   dataCast1 f = gcast1 f   (one type parameter; dataCast2 for two)
+;;; as GHC writes them: the type's name qualified, a constructor's bare,
+;;; an operator constructor Infix.  The functions are Data.Data's (the
+;;; class's module) and Data.Typeable's.
+;;;
+;;; A type with a field whose type has no Data instance (a function, an
+;;; application of a type variable, a type from a library without one),
+;;; or with existential constructors, gets the empty instance it had
+;;; before (gfoldl's default; the rest undefined), so that deriving Data
+;;; does not stop a module that never uses it from compiling.
+
+(define (data-class? class)
+  (and (eq? (def-name class) '|Data|)
+       (eq? (def-module class) '|Data.Data|)))
+
+(define (data-module-def module name)
+  (let ((m  (table-entry *modules* module)))
+    (and m (or (table-entry (module-symbol-table m) name)
+	       (table-entry (module-symbol-table m) (add-con-prefix/symbol name))))))
+
+(define (data-def name)
+  (or (data-module-def '|Data.Data| name)
+      (data-module-def '|Data.Typeable| name)
+      (error "Data.Data's ~A is not loaded." name)))
+
+;;; Whether every field of every constructor has a Data instance.
+
+(define (data-derivable? alg class)
+  (lisp:every (lambda (con)
+		(and (null? (con-existential con))
+		     (not (con-gadt? con))
+		     (lisp:every (lambda (ty) (data-field-ok? ty alg class 8))
+				 (con-types con))))
+	      (algdata-constrs alg)))
+
+(define (data-field-ok? ty alg class depth)
+  (cond ((<= depth 0) '#f)
+	((tyvar? ty) '#t)
+	((tycon? ty)
+	 (let ((def  (tycon-def ty)))
+	   (cond ((synonym? def)
+		  (data-field-ok? (expand-synonym ty) alg class (1- depth)))
+		 ((not (algdata? def)) '#f)
+		 ((eq? def (core-symbol "Arrow")) '#f)
+		 (else
+		  (and (or (eq? def alg)
+			   (lookup-instance def class)
+			   ;; derived in the same group
+			   (memq class (algdata-deriving def)))
+		       (lisp:every (lambda (u) (data-field-ok? u alg class (1- depth)))
+				   (tycon-args ty)))))))
+	(else '#f)))
+
+;;; The method definitions; INST's context says which parameters have
+;;; Data (dataCast1 and dataCast2 need theirs).
+
+(define (data-fns alg inst)
+  (let* ((cons     (algdata-constrs alg))
+	 (indices  (temp-indices cons))
+	 (tyvars   (algdata-tyvars alg))
+	 (fns      (list (data-gfoldl alg) (data-gunfold cons indices)
+			 (data-to-constr alg indices) (data-type-of alg cons indices))))
+    (cond ((not (lisp:every (lambda (v) (data-context-has? inst v)) tyvars))
+	   fns)
+	  ((eqv? (length tyvars) 1)
+	   (append fns (list (**define '|dataCast1| '(|f%|)
+				       (**app (**var/def (data-def '|gcast1|))
+					      (**var '|f%|))))))
+	  ((eqv? (length tyvars) 2)
+	   (append fns (list (**define '|dataCast2| '(|f%|)
+				       (**app (**var/def (data-def '|gcast2|))
+					      (**var '|f%|))))))
+	  (else fns))))
+
+(define (temp-indices l)
+  (do ((l l (cdr l))
+       (i 1 (1+ i))
+       (res '() (cons i res)))
+      ((null? l) (reverse res))))
+
+(define (data-context-has? inst v)
+  (lisp:some (lambda (c)
+	       (and (eq? (context-tyvar c) v)
+		    (data-class? (class-ref-class (context-class c)))))
+	     (instance-context inst)))
+
+;;; gfoldl k z (C x1 ... xp) = k (... (k (z C) x1) ...) xp
+
+(define (data-gfoldl alg)
+  (**define '|gfoldl| '(|k%| |z%| |x%|)
+    (**case/con alg (**var '|x%|)
+      (lambda (con vars)
+	(let ((e  (**app (**var '|z%|) (**con/def con))))
+	  (dolist (v vars)
+	    (setf e (**app (**var '|k%|) e (**var v))))
+	  e)))))
+
+;;; gunfold k z c = case constrIndex c of i -> k (... (k (z Ci)) ...)
+;;; (the last constructor's alternative matches any index)
+
+(define (data-gunfold cons indices)
+  (**define '|gunfold| '(|k%| |z%| |c%|)
+    (**case (**app (**var/def (data-def '|constrIndex|)) (**var '|c%|))
+	    (map (lambda (con i)
+		   (let ((e  (**app (**var '|z%|) (**con/def con))))
+		     (dotimes (j (con-arity con))
+		       (setf e (**app (**var '|k%|) e)))
+		     (**alt/simple (**pat (if (eqv? i (length cons)) '_ i)) e)))
+		 cons indices))))
+
+;;; toConstr x = indexConstr (dataTypeOf x) (case x of Ci ... -> i)
+
+(define (data-to-constr alg indices)
+  (let ((index-of (map (function cons) (algdata-constrs alg) indices)))
+    (**define '|toConstr| '(|x%|)
+      (**app (**var/def (data-def '|indexConstr|))
+	     (**app (**var/def (data-def '|dataTypeOf|)) (**var '|x%|))
+	     (**case/con alg (**var '|x%|)
+	       (lambda (con vars)
+		 (declare (ignore vars))
+		 (**int (cdr (assq con index-of)))))))))
+
+;;; dataTypeOf _ = dt where dt = mkDataType "M.T" [mkConstrTag dt ...]
+
+(define (data-type-of alg cons indices)
+  (let ((dt  (functor-temp "dt%")))
+  (**define '|dataTypeOf| '(_)
+    (**let
+     (list
+      (**valdef/pat
+       (**pat dt)
+       (**app (**var/def (data-def '|mkDataType|))
+	      (**string (string-append (symbol->string (def-module alg)) "."
+				       (symbol->string (def-name alg))))
+	      (**list/l
+	       (map (lambda (con i)
+		      (let ((name  (con-string con)))
+			(**app (**var/def (data-def '|mkConstrTag|))
+			       (**var dt)
+			       (**string name)
+			       (**int i)
+			       (**list/l
+				(map (lambda (f) (**string (symbol->string (def-name f))))
+				     (lisp:remove-if-not (function var?)
+							 (con-field-labels con))))
+			       (**con/def
+				(data-def (if (and (> (string-length name) 0)
+						   (char=? (string-ref name 0) #\:))
+					      '|Infix|
+					      '|Prefix|))))))
+		    cons indices)))))
+     (**var dt)))))

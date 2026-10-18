@@ -1,0 +1,10 @@
+[A 2 True,B [3,4],C]
+6
+([A,B,C],[1,2,3])
+(DataType {tycon = "Main.T", datarep = AlgRep [A,B,C]},"Main.T")
+(3,'x',Just,(:),1.5)
+(C,())
+([(),()],True)
+(Just B,3,False)
+("Map","Data.Map")
+Just (A 3 True)

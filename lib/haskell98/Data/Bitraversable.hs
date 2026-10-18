@@ -8,6 +8,7 @@ import PreludeModern
 import Data.Bifunctor (Bifunctor)
 import Data.Bifoldable (Bifoldable)
 import Data.Functor.Const (Const(Const, getConst))
+import Data.Semigroup (Arg(Arg))
 import Data.Functor.Identity (Identity(Identity, runIdentity))
 
 class (Bifunctor t, Bifoldable t) => Bitraversable t where
@@ -25,6 +26,9 @@ instance Bitraversable ((,,,) x y) where
 instance Bitraversable Either where
   bitraverse f _ (Left a) = Left <$> f a
   bitraverse _ g (Right b) = Right <$> g b
+
+instance Bitraversable Arg where
+  bitraverse f g (Arg a b) = Arg <$> f a <*> g b
 
 instance Bitraversable Const where
   bitraverse f _ (Const a) = Const <$> f a

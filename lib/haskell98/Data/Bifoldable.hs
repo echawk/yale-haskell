@@ -10,6 +10,7 @@ module Data.Bifoldable (
 import Prelude hiding (foldr, maximum, minimum)
 import PreludeModern
 import Data.Functor.Const (Const(Const))
+import Data.Semigroup (Arg(Arg))
 import Data.Maybe (listToMaybe)
 import Control.Applicative (Alternative(empty, (<|>)))
 
@@ -34,6 +35,9 @@ instance Bifoldable ((,,) x) where
 
 instance Bifoldable ((,,,) x y) where
   bifoldMap f g (_, _, a, b) = f a <> g b
+
+instance Bifoldable Arg where
+  bifoldMap f g (Arg a b) = f a <> g b
 
 instance Bifoldable Const where
   bifoldMap f _ (Const a) = f a

@@ -18,6 +18,8 @@
     (source-filename "text-binary"))
   (unit functor
     (source-filename "functor"))
+  (unit data
+    (source-filename "data"))
   )
 
 

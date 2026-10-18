@@ -2,6 +2,7 @@
 module Data.Bifunctor (Bifunctor(bimap, first, second)) where
 
 import Data.Functor.Const (Const(Const))
+import Data.Semigroup (Arg(Arg))
 
 class Bifunctor p where
   bimap  :: (a -> b) -> (c -> d) -> p a c -> p b d
@@ -20,6 +21,9 @@ instance Bifunctor ((,,) x) where
 
 instance Bifunctor ((,,,) x y) where
   bimap f g (x, y, a, b) = (x, y, f a, g b)
+
+instance Bifunctor Arg where
+  bimap f g (Arg a b) = Arg (f a) (g b)
 
 instance Bifunctor Const where
   bimap f _ (Const a) = Const (f a)

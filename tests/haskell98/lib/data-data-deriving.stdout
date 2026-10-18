@@ -1,0 +1,6 @@
+DataType {tycon = "Main.T", datarep = AlgRep [A,:+:,N]}
+([["fa","fb"],[],[]],[Prefix,Infix,Prefix])
+(:+:,["1","'x'"])
+A {fa = 0, fb = 0}
+W [X,Y]
+(DataType {tycon = "Main.E", datarep = AlgRep [X,Y]},Just Y,W)

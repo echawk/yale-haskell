@@ -85,6 +85,9 @@
 	       ((typeable-class? class))
 	       ((constructor-class-derivable? class)
 		(setf insts (add-constructor-class-instance insts alg class)))
+	       ;; Data (data.mumble), when every field has an instance
+	       ((and (data-class? class) (data-derivable? alg class))
+		(setf insts (add-derivable-instance insts alg class '#f)))
 	       ;; DeriveAnyClass (GHC): an empty instance, as GHC prefers
 	       ;; it to newtype deriving when both are on.  Generic, NFData,
 	       ;; Typeable and Lift too (GHC.Generics has only the class).
@@ -413,7 +416,9 @@
 	  ((eq? class (prelude-modern-def '|Foldable|))
 	   (add-instance inst (foldable-fns alg)))
 	  ((eq? class (prelude-modern-def '|Traversable|))
-	   (add-instance inst (traversable-fns alg))))))
+	   (add-instance inst (traversable-fns alg)))
+	  ((data-class? class)
+	   (add-instance inst (data-fns alg inst))))))
 
 (define (add-instance inst decls)
   (setf (instance-decls inst) decls))

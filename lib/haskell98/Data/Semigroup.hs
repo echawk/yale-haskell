@@ -69,6 +69,32 @@ instance Functor Max where fmap f (Max a) = Max (f a)
 instance Functor First where fmap f (First a) = First (f a)
 instance Functor Last where fmap f (Last a) = Last (f a)
 
+instance Foldable Min where foldMap f (Min a) = f a
+instance Foldable Max where foldMap f (Max a) = f a
+instance Foldable First where foldMap f (First a) = f a
+instance Foldable Last where foldMap f (Last a) = f a
+instance Traversable Min where traverse f (Min a) = Min <$> f a
+instance Traversable Max where traverse f (Max a) = Max <$> f a
+instance Traversable First where traverse f (First a) = First <$> f a
+instance Traversable Last where traverse f (Last a) = Last <$> f a
+
+instance Applicative Min where
+  pure = Min
+  Min f <*> Min a = Min (f a)
+instance Applicative Max where
+  pure = Max
+  Max f <*> Max a = Max (f a)
+instance Applicative First where
+  pure = First
+  First f <*> First a = First (f a)
+instance Applicative Last where
+  pure = Last
+  Last f <*> Last a = Last (f a)
+instance Monad Min where Min a >>= f = f a
+instance Monad Max where Max a >>= f = f a
+instance Monad First where First a >>= f = f a
+instance Monad Last where Last a >>= f = f a
+
 -- Arg a b: compared on a only (for ArgMin, ArgMax)
 data Arg a b = Arg a b deriving (Show, Read)
 type ArgMin a b = Min (Arg a b)
@@ -80,3 +106,7 @@ instance Ord a => Ord (Arg a b) where
   compare (Arg a _) (Arg b _) = compare a b
   min x@(Arg a _) y@(Arg b _) = if a <= b then x else y
   max x@(Arg a _) y@(Arg b _) = if a >= b then x else y
+
+instance Functor (Arg a) where fmap f (Arg x a) = Arg x (f a)
+instance Foldable (Arg a) where foldMap f (Arg _ a) = f a
+instance Traversable (Arg a) where traverse f (Arg x a) = Arg x <$> f a

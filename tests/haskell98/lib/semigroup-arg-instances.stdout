@@ -1,0 +1,4 @@
+(Arg 'x' 2,3,Arg 'b' "2")
+"12"
+Just (Arg 1 'c')
+([Min {getMin = 3},Min {getMin = 4}],4,Min {getMin = 3},10)

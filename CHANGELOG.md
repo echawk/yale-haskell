@@ -21,6 +21,21 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- Data.Data is base's: the class with gfoldl, gunfold, toConstr,
+  dataTypeOf, dataCast1/2 and the gmap family; Constr, DataType and
+  their functions; instances for base's types.  deriving Data writes the
+  instance as GHC does (an empty one, as before, when a field's type has
+  no Data instance).  Data.Typeable has gcast1 and gcast2.
+- A forall in an arrow's result floats to the top (k :: Int -> forall a.
+  Show a => a -> String), as in GHC.
+- A local signature that mentions a scoped type variable generalizes its
+  own variables, so a recursive use is polymorphic (SYB's everywhere and
+  everything, with the function passed to gmapT or gmapQ).
+- A class method with a rank-n argument (comonad's cohoist).
+- Data.Semigroup: Functor, Foldable, Traversable for Arg; Bifunctor,
+  Bifoldable, Bitraversable for Arg; Foldable, Traversable, Applicative
+  and Monad for Min, Max, First, Last.  Control.Arrow: leftApp,
+  ArrowMonad, Kleisli's Functor through MonadPlus.  comonad builds.
 - An INLINE function that leads back to itself (a multi-parameter
   instance's method calling itself through its own dictionary, as
   indexed-traversable's FunctorWithIndex [Int] Tree) is a loop breaker,

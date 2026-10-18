@@ -8,7 +8,7 @@
 -- names, so two types of one name from different modules are equal here.
 module Data.Typeable (
     Typeable(primTypeRepOf), TypeRep, TyCon, Proxy(Proxy),
-    typeOf, typeRep, cast, gcast, eqTypeRep,
+    typeOf, typeRep, cast, gcast, gcast1, gcast2, eqTypeRep,
     typeRepTyCon, typeRepArgs, splitTyConApp, funResultTy, tyConName,
     showsTypeRep, rnfTypeRep, primTypeableDict
   ) where
@@ -59,6 +59,25 @@ gcast x = r
   where r = if typeRep (arg x) == typeRep (arg (unJust r))
               then Just (unsafeCoerce x) else Nothing
         arg :: c x -> Proxy x
+        arg _ = Proxy
+        unJust :: Maybe y -> y
+        unJust _ = undefined
+
+-- a cast of a type constructor's application: t to t' under c
+gcast1 :: (Typeable t, Typeable t') => c (t a) -> Maybe (c (t' a))
+gcast1 x = r
+  where r = if typeRep (arg x) == typeRep (arg (unJust r))
+              then Just (unsafeCoerce x) else Nothing
+        arg :: c (t a) -> Proxy t
+        arg _ = Proxy
+        unJust :: Maybe y -> y
+        unJust _ = undefined
+
+gcast2 :: (Typeable t, Typeable t') => c (t a b) -> Maybe (c (t' a b))
+gcast2 x = r
+  where r = if typeRep (arg x) == typeRep (arg (unJust r))
+              then Just (unsafeCoerce x) else Nothing
+        arg :: c (t a b) -> Proxy t
         arg _ = Proxy
         unJust :: Maybe y -> y
         unJust _ = undefined

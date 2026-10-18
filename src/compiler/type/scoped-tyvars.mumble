@@ -96,9 +96,13 @@
 (define (scoped-signatures vars types)
   (let ((added '()))
     (dolist2 (v vars) (ty types)
-      (let ((sig (var-signature v)))
+      (let* ((sig0 (var-signature v))
+	     (partial (and sig0 (scoped-gtype? sig0) (partial-scoped-signature sig0)))
+	     (sig (or partial sig0)))
+	(when partial
+	  (setf (var-signature v) partial))
 	(when sig
-	  (cond ((scoped-gtype? sig)
+	  (cond ((and (not partial) (scoped-gtype? sig))
 		 (mlet (((inst own) (instantiate-gtype/scoped+ sig)))
 		   (type-unify ty inst '#f)
 		   (setf added (append own added)))
@@ -110,3 +114,38 @@
 		     (type-unify ty inst '#f)
 		     (setf added (append alist added)))))))))
     added))
+
+;;; A signature mentioning scoped names that also has type variables of
+;;; its own is still a signature (GHC): go :: forall a. Data a => a -> r,
+;;; r the enclosing binding's, generalizes over a, so a recursive use of
+;;; go is polymorphic (passed to gmapQ, a rank-2 argument; SYB's
+;;; everything).  Its gtype has the scoped names' types in place and its
+;;; own variables generic.  '#f when a scoped name has a context or the
+;;; signature has multi-parameter constraints (then it is an annotation,
+;;; above), or when it has no variables of its own.
+
+(define (partial-scoped-signature g)
+  (let ((env '())
+	(names '())
+	(contexts '())
+	(n 0)
+	(ok? (null? (gtype-mcontext g))))
+    (dolist2 (name (gtype-tyvar-names g)) (ctx (gtype-context g))
+      (let ((b (assq name (dynamic *scoped-tyvars*))))
+	(if (and b (not (memq name (gtype-scoped g))))
+	    (begin
+	      (when (not (null? ctx))
+		(setf ok? '#f))
+	      (push (tuple-2-2 b) env))
+	    (begin
+	      (push (**gtyvar n) env)
+	      (push name names)
+	      (push ctx contexts)
+	      (incf n)))))
+    (and ok?
+	 (> n 0)
+	 (let ((g1 (**gtype (reverse contexts)
+			    (copy-gtype (gtype-type g) (reverse env)))))
+	   (setf (gtype-tyvar-names g1) (reverse names))
+	   (setf (gtype-scoped g1) (gtype-scoped g))
+	   g1))))

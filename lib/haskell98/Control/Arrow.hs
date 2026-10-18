@@ -4,13 +4,15 @@ module Control.Arrow (
     returnA, (^>>), (>>^), (<<^), (^<<), (>>>), (<<<),
     ArrowZero(zeroArrow), ArrowPlus((<+>)),
     ArrowChoice(left, right, (+++), (|||)), ArrowApply(app),
-    ArrowLoop(loop), Category
+    ArrowLoop(loop), Category,
+    ArrowMonad(ArrowMonad), leftApp
   ) where
 
 import Prelude hiding (id, (.))
 import qualified Prelude as P
 import Control.Category
 import Monad (MonadPlus(mzero, mplus))
+import PreludeModern (Applicative(pure, (<*>)), Alternative(empty, (<|>)))
 
 infixr 5 <+>
 infixr 3 ***
@@ -49,6 +51,22 @@ instance Monad m => Arrow (Kleisli m) where
   arr f = Kleisli (return P.. f)
   first (Kleisli f) = Kleisli (\ ~(b, d) -> f b >>= \c -> return (c, d))
   second (Kleisli f) = Kleisli (\ ~(d, b) -> f b >>= \c -> return (d, c))
+
+instance Monad m => Functor (Kleisli m a) where
+  fmap f (Kleisli g) = Kleisli (\x -> g x >>= (return P.. f))
+
+instance Monad m => Applicative (Kleisli m a) where
+  pure x = Kleisli (\_ -> return x)
+  Kleisli f <*> Kleisli g = Kleisli (\x -> f x >>= \h -> g x >>= (return P.. h))
+
+instance MonadPlus m => Alternative (Kleisli m a) where
+  empty = Kleisli (\_ -> mzero)
+  Kleisli f <|> Kleisli g = Kleisli (\x -> f x `mplus` g x)
+
+instance Monad m => Monad (Kleisli m a) where
+  Kleisli f >>= k = Kleisli (\x -> f x >>= \a -> runKleisli (k a) x)
+
+instance MonadPlus m => MonadPlus (Kleisli m a)
 
 returnA :: Arrow a => a b b
 returnA = id
@@ -118,3 +136,28 @@ class Arrow a => ArrowLoop a where
 
 instance ArrowLoop (->) where
   loop f b = let (c, d) = f (b, d) in c
+
+-- The monad of an arrow with application
+newtype ArrowMonad a b = ArrowMonad (a () b)
+
+instance Arrow a => Functor (ArrowMonad a) where
+  fmap f (ArrowMonad m) = ArrowMonad (m >>^ f)
+
+instance Arrow a => Applicative (ArrowMonad a) where
+  pure x = ArrowMonad (arr (const x))
+  ArrowMonad f <*> ArrowMonad x = ArrowMonad (f &&& x >>> arr (uncurry P.id))
+
+instance ArrowApply a => Monad (ArrowMonad a) where
+  ArrowMonad m >>= f =
+    ArrowMonad (m >>> arr (\x -> let ArrowMonad h = f x in (h, ())) >>> app)
+
+instance ArrowPlus a => Alternative (ArrowMonad a) where
+  empty = ArrowMonad zeroArrow
+  ArrowMonad x <|> ArrowMonad y = ArrowMonad (x <+> y)
+
+instance (ArrowApply a, ArrowPlus a) => MonadPlus (ArrowMonad a)
+
+-- left for any arrow with application
+leftApp :: ArrowApply a => a b c -> a (Either b d) (Either c d)
+leftApp f = arr ((\b -> (arr (\() -> b) >>> f >>> arr Left, ())) |||
+                 (\d -> (arr (\() -> d) >>> arr Right, ()))) >>> app

@@ -50,13 +50,24 @@
 	  ((and (tycon? type)
 		(eq? (resolve-tycon-def type) (core-symbol "Arrow"))
 		(eqv? (length (tycon-args type)) 2))
-	   (mlet (((res cs) (float-foralls (cadr (tycon-args type)) depth)))
+	   (mlet (((res cs) (float-result-foralls (cadr (tycon-args type)) depth)))
 	     (if (null? cs)
 		 (values type '())
 		 (values (make tycon (name (tycon-name type)) (def (tycon-def type))
 			       (args (list (car (tycon-args type)) res)))
 			 cs))))
 	  (else (values type '())))))
+
+;;; An arrow's result: a polytype there is floated too, synonym or not
+;;; (k :: Int -> forall a. Show a => a -> String is forall a. Show a =>
+;;; Int -> a -> String, as in GHC; SYB's everywhere :: (forall a. Data a
+;;; => a -> a) -> (forall a. Data a => a -> a)).
+(define (float-result-foralls type depth)
+  (if (and (forall-type? type) (> depth 0))
+      (let ((poly (rename-forall-apart type)))
+	(mlet (((body cs) (float-result-foralls (forall-type-type poly) (1- depth))))
+	  (values body (append (forall-type-context poly) cs))))
+      (float-foralls type depth)))
 
 (define (resolve-tycon-def type)
   (let ((def (tycon-def type)))
