@@ -197,6 +197,14 @@
   (let ((old (table-entry *symbol-table* qname)))
     (cond ((or (eq? old '#f) (eq? old def))
 	   (setf (table-entry *symbol-table* qname) def))
+	  ;; Prelude.foldr with --modern-prelude: Foldable's (PreludeModern)
+	  ;; supersedes the list one, as for unqualified names
+	  ((mlet (((base _) (split-qualified-name qname)))
+	     (and base (supersedes-prelude-def? base def old)))
+	   (setf (table-entry *symbol-table* qname) def))
+	  ((mlet (((base _) (split-qualified-name qname)))
+	     (and base (supersedes-prelude-def? base old def)))
+	   'OK)
 	  ((haskell98?)
 	   ;; two modules imported as the same name (import qualified A as L;
 	   ;; import qualified B as L) with an x each: only a use of L.x is
@@ -548,7 +556,7 @@
 ;;; does not give programs: base's Read methods over ReadPrec (Text.Read
 ;;; exports them).
 (define *hidden-prelude-names*
-  '(|readPrec| |readListPrec| |ReadPrec| |;MkReadPrec|))
+  '(|readPrec| |readListPrec| |ReadPrec| |;MkReadPrec| |<$|))
 
 ;;; Prelude.x when the Prelude is imported implicitly: its names are not
 ;;; in the module's symbol table (they are looked up in the prelude

@@ -595,10 +595,16 @@
 (define (parse-entity-tycon-rest name context)
        (token-case
 	(\( (token-case
-	     (\.\. (require-token
-		     '\)
-		     (signal-missing-token "`)'" "class or datatype entity"))
-		   (make entity-abbreviated (name name)))
+	     (\.\. (token-case
+		    ;; T (.., P, Q): T(..) and the pattern synonyms P, Q
+		    ;; bundled with it (PatternSynonyms)
+		    (\, (make entity-datatype (name name)
+			      (constructors (cons '|..| (parse-con-list)))))
+		    (else
+		     (require-token
+		      '\)
+		      (signal-missing-token "`)'" "class or datatype entity"))
+		     (make entity-abbreviated (name name)))))
 	     (var (parse-entity-class name))
 	     (con (parse-entity-datatype name))
 	     (\) (make entity-class (name name) (methods '())))

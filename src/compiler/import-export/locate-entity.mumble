@@ -113,6 +113,13 @@
   ;; MagicHash: Int(I#) names the boxing constructor, which is the
   ;; identity (parser/exp-parser.mumble), not a constituent
   (setf names (lisp:remove-if (lambda (n) (memq n *magic-hash-boxes*)) names))
+  ;; a pattern synonym bundled with the type (Seq(Empty)): its builder
+  (setf names (map (lambda (n)
+		     (if (and (not (assq n (cdr group)))
+			      (assq (pattern-builder-name n) (cdr group)))
+			 (pattern-builder-name n)
+			 n))
+		   names))
   (check-duplicates names entity)
   (when (not (haskell98?))
     (dolist (n-d (cdr group))
@@ -195,13 +202,35 @@
 		  (signal-wrong-definition "class" name *module-name*))))
 	  ((is-type? 'entity-datatype entity)
 	   (if (algdata? def)
-	       (match-group-names
-		 (require-complete-algdata (gather-algdata-group name def))
-		 (entity-datatype-constructors entity)
-		 entity "constructor")
+	       (bundle-pattern-synonyms
+		entity
+		(let* ((group (gather-algdata-group name def))
+		       (names (entity-datatype-constructors entity))
+		       (real (lisp:remove-if-not
+			      (lambda (n) (assq n (cdr group))) names)))
+		  (if (memq '|..| names)
+		      (require-complete-algdata group)
+		      (match-group-names group real entity "constructor"))))
 	       (signal-wrong-definition "data type" name *module-name*)))
 	  (else
 	   (error "Bad entity ~s." entity)))))
+
+;;; PatternSynonyms: T (P, Q) or T (.., P, Q) in an export list bundles
+;;; the pattern synonyms P and Q with T: their builders (pattern%P,
+;;; parser/pattern-parser.mumble) join T's group, so that importing T(..)
+;;; brings them (containers' Seq (Empty, (:<|), (:|>))).
+(define (bundle-pattern-synonyms entity group)
+  (if (eq? group 'not-found)
+      group
+      (let ((extra '()))
+	(dolist (n (entity-datatype-constructors entity))
+	  (when (and (not (eq? n '|..|)) (not (assq n (cdr group))))
+	    (let* ((b (pattern-builder-name n))
+		   (def (resolve-toplevel-name b)))
+	      (if (var? def)
+		  (push (tuple b def) extra)
+		  (signal-missing-constituent entity n "constructor or pattern")))))
+	(append group (reverse extra)))))
 
 (define (require-complete-algdata group)
   (if (hidden-constructors? group)

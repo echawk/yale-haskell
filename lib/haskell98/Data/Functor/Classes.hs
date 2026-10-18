@@ -184,6 +184,10 @@ instance Show1 NonEmpty where
   liftShowsPrec sp sl d (a :| as) =
     showParen (d > 5) (sp 6 a . showString " :| " . liftShowsPrec sp sl 6 as)
 
+instance Read1 NonEmpty where
+  liftReadsPrec rp rl d = readParen (d > 5) (\s ->
+    [(a :| as, u) | (a, t) <- rp 6 s, (":|", t') <- lex t, (as, u) <- rl t'])
+
 instance Eq1 Identity where
   liftEq eq (Identity x) (Identity y) = eq x y
 

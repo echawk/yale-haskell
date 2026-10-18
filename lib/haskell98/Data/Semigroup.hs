@@ -1,7 +1,8 @@
 -- Data.Semigroup (base): Semigroup (PreludeModern's, with sconcat and
 -- stimes), and the semigroup newtypes.
 module Data.Semigroup (
-    Semigroup((<>), sconcat, stimes), stimesMonoid, cycle1, mtimesDefault,
+    Semigroup((<>), sconcat, stimes), stimesMonoid, stimesIdempotent,
+    stimesIdempotentMonoid, cycle1, mtimesDefault,
     Min(Min, getMin), Max(Max, getMax), First(First, getFirst),
     Last(Last, getLast), WrappedMonoid(WrapMonoid, unwrapMonoid),
     Dual(Dual, getDual), Endo(Endo, appEndo), All(All, getAll),
@@ -15,6 +16,18 @@ import Data.Monoid (Dual(..), Endo(..), All(..), Any(..), Sum(..), Product(..))
 
 stimesMonoid :: (Integral b, Monoid a) => b -> a -> a
 stimesMonoid n x = if n == 0 then mempty else stimes n x
+
+-- x <> x = x: n copies are one (n > 0)
+stimesIdempotent :: Integral b => b -> a -> a
+stimesIdempotent n x
+  | n <= 0 = error "stimesIdempotent: positive multiplier expected"
+  | otherwise = x
+
+stimesIdempotentMonoid :: (Integral b, Monoid a) => b -> a -> a
+stimesIdempotentMonoid n x = case compare n 0 of
+  LT -> error "stimesIdempotentMonoid: negative multiplier"
+  EQ -> mempty
+  GT -> x
 
 mtimesDefault :: (Integral b, Monoid a) => b -> a -> a
 mtimesDefault = stimesMonoid

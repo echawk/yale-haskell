@@ -56,26 +56,31 @@
 		 (process-non-local-imports (cdr imports)))))))))
 
 (define (import-all-entities module hiding renamings import-decl)
-  (table-for-each
-   (lambda (name group)
-     (declare (ignore name))
-     (cond ((in-hiding-list? group hiding)
-	    (setf hiding (remove-entity group hiding)))
-	   (else
-	    ;; a method, field or constructor hidden by its own name
-	    ;; (a constructor's name has its prefix, ;C, in the group; the
-	    ;; hiding list names it as C, H98 5.3.4)
-	    (let ((kept  (cons (car group)
-			       (lisp:remove-if
-				(lambda (n-d)
-				  (lisp:find (tuple-2-1 n-d) hiding
-					     :test (function hidden-name-matches?)))
-				(cdr group)))))
-	      (dolist (n-d (cdr group))
-		(setf hiding (lisp:remove (tuple-2-1 n-d) hiding
-					  :test (function hidden-name-matches?))))
-	      (import-group (rename-group kept renamings) module)))))
-   (module-export-table module))
+  ;; ALL is matched against (a name may come in several groups: the
+  ;; Prelude's null and Foldable's method null); HIDING keeps those not
+  ;; used yet, for the warning
+  (let ((all hiding))
+    (table-for-each
+     (lambda (name group)
+       (declare (ignore name))
+       (cond ((in-hiding-list? group all)
+	      (when (in-hiding-list? group hiding)
+		(setf hiding (remove-entity group hiding))))
+	     (else
+	      ;; a method, field or constructor hidden by its own name
+	      ;; (a constructor's name has its prefix, ;C, in the group; the
+	      ;; hiding list names it as C, H98 5.3.4)
+	      (let ((kept  (cons (car group)
+				 (lisp:remove-if
+				  (lambda (n-d)
+				    (lisp:find (tuple-2-1 n-d) all
+					       :test (function hidden-name-matches?)))
+				  (cdr group)))))
+		(dolist (n-d (cdr group))
+		  (setf hiding (lisp:remove (tuple-2-1 n-d) hiding
+					    :test (function hidden-name-matches?))))
+		(import-group (rename-group kept renamings) module)))))
+     (module-export-table module)))
   (when (and (not (null? hiding))
 	     (not (quiet-unused-hiding? (module-name module))))
     (remember-context import-decl
@@ -122,12 +127,34 @@
 		(import-entities specs module renamings)))))))
 
 (define (import-fresh-entities import module hiding renamings)
-  (dolist (group (module-fresh-exports module))
-    (cond ((in-hiding-list? group hiding)
-	    (setf hiding (remove-entity group hiding)))
-	   (else
-	    (import-group (rename-group group renamings) module))))
+  ;; matched against the import's whole hiding list (as
+  ;; import-all-entities); HIDING keeps those not used yet
+  (let ((all (import-decl-hiding-all import hiding)))
+    (dolist (group (module-fresh-exports module))
+      (cond ((in-hiding-list? group all)
+	     (when (in-hiding-list? group hiding)
+	       (setf hiding (remove-entity group hiding))))
+	    (else
+	     ;; a member hidden by its own name (import M hiding (foldl)
+	     ;; with M exporting Foldable(..))
+	     (let ((kept  (cons (car group)
+				(lisp:remove-if
+				 (lambda (n-d)
+				   (lisp:find (tuple-2-1 n-d) all
+					      :test (function hidden-name-matches?)))
+				 (cdr group)))))
+	       (dolist (n-d (cdr group))
+		 (setf hiding (lisp:remove (tuple-2-1 n-d) hiding
+					   :test (function hidden-name-matches?))))
+	       (import-group (rename-group kept renamings) module))))))
   (setf (import-decl-specs import) hiding))
+
+;;; The import's full hiding list, kept the first time (its specs shrink
+;;; as hidden names are found, and fresh exports arrive in several rounds).
+(define *import-hiding-lists* (make-table))
+(define (import-decl-hiding-all import hiding)
+  (or (table-entry *import-hiding-lists* import)
+      (setf (table-entry *import-hiding-lists* import) hiding)))
 
 (define (import-entities entities module renamings)
   (if (null? entities)
@@ -160,10 +187,15 @@
 			 (feature? 'qualified-names)
 			 (or (import-decl-as-name import)
 			     (import-decl-module-name import)))))
-    (when (if (and import (feature? 'qualified-names))
-	      (and (not qualified-only?)
-		   (memq qualifier (module-exported-module-names *module*)))
-	      (memq module (module-exported-modules *module*)))
+    (when (and (if (and import (feature? 'qualified-names))
+		   (and (not qualified-only?)
+			(memq qualifier (module-exported-module-names *module*)))
+		   (memq module (module-exported-modules *module*)))
+	       ;; module Prelude: not Ix, which Yale's Prelude has for the
+	       ;; compiler's sake but the Report's and base's do not export
+	       (not (and (eq? qualifier '|Prelude|)
+			 (or (eq? (group-name group) '|Ix|)
+			     (memq (group-name group) *ix-core-names*)))))
       (export-group group))
     (dolist (n-d group)
       (when (not qualified-only?)

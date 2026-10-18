@@ -183,6 +183,14 @@
 		(signal-undefined-module-export name))
 	      (when exported-mod
 		(push exported-mod (module-exported-modules *module*)))
+	      ;; module Prelude with --modern-prelude: base's Prelude, whose
+	      ;; names beyond Haskell 98's come from PreludeModern (containers'
+	      ;; Utils.Containers.Internal.Prelude)
+	      (when (and (eq? name '|Prelude|) (modern-module?))
+		(let ((m (locate-module '|PreludeModern|)))
+		  (when m
+		    (push m (module-exported-modules *module*))
+		    (push '|PreludeModern| (module-exported-module-names *module*)))))
 	      (dolist (import aliased)
 		(push (import-decl-module import) (module-exported-modules *module*)))
 	      (push name (module-exported-module-names *module*))

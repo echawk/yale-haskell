@@ -67,6 +67,28 @@ compiled interface, so a new version recompiles cached units.
 - Control.Applicative has ZipList, WrappedArrow and asum, and exports
   liftA2 as Applicative's method.
 
+- The real containers 0.8.1 compiles and runs unchanged (with
+  DEFINE_PATTERN_SYNONYMS), which brought these fixes:
+  - `module Prelude` in an export list re-exports base's Prelude with
+    `--modern-prelude` (PreludeModern's names too), and not Ix, which
+    neither the Report's nor base's Prelude exports;
+  - `C(..)` re-exports the members of C in scope (it stopped at the
+    first member not in scope);
+  - `import M hiding (x)` hides x wherever M exports it, as a class
+    method too, and for every group that has it;
+  - in `--modern-prelude`, `Prelude.foldr` and the other Foldable names
+    are Foldable's when qualified too;
+  - `(<$)` is a Functor method, as in base (not exported by the Haskell
+    98 Prelude);
+  - pattern synonyms: operators (`pattern (:<|) :: ...`, `pattern x :<|
+    xs <- ...` with an infix builder clause), their fixities, use as
+    infix patterns, and bundling with a type in export lists (`Seq
+    (Empty, (:<|), (:|>))`, `T (.., P)`), so importing `T(..)` brings
+    them;
+  - Data.Semigroup's stimesIdempotent(Monoid); Control.DeepSeq's
+    NFData1 and NFData2, and NFData for the sized integers, Ratio,
+    Complex, NonEmpty, Identity, Const and Proxy; Read1 NonEmpty.
+
 ## 3.0.15.0 (2026-10-17)
 
 - Read has base's `readPrec` and `readListPrec` methods: an instance

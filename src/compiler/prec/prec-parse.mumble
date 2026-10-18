@@ -60,6 +60,29 @@
 		       (make void)))))))))
 
 
+;;; A pattern synonym used as an operator, not given its operands yet.
+(define (synonym-operator-pcon? p)
+  (and (is-type? 'pcon p)
+       (null? (pcon-pats p))
+       (or (assq (pcon-name p) (module-pattern-synonyms *module*))
+	   (and (eq? (pcon-con p) *undefined-def*)
+		(imported-pattern-synonym (pcon-name p))))))
+
+;;; After the precedence parse: the synonym operators, now with their
+;;; operands, expanded (their operands are massaged already).
+(define (massage-synonym-operators p)
+  (cond ((and (is-type? 'pcon p) (pair? (pcon-pats p))
+	      (or (assq (pcon-name p) (module-pattern-synonyms *module*))
+		  (and (eq? (pcon-con p) *undefined-def*)
+		       (imported-pattern-synonym (pcon-name p)))))
+	 (let ((args (map (function massage-synonym-operators) (pcon-pats p))))
+	   (setf (pcon-pats p) args)
+	   (massage-pattern p)))
+	((is-type? 'pcon p)
+	 (setf (pcon-pats p) (map (function massage-synonym-operators) (pcon-pats p)))
+	 p)
+	(else p)))
+
 ;;; ==================================================================
 ;;; Handling for pp-pat-list
 ;;; ==================================================================
@@ -124,7 +147,12 @@
 	 (setf (list-pat-pats pat) (massage-pattern-list (list-pat-pats pat)))
 	 pat)
 	((is-type? 'pp-pat-list pat)
-	 (parse-pp-list '#t (massage-pattern-list (pp-pat-list-pats pat))))
+	 ;; a pattern synonym operator (x :<| xs) is expanded once the
+	 ;; precedence parse has given it its operands
+	 (massage-synonym-operators
+	  (parse-pp-list '#t (map (lambda (p)
+				    (if (synonym-operator-pcon? p) p (massage-pattern p)))
+				  (pp-pat-list-pats pat)))))
 	(else
 	 pat)))
 

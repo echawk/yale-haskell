@@ -30,6 +30,7 @@ import Data.Word (Word)   -- GHC's Prelude exports Word
 
 import PreludeIO (catch)
 import Monad (MonadPlus(mzero, mplus))
+import PreludeCore (Functor((<$)))
 import Complex (Complex((:+)))
 import Prelude hiding (foldr, foldl, foldr1, foldl1, null, length, elem,
                        maximum, minimum, sum, product, mapM, sequence,
@@ -37,7 +38,7 @@ import Prelude hiding (foldr, foldl, foldr1, foldl1, null, length, elem,
                        all, notElem)
 import qualified Prelude as L
 
-infixl 4 <*>, <*, *>, <**>, <$>, <$
+infixl 4 <*>, <*, *>, <**>, <$>
 infixl 3 <|>
 infixr 6 <>
 
@@ -63,8 +64,6 @@ liftA3 f a b c = fmap f a <*> b <*> c
 (<$>) :: Functor f => (a -> b) -> f a -> f b
 (<$>) = fmap
 
-(<$) :: Functor f => a -> f b -> f a
-(<$) = fmap . const
 
 (<**>) :: Applicative f => f a -> f (a -> b) -> f b
 (<**>) = liftA2 (\a f -> f a)
@@ -73,7 +72,6 @@ liftA3 f a b c = fmap f a <*> b <*> c
 {-# liftA2 :: Inline #-}
 {-# liftA3 :: Inline #-}
 {-# (<$>) :: Inline #-}
-{-# (<$) :: Inline #-}
 
 class Applicative f => Alternative f where
   empty :: f a

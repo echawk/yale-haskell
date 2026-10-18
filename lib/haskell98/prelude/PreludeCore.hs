@@ -27,7 +27,7 @@ module PreludeCore (
 --  Trivial type: () 
     Bool(True, False),
     Ordering(LT, EQ, GT), Maybe(Nothing, Just), Either(Left, Right),
-    Functor(fmap), Monad((>>=), (>>), return, fail),
+    Functor(fmap, (<$)), Monad((>>=), (>>), return, fail),
     mapM, mapM_, sequence, sequence_, (=<<),
     Char, Int, Integer, Float, Double,
     Ratio, Complex((:+)), Assoc((:=)), Array,
@@ -356,8 +356,15 @@ instance  (Read a, Read b) => Read (Either a b)  where
 -- Constructor classes (H98): Functor and Monad, with the instances the
 -- Prelude gives for lists and Maybe.  The IO instance is in PreludeIO.
 
+-- base's (<$) too (not exported by the Haskell 98 Prelude:
+-- symbol-table.mumble's *hidden-prelude-names*; PreludeModern does)
+infixl 4 <$
+
 class  Functor f  where
     fmap		:: (a -> b) -> f a -> f b
+    (<$)		:: a -> f b -> f a
+
+    x <$ m		=  fmap (\_ -> x) m
 
 class  Monad m  where
     (>>=)		:: m a -> (a -> m b) -> m b

@@ -440,15 +440,25 @@
 
 (define (at-pattern-synonym?)
   (and (at-varid-named? "pattern")
-       (memq (peek-1-type) '(conid \())
+       (or (memq (peek-1-type) '(conid \())
+	   ;; pattern x :> xs = ... (an infix operator synonym)
+	   (and (eq? (peek-1-type) 'varid) (eq? (peek-2-type) 'consym)))
        (language-extension? "PatternSynonyms")))
 
 (define (parse-pattern-synonym)
   (advance-token)
-  (if (memq (peek-1-type) '(\:\: \,))
+  (if (or (memq (peek-1-type) '(\:\: \,))
+	  ;; pattern (:>) :: ...
+	  (and (eq-token? '\() (eq? (peek-1-type) 'consym)
+	       (eq? (peek-2-type) '\)) (pattern-signature-after-op?)))
       (parse-pattern-synonym-signature)
-      (let* ((name (con->symbol))
-	     (params (parse-pattern-synonym-params)))
+      (let* ((infix? (and (eq-token? 'varid) (eq? (peek-1-type) 'consym)))
+	     ;; pattern x :> xs = ... (an infix operator synonym)
+	     (left (and infix? (token->symbol)))
+	     (name (if infix? (token->symbol/con) (con->symbol)))
+	     (params (if infix?
+			 (list left (token->symbol))
+			 (parse-pattern-synonym-params))))
 	(token-case
 	 (= (let ((pat (parse-pat)))
 	      (push (list name params pat) *pattern-synonyms*)
@@ -472,6 +482,14 @@
 ;;; so that a builder is not defaulted (pattern Two :: Int; pattern Two =
 ;;; 2).  A signature with required and provided contexts (CReq => CProv
 ;;; => t) is not parsed by parse-signature; it is skipped.
+
+;;; After pattern ( op ): whether :: or , follows the ), a signature.
+(define (pattern-signature-after-op?)
+  (let ((saved (save-scanner-state)))
+    (advance-token) (advance-token) (advance-token)
+    (let ((res (memq *token* '(\:\: \,))))
+      (restore-excursion saved)
+      res)))
 
 (define (parse-pattern-synonym-signature)
   (let ((names (parse-pattern-synonym-names)))
@@ -556,6 +574,13 @@
 	 (map (lambda (def)
 		(make single-fun-def
 		      (args (cond ((is-type? 'pcon lhs) (pcon-pats lhs))
+				  ;; x :<| xs = ... (an infix operator synonym)
+				  ((and (is-type? 'pp-pat-list lhs)
+					(eqv? (length (pp-pat-list-pats lhs)) 3)
+					(is-type? 'pcon (cadr (pp-pat-list-pats lhs)))
+					(eq? (pcon-name (cadr (pp-pat-list-pats lhs))) name))
+				   (list (car (pp-pat-list-pats lhs))
+					 (caddr (pp-pat-list-pats lhs))))
 				  ((is-type? 'pp-pat-list lhs) (cdr (pp-pat-list-pats lhs)))
 				  (else (single-fun-def-args def))))
 		      (rhs-list (single-fun-def-rhs-list def))

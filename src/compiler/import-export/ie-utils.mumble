@@ -77,13 +77,15 @@
 	(gather-group (class-method-vars def))))
 
 (define (gather-group defs)
-  (if (null? defs)
-      '()
-      (let ((local-name (local-name (car defs))))
-	(if (eq? local-name '#f)
-	    '()
-	    (cons (tuple local-name (car defs))
-		  (gather-group (cdr defs)))))))
+  ;; the members in scope here (a class imported with some of its methods,
+  ;; Foldable(foldMap, length), re-exported as Foldable(..)); the others
+  ;; are skipped
+  (cond ((null? defs) '())
+	((eq? (local-name (car defs)) '#f)
+	 (gather-group (cdr defs)))
+	(else
+	 (cons (tuple (local-name (car defs)) (car defs))
+	       (gather-group (cdr defs))))))
 
 ;;; These deal with `hiding' lists.
 
@@ -111,7 +113,13 @@
     (let ((fixity (fixity-decl-fixity fixity-decl)))
       (dolist (op (fixity-decl-names fixity-decl))
         (let ((def (resolve-toplevel-name op)))
-	  (cond ((or (eq? def '#f) (not (eq? *module-name* (def-module def))))
+	  (cond ((and (eq? def '#f)
+		      ;; a pattern synonym operator (infixr 5 :<|): its
+		      ;; fixity is used when patterns are parsed
+		      (let ((b (resolve-toplevel-name (pattern-builder-name op))))
+			(and b (eq? *module-name* (def-module b)))))
+		 (setf (table-entry *fixity-table* op) fixity))
+		((or (eq? def '#f) (not (eq? *module-name* (def-module def))))
 		 ;;; ***This is WRONG!  Inner fixities may be found.
 		 (signal-non-local-fixity op))
 		((var? def)
