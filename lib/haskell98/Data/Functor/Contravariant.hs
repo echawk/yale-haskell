@@ -11,6 +11,8 @@ import Data.Functor.Const (Const(Const))
 import Data.Proxy (Proxy(Proxy))
 import Data.Functor.Reverse (Reverse(Reverse))
 import Data.Functor.Compose (Compose(Compose))
+import Data.Functor.Product (Product(Pair))
+import Data.Functor.Sum (Sum(InL, InR))
 
 infixl 4 >$, >$<, >$$<, $<
 
@@ -96,3 +98,10 @@ instance Contravariant f => Contravariant (Reverse f) where
 
 instance (Functor f, Contravariant g) => Contravariant (Compose f g) where
   contramap f (Compose fga) = Compose (fmap (contramap f) fga)
+
+instance (Contravariant f, Contravariant g) => Contravariant (Product f g) where
+  contramap f (Pair a b) = Pair (contramap f a) (contramap f b)
+
+instance (Contravariant f, Contravariant g) => Contravariant (Sum f g) where
+  contramap f (InL a) = InL (contramap f a)
+  contramap f (InR b) = InR (contramap f b)

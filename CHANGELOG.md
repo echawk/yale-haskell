@@ -28,7 +28,9 @@ compiled interface, so a new version recompiles cached units.
   Builder's toLazyByteString and lazyByteString use it; Parsec has
   Stream instances for lazy ByteString and lazy Text.
 - base's Functor, Applicative and Monad instances for Dual, Sum,
-  Product, First and Last; Contravariant for Reverse and Compose.
+  Product, First and Last; Proxy's Functor, Applicative, Alternative,
+  Monad, Foldable, Traversable, Semigroup and Monoid; Contravariant for
+  Reverse, Compose, Product and Sum.
 
 ## 3.0.15.0 (2026-10-17)
 
