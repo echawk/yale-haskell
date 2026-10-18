@@ -68,7 +68,15 @@
     lo))
 
 (defun pos-line (pos) (1+ (line-index pos)))
-(defun pos-column (pos) (1+ (- pos (aref *line-starts* (line-index pos)))))
+(defun pos-column (pos)
+  "The 1-based column of POS; a tab advances to the next multiple of 8
+(megaparsec's defaultTabWidth), as upstream counts layout columns."
+  (let ((col 1))
+    (loop for i from (aref *line-starts* (line-index pos)) below pos
+          do (if (char= (char *src* i) #\Tab)
+                 (setf col (1+ (* 8 (ceiling col 8))))
+                 (incf col)))
+    col))
 (defun current-column () (pos-column *pos*))
 
 (defmacro with-parse-input ((text &key (start 0) end name) &body body)
@@ -152,7 +160,7 @@ consumed."
              (unless ,ok (return))
              (push ,v ,acc)
              (when (= *pos* ,start) (return)))))
-       (nreverse ,acc))))
+       (reverse ,acc))))
 
 (defmacro many1 (form)
   (let ((x (gensym)))

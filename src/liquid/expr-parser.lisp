@@ -52,9 +52,10 @@
 
 (defun pred-not-raw (p) (list :not p))
 
-(defun add-fixity (prec name kind fn assoc)
-  "Parse.hs addOperatorP: later entries are tried first within a level."
-  (push (list (or prec 9) name kind fn assoc) *fixities*))
+(defun add-fixity (prec name kind fn assoc &optional origin)
+  "Parse.hs addOperatorP: later entries are tried first within a level.
+ORIGIN :user marks operators declared in specifications."
+  (push (list (or prec 9) name kind fn assoc origin) *fixities*))
 
 (defun level-ops (level kind &optional assoc)
   (remove-if-not (lambda (f) (and (= (first f) level) (eq (third f) kind)

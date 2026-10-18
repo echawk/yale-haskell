@@ -377,3 +377,51 @@ pair (PRED . KEY); KEYs of the valid ones are returned."
                   (return-from solve-fq-file
                     (make-fixpoint-result :status :crash :message (princ-to-string e)))))))
     (apply #'solve-fq info keys)))
+
+;;; ------------------------------------------------------------------
+;;; One-off validity checks (milestone 2 of the plan: no kvars)
+
+(defun ensure-expr (x)
+  (if (stringp x) (parse-pred-string x) x))
+
+(defun check-valid (goal &key hyps vars consts data z3)
+  "Is HYPS => GOAL valid?  GOAL and HYPS are predicates (or strings in
+liquid-fixpoint syntax); VARS and CONSTS are ((name . sort) ..) for the
+local variables and the global uninterpreted symbols; DATA is a list of
+FQ-DATA declarations.  Returns :VALID, :INVALID or :UNKNOWN, and as a
+second value the SMT-LIB2 script that was sent.  Uses Z3 session Z3 if
+given, else a fresh one."
+  (let* ((genv (make-global-env :consts consts :data data))
+         (ctx (make-smt-ctx :genv genv))
+         (names (mapcar (lambda (p)
+                          (cons (car p) (smt-symbol (if (global-sort genv (car p))
+                                                        (format nil "~a@local" (car p))
+                                                        (car p)))))
+                        vars))
+         (script '()))
+    (flet ((enc (p)
+             (multiple-value-list
+              (formula->smt2 (elaborate (ensure-expr p) vars genv) ctx names)))
+           (send (z cmd) (push cmd script) (z3-command z cmd)))
+      (let* ((hs (mapcar #'enc hyps))
+             (g (enc goal)))
+        (flet ((run (z)
+                 (let ((dd (datatype-decls ctx)))
+                   (when dd (send z dd)))
+                 (let ((decls (remove-duplicates (append (mapcan #'second hs) (second g))
+                                                 :test #'equal)))
+                   (with-z3-scope (z)
+                     (dolist (d decls) (send z (decl->smt2 d)))
+                     (dolist (p vars)
+                       (send z (format nil "(declare-const ~a ~a)"
+                                       (cdr (assoc (car p) names :test #'string=))
+                                       (smt-sort (cdr p) ctx))))
+                     (dolist (h hs) (send z (format nil "(assert ~a)" (first h))))
+                     (send z (format nil "(assert (not ~a))" (first g)))
+                     (push "(check-sat)" script)
+                     (ecase (z3-check-sat z)
+                       (:unsat :valid)
+                       (:sat :invalid)
+                       (:unknown :unknown))))))
+          (values (if z3 (run z3) (with-z3 (z0) (run z0)))
+                  (format nil "~{~a~%~}" (reverse script))))))))
