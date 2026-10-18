@@ -315,9 +315,12 @@
 	(declared (lisp:count-if-not
 		   (lambda (v) (string-starts? "k%" (symbol->string v)))
 		   (synonym-args family))))
+    ;; with equations, theirs: a data instance names the extra
+    ;; parameters (data KMap Bool v = ...), a type instance may not
+    ;; (type R1 Box = Par)
     (if (null? eqs)
 	declared
-	(min declared (length (tuple-2-1 (car eqs)))))))
+	(length (tuple-2-1 (car eqs))))))
 
 ;;; A family application with more arguments than the family has, which
 ;;; does not reduce yet: Rep1 g a.  Its extra arguments are an ordinary
