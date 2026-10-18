@@ -6,6 +6,7 @@ module Control.Monad.Trans.State.Strict (
     liftCallCC, liftCallCC', liftCatch, liftListen, liftPass
   ) where
 
+import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
@@ -129,3 +130,8 @@ liftPass :: Monad m => Pass w m (a, s) -> Pass w (StateT s m) a
 liftPass pass m = StateT $ \s -> pass $ do
   ((a, f), s') <- runStateT m s
   return ((a, s'), f)
+
+-- transformers' (the transformed monad contravariant)
+instance Contravariant m => Contravariant (StateT s m) where
+  contramap f m = StateT $ \s ->
+    contramap (\(a, s') -> (f a, s')) $ runStateT m s

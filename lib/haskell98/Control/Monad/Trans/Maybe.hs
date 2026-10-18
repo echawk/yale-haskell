@@ -4,6 +4,7 @@ module Control.Monad.Trans.Maybe (
     liftCallCC, liftCatch, liftListen, liftPass
   ) where
 
+import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
@@ -70,3 +71,7 @@ liftPass pass = mapMaybeT $ \m -> pass $ do
   return $! case a of
     Nothing -> (Nothing, id)
     Just (v, f) -> (Just v, f)
+
+-- transformers' (the transformed monad contravariant)
+instance Contravariant m => Contravariant (MaybeT m) where
+  contramap f = MaybeT . contramap (fmap f) . runMaybeT

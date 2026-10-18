@@ -438,7 +438,11 @@
 					(tuple-2-1 m-v)	(tuple-2-2 m-v)	inst))
 				     new-instance-vars)
 				(map (lambda (c)
-				       (get-class-dict algdata c))
+				       (if (num-stub-superclass? inst c)
+					   (**abort (format '#f
+     "Num ~A has no ~A instance here (base's Num has no superclasses)."
+						     algdata c))
+					   (get-class-dict algdata c)))
 				     super*))))
 	  (let ((dict-sig (generate-dictionary-signature inst)))
 	    (add-new-module-signature dictionary dict-sig))
@@ -673,6 +677,18 @@
 	      (setf (instance-ok? stub) '#t)
 	      (push stub (module-instance-defs *module*)))))))))
 
+;;; The same when T's Eq or Show instance needs more than the Num instance
+;;; gives (bifunctors' Num (Biap bi a b), whose derived Eq needs
+;;; Eq (bi a b)): the superclass slot is an error.
+(define (num-stub-superclass? inst super)
+  (and (modern-module?)
+       (eq? (instance-class inst) (core-symbol "Num"))
+       (memq super (list (core-symbol "Eq") (core-symbol "Show")))
+       (let ((super-inst (lookup-instance (instance-algdata inst) super)))
+	 (and super-inst
+	      (not (null? (instance-mcontext super-inst)))
+	      (null? (instance-mcontext inst))))))
+
 (define (num-superclass-stub-method name class algdata)
   (**define name '(_ _)
 	    (**app (**var/def (core-symbol "error"))
@@ -699,7 +715,8 @@
        (signal-instance-context-needs-alg-context algdata))
      (dolist (super-c (class-super class))
        (let ((super-inst (lookup-instance algdata super-c)))
-	 (cond ((eq? super-inst '#f)
+	 (cond ((num-stub-superclass? inst super-c))
+	       ((eq? super-inst '#f)
 		(signal-no-super-class-instance class algdata super-c))
 	       (else
 		(when (not (full-context-implies?

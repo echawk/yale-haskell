@@ -5,6 +5,7 @@ module Control.Monad.Trans.Writer.Lazy (
     liftCallCC, liftCatch
   ) where
 
+import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
@@ -75,3 +76,7 @@ liftCallCC callCC f = WriterT $ callCC $ \c ->
 
 liftCatch :: Catch e m (a, w) -> Catch e (WriterT w m) a
 liftCatch catchE m h = WriterT $ runWriterT m `catchE` \e -> runWriterT (h e)
+
+-- transformers' (the transformed monad contravariant)
+instance Contravariant m => Contravariant (WriterT w m) where
+  contramap f = mapWriterT $ contramap $ \ ~(a, w) -> (f a, w)

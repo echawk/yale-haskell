@@ -4,6 +4,7 @@ module Control.Monad.Trans.Identity (
     liftCallCC, liftCatch
   ) where
 
+import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import Prelude hiding (foldr)
 import PreludeModern
@@ -57,3 +58,7 @@ liftCallCC callCC f = IdentityT $ callCC $ \c -> runIdentityT (f (IdentityT . c)
 
 liftCatch :: Catch e m a -> Catch e (IdentityT m) a
 liftCatch f m h = IdentityT $ f (runIdentityT m) (runIdentityT . h)
+
+-- transformers' (the transformed monad contravariant)
+instance Contravariant f => Contravariant (IdentityT f) where
+  contramap f = IdentityT . contramap f . runIdentityT

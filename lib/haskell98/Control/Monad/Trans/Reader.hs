@@ -5,6 +5,7 @@ module Control.Monad.Trans.Reader (
     liftCallCC, liftCatch
   ) where
 
+import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
@@ -72,3 +73,7 @@ liftCallCC callCC f = ReaderT $ \r -> callCC $ \c ->
 
 liftCatch :: Catch e m a -> Catch e (ReaderT r m) a
 liftCatch f m h = ReaderT $ \r -> f (runReaderT m r) (\e -> runReaderT (h e) r)
+
+-- transformers' (the transformed monad contravariant)
+instance Contravariant m => Contravariant (ReaderT r m) where
+  contramap f = ReaderT . fmap (contramap f) . runReaderT

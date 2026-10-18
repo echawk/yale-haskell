@@ -7,6 +7,7 @@ module Control.Monad.Trans.RWS.Lazy (
     liftCallCC, liftCallCC', liftCatch
   ) where
 
+import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
@@ -128,3 +129,8 @@ liftCallCC' callCC f = RWST $ \r s -> callCC $ \c ->
 
 liftCatch :: Catch e m (a, s, w) -> Catch e (RWST r w s m) a
 liftCatch catchE m h = RWST $ \r s -> runRWST m r s `catchE` \e -> runRWST (h e) r s
+
+-- transformers' (the transformed monad contravariant)
+instance Contravariant m => Contravariant (RWST r w s m) where
+  contramap f m = RWST $ \r s ->
+    contramap (\ ~(a, s', w) -> (f a, s', w)) $ runRWST m r s

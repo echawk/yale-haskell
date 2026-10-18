@@ -195,7 +195,9 @@
 					      (signature-context signature))
 				      (signature-type signature)
 				      (append class-mcontext
-					      (signature-mcontext signature)))))
+					      (signature-mcontext signature))
+				      ;; the class's tyvar first (the carrier)
+				      (if (mp-class? class) '() (list tyvar)))))
  	       (dolist (var-ref (signdecl-vars decl))
 	         (let ((var (var-ref-var var-ref)))
 		   (setf (var-type var) gtype)

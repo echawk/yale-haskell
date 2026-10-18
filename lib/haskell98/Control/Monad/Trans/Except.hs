@@ -6,6 +6,7 @@ module Control.Monad.Trans.Except (
     liftCallCC, liftListen, liftPass
   ) where
 
+import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
@@ -111,3 +112,7 @@ liftPass pass = mapExceptT $ \m -> pass $ do
   return $! case a of
     Left l -> (Left l, id)
     Right (r, f) -> (Right r, f)
+
+-- transformers' (the transformed monad contravariant)
+instance Contravariant m => Contravariant (ExceptT e m) where
+  contramap f = ExceptT . contramap (fmap f) . runExceptT

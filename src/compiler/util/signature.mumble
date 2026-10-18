@@ -38,7 +38,37 @@
     (when (not (null? contexts))
       (setf (signature-type signature) type)
       (setf (signature-context signature)
-	    (append (signature-context signature) contexts)))))
+	    (append (signature-context signature) contexts))))
+  ;; one elsewhere (an argument: biextend :: (p :-> t q) -> ..., type
+  ;; p :-> q = forall a b. p a b -> q a b) is the polytype it names
+  (setf (signature-type signature)
+	(expand-nested-polytype-synonyms (signature-type signature) 8)))
+
+(define (expand-nested-polytype-synonyms type depth)
+  (cond ((<= depth 0) type)
+	((tycon? type)
+	 (let ((poly (polytype-synonym-expansion type 8)))
+	   (if poly
+	       (make forall-type (tyvars (forall-type-tyvars poly))
+		     (context (forall-type-context poly))
+		     (type (expand-nested-polytype-synonyms (forall-type-type poly)
+							     (1- depth))))
+	       (begin
+		 (when (not (null? (tycon-args type)))
+		   (setf (tycon-args type)
+			 (map (lambda (a) (expand-nested-polytype-synonyms a depth))
+			      (tycon-args type))))
+		 type))))
+	((tyapp? type)
+	 (setf (tyapp-args type)
+	       (map (lambda (a) (expand-nested-polytype-synonyms a depth))
+		    (tyapp-args type)))
+	 type)
+	((forall-type? type)
+	 (setf (forall-type-type type)
+	       (expand-nested-polytype-synonyms (forall-type-type type) depth))
+	 type)
+	(else type)))
 
 ;;; The type with a polytype synonym at the top, or in the result of an
 ;;; arrow, replaced by the polytype's body; and the contexts lifted.

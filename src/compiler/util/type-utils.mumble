@@ -48,10 +48,19 @@
 ;;; context.  This is needed to make dictionary conversion work right.
 
 (define (ast->gtype context type . maybe-mcontext)
-  (let ((mcontext  (if (null? maybe-mcontext) '() (car maybe-mcontext))))
+  (let ((mcontext  (if (null? maybe-mcontext) '() (car maybe-mcontext)))
+	;; tyvars to number first (a one-parameter class's method: its
+	;; class's, the carrier, before its own constraints' tyvars)
+	(first     (if (or (null? maybe-mcontext) (null? (cdr maybe-mcontext)))
+		       '()
+		       (cadr maybe-mcontext))))
     ;; the tyvars of multi-parameter constraints come first, so that a
     ;; multi-parameter class's own tyvars are gtyvars 0, 1, ...
-    (mlet ((env0 (mcontext-env mcontext '()))
+    (mlet ((env0 (mcontext-env mcontext
+			       (if (null? first)
+				   '()
+				   (mlet (((_ e) (type->gtype/l (map (function **tyvar) first) '())))
+				     e))))
 	   ((gcontext env) (context->gcontext context '() env0))
 	   ((type env1) (type->gtype type env))
 	   (gcontext-classes (arrange-gtype-classes env1 gcontext))

@@ -128,34 +128,104 @@
 (define (add-special-derived-instance alg class strategy)
   (if (lookup-instance alg class)
       (signal-instance-exists alg class)
-      (let ((inst  (new-instance class alg
-				 ;; Generic1 is for a type constructor: the
-				 ;; instance for T a b is Generic1 (T a)
-				 (if (and (eq? (def-name class) '|Generic1|)
-					  (not (null? (algdata-tyvars alg))))
-				     (lisp:butlast (algdata-tyvars alg))
-				     (algdata-tyvars alg))))
-	    (via   (cond ((eq? strategy 'anyclass) '#f)
-			 ((eq? strategy 'newtype)
-			  (car (con-types (car (algdata-constrs alg)))))
-			 (else strategy))))
+      (let* (;; a class of type constructors takes T's parameters but the
+	     ;; last n, n the arguments its variable is applied to in its
+	     ;; methods: Generic1 (T a) for T a b, Bifunctor (Biap bi) for
+	     ;; Biap bi a b
+	     (n     (min (class-tyvar-arity class 4) (length (algdata-tyvars alg))))
+	     (n     (if (and (eqv? n 0) (eq? (def-name class) '|Generic1|)
+			     (not (null? (algdata-tyvars alg))))
+			1
+			n))
+	     (tyvars (lisp:butlast (algdata-tyvars alg) n))
+	     (dropped (lisp:last (algdata-tyvars alg) n))
+	     (inst  (new-instance class alg tyvars))
+	     (via   (cond ((eq? strategy 'anyclass) '#f)
+			  ((eq? strategy 'newtype)
+			   (drop-trailing-type-args
+			    (car (con-types (car (algdata-constrs alg)))) dropped))
+			  (else (drop-trailing-type-args strategy dropped)))))
 	(setf (instance-ok? inst) '#t)
 	(setf (instance-suppress-readers? inst) '#f)
-	(setf (instance-context inst)
-	      (if via
-		  (map (lambda (v) (**context (**class/def class) v))
-		       (lisp:intersection (algdata-tyvars alg) (ast-type-tyvars via)))
-		  '()))
+	(cond ((and via (tyapp? via) (tyvar? (tyapp-fun via)))
+	       ;; a via type headed by a variable (bi a): C (bi a), a
+	       ;; flexible context, as GHC infers it
+	       (setf (instance-context inst) '())
+	       (setf (instance-mcontext inst)
+		     (list (**mp-context (**class/def class) (list via)))))
+	      (else
+	       (setf (instance-context inst)
+		     (if via
+			 (map (lambda (v) (**context (**class/def class) v))
+			      (lisp:intersection (algdata-tyvars alg) (ast-type-tyvars via)))
+			 '()))))
 	(setf (instance-decls inst)
-	      (if via (via-method-decls class via) '()))
+	      (if via
+		  (via-method-decls class via
+		    (**tycon/def alg (map (function **tyvar) tyvars)))
+		  '()))
 	(setf (instance-scoped-tyvars? inst) '#t)
 	(push inst (module-instance-defs *module*)))))
+
+;;; How many arguments the class's type variable takes in its methods'
+;;; signatures (Bifunctor's p in p a c: 2), or its superclasses'; 0 for a
+;;; class of types.
+(define (class-tyvar-arity class depth)
+  (let ((v  (class-tyvar class))
+	(n  0))
+    (dolist (m (class-method-vars class))
+      (setf n (max n (ast-tyvar-application-arity
+		      (signature-type (method-var-method-signature m)) v))))
+    (when (and (eqv? n 0) (> depth 0))
+      (dolist (sc (class-super class))
+	(setf n (max n (class-tyvar-arity sc (1- depth))))))
+    n))
+
+(define (ast-tyvar-application-arity type v)
+  (cond ((tyapp? type)
+	 (max (if (and (tyvar? (tyapp-fun type)) (eq? (tyvar-name (tyapp-fun type)) v))
+		  (length (tyapp-args type))
+		  (ast-tyvar-application-arity (tyapp-fun type) v))
+	      (lisp:reduce (function max)
+			   (map (lambda (a) (ast-tyvar-application-arity a v))
+				(tyapp-args type))
+			   :initial-value 0)))
+	((tycon? type)
+	 (lisp:reduce (function max)
+		      (map (lambda (a) (ast-tyvar-application-arity a v)) (tycon-args type))
+		      :initial-value 0))
+	(else 0)))
+
+;;; TYPE without its last arguments when they are the type variables
+;;; DROPPED (bi a b without a b is bi), else TYPE.
+(define (drop-trailing-type-args type dropped)
+  (let ((n  (length dropped)))
+    (cond ((eqv? n 0) type)
+	  ((and (tyapp? type)
+		(>= (length (tyapp-args type)) n)
+		(every (lambda (a v) (and (tyvar? a) (eq? (tyvar-name a) v)))
+		       (lisp:last (tyapp-args type) n) dropped))
+	   (let ((rest (lisp:butlast (tyapp-args type) n)))
+	     (if (null? rest) (tyapp-fun type) (apply-ast-type (tyapp-fun type) rest))))
+	  ((and (tycon? type)
+		(>= (length (tycon-args type)) n)
+		(every (lambda (a v) (and (tyvar? a) (eq? (tyvar-name a) v)))
+		       (lisp:last (tycon-args type) n) dropped))
+	   (make tycon (name (tycon-name type)) (def (tycon-def type))
+		 (args (lisp:butlast (tycon-args type) n))))
+	  (else type))))
 
 ;;; The via type's variables are the instance head's, which scope over the
 ;;; methods (instance-scoped-tyvars?): deriving Describe (Wrap a) via
 ;;; Maybe a needs Describe (Maybe a) at the instance's a.
 
-(define (via-method-decls class via)
+;;; Each method is the via type's, coerced to the instance's type: the
+;;; coercion's annotation names both, the method's own type variables
+;;; shared (bifoldMap :: Monoid m => (a -> m) -> (b -> m) -> p a b -> m at
+;;; p := bi, coerced to p := Biap bi), so that a method with its own
+;;; context is not ambiguous; as GHC's coerce @via @instance.
+
+(define (via-method-decls class via inst-type)
   (map (lambda (m)
 	 (let* ((sig   (method-var-method-signature m))
 		(ctyv  (class-tyvar class))
@@ -163,17 +233,14 @@
 		;; via type's
 		(own   (lisp:remove ctyv (ast-type-tyvars (signature-type sig))))
 		(ren   (map (lambda (v) (tuple v (gentyvar "m"))) own))
-		(type  (substitute-tyvar
-			(rename-ast-tyvars (signature-type sig) ren) ctyv via))
-		(ctx   (map (lambda (c)
-			      (**context (context-class c)
-					 (let ((r (assq (context-tyvar c) ren)))
-					   (if r (tuple-2-2 r) (context-tyvar c)))))
-			    (signature-context sig))))
+		(renamed (rename-ast-tyvars (signature-type sig) ren))
+		(at-via  (substitute-tyvar renamed ctyv via))
+		(at-inst (substitute-tyvar renamed ctyv inst-type)))
 	   (**define (def-name m) '()
-	     (**app (**var/def (prelude-prim-def '|primUnsafeCoerce|))
-		    (make exp-sign (exp (**var/def m))
-			           (signature (**signature ctx type)))))))
+	     (**app (make exp-sign
+			  (exp (**var/def (prelude-prim-def '|primUnsafeCoerce|)))
+			  (signature (**signature '() (**arrow-type at-via at-inst))))
+		    (**var/def m)))))
        (class-method-vars class)))
 
 (define (ast-type-tyvars type)

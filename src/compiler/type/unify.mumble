@@ -308,7 +308,10 @@
 ;;; reduce-flexible-contexts keeps such constraints).
 (define (given-app-constraint? class type)
   (lisp:some (lambda (g)
-	       (and (eq? (tuple-2-1 g) class)
+	       (and (or (eq? (tuple-2-1 g) class)
+			;; a subclass given (Ord (f a) gives Eq (f a))
+			(and (class? (tuple-2-1 g))
+			     (memq class (class-super* (tuple-2-1 g)))))
 		    (null? (cdr (tuple-2-2 g)))
 		    (mp-type-equal? (car (tuple-2-2 g)) type)))
 	     (dynamic *given-mp-constraints*)))

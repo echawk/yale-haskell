@@ -21,6 +21,21 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- Deriving: classes of type constructors through a newtype (Bifunctor
+  (Biap bi)), with the field's flexible context (Ord1 (bi a)); derived
+  Functor, Foldable and Traversable with a context on an application
+  (Functor (bi a)); derived Read for such fields.
+- A class method with its own multi-parameter constraint keeps the class's
+  type variable as the carrier (profunctors' (#.)).
+- A synonym for a polytype as an argument's type ((p :-> q) -> ...).
+- A local binding's constraint on an application (Read (p b a)) is passed
+  to the enclosing binding; Eq is taken from a given Ord at an
+  application.
+- In a module with base's Prelude, a Num instance whose type's Eq or Show
+  needs more than it gives gets an error in that superclass slot (base's
+  Num has none).
+- transformers' Contravariant instances, and base's for the generic
+  representation types and Alt.  bifunctors and contravariant build.
 - Template Haskell: quoted names ('f, 'C, '(:), ''T, ''(~)) under
   TemplateHaskell or TemplateHaskellQuotes; in a type the tick is still
   DataKinds' promotion.  th-abstraction builds.

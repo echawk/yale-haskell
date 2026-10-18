@@ -37,26 +37,42 @@
 	     (dolist (con (algdata-constrs alg))
 	       (dolist (ty (con-types con))
 		 (setf vars (functor-context-tyvars ty a vars))))
+	     ;; a variable gets the class, an application of one (bi a, in a
+	     ;; field bi a b) a flexible context: Functor (bi a)
 	     (setf (instance-context inst)
-		   (map (lambda (v) (**context (**class/def class) v)) vars))
+		   (map (lambda (v) (**context (**class/def class) v))
+			(lisp:remove-if-not (function symbol?) vars)))
+	     (setf (instance-mcontext inst)
+		   (map (lambda (ty) (**mp-context (**class/def class) (list ty)))
+			(lisp:remove-if (function symbol?) vars)))
 	     (setf (instance-decls inst) '())
 	     (setf (instance-ok? inst) '#t)
 	     (setf (instance-suppress-readers? inst) '#f)
 	     (cons inst insts))))))
 
-;;; The type variables applied (in the last position) to something that
-;;; mentions a.
+;;; What needs the class: a type variable applied (in the last position)
+;;; to something that mentions a (its name), or such a variable applied to
+;;; more arguments, without the last (bi a in bi a b: an AST type).
 
 (define (functor-context-tyvars ty a vars)
   (let ((ty  (functor-expand ty)))
     (cond ((tyapp? ty)
-	   (let ((fun  (tyapp-fun ty)))
+	   (let* ((fun   (tyapp-fun ty))
+		  (args  (tyapp-args ty))
+		  (need  (and (tyvar? fun)
+			      (mentions-tyvar? (car (lisp:last args)) a)
+			      (if (null? (cdr args))
+				  (tyvar-name fun)
+				  (apply-ast-type fun (lisp:butlast args))))))
 	     (functor-context-tyvars
-	      (car (lisp:last (tyapp-args ty))) a
-	      (if (and (tyvar? fun)
-		       (mentions-tyvar? (car (lisp:last (tyapp-args ty))) a)
-		       (not (memq (tyvar-name fun) vars)))
-		  (cons (tyvar-name fun) vars)
+	      (car (lisp:last args)) a
+	      (if (and need
+		       (not (lisp:some (lambda (v)
+					 (if (symbol? need)
+					     (eq? v need)
+					     (and (not (symbol? v)) (ast-types-equal? v need))))
+				       vars)))
+		  (cons need vars)
 		  vars))))
 	  ((and (tycon? ty) (not (null? (tycon-args ty))))
 	   (functor-context-tyvars (car (lisp:last (tycon-args ty))) a vars))
