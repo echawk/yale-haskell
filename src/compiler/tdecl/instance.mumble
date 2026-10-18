@@ -59,15 +59,8 @@
 
 ;;; The distinct tyvars of the head types, in order.
 (define (mp-instance-tyvars types)
-  (let ((res '()))
-    (dolist (ty types)
-      (if (tyvar? ty)
-	  (when (not (memq (tyvar-name ty) res))
-	    (push (tyvar-name ty) res))
-	  (dolist (arg (tycon-args ty))
-	    (when (not (memq (tyvar-name arg) res))
-	      (push (tyvar-name arg) res)))))
-    (nreverse res)))
+  ;; any types (FlexibleInstances: FoldableWithIndex [Int] Tree)
+  (flexible-head-tyvars types '()))
 
 ;;; Two instance heads that overlap: the same type constructor (or a
 ;;; tyvar) in each position.

@@ -502,6 +502,10 @@
 	       (if (and (haskell98?) (or (tycon? simple) (tyvar? simple)))
 		   '#t
 		   (check-simple simple '#f "instance declaration")))
+	      ;; FlexibleInstances: a multi-parameter instance's types may be
+	      ;; any (FoldableWithIndex [Int] Tree); find-mp-instance matches
+	      ;; them whole (type/mp-classes.mumble)
+	      ((haskell98?) '#t)
 	      (else
 	       (dolist (ty types)
 		 (when (not (tyvar? ty))

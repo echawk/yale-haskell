@@ -59,6 +59,11 @@ compiled interface, so a new version recompiles cached units.
   CSUSeconds are new.  The FFI passes them as the underlying types.
   System.Posix.Types' Fd is over CInt.
 
+- A multi-parameter instance's types may be any types
+  (FlexibleInstances: `instance FoldableWithIndex [Int] Tree`).
+- Data.Tuple's Solo (MkSolo, the pattern Solo, getSolo) with base's
+  instances.
+
 ## 3.0.15.0 (2026-10-17)
 
 - Read has base's `readPrec` and `readListPrec` methods: an instance
