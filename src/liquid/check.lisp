@@ -15,9 +15,12 @@
 ;;;;             | (:if SORT E E E)
 ;;;;             | (:let X SORT E E)
 ;;;;             | (:letrec (FUN ...) E)   local functions, FUN as above
+;;;;             | (:nil) | (:cons E E)    list constructors
+;;;;             | (:is CTOR E)            CTOR "[]" or ":": is E's constructor CTOR?
+;;;;             | (:tail E)               the tail field of a (:) value
 ;;;;             | (:unknown SORT)         anything else: some value
 ;;;;             | (:at LINE E)            E's source line
-;;;;   SORT    ::= :int | :bool | NIL      (NIL: another type)
+;;;;   SORT    ::= :int | :bool | :list | NIL   (NIL: another type)
 ;;;;
 ;;;; The specifications are parse-spec-text's: (:sig ..) is checked and
 ;;;; trusted at calls, (:assume ..) only trusted, (:type-alias ..) expands.
@@ -41,6 +44,12 @@
 ;;;; with 0 and with the binders in scope, and the atoms of the written
 ;;;; refinements).  A local function used as a value, not called, has its
 ;;;; parameters' kvars weakened to true.
+;;;;
+;;;; Lists (milestone 4): every list has the measure len (>= 0) and the
+;;;; user's measures over lists (measure m :: [a] -> Int, with equations
+;;;; for [] and (:) that do not use the head); constructors and pattern
+;;;; matches give their equations.  Calls of the Prelude's list functions
+;;;; use *library-specs*.
 
 (in-package :yale-liquid)
 
@@ -110,6 +119,7 @@
     (let ((name (second type)))
       (cond ((member name '("Int" "Integer" "Char") :test #'string=) :int)
             ((string= name "Bool") :bool)
+            ((member name '("[]" "String") :test #'string=) :list)
             (t nil)))))
 
 (defun type-reft (type)
@@ -203,7 +213,98 @@
                 (push (cons x sort) *vars*)
                 (when tv (push (list := x tv) *hyps*)))
               (eval-body body))))
-    (:letrec (eval-letrec (second e) (third e)))))
+    (:letrec (eval-letrec (second e) (third e)))
+    (:nil (let ((r (fresh-var :list)))
+            (dolist (h (list-equations r "[]" nil)) (push h *hyps*))
+            r))
+    (:cons (eval-body (second e))
+           (let ((tl (eval-body (third e)))
+                 (r (fresh-var :list)))
+             (dolist (h (list-equations r ":" tl)) (push h *hyps*))
+             (push (list := (app "lq_tl" r) tl) *hyps*)
+             r))
+    (:is (let ((x (eval-body (third e))))
+           (when x
+             (let ((tl (app "lq_tl" x)))
+               (dolist (h (list-equations x ":" tl))
+                 (push (pred-imp (list :> (app "len" x) 0) h) *hyps*))
+               (dolist (h (list-equations x "[]" nil))
+                 (push (pred-imp (list := (app "len" x) 0) h) *hyps*))
+               (if (string= (second e) ":")
+                   (list :> (app "len" x) 0)
+                   (list := (app "len" x) 0))))))
+    (:tail (let ((x (eval-body (second e)))) (and x (app "lq_tl" x))))))
+
+;;; ------------------------------------------------------------------
+;;; Lists and measures
+
+(defparameter *list-sort* '(:tc "[]" :int))
+(defvar *measures* '())   ; ((NAME NIL-BODY TAIL-BINDER CONS-BODY) ..)
+
+(defun fq-sort (s) (if (eq s :list) *list-sort* s))
+
+(defun list-equations (x ctor tl)
+  "The measures' equations for X built by CTOR (with tail TL)."
+  (if (string= ctor "[]")
+      (cons (list := (app "len" x) 0)
+            (loop for (m nil-body) in *measures*
+                  when nil-body collect (list := (app m x) nil-body)))
+      (list* (list := (app "len" x) (list :+ 1 (app "len" tl)))
+             (list :>= (app "len" tl) 0)
+             (loop for (m nil cons-tl cons-body) in *measures*
+                   when cons-body
+                     collect (list := (app m x) (subst cons-body (list (cons cons-tl tl))))))))
+
+(defun spec-measures (specs)
+  "The measures of SPECS over lists whose equations do not use the head:
+((NAME NIL-BODY TAIL CONS-BODY) ..); a missing equation is NIL."
+  (loop for s in specs
+        when (and (eq (first s) :measure) (string/= (second s) "len"))
+          collect (let ((nil-body nil) (tl nil) (cons-body nil))
+                    (dolist (eqn (fourth s))
+                      (destructuring-bind (m ctor args body) eqn
+                        (declare (ignore m))
+                        (let ((b (if (and (consp body) (eq (first body) :expr)) (second body) body)))
+                          (cond ((string= ctor "[]") (setf nil-body b))
+                                ((and (string= ctor ":") (= (length args) 2)
+                                      (not (member (first args) (free-vars b) :test #'string=)))
+                                 (setf tl (second args) cons-body b))))))
+                    (list (second s) nil-body tl cons-body))))
+
+(defun measure-consts (specs)
+  (append (list (cons "len" (parse-sort-string "func(1, [[@(0)]; int])"))
+                (cons "lq_tl" (parse-sort-string "func(1, [[@(0)]; [@(0)]])")))
+          (loop for s in specs
+                when (and (eq (first s) :measure) (string/= (second s) "len"))
+                  collect (cons (second s)
+                                (parse-sort-string
+                                 (if (eq (base-sort (nth-value 1 (fun-parts (third s) 1))) :bool)
+                                     "func(1, [[@(0)]; bool])"
+                                     "func(1, [[@(0)]; int])"))))))
+
+;;; The Prelude's list functions, as Prelude.NAME (the compiler's
+;;; *liquid-library-functions*); as LiquidHaskell's include/GHC/List.spec.
+(defparameter *library-spec-text* "
+{-@ assume head :: {v:[a] | len v > 0} -> a @-}
+{-@ assume tail :: xs:{v:[a] | len v > 0} -> {v:[a] | len v = len xs - 1} @-}
+{-@ assume (!!) :: xs:[a] -> {v:Int | 0 <= v && v < len xs} -> a @-}
+{-@ assume length :: xs:[a] -> {v:Int | v = len xs} @-}
+{-@ assume null :: xs:[a] -> {v:Bool | v <=> len xs = 0} @-}
+{-@ assume (++) :: xs:[a] -> ys:[a] -> {v:[a] | len v = len xs + len ys} @-}
+{-@ assume take :: n:Int -> xs:[a] -> {v:[a] | len v = (if n <= 0 then 0 else (if n <= len xs then n else len xs))} @-}
+{-@ assume drop :: n:Int -> xs:[a] -> {v:[a] | len v = (if n <= 0 then len xs else (if n <= len xs then len xs - n else 0))} @-}
+{-@ assume replicate :: n:Int -> x:a -> {v:[a] | len v = (if n <= 0 then 0 else n)} @-}
+{-@ assume map :: (a -> b) -> xs:[a] -> {v:[b] | len v = len xs} @-}
+{-@ assume reverse :: xs:[a] -> {v:[a] | len v = len xs} @-}
+{-@ assume filter :: (a -> Bool) -> xs:[a] -> {v:[a] | len v <= len xs} @-}
+")
+
+(defun library-specs ()
+  (mapcar (lambda (s)
+            (if (eq (first s) :assume)
+                (list :assume (concatenate 'string "Prelude." (second s)) (third s))
+                s))
+          (values (parse-spec-text *library-spec-text*))))
 
 (defun eval-branch (guard e)
   "E's term under GUARD (or none); the facts it adds hold under GUARD only."
@@ -255,7 +356,9 @@
 (defun check-program (program specs)
   "Check PROGRAM's functions.  Returns the list of failures (unproved
 obligations), in program order."
-  (let ((*sigs* (spec-signatures specs))
+  (let* ((specs (append (library-specs) specs))
+         (*sigs* (spec-signatures specs))
+         (*measures* (spec-measures specs))
         (*templates* (make-hash-table :test #'equal))
         (*local-templates* '())
         (*kvars* '())
@@ -409,18 +512,31 @@ of the formals."
             qs))
     (nreverse qs)))
 
+(defun list-qualifiers ()
+  (let ((l *list-sort*) (i 0))
+    (flet ((q (params body)
+             (make-fq-qual :name (format nil "List~d" (incf i)) :params params :body body)))
+      (append
+       (loop for op in '(:< :<= := :>=)
+             collect (q `(("v" :int nil) ("x" ,l nil)) (list op "v" (app "len" "x"))))
+       (list (q `(("v" ,l nil) ("x" ,l nil)) (list := (app "len" "v") (app "len" "x")))
+             (q `(("v" ,l nil) ("x" ,l nil)) (list :<= (app "len" "v") (app "len" "x")))
+             (q `(("v" ,l nil) ("x" :int nil)) (list := (app "len" "v") "x"))
+             (q `(("v" ,l nil)) (list :> (app "len" "v") 0)))))))
+
 (defun spec-qualifiers (specs)
   "One qualifier per atom of the specifications' refinements, its free
 variables (all taken to be Int) its parameters, the value variable first."
-  (let ((qs '()) (i 0))
+  (let ((qs '()) (i 0) (fns (mapcar #'car (measure-consts specs))))
     (labels ((reft (vv p)
                (dolist (a (conjuncts p))
                  (when (and (consp a) (member (car a) *default-qualifier-ops*))
-                   (let ((fv (free-vars a)))
+                   (let ((fv (set-difference (free-vars a) fns :test #'string=)))
                      (when (member vv fv :test #'string=)
                        (push (make-fq-qual
                               :name (format nil "Spec~d" (incf i))
-                              :params (mapcar (lambda (x) (list x :int nil))
+                              :params (mapcar (lambda (x)
+                                                (list x (if (measure-arg-p x a) *list-sort* :int) nil))
                                               (cons vv (remove vv fv :test #'string=)))
                               :body a)
                              qs))))))
@@ -437,6 +553,12 @@ variables (all taken to be Int) its parameters, the value variable first."
           (:type-alias (walk (fifth s))))))
     (nreverse qs)))
 
+(defun measure-arg-p (x e)
+  "Is X an argument of an application in E (so a list, a measure's)?"
+  (and (consp e)
+       (or (and (eq (first e) :app) (member x (cddr e) :test #'equal))
+           (some (lambda (y) (measure-arg-p x y)) (rest e)))))
+
 (defun solve-obligations (obligations specs)
   "Solve OBLIGATIONS, (GOAL HYPS VARS LINE WHAT) each, with fixpoint.lisp;
 the failures of the ones with concrete goals."
@@ -449,7 +571,8 @@ the failures of the ones with concrete goals."
              (let ((key (cons x sort)))
                (or (gethash key ids)
                    (let ((id (incf next)))
-                     (setf (gethash id (fq-info-binds info)) (list x sort "lq_bv" :true))
+                     (setf (gethash id (fq-info-binds info))
+                           (list x (fq-sort sort) "lq_bv" :true))
                      (setf (gethash key ids) id))))))
       (let ((n 0))
         (dolist (o obligations)
@@ -460,7 +583,12 @@ the failures of the ones with concrete goals."
                    :env (mapcar (lambda (p) (bind (car p) (cdr p)))
                                 (remove-duplicates vars :key #'car :test #'string=
                                                         :from-end t))
-                   :lhs (list :int "lq_lv" (pred-and-list hyps))
+                   :lhs (list :int "lq_lv"
+                              (pred-and-list
+                               (append (loop for (x . sort) in vars
+                                             when (eq sort :list)
+                                               collect (list :>= (app "len" x) 0))
+                                       hyps)))
                    :rhs (list :int "lq_rv" goal)
                    :tag '() :line line)
                   (fq-info-constraints info)))))
@@ -468,9 +596,11 @@ the failures of the ones with concrete goals."
       (dolist (kv *kvars*)
         (destructuring-bind (k scope sort) kv
           (push (make-fq-wf :kvar k :env (mapcar (lambda (p) (bind (car p) (cdr p))) scope)
-                            :sort sort :vv *kvv*)
+                            :sort (fq-sort sort) :vv *kvv*)
                 (fq-info-wfs info))))
-      (setf (fq-info-quals info) (append (default-qualifiers) (spec-qualifiers specs))))
+      (setf (fq-info-consts info) (measure-consts specs))
+      (setf (fq-info-quals info) (append (default-qualifiers) (list-qualifiers)
+                                         (spec-qualifiers specs))))
     (when (uiop:getenv "YALE_HASKELL_LIQUID_DEBUG")
       (print-fq info *error-output*))
     (let ((result (solve-fq info)))

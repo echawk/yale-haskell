@@ -13,7 +13,12 @@ functions without a signature get templates with kvars (local
 functions' parameters and results, top-level functions' results),
 solved together by src/liquid/fixpoint.lisp over the default
 qualifiers and the atoms of the written refinements; `qualif`
-declarations are not read yet.  The rest is design.
+declarations are not read yet.  Milestone 4 (lists and measures) done,
+2026-10-19: `len`, the module's own `measure`s over lists, facts from
+list constructors and pattern matches, and specifications for the
+Prelude's list functions (head, tail, !!, length, null, ++, take, drop,
+replicate, map, reverse, filter); refined `data`, measures over other
+data types and `inline` are not done yet.  The rest is design.
 
 The aim is a refinement type checker inside Yale Haskell that accepts
 LiquidHaskell's specification language (`{-@ ... @-}` comments), checks

@@ -77,7 +77,11 @@
 	((is-type? 'if x) (or (liquid-find-file (if-test-exp x))
 			      (liquid-find-file (if-then-exp x))
 			      (liquid-find-file (if-else-exp x))))
-	((is-type? 'let x) (liquid-find-file (let-body x)))
+	((is-type? 'let x) (or (lisp:some (function liquid-find-file) (let-decls x))
+			       (liquid-find-file (let-body x))))
+	((is-type? 'case-block x) (lisp:some (function liquid-find-file) (case-block-exps x)))
+	((is-type? 'and-exp x) (lisp:some (function liquid-find-file) (and-exp-exps x)))
+	((is-type? 'return-from x) (liquid-find-file (return-from-exp x)))
 	(else '#f)))
 
 (define (liquid-report file line message)
@@ -122,7 +126,7 @@
 (define (liquid-var-name def)
   (symbol->string (def-name def)))
 
-;;; The sort of a type: :int, :bool or #f.
+;;; The sort of a type: :int, :bool, :list or #f.
 (define (liquid-sort type)
   (let ((ty (cond ((gtype? type) (gtype-type type))
 		  (else type))))
@@ -132,6 +136,7 @@
 		 (list (core-symbol "Int") (core-symbol "Integer") (core-symbol "Char")))
 	   ':int)
 	  ((eq? (ntycon-tycon ty) (core-symbol "Bool")) ':bool)
+	  ((eq? (ntycon-tycon ty) (core-symbol "List")) ':list)
 	  (else '#f))))
 
 (define (liquid-exp-sort e)
@@ -185,12 +190,13 @@
 	  ((con-ref? e)
 	   (cond ((eq? (con-ref-con e) (core-symbol "True")) (list ':bool '#t))
 		 ((eq? (con-ref-con e) (core-symbol "False")) (list ':bool '#f))
+		 ((eq? (con-ref-con e) (core-symbol "Nil")) (list ':nil))
 		 (else (list ':unknown sort))))
 	  ((var-ref? e)
 	   (let ((def (var-ref-var e)))
 	     (cond ((memq def locals) (list ':var (liquid-var-name def)))
-		   ((memq (def-name def) names)
-		    (list ':call (symbol->string (def-name def)) sort))
+		   ((liquid-callee def names)
+		    (list ':call (liquid-callee def names) sort))
 		   (else (list ':unknown sort)))))
 	  ((app? e)
 	   (let ((args '())
@@ -198,36 +204,55 @@
 	     (do () ((not (app? fn)))
 	       (push (app-arg fn) args)
 	       (setf fn (app-fn fn)))
-	     (if (not (var-ref? fn))
-		 (list ':unknown sort)
-		 (let* ((def (var-ref-var fn))
-			(op (liquid-op def (length args))))
-		   (cond ((and (liquid-fromInteger? def) (eqv? (length args) 1)
-			       (integer-const? (car args)))
-			  (list ':int (integer-const-value (car args))))
-			 (op (cons ':prim
-				   (cons op (map (lambda (a) (liquid-exp a names locals)) args))))
-			 ((memq (def-name def) names)
-			  (cons ':call
-				(cons (symbol->string (def-name def))
-				      (cons sort
-					    (map (lambda (a) (liquid-exp a names locals)) args)))))
-			 (else (list ':unknown sort)))))))
+	     (cond
+	       ((and (con-ref? fn) (eq? (con-ref-con fn) (core-symbol ":"))
+		     (eqv? (length args) 2))
+		(list ':cons (liquid-exp (car args) names locals)
+		      (liquid-exp (cadr args) names locals)))
+	       ((not (var-ref? fn))
+		(list ':unknown sort))
+	       (else
+		(let* ((def (var-ref-var fn))
+		       (op (liquid-op def (length args))))
+		  (cond ((and (liquid-fromInteger? def) (eqv? (length args) 1)
+			      (integer-const? (car args)))
+			 (list ':int (integer-const-value (car args))))
+			(op (cons ':prim
+				  (cons op (map (lambda (a) (liquid-exp a names locals)) args))))
+			((and (not (memq def locals)) (liquid-callee def names))
+			 (cons ':call
+			       (cons (liquid-callee def names)
+				     (cons sort
+					   (map (lambda (a) (liquid-exp a names locals)) args)))))
+			(else (list ':unknown sort))))))))
 	  ((is-type? 'if e)
 	   (list ':if sort
 		 (liquid-exp (if-test-exp e) names locals)
 		 (liquid-exp (if-then-exp e) names locals)
 		 (liquid-exp (if-else-exp e) names locals)))
+	  ;; pattern matching on lists (cfn's case-block)
+	  ((is-type? 'case-block e)
+	   (liquid-case-block (case-block-exps e) sort names locals))
+	  ((is-type? 'return-from e)
+	   (liquid-exp (return-from-exp e) names locals))
+	  ((is-type? 'is-constructor e)
+	   (let ((con (is-constructor-constructor e)))
+	     (cond ((eq? con (core-symbol ":"))
+		    (list ':is ":" (liquid-exp (is-constructor-value e) names locals)))
+		   ((eq? con (core-symbol "Nil"))
+		    (list ':is "[]" (liquid-exp (is-constructor-value e) names locals)))
+		   (else (list ':unknown sort)))))
+	  ((and (is-type? 'sel e) (eq? (sel-constructor e) (core-symbol ":"))
+		(eqv? (sel-slot e) 1))
+	   (list ':tail (liquid-exp (sel-value e) names locals)))
+	  ;; value bindings, in order
 	  ((and (is-type? 'let e)
-		(null? (cdr (let-decls e)))
-		(valdef? (car (let-decls e)))
-		(var-pat? (valdef-lhs (car (let-decls e))))
-		(not (is-type? 'lambda (liquid-valdef-rhs (car (let-decls e))))))
-	   (let* ((d (car (let-decls e)))
-		  (def (var-ref-var (var-pat-var (valdef-lhs d)))))
-	     (list ':let (liquid-var-name def) (liquid-sort (var-type def))
-		   (liquid-exp (liquid-valdef-rhs d) names locals)
-		   (liquid-exp (let-body e) names (cons def locals)))))
+		(every (lambda (d)
+			 (and (valdef? d)
+			      (var-pat? (valdef-lhs d))
+			      (not (is-type? 'lambda (liquid-valdef-rhs d)))))
+		       (let-decls e)))
+	   (liquid-lets (let-decls e) (let-body e) names locals))
 	  ;; local functions, possibly recursive
 	  ((and (is-type? 'let e) (liquid-local-funs (let-decls e)))
 	   (let* ((ds (liquid-local-funs (let-decls e)))
@@ -239,6 +264,48 @@
 		 (list ':unknown sort)
 		 (list ':letrec funs (liquid-exp (let-body e) names locals)))))
 	  (else (list ':unknown sort)))))
+
+(define (liquid-lets decls body names locals)
+  (if (null? decls)
+      (liquid-exp body names locals)
+      (let* ((d (car decls))
+	     (def (var-ref-var (var-pat-var (valdef-lhs d)))))
+	(list ':let (liquid-var-name def) (liquid-sort (var-type def))
+	      (liquid-exp (liquid-valdef-rhs d) names locals)
+	      (liquid-lets (cdr decls) body names (cons def locals))))))
+
+;;; A case-block's alternatives as nested ifs: an (and TEST .. BODY) is
+;;; tried in turn, anything else ends the block.
+(define (liquid-case-block exps sort names locals)
+  (cond ((null? exps) (list ':unknown sort))
+	((and (is-type? 'and-exp (car exps))
+	      (not (null? (and-exp-exps (car exps)))))
+	 (let* ((parts (and-exp-exps (car exps)))
+		(tests (lisp:butlast parts))
+		(test (if (null? tests)
+			  (list ':bool '#t)
+			  (lisp:reduce (lambda (a b) (list ':prim ':and a b))
+				       (map (lambda (x) (liquid-exp x names locals)) tests)))))
+	   (list ':if sort test
+		 (liquid-exp (car (lisp:last parts)) names locals)
+		 (liquid-case-block (cdr exps) sort names locals))))
+	(else (liquid-exp (car exps) names locals))))
+
+;;; The name a call of DEF is checked under: the module's own functions,
+;;; and the Prelude's list functions, whose specifications are
+;;; yale-liquid's *library-specs*, under Prelude.NAME.
+(define *liquid-library-functions*
+  '("head" "tail" "!!" "length" "++" "take" "drop" "replicate" "map"
+    "null" "reverse" "filter"))
+
+(define (liquid-callee def names)
+  (let ((s (symbol->string (def-name def))))
+    (cond ((memq (def-name def) names) s)
+	  ((and (def-module def)
+		(string-starts? "Prelude" (symbol->string (def-module def)))
+		(member s *liquid-library-functions*))
+	   (string-append "Prelude." s))
+	  (else '#f))))
 
 ;;; The bindings of DECLS if they are all functions v = \x ... -> e, else #f.
 (define (liquid-local-funs decls)
