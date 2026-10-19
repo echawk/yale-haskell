@@ -43,7 +43,7 @@
     (when (memq 'splices (dynamic *printers*))
       (format '#t "~&Splice at line ~A of ~A:~%~A~%"
 	      (source-line-of s) file text))
-    (parse-splice-text text mod file)))
+    (parse-splice-text text mod file (source-line-of s))))
 
 (define (splice-fragment name mod file)
   (let ((frag (car (dynamic-let ((*language-extensions* (module-extensions mod)))
@@ -87,9 +87,13 @@
 	     (car (single-fun-def-rhs-list (car (valdef-definitions d)))))
 	    (splice-exp s)))))
 
-(define (parse-splice-text text mod file)
+;;; The code is parsed at the splice's line, for its error messages.
+(define (parse-splice-text text mod file line)
   (dynamic-let ((*language-extensions* (module-extensions mod)))
-    (parse-from-string text (function parse-exp) file)))
+    (parse-from-string (string-append
+			(make-string (if (integer? line) (1- line) 0) #\newline)
+			text)
+		       (function parse-exp) file)))
 
 (define (source-file-of ast)
   (let ((sp (ast-node-line-number ast)))

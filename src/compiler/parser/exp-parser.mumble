@@ -326,6 +326,10 @@
 	(record-splice (make splice (exp e))))))
     (splice-var
      (save-parser-context (record-splice (make splice (exp (var->ast))))))
+    ;; TemplateHaskell's quotes: th/quote.mumble
+    (open-exp-quote (parse-quote-body 'exp (function parse-exp)))
+    (open-pat-quote (parse-quote-body 'pat (function parse-pat)))
+    (open-type-quote (parse-quote-body 'type (function parse-type)))
     (\(
      (token-case
        (\) (**con/def (core-symbol "UnitConstructor")))
@@ -947,9 +951,21 @@
 
 (define *splices* '())
 
+;;; A splice inside a quote is not run: it is part of the code the quote
+;;; becomes (th/quote.mumble).
+
+(define *in-quote?* '#f)
+
 (define (record-splice s)
-  (push s *splices*)
+  (when (not (dynamic *in-quote?*))
+    (push s *splices*))
   s)
+
+(define (parse-quote-body kind parse-fn)
+  (save-parser-context
+   (let ((body (dynamic-let ((*in-quote?* '#t)) (funcall parse-fn))))
+     (require-token close-quote (signal-missing-token "`|]'" "a quote"))
+     (make bracket (kind kind) (body body)))))
 
 ;;; TemplateHaskell: after 'f or ''T, the name; a reference to
 ;;; %nameq.K.NAME, which prec/scope.mumble replaces by the Name (K: v a

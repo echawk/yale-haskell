@@ -5,4 +5,6 @@
   (source-filename "$Y2/src/compiler/th/")
   (require global)
   (unit splices
-    (source-filename "splices.mumble")))
+    (source-filename "splices.mumble"))
+  (unit quote
+    (source-filename "quote.mumble")))

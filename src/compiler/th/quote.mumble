@@ -1,0 +1,383 @@
+;;; quote.mumble -- Template Haskell's quotes: [| e |], [p| p |], [t| t |]
+;;; (doc/plans/TEMPLATE-HASKELL.md, milestone 3; the TH paper's trE)
+;;;
+;;; The scope phase replaces a quote (parser's bracket node) by code that
+;;; builds its syntax (prec/scope.mumble's bracket method).  An expression
+;;; quote's body is scoped first, so operators are resolved, do is >>=,
+;;; and each variable has its definition; then each is
+;;;   - bound inside the quote: a new name, from newName "x" each time the
+;;;     quote's code runs (so that a generator's nested lambdas stay apart);
+;;;   - local and bound outside it: lift x;
+;;;   - global: its NameG (derived/lift.mumble's th-global-name).
+;;; A splice inside the quote, [| 1 + $(f x) |], is f x itself.  lift x
+;;; and splices are monadic, so the code is
+;;;   newName "x" >>= \n -> lift y >>= \v1 -> f x >>= \v2 -> return (...)
+;;; and a quote has GHC's type, Quote m => m Exp.
+;;; A pattern quote's variables are mkName's (TH2 8.3); a type quote's
+;;; type variables too.
+;;;
+;;; Levels: in [| \n -> $(f [| n |]) |] the inner quote's n is the outer
+;;; quote's binder (both at level 1), not lifted: a splice inside a quote
+;;; records the environment where it is (*quote-splice-env*) and the
+;;; quote's own (*quote-splice-boundary*); a variable bound between the
+;;; two is the enclosing quote's.  Its name is the Haskell variable the
+;;; enclosing quote's code binds to newName "n" (one table for all quotes,
+;;; *quote-binder-names*), in scope in the splice's code.
+
+(define *quote-binds* '())   ; (tuple var exp), latest first
+(define *quote-mkname?* '#f) ; binders are mkName's (a pattern quote)
+(define *quote-binder-names* (make-table))  ; def -> var holding its Name
+(define *quote-declared* '())  ; the defs whose newName the quote binds
+
+
+(define (quote-code object env)
+  (dynamic-let ((*quote-binds* '())
+		(*quote-declared* '())
+		(*quote-env* env)
+		(*quote-mkname?* '#f))
+    (let ((pure
+	   (case (bracket-kind object)
+	     ((exp)
+	      (quote-exp (dynamic-let ((*scoping-quote?* '#t))
+			   (scope-ast-1 (bracket-body object) env))))
+	     ((pat)
+	      (dynamic-let ((*quote-mkname?* '#t))
+		(quote-pat (massage-pattern (bracket-body object)))))
+	     (else
+	      (resolve-type-1 (bracket-body object) '() '#t)
+	      (quote-type (bracket-body object))))))
+      (let ((code (**app (**var/def (core-symbol "return")) pure)))
+	(dolist (b (dynamic *quote-binds*))
+	  (setf code (**app (**var/def (core-symbol ">>="))
+			    (tuple-2-2 b)
+			    (**lambda/pat (list (**var-pat/def (tuple-2-1 b))) code))))
+	code))))
+
+;;; Building TH syntax: a constructor or function of
+;;; Language.Haskell.TH.Syntax applied, a list, Maybe.
+
+(define (thc name . args)
+  (**app/l (**con/def (th-def (add-con-prefix/symbol name))) args))
+
+(define (thf name . args)
+  (**app/l (**var/def (th-def name)) args))
+
+(define (hlist exps)
+  (make list-exp (exps exps)))
+
+(define (hjust e)
+  (**app (**con/def (data-module-def '|PreludeCore| '|Just|)) e))
+
+(define (hnothing)
+  (**con/def (data-module-def '|PreludeCore| '|Nothing|)))
+
+;;; A monadic value the code binds first; the variable it is bound to.
+
+(define (quote-bind exp)
+  (let ((v (create-temp-var "q")))
+    (push (tuple v exp) (dynamic *quote-binds*))
+    (**var/def v)))
+
+;;; Names
+
+(define (global-th-name def kind)
+  (mlet (((modu occ) (th-global-name def)))
+    (thf (case kind
+	   ((var) '|mkNameG_v|)
+	   ((con) '|mkNameG_d|)
+	   (else '|mkNameG_tc|))
+	 (**string "main") (**string modu) (**string occ))))
+
+;;; A variable bound in the quote (a var-ref of a pattern): its name.
+(define (quote-binder vr)
+  (let ((def (var-ref-var vr)))
+    (if (or (eq? def *undefined-def*) (dynamic *quote-mkname?*))
+	;; a pattern quote's: mkName's, by name
+	(thf '|mkName| (**string (identifier-text (var-ref-name vr))))
+	(let ((v (quoted-def-var def)))
+	  ;; the quote's code starts with v <- newName "x"
+	  (when (not (memq def (dynamic *quote-declared*)))
+	    (push def (dynamic *quote-declared*))
+	    (push (tuple v (thf '|newName| (**string (identifier-text (def-name def)))))
+		  (dynamic *quote-binds*)))
+	  (**var/def v)))))
+
+;;; The variable holding the name of a variable bound in a quote, the same
+;;; for a quote inside a splice inside it (see Levels above).
+(define (quoted-def-var def)
+  (or (table-entry *quote-binder-names* def)
+      (setf (table-entry *quote-binder-names* def)
+	    (create-temp-var (string-append "n_" (identifier-text (def-name def)))))))
+
+;;; A binder's text as an identifier: the scope phase's own variables
+;;; (let-qual-v, do-v) have characters that are not identifiers'.
+(define (identifier-text sym)
+  (let ((s (string-copy (symbol->string sym))))
+    (dotimes (i (string-length s))
+      (let ((c (string-ref s i)))
+	(when (not (or (char-alphabetic? c) (char-numeric? c)
+		       (char=? c #\_) (char=? c #\')))
+	  (setf (string-ref s i) #\_))))
+    s))
+
+(define (outer-local? def)
+  (in-frames? def (dynamic *quote-env*)))
+
+(define (in-frames? def env)
+  (lisp:some (lambda (frame) (lisp:find def frame :key (function cdr))) env))
+
+;;; Bound inside the quote around the splice this quote is in.
+(define (enclosing-quote-binder? def)
+  (and (dynamic *quote-splice-env*)
+       (in-frames? def (dynamic *quote-splice-env*))
+       (not (in-frames? def (dynamic *quote-splice-boundary*)))))
+
+;;; Expressions
+
+(define (quote-exp e)
+  (cond ((var-ref? e)
+	 (let ((def (var-ref-var e)))
+	   (cond ((or (table-entry *quote-binder-names* def)
+		      (enclosing-quote-binder? def))
+		  (thc '|VarE| (**var/def (quoted-def-var def))))
+		 ((outer-local? def)
+		  (quote-bind (thf '|lift| (**var/def def))))
+		 (else (thc '|VarE| (global-th-name def 'var))))))
+	((con-ref? e)
+	 (thc '|ConE| (global-th-name (con-ref-con e) 'con)))
+	((or (integer-const? e) (float-const? e) (char-const? e) (string-const? e))
+	 (thc '|LitE| (quote-lit e)))
+	((tuple-app-args e)
+	 (thc '|TupE| (hlist (map (lambda (a) (hjust (quote-exp a)))
+				  (tuple-app-args e)))))
+	((operator-app? e)
+	 ;; x + y, as written (an application after the scope phase)
+	 (let* ((x (quote-exp (app-arg (app-fn e))))
+		(op (quote-exp (app-fn (app-fn e)))))
+	   (thc '|InfixE| (hjust x) op (hjust (quote-exp (app-arg e))))))
+	((app? e)
+	 (thc '|AppE| (quote-exp (app-fn e)) (quote-exp (app-arg e))))
+	((is-type? 'lambda e)
+	 (let ((pats (map (function quote-pat) (lambda-pats e))))
+	   (thc '|LamE| (hlist pats) (quote-exp (lambda-body e)))))
+	((is-type? 'let e)
+	 (quote-declare-binders (let-decls e))
+	 (let ((decls (quote-decls (let-decls e))))
+	   (thc '|LetE| (hlist decls) (quote-exp (let-body e)))))
+	((is-type? 'if e)
+	 (thc '|CondE| (quote-exp (if-test-exp e)) (quote-exp (if-then-exp e))
+	      (quote-exp (if-else-exp e))))
+	((is-type? 'case e)
+	 (let ((scrut (quote-exp (case-exp e))))
+	   (thc '|CaseE| scrut (hlist (map (function quote-alt) (case-alts e))))))
+	((is-type? 'exp-sign e)
+	 (let ((x (quote-exp (exp-sign-exp e))))
+	   (thc '|SigE| x (quote-signature (exp-sign-signature e)))))
+	((is-type? 'list-exp e)
+	 (thc '|ListE| (hlist (map (function quote-exp) (list-exp-exps e)))))
+	((is-type? 'sequence e)
+	 (thc '|ArithSeqE| (thc '|FromR| (quote-exp (sequence-from e)))))
+	((is-type? 'sequence-to e)
+	 (thc '|ArithSeqE| (thc '|FromToR| (quote-exp (sequence-to-from e))
+				(quote-exp (sequence-to-to e)))))
+	((is-type? 'sequence-then e)
+	 (thc '|ArithSeqE| (thc '|FromThenR| (quote-exp (sequence-then-from e))
+				(quote-exp (sequence-then-then e)))))
+	((is-type? 'sequence-then-to e)
+	 (thc '|ArithSeqE| (thc '|FromThenToR| (quote-exp (sequence-then-to-from e))
+				(quote-exp (sequence-then-to-then e))
+				(quote-exp (sequence-then-to-to e)))))
+	((is-type? 'list-comp e)
+	 (let ((stmts (map (function quote-stmt) (list-comp-quals e))))
+	   (thc '|CompE|
+		(hlist (append stmts
+			       (list (thc '|NoBindS| (quote-exp (list-comp-exp e)))))))))
+	((is-type? 'section-l e)
+	 (let ((x (quote-exp (section-l-exp e))))
+	   (thc '|InfixE| (hjust x) (quote-exp (section-l-op e)) (hnothing))))
+	((is-type? 'section-r e)
+	 (let ((x (quote-exp (section-r-exp e))))
+	   (thc '|InfixE| (hnothing) (quote-exp (section-r-op e)) (hjust x))))
+	((is-type? 'splice e)
+	 (quote-bind (splice-exp e)))
+	(else
+	 (signal-quote-unsupported e)
+	 (thc '|TupE| (hlist '())))))
+
+;;; The components of a tuple (the tuple constructor applied to all its
+;;; arguments), or #f.
+(define (tuple-app-args e)
+  (let ((args '()))
+    (do () ((not (app? e)))
+      (push (app-arg e) args)
+      (setf e (app-fn e)))
+    (and (con-ref? e)
+	 (is-tuple-constructor? (con-ref-con e))
+	 (eqv? (length args) (con-arity (con-ref-con e)))
+	 args)))
+
+;;; An operator applied to two arguments.
+(define (operator-app? e)
+  (and (app? e) (app? (app-fn e))
+       (let ((op (app-fn (app-fn e))))
+	 (and (or (var-ref? op) (con-ref? op))
+	      (let ((s (symbol->string (if (var-ref? op) (var-ref-name op) (con-ref-name op)))))
+		(and (> (string-length s) 0)
+		     (let ((c (string-ref s (if (char=? (string-ref s 0) #\;) 1 0))))
+		       (not (or (char-alphabetic? c) (char=? c #\_) (char=? c #\()
+				(char=? c #\[))))))))))
+
+(define (quote-lit c)
+  (cond ((is-type? 'integer-const c) (thc '|IntegerL| (**int (integer-const-value c))))
+	((is-type? 'float-const c) (thc '|RationalL| c))
+	((is-type? 'char-const c) (thc '|CharL| (**char (char-const-value c))))
+	(else (thc '|StringL| (**string (string-const-value c))))))
+
+(define (quote-alt a)
+  (let ((pat (quote-pat (alt-pat a))))
+    (quote-declare-binders (alt-where-decls a))
+    (let ((decls (quote-decls (alt-where-decls a))))
+      (thc '|Match| pat (quote-body (alt-rhs-list a)) (hlist decls)))))
+
+(define (quote-stmt q)
+  (cond ((is-type? 'qual-generator q)
+	 (let ((x (quote-exp (qual-generator-exp q))))
+	   (thc '|BindS| (quote-pat (qual-generator-pat q)) x)))
+	((is-type? 'qual-filter q)
+	 (thc '|NoBindS| (quote-exp (qual-filter-exp q))))
+	(else
+	 (quote-declare-binders (qual-let-decls q))
+	 (thc '|LetS| (hlist (quote-decls (qual-let-decls q)))))))
+
+(define (quote-body rhs-list)
+  (if (and (null? (cdr rhs-list))
+	   (is-type? 'omitted-guard (guarded-rhs-guard (car rhs-list))))
+      (thc '|NormalB| (quote-exp (guarded-rhs-rhs (car rhs-list))))
+      (thc '|GuardedB|
+	   (hlist (map (lambda (g)
+			 (let ((guard (quote-guard (guarded-rhs-guard g))))
+			   (**tuple guard (quote-exp (guarded-rhs-rhs g)))))
+		       rhs-list)))))
+
+(define (quote-guard g)
+  (cond ((is-type? 'omitted-guard g)
+	 (thc '|NormalG| (thc '|ConE| (global-th-name (core-symbol "True") 'con))))
+	((is-type? 'pattern-guard g)
+	 (thc '|PatG| (hlist (map (function quote-stmt) (pattern-guard-quals g)))))
+	(else (thc '|NormalG| (quote-exp g)))))
+
+;;; Declarations (let and where): their binders are named first, as they
+;;; scope over all of them.
+
+(define (quote-declare-binders decls)
+  (dolist (d decls)
+    (when (valdef? d)
+      (dolist (v (collect-pattern-vars (valdef-lhs d)))
+	(quote-binder v)))))
+
+(define (quote-decls decls)
+  (let ((result '()))
+    (dolist (d decls)
+      (cond ((valdef? d) (push (quote-valdef d) result))
+	    ((signdecl? d)
+	     (dolist (v (signdecl-vars d))
+	       (let ((local (table-entry *quote-binder-names* (var-ref-var v))))
+		 (when local
+		   (push (thc '|SigD| (**var/def local)
+			      (quote-signature (signdecl-signature d)))
+			 result)))))))
+    (reverse result)))
+
+(define (quote-valdef d)
+  (let ((lhs (valdef-lhs d))
+	(defs (valdef-definitions d)))
+    (if (and (var-pat? lhs)
+	     (or (not (null? (cdr defs)))
+		 (not (null? (single-fun-def-args (car defs))))))
+	(thc '|FunD| (quote-binder (var-pat-var lhs))
+	     (hlist (map (function quote-clause) defs)))
+	(let ((pat (quote-pat lhs))
+	      (def (car defs)))
+	  (quote-declare-binders (single-fun-def-where-decls def))
+	  (let ((wheres (quote-decls (single-fun-def-where-decls def))))
+	    (thc '|ValD| pat (quote-body (single-fun-def-rhs-list def))
+		 (hlist wheres)))))))
+
+(define (quote-clause def)
+  (let ((pats (map (function quote-pat) (single-fun-def-args def))))
+    (quote-declare-binders (single-fun-def-where-decls def))
+    (let ((wheres (quote-decls (single-fun-def-where-decls def))))
+      (thc '|Clause| (hlist pats) (quote-body (single-fun-def-rhs-list def))
+	   (hlist wheres)))))
+
+;;; Patterns
+
+(define (quote-pat p)
+  (cond ((var-pat? p) (thc '|VarP| (quote-binder (var-pat-var p))))
+	((is-type? 'wildcard-pat p) (thc '|WildP|))
+	((is-type? 'const-pat p) (thc '|LitP| (quote-lit (const-pat-value p))))
+	((is-type? 'as-pat p)
+	 (let ((name (quote-binder (as-pat-var p))))
+	   (thc '|AsP| name (quote-pat (as-pat-pattern p)))))
+	((is-type? 'irr-pat p) (thc '|TildeP| (quote-pat (irr-pat-pattern p))))
+	((is-type? 'bang-pat p) (thc '|BangP| (quote-pat (bang-pat-pattern p))))
+	((is-type? 'sig-pat p)
+	 (let ((x (quote-pat (sig-pat-pattern p))))
+	   (thc '|SigP| x (quote-signature (sig-pat-signature p)))))
+	((is-type? 'list-pat p)
+	 (thc '|ListP| (hlist (map (function quote-pat) (list-pat-pats p)))))
+	((is-type? 'pcon p)
+	 (let ((con (pcon-con p))
+	       (pats (map (function quote-pat) (pcon-pats p))))
+	   (if (and (is-tuple-constructor? con)
+		    (eqv? (length pats) (con-arity con)))
+	       (thc '|TupP| (hlist pats))
+	       (thc '|ConP| (global-th-name con 'con) (hlist '()) (hlist pats)))))
+	(else
+	 (signal-quote-unsupported p)
+	 (thc '|WildP|))))
+
+;;; Types (resolved ASTs)
+
+(define (quote-signature sig)
+  (let ((type (quote-type (signature-type sig)))
+	(ctx (signature-context sig)))
+    (if (null? ctx)
+	type
+	(thc '|ForallT| (hlist '())
+	     (hlist (map (lambda (c)
+			   (thc '|AppT|
+				(thc '|ConT| (global-th-name
+					      (class-ref-class (context-class c)) 'tc))
+				(quote-tyvar (context-tyvar c))))
+			 ctx))
+	     type))))
+
+(define (quote-tyvar name)
+  (thc '|VarT| (thf '|mkName| (**string (symbol->string name)))))
+
+(define (quote-type ty)
+  (cond ((tyvar? ty) (quote-tyvar (tyvar-name ty)))
+	((tyapp? ty)
+	 (quote-type-app (quote-type (tyapp-fun ty)) (tyapp-args ty)))
+	((tycon? ty)
+	 (let ((def (tycon-def ty)))
+	   (quote-type-app
+	    (cond ((eq? def (core-symbol "Arrow")) (thc '|ArrowT|))
+		  ((eq? def (core-symbol "List")) (thc '|ListT|))
+		  ((eq? def (core-symbol "UnitType")) (thc '|TupleT| (**int 0)))
+		  ((is-tuple-tycon? def) (thc '|TupleT| (**int (tuple-size def))))
+		  (else (thc '|ConT| (global-th-name def 'tc))))
+	    (tycon-args ty))))
+	(else
+	 (signal-quote-unsupported ty)
+	 (thc '|WildCardT|))))
+
+(define (quote-type-app fun args)
+  (dolist (a args)
+    (setf fun (thc '|AppT| fun (quote-type a))))
+  fun)
+
+(define (signal-quote-unsupported ast)
+  (phase-error 'quote-unsupported
+    "This is not supported inside a Template Haskell quote yet:~%~A" ast))

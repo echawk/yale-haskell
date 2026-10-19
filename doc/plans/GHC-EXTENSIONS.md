@@ -197,9 +197,9 @@ be accepted.
 ### 5. Not realistic here
 
 - **TemplateHaskell / QuasiQuotes**: in progress (TEMPLATE-HASKELL.md):
-  the library, name quotes ('f, ''T) and expression splices ($(e), $x)
-  of imported functions work; quotes ([| |]), declaration splices,
-  reify and QuasiQuotes do not yet.
+  the library, name quotes ('f, ''T), quotes ([| |], [p| |], [t| |])
+  and expression splices ($(e), $x) of imported functions work;
+  declaration splices and [d| |], reify and QuasiQuotes do not yet.
 - **GHC's runtime features**: `+RTS` options, profiling, the GHC event
   log, `GHC.Stats`, sparks (`par` is ignored), weak pointers with
   finalizers' timing, stable names.

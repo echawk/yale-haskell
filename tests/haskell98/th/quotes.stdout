@@ -1,0 +1,15 @@
+\x_0 -> (x_0 GHC.Internal.Types.+ 1,
+         PreludeList.map GHC.Internal.Types.negate [x_0,
+                                                    2 GHC.Internal.Types.* x_0])
+let f_0 y_1 = y_1 GHC.Internal.Types.* 3
+ in if f_0 2 GHC.Internal.Types.> 5 then "big" else "small"
+42 GHC.Internal.Types.+ 1
+(x, PreludeCore.Just y)
+PreludeCore.Maybe GHC.Internal.Types.Int ->
+[GHC.Internal.Types.Bool]
+case PreludeCore.Just 'c' of
+{PreludeCore.Just c_0 -> [c_0]; PreludeCore.Nothing -> ""}
+[let_qual_v_0 | i_1 <- [1 .. 3],
+                let_qual_v_0 <- let j_2 = i_1 GHC.Internal.Types.* i_1
+                                 in [(i_1, j_2) | GHC.Internal.Types.odd i_1]]
+1 GHC.Internal.Types.+ 2

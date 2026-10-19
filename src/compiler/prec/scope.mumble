@@ -154,21 +154,18 @@
 
 (define (lookup-toplevel-name name)
   (or (resolve-toplevel-name name)
-      (and (dynamic *th-global-names?*) (resolve-th-global-name name))
-      (begin
-	(if (and (dynamic *splice-parent*)
-		 (defined-in-module? name (dynamic *splice-parent*)))
-	    (signal-stage-restriction name)
-	    (signal-undefined-symbol name))
-	*undefined-def*)))
+      (cond ((not (and (dynamic *splice-parent*)
+		       (defined-in-module? name (dynamic *splice-parent*))))
+	     (signal-undefined-symbol name)
+	     *undefined-def*)
+	    ((dynamic *scoping-quote?*)
+	     ;; quoted, not run: the module's own name (th/quote.mumble gives
+	     ;; it its NameG, which the module resolves to its own)
+	     (splice-parent-def name (dynamic *splice-parent*)))
+	    (else
+	     (signal-stage-restriction name)
+	     *undefined-def*))))
 
-
-;;; TemplateHaskell: in a splice's code (th/splices.mumble), a qualified
-;;; name M.x not in scope here is x of module M, a global name's NameG
-;;; whose module need not be imported; GHC.Internal.Types.x and the like
-;;; are Yale Haskell's core x (derived/lift.mumble's th-global-name).
-
-(define *th-global-names?* '#f)
 
 ;;; The module whose splice is being run, if any: a splice may use only
 ;;; imported functions, so a name the module defines is not in scope in
@@ -188,6 +185,11 @@
 			      (data-decl-constrs dd)))
 		 (module-algdatas mod))))
 
+(define (splice-parent-def name mod)
+  (if (has-con-prefix? (symbol->string name))
+      (make con (name name) (module (module-name mod)) (unit (module-name mod)))
+      (make var (name name) (module (module-name mod)) (unit (module-name mod)))))
+
 (define (signal-stage-restriction name)
   (phase-error 'stage-restriction
     "~A is defined in this module: a splice may use only imported functions~%~
@@ -198,7 +200,7 @@
   (mlet (((occ modname) (split-qualified-name name)))
     (cond ((eq? modname '#f) '#f)
 	  ((string-starts? "GHC.Internal." (symbol->string modname))
-	   (table-entry *prelude-core-symbols* occ))
+	   (table-entry *core-symbols* occ))
 	  (else
 	   (let ((m (table-entry *modules* modname)))
 	     (and m (table-entry (module-symbol-table m) occ)))))))
@@ -718,7 +720,29 @@
 
 ;;; TemplateHaskell: a splice is the code it produced (th/splices.mumble).
 
+;;; Inside a quote, a splice is not run: its expression is part of the
+;;; quote's code (th/quote.mumble).
+
+(define *scoping-quote?* '#f)
+(define *quote-env* '())     ; the scope environment outside the quote
+(define *quote-splice-env* '#f)
+(define *quote-splice-boundary* '#f)
+
+(predefine (quote-code bracket env))  ; in th/quote.mumble
+
+(define-walker-method scope bracket (object env)
+  (quote-code object env))
+
 (define-walker-method scope splice (object env)
+  (cond
+   ((and (eq? (splice-expansion object) '#f) (dynamic *scoping-quote?*))
+    (setf (splice-exp object)
+	  (dynamic-let ((*scoping-quote?* '#f)
+			(*quote-splice-env* env)
+			(*quote-splice-boundary* (dynamic *quote-env*)))
+	    (scope-ast-1 (splice-exp object) env)))
+    object)
+   (else
   (if (eq? (splice-expansion object) '#f)
       ;; not run: typed at the interactive prompt
       (begin
@@ -726,7 +750,7 @@
 	  "Template Haskell splices are not supported here yet (only in modules).")
 	object)
       (dynamic-let ((*th-global-names?* '#t))
-	(scope-ast-1 (splice-expansion object) env))))
+	(scope-ast-1 (splice-expansion object) env))))))
 
 (define-walker-method scope pp-exp-list (object env)
   (massage-pp-exp-list (scope-ast/list (pp-exp-list-exps object) env)))

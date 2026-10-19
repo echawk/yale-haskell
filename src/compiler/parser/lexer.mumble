@@ -97,8 +97,12 @@
 ;;; *** I think this function should be binding these variables and not
 ;;; *** just assigning them.
 
+;;; TemplateHaskell: how many quotes are open ([| ... |], lex-one-token)
+(define *quote-depth* 0)
+
 (define (lex-port port literate?)
   (setf *lex-literate?* literate?)
+  (setf *quote-depth* 0)
   (setf *current-line* 1)
   (setf *current-col* 0)
   (setf *on-new-line?* '#t)
@@ -228,6 +232,11 @@
 	    (advance-char) (advance-char) (emit-token '\)))
 	   ((record-dot-here?)
 	    (lex-record-dot))
+	   ((and (> *quote-depth* 0) (char=? *char* #\|) (char=? *peek-char* #\]))
+	    ;; the end of a quote
+	    (advance-char) (advance-char)
+	    (decf *quote-depth*)
+	    (emit-token 'close-quote))
 	   ((splice-here?)
 	    ;; TemplateHaskell: $(e) and $x (the variable is the next token)
 	    (advance-char)
@@ -293,8 +302,17 @@
 	 (emit-token '\,))
     (#\; (advance-char)
 	 (emit-token '\;))
-    (#\[ (advance-char)
-	 (emit-token '\[))
+    (#\[ (let ((kind (quote-bracket-here?)))
+	   (if kind
+	       ;; TemplateHaskell: [| [e| [p| [t| open a quote
+	       (begin
+		 (advance-char)
+		 (when (not (char=? *char* #\|)) (advance-char))
+		 (advance-char)
+		 (incf *quote-depth*)
+		 (emit-token kind))
+	       (begin (advance-char)
+		      (emit-token '\[)))))
     (#\] (advance-char)
 	 (emit-token '\]))
     ;; `_' alone is the wildcard; followed by identifier characters it
@@ -935,6 +953,23 @@
 	      (and (not (char=? (peek-char-2) #\'))
 		   (or (char-alphabetic? *peek-char*)
 		       (memv *peek-char* '(#\_ #\( #\[))))))))
+
+;;; TemplateHaskell: the token a quote's opening bracket starts, or #f:
+;;; [| and [e| an expression's, [p| a pattern's, [t| a type's.  [|| (typed
+;;; Template Haskell) is not one.  Inside a quote, |] ends it.
+
+(define (quote-bracket-here?)
+  (and (or (language-extension? "TemplateHaskell")
+	   (language-extension? "TemplateHaskellQuotes"))
+       (cond ((char=? *peek-char* #\|)
+	      (and (not (char=? (peek-char-2) #\|)) 'open-exp-quote))
+	     ((char=? (peek-char-2) #\|)
+	      (case *peek-char*
+		(#\e 'open-exp-quote)
+		(#\p 'open-pat-quote)
+		(#\t 'open-type-quote)
+		(else '#f)))
+	     (else '#f))))
 
 ;;; TemplateHaskell: a $ that starts a splice, as GHC has it: a prefix
 ;;; occurrence (after a space, an opening bracket or nothing) right before

@@ -1,13 +1,22 @@
 # Plan: Template Haskell
 
-Status (2026-10-18): milestone 1 (the library, DeriveLift) and
-milestone 2 (expression splices of imported functions) are done, and the
-name quotes of milestone 3.  Milestone 2 departs from 3.3 and 3.4 below:
-splices run right after parsing (src/compiler/th/splices.mumble), each
-as a fragment module with the module's imports, and the Exp comes back
-as text, printed by pprint and parsed (Language.Haskell.TH.YaleSplice),
-with global names resolved by prec/scope.mumble's resolve-th-global-name.
-The rest is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
+Status (2026-10-18): milestones 1 (the library, DeriveLift), 2
+(expression splices of imported functions) and 3 (quotes: [| |], [e| |],
+[p| |], [t| |], name quotes) are done.  They depart from 3.3-3.5 below:
+- splices run right after parsing (src/compiler/th/splices.mumble), each
+  as a fragment module with the module's imports, and the Exp comes back
+  as text, printed by pprint and parsed (Language.Haskell.TH.YaleSplice),
+  with global names resolved by top/symbol-table.mumble's
+  resolve-th-global-name;
+- a quote (src/compiler/th/quote.mumble) is translated after its body is
+  scoped, so it sees the scope phase's desugarings: do is >>=, records
+  are constructor applications, and a list comprehension's let is a
+  generator over one element (let_qual_v in pprint's output);
+- binders get newName at run time, lifted variables lift, and a quote
+  inside a splice inside a quote names the outer quote's binders through
+  the variables the outer code binds them to.
+The rest (declaration splices and [d| |], reify, QuasiQuotes, typed TH)
+is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
 Haskell's pipeline, which files change, and where the hard parts are,
 so that the work can be split into milestones that each end in passing
 tests.

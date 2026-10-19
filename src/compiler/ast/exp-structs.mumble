@@ -312,6 +312,16 @@
    (exp (type exp))
    (expansion (type (maybe exp)) (default '#f))))
 
+;;; TemplateHaskell: a quote, [| e |], [p| p |] or [t| t |] (kind exp,
+;;; pat or type).  The scope phase replaces it by code that builds the
+;;; syntax (th/quote.mumble).
+
+(define-struct bracket
+  (include exp)
+  (slots
+   (kind (type symbol))
+   (body (type t))))
+
 ;;; These structures are used by the precedence parser.  
 
 (define-struct pp-exp-list  ; list of expressions & ops for the prec parser

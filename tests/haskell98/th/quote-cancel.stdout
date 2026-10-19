@@ -1,0 +1,22 @@
+True
+("cba",3)
+42
+6.0
+[(1,'x'),(1,'y'),(2,'x'),(2,'y')]
+13.0
+Just 12
+"sections"
+[1,2,3]
+("lifted", 'c', [GHC.Internal.Types.True])
+['o',
+ 'u',
+ 't',
+ 'e',
+ 'r',
+ ' ',
+ 's',
+ 't',
+ 'r',
+ 'i',
+ 'n',
+ 'g'] GHC.Internal.Types.++ "!"

@@ -51,6 +51,11 @@ compiled interface, so a new version recompiles cached units.
   functions (milestone 2 of doc/plans/TEMPLATE-HASKELL.md); a name the
   module defines gets a stage-restriction error; --printers splices
   shows each splice's code.
+- Template Haskell: quotes, [| e |] (or [e| |]), [p| p |] and [t| t |]
+  (milestone 3): binders get newName's names, outer locals are lifted,
+  global names are NameG's (the module's own too, inside a splice), and a
+  splice inside a quote is part of its code.  The TH paper's power,
+  printf and scoping example work.
 - Multi-parameter superclasses (class (MonadReader r m, ...) =>
   MonadRWS r w s m) hold wherever the class does; a class without
   methods may have instances with contexts.  mtl's MonadRWS.

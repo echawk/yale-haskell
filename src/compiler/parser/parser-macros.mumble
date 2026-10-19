@@ -271,7 +271,7 @@
   (pat-start no-advance - apat-start)
   (atype-start no-advance tycon tyvar \( \[ promoted-tick name-quote)
   (aexp-start no-advance varid conid \( \[ literal name-quote type-name-quote
-	      splice-paren splice-var)
+	      splice-paren splice-var open-exp-quote open-pat-quote open-type-quote)
   ))
 
 ;;; The format of token-case is
