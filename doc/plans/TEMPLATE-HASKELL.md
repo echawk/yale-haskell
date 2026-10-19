@@ -1,8 +1,10 @@
 # Plan: Template Haskell
 
 Status (2026-10-18): milestones 1 (the library, DeriveLift), 2
-(expression splices of imported functions) and 3 (quotes: [| |], [e| |],
-[p| |], [t| |], name quotes) are done.  They depart from 3.3-3.5 below:
+(expression splices of imported functions), 3 (quotes: [| |], [e| |],
+[p| |], [t| |], name quotes) and 4 (declaration splices, [d| |], reify
+of types, constructors and imported variables) are done.  They depart
+from 3.3-3.6 below:
 - splices run right after parsing (src/compiler/th/splices.mumble), each
   as a fragment module with the module's imports, and the Exp comes back
   as text, printed by pprint and parsed (Language.Haskell.TH.YaleSplice),
@@ -15,8 +17,20 @@ Status (2026-10-18): milestones 1 (the library, DeriveLift), 2
 - binders get newName at run time, lifted variables lift, and a quote
   inside a splice inside a quote names the outer quote's binders through
   the variables the outer code binds them to.
-The rest (declaration splices and [d| |], reify, QuasiQuotes, typed TH)
-is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
+- declaration splices run with the expression splices, before the
+  module's other phases, and their declarations join the module's: the
+  module's declarations before and after a splice see what it defines
+  (GHC: only after), and in a module with declaration splices a qualified
+  name of a module it does not import resolves everywhere;
+- reify (src/compiler/th/reify.mumble, the primitive primTHReify) answers
+  for the module's own types and constructors from their parsed
+  declarations (field types as written, mkName's), for imported ones
+  from their definitions; classes, families and the module's own
+  variables are not supported yet;
+- [d| |]'s bindings keep their names (mkName), its data types, synonyms
+  and instances are read as written.
+The rest (QuasiQuotes, reify of classes and same-module values, typed
+TH) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
 Haskell's pipeline, which files change, and where the hard parts are,
 so that the work can be split into milestones that each end in passing
 tests.

@@ -955,7 +955,8 @@
 		       (memv *peek-char* '(#\_ #\( #\[))))))))
 
 ;;; TemplateHaskell: the token a quote's opening bracket starts, or #f:
-;;; [| and [e| an expression's, [p| a pattern's, [t| a type's.  [|| (typed
+;;; [| and [e| an expression's, [p| a pattern's, [t| a type's, [d|
+;;; declarations'.  [|| (typed
 ;;; Template Haskell) is not one.  Inside a quote, |] ends it.
 
 (define (quote-bracket-here?)
@@ -968,6 +969,7 @@
 		(#\e 'open-exp-quote)
 		(#\p 'open-pat-quote)
 		(#\t 'open-type-quote)
+		(#\d 'open-decs-quote)
 		(else '#f)))
 	     (else '#f))))
 

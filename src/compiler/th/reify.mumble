@@ -1,0 +1,267 @@
+;;; reify.mumble -- Template Haskell's reify (doc/plans/TEMPLATE-HASKELL.md
+;;; 3.6), the primitive primTHReify (lib/haskell98/THPrims.hi)
+;;;
+;;; While a splice runs (splices.mumble), reify asks for a name's
+;;; definition: by namespace ("v", "d", "tc", or "" for any), module ("" for
+;;; an unqualified name) and occurrence.  The answer is an s-expression
+;;; that Language.Haskell.TH.Syntax's reifyIO decodes (its grammar is
+;;; there).  An unqualified name is looked for among the declarations of
+;;; the module whose splice runs (its types and constructors, from their
+;;; parsed declarations: the module is not compiled yet), then among the
+;;; names the module imports.
+
+(define (prim.th-reify ns modname occ)
+  (let* ((parent (dynamic *splice-parent*))
+	 (same (and parent
+		    (or (string=? modname "")
+			(string=? modname (symbol->string (module-name parent))))
+		    (reify-same-module ns occ parent))))
+    (or same
+	(let ((def (reify-lookup ns modname occ)))
+	  (if def (reify-def def) "")))))
+
+;;; Definitions in scope (imported, or global by module)
+
+(define (reify-lookup ns modname occ)
+  (let ((keys (reify-keys ns occ)))
+    (cond ((string=? modname "")
+	   (let ((frag (dynamic *splice-fragment*)))
+	     (and frag (reify-find keys (module-symbol-table frag)))))
+	  ((string-starts? "GHC.Internal." modname)
+	   (or (reify-builtin occ)
+	       (reify-find keys *core-symbols*)))
+	  (else
+	   (let ((m (table-entry *modules* (string->symbol modname))))
+	     (and m (reify-find keys (module-symbol-table m))))))))
+
+(define (reify-keys ns occ)
+  (let ((v (string->symbol occ))
+	(c (string->symbol (string-append ";" occ))))
+    (cond ((string=? ns "v") (list v))
+	  ((string=? ns "d") (list c))
+	  ((string=? ns "tc") (list c v))
+	  ((and (> (string-length occ) 0) (char-upper-case? (string-ref occ 0)))
+	   (list c v))
+	  (else (list v)))))
+
+(define (reify-find keys table)
+  (if (null? keys)
+      '#f
+      (let ((def (table-entry table (car keys))))
+	(if (and def (not (eq? def *undefined-def*)))
+	    def
+	    (reify-find (cdr keys) table)))))
+
+(define (reify-builtin occ)
+  (cond ((string=? occ "List") (core-symbol "List"))
+	((string=? occ "Unit") (core-symbol "UnitType"))
+	((string=? occ "[]") (core-symbol "Nil"))
+	((string=? occ "()") (core-symbol "UnitConstructor"))
+	(else '#f)))
+
+;;; A definition's description
+
+(define (reify-def def)
+  (cond ((algdata? def) (lisp:format lisp:nil "(tycon ~A)" (reify-algdata def)))
+	((synonym? def)
+	 (if (synonym-body def)
+	     (lisp:format lisp:nil "(tycon (syn ~A (~{~S~^ ~}) ~A))"
+		     (reify-name def "tc")
+		     (map (function symbol->string) (synonym-args def))
+		     (reify-ast-type (synonym-body def)))
+	     "(unsupported \"type families\")"))
+	((con? def)
+	 (lisp:format lisp:nil "(datacon ~A ~A ~A)" (reify-name def "d")
+		 (reify-gtype (con-signature def) '())
+		 (reify-name (con-alg def) "tc")))
+	((class? def) "(unsupported \"classes\")")
+	((var? def)
+	 (let ((type (or (var-signature def) (var-type def))))
+	   (if (gtype? type)
+	       (lisp:format lisp:nil "(var ~A ~A)" (reify-name def "v") (reify-gtype type '()))
+	       "")))
+	(else "")))
+
+(define (reify-name def ns)
+  (mlet (((modu occ) (th-global-name def)))
+    (lisp:format lisp:nil "(g ~A ~S ~S)" ns modu occ)))
+
+;;; An algdata's description: its type variables are its own names; each
+;;; constructor's signature numbers them as they appear in it, so the
+;;; arguments of its result type map them back.
+
+(define (reify-algdata def)
+  (let ((tyvars (map (function symbol->string) (algdata-tyvars def)))
+	(cons (map (lambda (c) (reify-con c (algdata-tyvars def)))
+		   (algdata-constrs def))))
+    (if (and (algdata-newtype? def) (not (null? cons)))
+	(lisp:format lisp:nil "(newtype ~A (~{~S~^ ~}) ~A)" (reify-name def "tc") tyvars (car cons))
+	(lisp:format lisp:nil "(data ~A (~{~S~^ ~}) (~{~A~^ ~}))" (reify-name def "tc") tyvars cons))))
+
+(define (reify-con con tyvars)
+  (let* ((g (con-signature con))
+	 (fields (arrow-argument-types (gtype-type g)))
+	 (names (con-tyvar-names g tyvars))
+	 (types (map (lambda (ty) (reify-ntype ty names)) fields))
+	 (labels (con-field-labels con)))
+    (if (and (not (null? labels)) (every (lambda (l) l) labels))
+	(lisp:format lisp:nil "(rec ~A~{ ~A~})" (reify-name con "d")
+		(map (lambda (l ty)
+		       (lisp:format lisp:nil "(~A ~A)" (reify-name l "v") ty))
+		     labels types))
+	(lisp:format lisp:nil "(normal ~A~{ ~A~})" (reify-name con "d") types))))
+
+;;; gtyvar number -> name, for a constructor's signature: its result type's
+;;; arguments are the data type's variables in order.
+(define (con-tyvar-names g tyvars)
+  (let ((result (gtype-type g))
+	(names '()))
+    (do () ((not (and (ntycon? result)
+		      (eq? (ntycon-tycon result) (core-symbol "Arrow")))))
+      (setf result (cadr (ntycon-args result))))
+    (when (ntycon? result)
+      (dolist2 (a (ntycon-args result)) (v tyvars)
+	(when (gtyvar? a)
+	  (push (cons (gtyvar-varnum a) (symbol->string v)) names))))
+    names))
+
+(define (gtyvar-name n names)
+  (let ((e (assv n names)))
+    (if e (cdr e) (symbol->string (gtyvar->symbol n)))))
+
+;;; A gtype: forall its variables, its context => its type.
+(define (reify-gtype g names)
+  (let* ((n (length (gtype-context g)))
+	 (vars '())
+	 (preds '()))
+    (dotimes (i n)
+      (push (gtyvar-name i names) vars)
+      (dolist (class (list-ref (gtype-context g) i))
+	(push (lisp:format lisp:nil "(app (con ~A) (var ~S))" (reify-name class "tc")
+		      (gtyvar-name i names))
+	      preds)))
+    (let ((type (reify-ntype (gtype-type g) names)))
+      (if (null? vars)
+	  type
+	  (lisp:format lisp:nil "(forall (~{~S~^ ~}) (~{~A~^ ~}) ~A)"
+		  (reverse vars) (reverse preds) type)))))
+
+(define (reify-ntype ty names)
+  (let ((ty (prune ty)))
+    (cond ((gtyvar? ty) (lisp:format lisp:nil "(var ~S)" (gtyvar-name (gtyvar-varnum ty) names)))
+	  ((ntycon? ty)
+	   (reify-apply (reify-tycon (ntycon-tycon ty))
+			(map (lambda (a) (reify-ntype a names)) (ntycon-args ty))))
+	  ((ntyapp? ty)
+	   (reify-apply (reify-ntype (ntyapp-fun ty) names)
+			(map (lambda (a) (reify-ntype a names)) (ntyapp-args ty))))
+	  ((gtype? ty) (reify-gtype ty '()))
+	  (else "(var \"t\")"))))
+
+(define (reify-tycon def)
+  (cond ((eq? def (core-symbol "Arrow")) "(arrow)")
+	((eq? def (core-symbol "List")) "(list)")
+	((eq? def (core-symbol "UnitType")) "(tuple 0)")
+	((is-tuple-tycon? def) (lisp:format lisp:nil "(tuple ~A)" (tuple-size def)))
+	(else (lisp:format lisp:nil "(con ~A)" (reify-name def "tc")))))
+
+(define (reify-apply fun args)
+  (dolist (a args)
+    (setf fun (lisp:format lisp:nil "(app ~A ~A)" fun a)))
+  fun)
+
+;;; A type in the AST: resolved (a synonym's body), or not (a declaration
+;;; of the module whose splice runs: a name stays a name, mkName's).
+(define (reify-ast-type ty)
+  (cond ((tyvar? ty) (lisp:format lisp:nil "(var ~S)" (symbol->string (tyvar-name ty))))
+	((tyapp? ty)
+	 (reify-apply (reify-ast-type (tyapp-fun ty))
+		      (map (function reify-ast-type) (tyapp-args ty))))
+	((tycon? ty)
+	 (let ((def (tycon-def ty)))
+	   (reify-apply
+	    (if (or (eq? def *undefined-def*) (not def))
+		(let ((name (symbol->string (tycon-name ty))))
+		  (cond ((string=? name "Arrow") "(arrow)")
+			((string=? name "List") "(list)")
+			(else (lisp:format lisp:nil "(con (s ~S))"
+				      (if (has-con-prefix? name)
+					  (remove-con-prefix name)
+					  name)))))
+		(reify-tycon def))
+	    (map (function reify-ast-type) (tycon-args ty)))))
+	((forall-type? ty) (reify-ast-type (forall-type-type ty)))
+	(else "(var \"t\")")))
+
+;;; The module whose splice runs: its types, constructors and synonyms,
+;;; from their declarations.
+
+(define (reify-same-module ns occ mod)
+  (let ((sym (string->symbol occ))
+	(csym (string->symbol (string-append ";" occ))))
+    (or (and (not (string=? ns "d"))
+	     (or (lisp:some (lambda (dd)
+			      (and (memq (tycon-name (data-decl-simple dd)) (list sym csym))
+				   (lisp:format lisp:nil "(tycon ~A)" (reify-data-decl dd mod))))
+			    (module-algdatas mod))
+		 (lisp:some (lambda (sd)
+			      (and (memq (tycon-name (synonym-decl-simple sd)) (list sym csym))
+				   (lisp:format lisp:nil "(tycon (syn ~A (~{~S~^ ~}) ~A))"
+					   (same-module-name mod "tc" occ)
+					   (map (function symbol->string)
+						(simple-tyvar-list (synonym-decl-simple sd)))
+					   (reify-ast-type (synonym-decl-body sd)))))
+			    (module-synonyms mod))))
+	(and (not (string=? ns "v")) (not (string=? ns "tc"))
+	     (lisp:some (lambda (dd)
+			  (lisp:some (lambda (c)
+				       (and (eq? (con-ref-name (constr-constructor c)) csym)
+					    (lisp:format lisp:nil "(datacon ~A ~A ~A)"
+						    (same-module-name mod "d" occ)
+						    (reify-constr-type dd c)
+						    (same-module-name
+						     mod "tc" (simple-occ (data-decl-simple dd))))))
+				     (data-decl-constrs dd)))
+			(module-algdatas mod))))))
+
+(define (simple-occ simple)
+  (let ((s (symbol->string (tycon-name simple))))
+    (if (has-con-prefix? s) (remove-con-prefix s) s)))
+
+(define (same-module-name mod ns occ)
+  (lisp:format lisp:nil "(g ~A ~S ~S)" ns (symbol->string (module-name mod)) occ))
+
+(define (reify-data-decl dd mod)
+  (let* ((simple (data-decl-simple dd))
+	 (tyvars (map (function symbol->string) (simple-tyvar-list simple)))
+	 (cons (map (lambda (c) (reify-constr c mod)) (data-decl-constrs dd)))
+	 (name (same-module-name mod "tc" (simple-occ simple))))
+    (if (and (data-decl-newtype? dd) (not (null? cons)))
+	(lisp:format lisp:nil "(newtype ~A (~{~S~^ ~}) ~A)" name tyvars (car cons))
+	(lisp:format lisp:nil "(data ~A (~{~S~^ ~}) (~{~A~^ ~}))" name tyvars cons))))
+
+(define (reify-constr c mod)
+  (let ((name (same-module-name mod "d" (remove-con-prefix
+					 (symbol->string (con-ref-name (constr-constructor c))))))
+	(types (map (lambda (tt) (reify-ast-type (tuple-2-1 tt))) (constr-types c))))
+    (if (null? (constr-field-labels c))
+	(lisp:format lisp:nil "(normal ~A~{ ~A~})" name types)
+	(lisp:format lisp:nil "(rec ~A~{ ~A~})" name
+		(map (lambda (l ty)
+		       (lisp:format lisp:nil "((g v ~S ~S) ~A)" (symbol->string (module-name mod))
+			       (symbol->string l) ty))
+		     (constr-field-labels c) types)))))
+
+;;; A constructor's type from its declaration: its fields -> T a ...
+(define (reify-constr-type dd c)
+  (let* ((simple (data-decl-simple dd))
+	 (result (reify-apply (lisp:format lisp:nil "(con (s ~S))" (simple-occ simple))
+			      (map (lambda (v) (lisp:format lisp:nil "(var ~S)" (symbol->string v)))
+				   (simple-tyvar-list simple))))
+	 (type result))
+    (dolist (tt (reverse (constr-types c)))
+      (setf type (lisp:format lisp:nil "(app (app (arrow) ~A) ~A)" (reify-ast-type (tuple-2-1 tt)) type)))
+    (if (null? (simple-tyvar-list simple))
+	type
+	(lisp:format lisp:nil "(forall (~{~S~^ ~}) () ~A)"
+		(map (function symbol->string) (simple-tyvar-list simple)) type))))

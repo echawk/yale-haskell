@@ -1,0 +1,15 @@
+-- THPrims.hi -- Template Haskell's primitives into the compiler:
+-- src/compiler/th/reify.mumble.
+
+interface THPrims where
+
+import PreludeCore(Char)
+
+-- primTHReify namespace module occ: the definition the name refers to,
+-- described as an s-expression (Language.Haskell.TH.Syntax decodes it),
+-- or "" when there is none.  The namespace is "v", "d", "tc" or "" (any).
+primTHReify :: String -> String -> String -> IO String
+
+{-#
+primTHReify :: LispName("prim.th-reify")
+#-}

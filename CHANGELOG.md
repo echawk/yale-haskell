@@ -56,6 +56,9 @@ compiled interface, so a new version recompiles cached units.
   global names are NameG's (the module's own too, inside a splice), and a
   splice inside a quote is part of its code.  The TH paper's power,
   printf and scoping example work.
+- Template Haskell: declaration splices ($(e), $x, or an expression alone
+  at the top level), [d| |] quotes, and reify of types, constructors and
+  imported variables, the module's own types included (milestone 4).
 - Multi-parameter superclasses (class (MonadReader r m, ...) =>
   MonadRWS r w s m) hold wherever the class does; a class without
   methods may have instances with contexts.  mtl's MonadRWS.

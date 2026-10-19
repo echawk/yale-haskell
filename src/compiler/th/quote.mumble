@@ -28,6 +28,7 @@
 (define *quote-mkname?* '#f) ; binders are mkName's (a pattern quote)
 (define *quote-binder-names* (make-table))  ; def -> var holding its Name
 (define *quote-declared* '())  ; the defs whose newName the quote binds
+(define *quote-mkname-defs* '()) ; a [d| |] quote's own binders: mkName's
 
 
 (define (quote-code object env)
@@ -43,6 +44,8 @@
 	     ((pat)
 	      (dynamic-let ((*quote-mkname?* '#t))
 		(quote-pat (massage-pattern (bracket-body object)))))
+	     ((decs)
+	      (quote-decs-module (bracket-body object) env))
 	     (else
 	      (resolve-type-1 (bracket-body object) '() '#t)
 	      (quote-type (bracket-body object))))))
@@ -81,6 +84,11 @@
 ;;; Names
 
 (define (global-th-name def kind)
+  (if (eq? (def-module def) '|%quoted|)
+      (mkname-exp (def-name def))
+      (global-th-name-1 def kind)))
+
+(define (global-th-name-1 def kind)
   (mlet (((modu occ) (th-global-name def)))
     (thf (case kind
 	   ((var) '|mkNameG_v|)
@@ -91,7 +99,8 @@
 ;;; A variable bound in the quote (a var-ref of a pattern): its name.
 (define (quote-binder vr)
   (let ((def (var-ref-var vr)))
-    (if (or (eq? def *undefined-def*) (dynamic *quote-mkname?*))
+    (if (or (eq? def *undefined-def*) (dynamic *quote-mkname?*)
+	    (memq def (dynamic *quote-mkname-defs*)))
 	;; a pattern quote's: mkName's, by name
 	(thf '|mkName| (**string (identifier-text (var-ref-name vr))))
 	(let ((v (quoted-def-var def)))
@@ -137,7 +146,9 @@
 (define (quote-exp e)
   (cond ((var-ref? e)
 	 (let ((def (var-ref-var e)))
-	   (cond ((or (table-entry *quote-binder-names* def)
+	   (cond ((memq def (dynamic *quote-mkname-defs*))
+		  (thc '|VarE| (thf '|mkName| (**string (identifier-text (def-name def))))))
+		 ((or (table-entry *quote-binder-names* def)
 		      (enclosing-quote-binder? def))
 		  (thc '|VarE| (**var/def (quoted-def-var def))))
 		 ((outer-local? def)
@@ -281,9 +292,10 @@
       (cond ((valdef? d) (push (quote-valdef d) result))
 	    ((signdecl? d)
 	     (dolist (v (signdecl-vars d))
-	       (let ((local (table-entry *quote-binder-names* (var-ref-var v))))
-		 (when local
-		   (push (thc '|SigD| (**var/def local)
+	       (let ((def (var-ref-var v)))
+		 (when (or (memq def (dynamic *quote-mkname-defs*))
+			   (table-entry *quote-binder-names* def))
+		   (push (thc '|SigD| (quote-binder v)
 			      (quote-signature (signdecl-signature d)))
 			 result)))))))
     (reverse result)))
@@ -309,6 +321,160 @@
     (let ((wheres (quote-decls (single-fun-def-where-decls def))))
       (thc '|Clause| (hlist pats) (quote-body (single-fun-def-rhs-list def))
 	   (hlist wheres)))))
+
+;;; [d| decls |] (a module of its own, exp-parser.mumble's
+;;; parse-quoted-decls): its bindings and signatures are scoped as a let's
+;;; are, and keep their names (mkName's, as GHC has them, so a splice of
+;;; them defines those names); its data types, synonyms and instances are
+;;; read as written, a name that is in scope here becoming its NameG.
+
+(define (quote-decs-module mod env)
+  (dynamic-let ((*quote-decs-module* mod))
+    (quote-decs-module-1 mod env)))
+
+(define (quote-decs-module-1 mod env)
+  (let* ((decls (module-decls mod))
+	 ;; signatures, which scoping attaches to their variables
+	 (sigs (lisp:remove-if-not (function signdecl?) decls))
+	 (env2 (add-local-declarations decls env))
+	 (decls (scope-ast/decl-list decls env2))
+	 (own '()))
+    (dolist (d decls)
+      (when (valdef? d)
+	(dolist (v (collect-pattern-vars (valdef-lhs d)))
+	  (push (var-ref-var v) own))))
+    (dynamic-let ((*quote-mkname-defs* (append own (dynamic *quote-mkname-defs*))))
+      (hlist (append (map (function quote-data-decl) (module-algdatas mod))
+		     (map (function quote-synonym-decl) (module-synonyms mod))
+		     (map (lambda (i) (quote-instance-decl i env2)) (module-instances mod))
+		     (lisp:mapcan (function quote-own-signdecl) sigs)
+		     (quote-decls (lisp:remove-if (function signdecl?) decls)))))))
+
+(define (quote-own-signdecl d)
+  (map (lambda (v)
+	 (thc '|SigD| (mkname-exp (var-ref-name v))
+	      (quote-syn-signature (signdecl-signature d))))
+       (signdecl-vars d)))
+
+(define (quote-syn-signature sig)
+  (let ((type (quote-syn-type (signature-type sig)))
+	(ctx (signature-context sig)))
+    (if (null? ctx)
+	type
+	(thc '|ForallT| (hlist '()) (quote-context ctx) type))))
+
+;;; A stand-in for a type, constructor or class the quote's declarations
+;;; define (top/symbol-table.mumble's resolve-toplevel-name), or #f.
+(define (quoted-decs-def name mod)
+  (let* ((c (if (has-con-prefix? (symbol->string name)) name (add-con-prefix/symbol name)))
+	 (dd (lisp:find-if (lambda (dd) (memq (tycon-name (data-decl-simple dd)) (list name c)))
+			   (module-algdatas mod)))
+	 (sd (lisp:find-if (lambda (sd) (memq (tycon-name (synonym-decl-simple sd)) (list name c)))
+			   (module-synonyms mod))))
+    (cond (dd (make algdata (name name) (module '|%quoted|) (unit '|%quoted|)
+		    (arity (length (simple-tyvar-list (data-decl-simple dd))))))
+	  (sd (make synonym (name name) (module '|%quoted|) (unit '|%quoted|)
+		    (arity (length (simple-tyvar-list (synonym-decl-simple sd))))
+		    (args (simple-tyvar-list (synonym-decl-simple sd)))
+		    (body '#f)))
+	  ((lisp:some (lambda (dd)
+			(lisp:some (lambda (k) (eq? (con-ref-name (constr-constructor k)) name))
+				   (data-decl-constrs dd)))
+		      (module-algdatas mod))
+	   (make con (name name) (module '|%quoted|) (unit '|%quoted|)))
+	  (else '#f))))
+
+(define (plain-occ sym)
+  (let ((s (symbol->string sym)))
+    (if (has-con-prefix? s) (remove-con-prefix s) s)))
+
+(define (mkname-exp sym)
+  (thf '|mkName| (**string (plain-occ sym))))
+
+;;; A type as written: a name in scope here is its NameG, others mkName's.
+(define (quote-syn-type ty)
+  (cond ((tyvar? ty) (quote-tyvar (tyvar-name ty)))
+	((tyapp? ty) (quote-type-app (quote-syn-type (tyapp-fun ty)) (tyapp-args ty) #t))
+	((tycon? ty)
+	 (let ((def (if (eq? (tycon-def ty) *undefined-def*)
+			(or (resolve-toplevel-name (tycon-name ty))
+			    (resolve-toplevel-name (add-con-prefix/symbol (tycon-name ty))))
+			(tycon-def ty))))
+	   (quote-type-app
+	    (cond ((not (or (algdata? def) (synonym? def)))
+		   (thc '|ConT| (mkname-exp (tycon-name ty))))
+		  ((eq? def (core-symbol "Arrow")) (thc '|ArrowT|))
+		  ((eq? def (core-symbol "List")) (thc '|ListT|))
+		  ((eq? def (core-symbol "UnitType")) (thc '|TupleT| (**int 0)))
+		  ((is-tuple-tycon? def) (thc '|TupleT| (**int (tuple-size def))))
+		  (else (thc '|ConT| (global-th-name def 'tc))))
+	    (tycon-args ty) #t)))
+	(else (signal-quote-unsupported ty) (thc '|WildCardT|))))
+
+(define (quote-class-name cref)
+  (let ((def (resolve-toplevel-name (class-ref-name cref))))
+    (if (class? def)
+	(global-th-name def 'tc)
+	(mkname-exp (class-ref-name cref)))))
+
+(define (quote-context ctx)
+  (hlist (map (lambda (c)
+		(thc '|AppT| (thc '|ConT| (quote-class-name (context-class c)))
+		     (quote-tyvar (context-tyvar c))))
+	      ctx)))
+
+(define (quote-tyvar-binders names)
+  (hlist (map (lambda (v)
+		(thc '|PlainTV| (thf '|mkName| (**string (symbol->string v)))
+		     (thc '|BndrReq|)))
+	      names)))
+
+(define (quote-data-decl dd)
+  (let* ((simple (data-decl-simple dd))
+	 (name (mkname-exp (tycon-name simple)))
+	 (tvs (quote-tyvar-binders (simple-tyvar-list simple)))
+	 (cons (map (function quote-constr) (data-decl-constrs dd)))
+	 (derivs (if (null? (data-decl-deriving dd))
+		     (hlist '())
+		     (hlist (list (thc '|DerivClause| (hnothing)
+				       (hlist (map (lambda (c) (thc '|ConT| (quote-class-name c)))
+						   (data-decl-deriving dd)))))))))
+    (if (and (data-decl-newtype? dd) (not (null? cons)))
+	(thc '|NewtypeD| (hlist '()) name tvs (hnothing) (car cons) derivs)
+	(thc '|DataD| (hlist '()) name tvs (hnothing) (hlist cons) derivs))))
+
+(define (quote-constr c)
+  (let ((name (mkname-exp (con-ref-name (constr-constructor c))))
+	(types (map (lambda (tt) (quote-syn-type (tuple-2-1 tt))) (constr-types c))))
+    (if (null? (constr-field-labels c))
+	(thc '|NormalC| name (hlist (map (lambda (ty) (**tuple (quote-bang) ty)) types)))
+	(thc '|RecC| name
+	     (hlist (map (lambda (l ty)
+			   (**tuple (thf '|mkName| (**string (symbol->string l))) (quote-bang) ty))
+			 (constr-field-labels c) types))))))
+
+(define (quote-bang)
+  (thc '|Bang| (thc '|NoSourceUnpackedness|) (thc '|NoSourceStrictness|)))
+
+(define (quote-synonym-decl sd)
+  (thc '|TySynD| (mkname-exp (tycon-name (synonym-decl-simple sd)))
+       (quote-tyvar-binders (simple-tyvar-list (synonym-decl-simple sd)))
+       (quote-syn-type (synonym-decl-body sd))))
+
+;;; An instance: its methods are the class's (their NameG's), their
+;;; clauses scoped here.
+(define (quote-instance-decl i env)
+  (let ((head (thc '|AppT| (thc '|ConT| (quote-class-name (instance-decl-class i)))
+		   (quote-syn-type (instance-decl-simple i)))))
+    (thc '|InstanceD| (hnothing) (quote-context (instance-decl-context i)) head
+	 (hlist (map (lambda (d) (quote-method d env)) (instance-decl-decls i))))))
+
+(define (quote-method d env)
+  (let* ((d (scope-ast-1 d env))
+	 (name (var-ref-name (var-pat-var (valdef-lhs d))))
+	 (def (resolve-toplevel-name name)))
+    (thc '|FunD| (if (var? def) (global-th-name def 'var) (mkname-exp name))
+	 (hlist (map (function quote-clause) (valdef-definitions d))))))
 
 ;;; Patterns
 
@@ -373,9 +539,9 @@
 	 (signal-quote-unsupported ty)
 	 (thc '|WildCardT|))))
 
-(define (quote-type-app fun args)
+(define (quote-type-app fun args . syntactic?)
   (dolist (a args)
-    (setf fun (thc '|AppT| fun (quote-type a))))
+    (setf fun (thc '|AppT| fun (if (null? syntactic?) (quote-type a) (quote-syn-type a)))))
   fun)
 
 (define (signal-quote-unsupported ast)

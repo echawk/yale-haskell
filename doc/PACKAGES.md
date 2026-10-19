@@ -359,9 +359,9 @@ dated: a package listed there as failing may build now.
 ### Limitations
 
 - **Template Haskell is partly supported**: the library
-  (`Language.Haskell.TH`), name quotes, quotes (`[| |]`, `[p| |]`,
-  `[t| |]`) and expression splices of imported functions, but not yet
-  declaration splices, `[d| |]`, `reify` or QuasiQuotes
+  (`Language.Haskell.TH`), name quotes, quotes, expression and
+  declaration splices of imported functions, and `reify` of types and
+  constructors, but not yet QuasiQuotes, `reify` of classes, or typed TH
   (doc/plans/TEMPLATE-HASKELL.md).  So `mcabal` still
   installs a module with `{-# LANGUAGE TemplateHaskell #-}` or
   `QuasiQuotes` without compiling it; a package exposing such a module

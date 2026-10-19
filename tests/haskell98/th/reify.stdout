@@ -1,0 +1,10 @@
+["Red","Green","Blue"]
+["Nothing","Just"]
+["Age"]
+data Main.P a = Main.P {Main.px :: Int, Main.py :: (Maybe a)}
+data PreludeCore.Either a b
+    = PreludeCore.Left a
+    | PreludeCore.Right b
+Constructor from PreludeCore.Maybe: PreludeCore.Just :: forall a .
+                                                        a -> PreludeCore.Maybe a
+PreludeList.map :: forall a b . (a -> b) -> [a] -> [b]

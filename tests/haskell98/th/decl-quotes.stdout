@@ -1,0 +1,6 @@
+[Green,Blue,Red]
+(Red,Green)
+Ada
+36
+f :: GHC.Internal.Types.Int -> GHC.Internal.Types.Int
+f x_0 = x_0 GHC.Internal.Types.+ 1

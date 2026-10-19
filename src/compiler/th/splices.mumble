@@ -17,45 +17,67 @@
 ;;;
 ;;; A splice inside another's expression is run first, and the outer one's
 ;;; fragment has its expansion.  --printers splices shows each expansion.
+;;;
+;;; A declaration splice, $(e), $x or an expression alone at the top level
+;;; (module-parser.mumble's at-decl-splice?), runs the same way after the
+;;; module's expression splices, with e :: Q [Dec]; its declarations,
+;;; printed and parsed, join the module's.  So declarations before and
+;;; after it see them (GHC sees them only after), and reify finds the
+;;; module's types from their declarations (reify.mumble).
 
 (define *splice-counter* 0)
+(define *splice-fragment* '#f)   ; the fragment running a splice (reify.mumble)
 
 (define (expand-splices mods)
   (dolist (m mods)
     (dolist (s (module-splices m))
-      (setf (splice-expansion s) (run-expression-splice s m)))))
+      (setf (splice-expansion s)
+	    (parse-splice-text (run-splice s m 'exp) m (source-file-of s)
+			       (source-line-of s))))
+    ;; declaration splices: their declarations join the module's
+    (dolist (s (module-decl-splices m))
+      (merge-spliced-decls m (parse-spliced-decls (run-splice s m 'decs) m s)))))
 
-(define (run-expression-splice s mod)
+;;; Runs the splice S of MOD, of KIND exp (Q Exp) or decs (Q [Dec]); its
+;;; code as text.
+
+(define (run-splice s mod kind)
   (incf *splice-counter*)
   (let* ((name (string->symbol (format '#f "Yale_Splice_~A" *splice-counter*)))
 	 (file (source-file-of s))
-	 (frag (splice-fragment name mod file))
+	 (frag (splice-fragment name mod file kind))
 	 (text '#f))
     (set-splice-hole frag s)
     (dynamic-let ((*printers* (if (memq 'extension (dynamic *printers*))
 				  (dynamic *printers*)
 				  '()))
-		  (*splice-parent* mod))
-      (eval (modules->lisp-code (list frag))))
-    (let ((var (table-entry (module-symbol-table frag) '|splice_text|)))
-      (setf text (haskell-string->string (force (eval (fullname var))))))
+		  (*splice-parent* mod)
+		  (*splice-fragment* frag))
+      (eval (modules->lisp-code (list frag)))
+      ;; run it: reify asks the fragment and the module (reify.mumble)
+      (let ((var (table-entry (module-symbol-table frag) '|splice_text|)))
+	(setf text (haskell-string->string (force (eval (fullname var)))))))
     (remove-module-from-symbol-table frag)
     (when (memq 'splices (dynamic *printers*))
       (format '#t "~&Splice at line ~A of ~A:~%~A~%"
 	      (source-line-of s) file text))
-    (parse-splice-text text mod file (source-line-of s))))
+    text))
 
-(define (splice-fragment name mod file)
+(define (splice-fragment name mod file kind)
   (let ((frag (car (dynamic-let ((*language-extensions* (module-extensions mod)))
 		     (parse-from-string
 		      (format '#f "module ~A where~%~
                                    import qualified Language.Haskell.TH.Syntax~%~
                                    import qualified Language.Haskell.TH.YaleSplice~%~
-                                   splice_expression :: Language.Haskell.TH.Syntax.Q Language.Haskell.TH.Syntax.Exp~%~
+                                   splice_expression :: Language.Haskell.TH.Syntax.Q ~A~%~
                                    splice_expression = splice_expression~%~
                                    splice_text :: [Char]~%~
-                                   splice_text = Language.Haskell.TH.YaleSplice.spliceExpText splice_expression~%"
-			      name)
+                                   splice_text = Language.Haskell.TH.YaleSplice.~A splice_expression~%"
+			      name
+			      (if (eq? kind 'exp)
+				  "Language.Haskell.TH.Syntax.Exp"
+				  "[Language.Haskell.TH.Syntax.Dec]")
+			      (if (eq? kind 'exp) "spliceExpText" "spliceDecsText"))
 		      (function parse-module-list)
 		      file)))))
     (setf (module-imports frag)
@@ -94,6 +116,30 @@
 			(make-string (if (integer? line) (1- line) 0) #\newline)
 			text)
 		       (function parse-exp) file)))
+
+;;; A declaration splice's declarations: TEXT parsed as a module's body,
+;;; at the splice's line.
+
+(define (parse-spliced-decls text mod s)
+  (let ((line (source-line-of s)))
+    (car (dynamic-let ((*language-extensions* (module-extensions mod)))
+	   (parse-from-string
+	    (string-append (make-string (if (integer? line) (1- line) 0) #\newline)
+			   (format '#f "module ~A where~%~A~%" (module-name mod) text))
+	    (function parse-module-list)
+	    (source-file-of s))))))
+
+(define (merge-spliced-decls mod new)
+  (setf (module-decls mod) (append (module-decls mod) (module-decls new)))
+  (setf (module-algdatas mod) (append (module-algdatas mod) (module-algdatas new)))
+  (setf (module-synonyms mod) (append (module-synonyms mod) (module-synonyms new)))
+  (setf (module-classes mod) (append (module-classes mod) (module-classes new)))
+  (setf (module-instances mod) (append (module-instances mod) (module-instances new)))
+  (setf (module-fixities mod) (append (module-fixities mod) (module-fixities new)))
+  (setf (module-standalone-derivings mod)
+	(append (module-standalone-derivings mod) (module-standalone-derivings new)))
+  (setf (module-type-equations mod)
+	(append (module-type-equations mod) (module-type-equations new))))
 
 (define (source-file-of ast)
   (let ((sp (ast-node-line-number ast)))

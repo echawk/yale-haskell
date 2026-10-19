@@ -236,6 +236,7 @@ import Foreign.C.Types
 import GHC.Generics (Generic)
 import GHC.Lexeme (startsVarSym, startsVarId)
 import Language.Haskell.TH.LanguageExtensions
+import THPrims (primTHReify)
 
 -----------------------------------------------------
 --
@@ -337,7 +338,7 @@ instance Quasi IO where
   qReport False msg = hPutStrLn stderr ("Template Haskell error: " ++ msg)
 
   qLookupName _ _       = badIO "lookupName"
-  qReify _              = badIO "reify"
+  qReify                = reifyIO
   qReifyFixity _        = badIO "reifyFixity"
   qReifyType _          = badIO "reifyFixity"
   qReifyInstances _ _   = badIO "reifyInstances"
@@ -3187,3 +3188,118 @@ litE_ l = return (LitE l)
 -- packages) and the module the one that defines the name.
 qualifiedNameG :: NameSpace -> String -> String -> Name
 qualifiedNameG ns modu occ = mkNameG ns "main" modu occ
+
+-----------------------------------------------------------------------------
+-- Yale Haskell: reify, through the compiler (src/compiler/th/reify.mumble),
+-- which describes the definition as an s-expression:
+--   info  ::= (tycon DEC) | (datacon NAME TYPE NAME) | (var NAME TYPE)
+--           | (unsupported "what")
+--   DEC   ::= (data NAME (TV ...) (CON ...)) | (newtype NAME (TV ...) CON)
+--           | (syn NAME (TV ...) TYPE)
+--   CON   ::= (normal NAME TYPE ...) | (rec NAME (NAME TYPE) ...)
+--   NAME  ::= (g v|d|tc "module" "occ") | (s "occ")
+--   TYPE  ::= (con NAME) | (var "a") | (app TYPE TYPE) | (arrow) | (list)
+--           | (tuple N) | (forall (TV ...) (TYPE ...) TYPE)
+--   TV    ::= "a"
+
+reifyIO :: Name -> IO Info
+reifyIO n@(Name occ flavour) = do
+  s <- primTHReify ns m (occString occ)
+  case parseSExps s of
+    [SList [SAtom "unsupported", SStr what]] ->
+      fail ("reify " ++ showName n ++ ": " ++ what ++ " are not supported yet")
+    [e] | Just i <- sexpInfo e -> return i
+    [] -> fail ("reify: " ++ showName n ++ " is not in scope here")
+    _ -> fail ("reify " ++ showName n ++ ": cannot read " ++ s)
+  where
+    (ns, m) = case flavour of
+      NameG VarName _ md   -> ("v", modString md)
+      NameG DataName _ md  -> ("d", modString md)
+      NameG TcClsName _ md -> ("tc", modString md)
+      NameG _ _ md         -> ("v", modString md)
+      NameQ md             -> ("", modString md)
+      _                    -> ("", "")
+
+data SExp = SAtom String | SStr String | SList [SExp]
+
+parseSExps :: String -> [SExp]
+parseSExps = fst . sexps
+
+sexps :: String -> ([SExp], String)
+sexps s = case dropWhile (`elem` " \t\n") s of
+  ""        -> ([], "")
+  ')' : r   -> ([], r)
+  r         -> let (e, r1) = sexp r
+                   (es, r2) = sexps r1
+               in (e : es, r2)
+
+sexp :: String -> (SExp, String)
+sexp ('(' : r) = let (es, r1) = sexps r in (SList es, r1)
+sexp ('"' : r) = str r ""
+  where str ('\\' : c : t) acc = str t (c : acc)
+        str ('"' : t) acc       = (SStr (reverse acc), t)
+        str (c : t) acc         = str t (c : acc)
+        str [] acc              = (SStr (reverse acc), [])
+sexp r = let (a, r1) = break (`elem` " \t\n()\"") r in (SAtom a, r1)
+
+sexpInfo :: SExp -> Maybe Info
+sexpInfo (SList [SAtom "tycon", d]) = fmap TyConI (sexpDec d)
+sexpInfo (SList [SAtom "datacon", n, t, p]) =
+  do { n' <- sexpName n; t' <- sexpType t; p' <- sexpName p; return (DataConI n' t' p') }
+sexpInfo (SList [SAtom "var", n, t]) =
+  do { n' <- sexpName n; t' <- sexpType t; return (VarI n' t' Nothing) }
+sexpInfo _ = Nothing
+
+sexpDec :: SExp -> Maybe Dec
+sexpDec (SList [SAtom "data", n, SList tvs, SList cons]) =
+  do { n' <- sexpName n; vs <- mapM sexpTv tvs; cs <- mapM sexpCon cons
+     ; return (DataD [] n' vs Nothing cs []) }
+sexpDec (SList [SAtom "newtype", n, SList tvs, c]) =
+  do { n' <- sexpName n; vs <- mapM sexpTv tvs; c' <- sexpCon c
+     ; return (NewtypeD [] n' vs Nothing c' []) }
+sexpDec (SList [SAtom "syn", n, SList tvs, t]) =
+  do { n' <- sexpName n; vs <- mapM sexpTv tvs; t' <- sexpType t
+     ; return (TySynD n' vs t') }
+sexpDec _ = Nothing
+
+sexpTv :: SExp -> Maybe (TyVarBndr BndrVis)
+sexpTv (SStr v) = Just (PlainTV (mkName v) BndrReq)
+sexpTv _ = Nothing
+
+sexpCon :: SExp -> Maybe Con
+sexpCon (SList (SAtom "normal" : n : ts)) =
+  do { n' <- sexpName n; ts' <- mapM sexpType ts
+     ; return (NormalC n' [(noBang, t) | t <- ts']) }
+sexpCon (SList (SAtom "rec" : n : fs)) =
+  do { n' <- sexpName n; fs' <- mapM field fs; return (RecC n' fs') }
+  where field (SList [f, t]) = do { f' <- sexpName f; t' <- sexpType t; return (f', noBang, t') }
+        field _ = Nothing
+sexpCon _ = Nothing
+
+noBang :: Bang
+noBang = Bang NoSourceUnpackedness NoSourceStrictness
+
+sexpName :: SExp -> Maybe Name
+sexpName (SList [SAtom "g", SAtom ns, SStr md, SStr o]) = do
+  space <- case ns of
+             "v"  -> Just VarName
+             "d"  -> Just DataName
+             "tc" -> Just TcClsName
+             _    -> Nothing
+  return (mkNameG space "main" md o)
+sexpName (SList [SAtom "s", SStr o]) = Just (mkName o)
+sexpName _ = Nothing
+
+sexpType :: SExp -> Maybe Type
+sexpType (SList [SAtom "con", n]) = fmap ConT (sexpName n)
+sexpType (SList [SAtom "var", SStr v]) = Just (VarT (mkName v))
+sexpType (SList [SAtom "app", a, b]) = do { a' <- sexpType a; b' <- sexpType b; return (AppT a' b') }
+sexpType (SList [SAtom "arrow"]) = Just ArrowT
+sexpType (SList [SAtom "list"]) = Just ListT
+sexpType (SList [SAtom "tuple", SAtom k]) = Just (TupleT (read k))
+sexpType (SList [SAtom "forall", SList tvs, SList ps, t]) =
+  do { vs <- mapM tv tvs; ps' <- mapM sexpType ps; t' <- sexpType t
+     ; return (ForallT vs ps' t') }
+  where tv (SStr v) = Just (PlainTV (mkName v) SpecifiedSpec)
+        tv _ = Nothing
+sexpType _ = Nothing

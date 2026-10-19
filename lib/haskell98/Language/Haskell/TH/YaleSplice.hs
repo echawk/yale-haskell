@@ -6,7 +6,7 @@
 -- qualifies as GHC does (GHC.Internal.Tuple.(,)), are printed as the
 -- syntax; other global names stay qualified with their original module,
 -- which the compiler resolves even where that module is not imported.
-module Language.Haskell.TH.YaleSplice (spliceExpText) where
+module Language.Haskell.TH.YaleSplice (spliceExpText, spliceDecsText) where
 
 import Data.Data
 import System.IO.Unsafe (unsafePerformIO)
@@ -15,6 +15,9 @@ import Language.Haskell.TH.Ppr (pprint)
 
 spliceExpText :: Q Exp -> String
 spliceExpText q = unsafePerformIO (fmap (pprint . everywhere builtinName) (unQ q))
+
+spliceDecsText :: Q [Dec] -> String
+spliceDecsText q = unsafePerformIO (fmap (pprint . everywhere builtinName) (unQ q))
 
 everywhere :: (forall a. Data a => a -> a) -> (forall a. Data a => a -> a)
 everywhere f x = f (gmapT (everywhere f) x)

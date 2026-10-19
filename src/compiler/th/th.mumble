@@ -7,4 +7,6 @@
   (unit splices
     (source-filename "splices.mumble"))
   (unit quote
-    (source-filename "quote.mumble")))
+    (source-filename "quote.mumble"))
+  (unit reify
+    (source-filename "reify.mumble")))

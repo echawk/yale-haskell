@@ -203,6 +203,12 @@
       (setf (module-annotations mod-ast)
 	    (append (module-annotations mod-ast) annotations)))
     (terminate-topdecl mod-ast in-layout? state))
+   ;; TemplateHaskell: a declaration splice, $(e), $x or an expression
+   ;; alone (th/splices.mumble)
+   ((no-advance satisfies at-decl-splice?)
+    (push (save-parser-context (make splice (exp (parse-decl-splice-exp))))
+	  *decl-splices*)
+    (terminate-topdecl mod-ast in-layout? 'topdecl))
    (pat-start (if (foreign-decl-start?)
 		  (if (foreign-export-start?)
 		      (parse-foreign-export mod-ast)
@@ -304,7 +310,8 @@
 (define (maybe-end-module mod-ast in-layout? state)
   (declare (ignore state))
   (cond ((or (eq-token? '|module|) (eq-token? 'eof) (eq-token? '\})
-	     (eq-token? '$\}))
+	     (eq-token? '$\})
+	     (eq-token? 'close-quote))   ; [d| ... |] (exp-parser.mumble)
 	 (close-layout in-layout?)
 	 (wrapup-module mod-ast)
 	 mod-ast)
@@ -312,6 +319,47 @@
 	 (signal-invalid-syntax "a topdecl"))))
 
 (define *standalone-derivings* '())   ; (tuple class-ast type-name)
+
+;;; TemplateHaskell's declaration splices: $(e) or $x starting a
+;;; declaration, or a declaration that is an expression (GHC's "naked"
+;;; splice, makeLenses ''T): no =, | or :: outside brackets before the
+;;; declaration ends.
+
+(define *decl-splices* '())
+
+(define (at-decl-splice?)
+  (and (language-extension? "TemplateHaskell")
+       (or (eq-token? 'splice-paren)
+	   (eq-token? 'splice-var)
+	   (and (eq-token? 'varid) (naked-splice-ahead?)))))
+
+(define (naked-splice-ahead?)
+  (let ((col *current-col*)
+	(depth 0)
+	(result '#t))
+    (do ((ts *token-stream* (cdr ts)))
+	((null? ts) result)
+      (let ((type (car (car ts))))
+	(cond ((and (eq? type 'line) (<= (caddr (car ts)) col))
+	       (return-from naked-splice-ahead? result))
+	      ((and (eqv? depth 0) (memq type '(\; \} $\} eof)))
+	       (return-from naked-splice-ahead? result))
+	      ((and (eqv? depth 0) (memq type '(|=| \| |::|)))
+	       (return-from naked-splice-ahead? '#f))
+	      ((memq type '(\( \[ \{ splice-paren open-exp-quote open-pat-quote
+			    open-type-quote))
+	       (incf depth))
+	      ((memq type '(\) \] \} close-quote))
+	       (decf depth)))))))
+
+(define (parse-decl-splice-exp)
+  (token-case
+   (splice-paren
+    (let ((e (parse-exp)))
+      (require-token \) (signal-missing-token "`)'" "a splice"))
+      e))
+   (splice-var (var->ast))
+   (else (parse-exp))))
 
 (define (at-standalone-deriving?)
   (and (haskell98?) (eq-token? '|deriving|) (eq? (peek-1-type) '|instance|)))
@@ -341,6 +389,8 @@
   (setf (module-pattern-synonyms mod-ast) *pattern-synonyms*)
   (setf (module-splices mod-ast) (reverse *splices*))
   (setf *splices* '())
+  (setf (module-decl-splices mod-ast) (reverse *decl-splices*))
+  (setf *decl-splices* '())
   (dolist (d *pattern-builders*)
     (setf (module-decls mod-ast) (decl-push d (module-decls mod-ast))))
   (setf *pattern-synonyms* '())

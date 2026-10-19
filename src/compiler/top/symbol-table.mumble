@@ -528,13 +528,29 @@
 ;;; TemplateHaskell: in a splice's code (th/splices.mumble), a qualified
 ;;; name M.x not in scope here is x of module M, a global name's NameG
 ;;; whose module need not be imported; GHC.Internal.Types.x and the like
-;;; are Yale Haskell's core x (derived/lift.mumble's th-global-name).
+;;; are Yale Haskell's core x (derived/lift.mumble's th-global-name).  In
+;;; a module with declaration splices this holds everywhere, as their
+;;; declarations are not told apart from the module's own.
 
 (define *th-global-names?* '#f)
 
+;;; While a [d| |] quote's body is scoped (th/quote.mumble), the module of
+;;; its declarations: a name they define is a stand-in definition of
+;;; module %quoted, which the quote's code names with mkName.
+
+(define *quote-decs-module* '#f)
+
+(predefine (quoted-decs-def name mod))  ; in th/quote.mumble
+
 (define (resolve-toplevel-name name)
   (or (resolve-toplevel-name-0 name)
-      (and (dynamic *th-global-names?*) (resolve-th-global-name name))))
+      (and (dynamic *quote-decs-module*)
+	   (quoted-decs-def name (dynamic *quote-decs-module*)))
+      (and (or (dynamic *th-global-names?*)
+	       ;; declaration splices' code is the module's own
+	       (and (dynamic *module*)
+		    (not (null? (module-decl-splices (dynamic *module*))))))
+	   (resolve-th-global-name name))))
 
 (define (resolve-toplevel-name-0 name)
   (let ((pc (table-entry *prelude-core-symbols* name)))

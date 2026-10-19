@@ -12,7 +12,7 @@
 	 (push (list 'col *start-col*) *tokens*)))
   (push (cons type args) *tokens*)
   (setf *on-new-line?* '#f)
-  (setf *save-col?* (or (memq type '(|where| |of| |let| |do|))
+  (setf *save-col?* (or (memq type '(|where| |of| |let| |do| open-decs-quote))
 			 ;; RecursiveDo: rec and mdo open blocks too
 			 (and (eq? type 'varid)
 			      (pair? args)

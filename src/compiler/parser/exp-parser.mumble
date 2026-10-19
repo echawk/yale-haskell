@@ -330,6 +330,7 @@
     (open-exp-quote (parse-quote-body 'exp (function parse-exp)))
     (open-pat-quote (parse-quote-body 'pat (function parse-pat)))
     (open-type-quote (parse-quote-body 'type (function parse-type)))
+    (open-decs-quote (parse-quote-body 'decs (function parse-quoted-decls)))
     (\(
      (token-case
        (\) (**con/def (core-symbol "UnitConstructor")))
@@ -960,6 +961,28 @@
   (when (not (dynamic *in-quote?*))
     (push s *splices*))
   s)
+
+;;; [d| decls |]: the declarations as the body of a module of their own
+;;; (module-parser.mumble's maybe-end-module ends it at |]), the parser's
+;;; lists for the enclosing module set aside meanwhile.
+
+(define (parse-quoted-decls)
+  (let ((saved (list *splices* *decl-splices* *standalone-derivings*
+		     *pattern-synonyms* *pattern-builders* *family-decls*
+		     *family-data-decls* *family-equations*))
+	(mod (make module (name '|Quoted|) (type 'standard)
+		   (default *standard-module-default*))))
+    (setf *splices* '() *decl-splices* '() *standalone-derivings* '()
+	  *pattern-synonyms* '() *pattern-builders* '() *family-decls* '()
+	  *family-data-decls* '() *family-equations* '())
+    (start-layout (lambda (in-layout?)
+		    (parse-module-decls mod in-layout? 'topdecl)))
+    (setf *splices* (list-ref saved 0) *decl-splices* (list-ref saved 1)
+	  *standalone-derivings* (list-ref saved 2)
+	  *pattern-synonyms* (list-ref saved 3) *pattern-builders* (list-ref saved 4)
+	  *family-decls* (list-ref saved 5) *family-data-decls* (list-ref saved 6)
+	  *family-equations* (list-ref saved 7))
+    mod))
 
 (define (parse-quote-body kind parse-fn)
   (save-parser-context
