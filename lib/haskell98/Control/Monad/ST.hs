@@ -10,10 +10,11 @@ module Control.Monad.ST (
 
 import PreludeModern
 import System.IO.Unsafe (unsafePerformIO, unsafeFixIO)
+import GHC.PrimOps (RealWorld)
 
 newtype ST s a = ST (IO a)
 
-data RealWorld = RealWorld
+-- GHC.Exts' (the State# token's), so that the two are one type
 
 unST :: ST s a -> IO a
 unST (ST io) = io

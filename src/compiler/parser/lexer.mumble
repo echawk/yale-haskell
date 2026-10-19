@@ -376,8 +376,34 @@
 	     (else
 	      (emit-token 'begin-annotation)
 	      (emit-token/string 'conid word)))))
+    ;; GHC's pragma names are case-insensitive ({-# inline f #-}); a
+    ;; lowercase word that is not one begins a Yale annotation (f :: ...)
+    (small
+     (let ((word (scan-var-con)))
+       (skip-blanks-on-line)
+       (cond ((char=? *char* #\:)
+	      (emit-token 'begin-annotation)
+	      (emit-token/string 'varid word))
+	     ((string-ci=? (list->string word) "inline")
+	      (emit-token 'begin-annotation)
+	      (emit-token/string 'conid (string->list "INLINE")))
+	     ((mem-string-ci (list->string word)
+			     '("noinline" "inlinable" "inlineable" "specialize"
+			       "specialise" "rules" "complete" "scc" "ann"
+			       "opaque" "minimal" "overlapping" "overlappable"
+			       "overlaps" "incoherent" "unpack" "nounpack"
+			       "deprecated" "warning"))
+	      (skip-pragma *current-line*))
+	     ((string-ci=? (list->string word) "language")
+	      (lex-language-pragma))
+	     (else
+	      (emit-token 'begin-annotation)
+	      (emit-token/string 'varid word)))))
     (else
      (emit-token 'begin-annotation))))
+
+(define (mem-string-ci s strings)
+  (lisp:member s strings :test (function string-ci=?)))
 
 ;;; {-# LANGUAGE E1, E2 #-}: the extensions are recorded for the parser
 ;;; (*language-extensions*, language-extension?) and the module (its

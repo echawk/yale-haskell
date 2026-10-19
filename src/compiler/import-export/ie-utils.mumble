@@ -74,7 +74,7 @@
 
 (define (gather-class-group name def)
   (cons (tuple name def)
-	(gather-group (class-method-vars def))))
+	(gather-group (append (class-method-vars def) (class-families def)))))
 
 (define (gather-group defs)
   ;; the members in scope here (a class imported with some of its methods,

@@ -24,4 +24,7 @@ export YALE
 # patches for packages that only GHC was meant to compile (Yale.hs)
 YALE_MCABAL_PATCHES=${YALE_MCABAL_PATCHES:-$here/patches}
 export YALE_MCABAL_PATCHES
-exec "$top/bin/yale-haskell" --haskell98 --modern-prelude "$out/mcabal.hs" "$@"
+# -ffake-ghc: impl(ghc >= v) holds as for GHC 9.6, whose boot packages
+# Yale Haskell's library follows (so a package does not take the
+# branches for old GHCs, integer-gmp and the like)
+exec "$top/bin/yale-haskell" --haskell98 --modern-prelude "$out/mcabal.hs" -ffake-ghc "$@"

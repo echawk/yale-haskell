@@ -23,6 +23,13 @@
 	  (dolist (v (resolve-type-1 ty '() '#t))
 	    (when (not (memq v tyvars))
 	      (push v tyvars)))))
+      ;; AllowAmbiguousTypes: a context's variable the type does not
+      ;; mention (sizeOfType :: forall a. Prim a => Int), chosen by a type
+      ;; application at each use
+      (when (module-extension? "AllowAmbiguousTypes")
+	(dolist (c context)
+	  (when (not (memq (context-tyvar c) tyvars))
+	    (setf tyvars (append tyvars (list (context-tyvar c)))))))
       (resolve-signature-aux tyvars context)
       tyvars)))
 

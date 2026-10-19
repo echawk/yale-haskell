@@ -113,7 +113,18 @@ stagePackage env db name vers flds = do
       cppOpts = getFieldStrings flds []    "cpp-options"
   -- $YALE_CPP_OPTIONS: more for every package (-D__GLASGOW_HASKELL__=906
   -- for code that only GHC is expected to compile)
-  extraCpp <- maybe [] words <$> lookupEnv "YALE_CPP_OPTIONS"
+  extraCpp0 <- maybe [] words <$> lookupEnv "YALE_CPP_OPTIONS"
+  -- $YALE_MCABAL_PATCHES/NAME.cpp-options: more for this package only
+  -- (-D__GLASGOW_HASKELL__=906 for one that refuses other compilers)
+  pkgCpp <- do
+    mdir <- lookupEnv "YALE_MCABAL_PATCHES"
+    case mdir of
+      Nothing -> return []
+      Just dir -> do
+        let f = dir </> name ++ ".cpp-options"
+        b <- doesFileExist f
+        if b then words <$> readFile f else return []
+  let extraCpp = extraCpp0 ++ pkgCpp
   rmrf env pdir
   mkdir env (pdir </> "src")
   forM_ (srcDirs ++ [pathModuleDir env]) $ \ d -> copyTree env d (pdir </> "src")

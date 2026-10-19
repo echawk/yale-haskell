@@ -617,7 +617,8 @@
 	  (if (language-extension? "RecursiveDo") '(|Control.Monad.Fix|) '())
 	  (if (language-extension? "MagicHash") '(|GHC.Exts|) '())
 	  ;; the fragments that run splices import it (th/splices.mumble)
-	  (if (language-extension? "TemplateHaskell")
+	  (if (or (language-extension? "TemplateHaskell")
+		  (language-extension? "TemplateHaskellQuotes"))
 	      '(|Language.Haskell.TH.YaleSplice|)
 	      '())))
 
@@ -648,8 +649,12 @@
 			      tokens)))))
 	     (setf (cdr result)
 		   (append (cdr result)
-			   ;; not a module of this file (GHC.Exts uses MagicHash)
-			   (lisp:remove-if (lambda (m) (memq m (car result)))
+			   ;; not a module of this file (GHC.Exts uses MagicHash),
+			   ;; nor GHC.Exts in the primops it re-exports
+			   (lisp:remove-if (lambda (m)
+					     (or (memq m (car result))
+						 (and (eq? m '|GHC.Exts|)
+						      (memq '|GHC.PrimOpsTyped| (car result)))))
 					   *implicit-extension-imports*)))
 	     (if entry
 		 (setf (cdr entry) (cons date result))

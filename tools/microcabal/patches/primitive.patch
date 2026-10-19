@@ -1,0 +1,108 @@
+primitive: memset through the emulated primops (GHC.Exts) instead of cbits/primitive-memops.c; no lazy-ST instances (Yale's lazy ST is the strict one).
+diff -ruN a/Control/Monad/Primitive.hs b/Control/Monad/Primitive.hs
+--- a/Control/Monad/Primitive.hs	2026-10-19 10:12:20
++++ b/Control/Monad/Primitive.hs	2026-10-19 10:12:20
+@@ -226,7 +226,8 @@
+ 
+ -- see https://gitlab.haskell.org/ghc/ghc/commit/2f5cb3d44d05e581b75a47fec222577dfa7a533e
+ -- for why we only support an instance for ghc >= 8.2
+-#if __GLASGOW_HASKELL__ >= 802
++-- (Yale Haskell: lazy ST is the strict one, which has these instances)
++#if __GLASGOW_HASKELL__ >= 802 && !defined(__YALE_HASKELL__)
+ -- @since 0.7.1.0
+ instance PrimMonad (L.ST s) where
+   type PrimState (L.ST s) = s
+diff -ruN a/Data/Primitive/Internal/Operations.hs b/Data/Primitive/Internal/Operations.hs
+--- a/Data/Primitive/Internal/Operations.hs	2026-10-19 10:08:47
++++ b/Data/Primitive/Internal/Operations.hs	2026-10-19 10:17:05
+@@ -41,13 +41,82 @@
+ 
+ import Data.Primitive.MachDeps (Word64_#, Int64_#)
+ import Foreign.C.Types
++#ifdef __YALE_HASKELL__
+ import GHC.Exts
++import qualified GHC.Exts as E
++import GHC.IO (IO(..))
++#else
++import GHC.Exts
++#endif
+ 
+ #if defined(HAVE_KEEPALIVE)
+ import Data.Kind (Type)
+ #endif
+ 
+ 
++#ifdef __YALE_HASKELL__
++-- Yale Haskell: the emulated primops (GHC.Exts), not primitive-memops.c
++setWord8Array# :: MutableByteArray# s -> CPtrdiff -> CSize -> Word8# -> IO ()
++setWord8Array# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWord8Array# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWord8OffAddr# :: Addr# -> CPtrdiff -> CSize -> Word8# -> IO ()
++setWord8OffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWord8OffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWord16Array# :: MutableByteArray# s -> CPtrdiff -> CSize -> Word16# -> IO ()
++setWord16Array# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWord16Array# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWord16OffAddr# :: Addr# -> CPtrdiff -> CSize -> Word16# -> IO ()
++setWord16OffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWord16OffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWord32Array# :: MutableByteArray# s -> CPtrdiff -> CSize -> Word32# -> IO ()
++setWord32Array# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWord32Array# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWord32OffAddr# :: Addr# -> CPtrdiff -> CSize -> Word32# -> IO ()
++setWord32OffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWord32OffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWord64Array# :: MutableByteArray# s -> CPtrdiff -> CSize -> Word64# -> IO ()
++setWord64Array# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWord64Array# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWord64OffAddr# :: Addr# -> CPtrdiff -> CSize -> Word64# -> IO ()
++setWord64OffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWord64OffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWordArray# :: MutableByteArray# s -> CPtrdiff -> CSize -> Word# -> IO ()
++setWordArray# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWordArray# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWordOffAddr# :: Addr# -> CPtrdiff -> CSize -> Word# -> IO ()
++setWordOffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWordOffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setInt8Array# :: MutableByteArray# s -> CPtrdiff -> CSize -> Int8# -> IO ()
++setInt8Array# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetInt8Array# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setInt8OffAddr# :: Addr# -> CPtrdiff -> CSize -> Int8# -> IO ()
++setInt8OffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetInt8OffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setInt16Array# :: MutableByteArray# s -> CPtrdiff -> CSize -> Int16# -> IO ()
++setInt16Array# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetInt16Array# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setInt16OffAddr# :: Addr# -> CPtrdiff -> CSize -> Int16# -> IO ()
++setInt16OffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetInt16OffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setInt32Array# :: MutableByteArray# s -> CPtrdiff -> CSize -> Int32# -> IO ()
++setInt32Array# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetInt32Array# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setInt32OffAddr# :: Addr# -> CPtrdiff -> CSize -> Int32# -> IO ()
++setInt32OffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetInt32OffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setInt64Array# :: MutableByteArray# s -> CPtrdiff -> CSize -> Int64# -> IO ()
++setInt64Array# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetInt64Array# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setInt64OffAddr# :: Addr# -> CPtrdiff -> CSize -> Int64# -> IO ()
++setInt64OffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetInt64OffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setIntArray# :: MutableByteArray# s -> CPtrdiff -> CSize -> Int# -> IO ()
++setIntArray# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetIntArray# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setIntOffAddr# :: Addr# -> CPtrdiff -> CSize -> Int# -> IO ()
++setIntOffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetIntOffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setAddrArray# :: MutableByteArray# s -> CPtrdiff -> CSize -> Addr# -> IO ()
++setAddrArray# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetAddrArray# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setAddrOffAddr# :: Addr# -> CPtrdiff -> CSize -> Addr# -> IO ()
++setAddrOffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetAddrOffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setStablePtrArray# :: MutableByteArray# s -> CPtrdiff -> CSize -> StablePtr# a -> IO ()
++setStablePtrArray# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetStablePtrArray# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setStablePtrOffAddr# :: Addr# -> CPtrdiff -> CSize -> StablePtr# a -> IO ()
++setStablePtrOffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetStablePtrOffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setFloatArray# :: MutableByteArray# s -> CPtrdiff -> CSize -> Float# -> IO ()
++setFloatArray# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetFloatArray# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setFloatOffAddr# :: Addr# -> CPtrdiff -> CSize -> Float# -> IO ()
++setFloatOffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetFloatOffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setDoubleArray# :: MutableByteArray# s -> CPtrdiff -> CSize -> Double# -> IO ()
++setDoubleArray# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetDoubleArray# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setDoubleOffAddr# :: Addr# -> CPtrdiff -> CSize -> Double# -> IO ()
++setDoubleOffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetDoubleOffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWideCharArray# :: MutableByteArray# s -> CPtrdiff -> CSize -> Char# -> IO ()
++setWideCharArray# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWideCharArray# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++setWideCharOffAddr# :: Addr# -> CPtrdiff -> CSize -> Char# -> IO ()
++setWideCharOffAddr# b off n x = IO (\s -> (# unsafeCoerce# (E.primSetWideCharOffAddr# b (fromIntegral off) (fromIntegral n) x (unsafeCoerce# s)), () #))
++#else
+ #if __GLASGOW_HASKELL__ >= 902
+ foreign import ccall unsafe "primitive-memops.h hsprimitive_memset_Word8"
+   setWord8Array# :: MutableByteArray# s -> CPtrdiff -> CSize -> Word8# -> IO ()
+@@ -154,6 +223,7 @@
+ foreign import ccall unsafe "primitive-memops.h hsprimitive_memset_Char"
+   setWideCharOffAddr# :: Addr# -> CPtrdiff -> CSize -> Char# -> IO ()
+ 
++#endif
+ #if defined(HAVE_KEEPALIVE)
+ keepAliveLiftedLifted# :: forall (s :: Type) (a :: Type) (b :: Type).
+      a

@@ -218,6 +218,8 @@
    ;; type variables it takes), as MonadReader r m (0 3) in
    ;; class MonadReader r m => MonadRWS r w s m
    (mp-mp-supers (type (list (tuple class (list int)))) (default '()))
+   ;; its associated type families (exported and imported with C(..))
+   (families (type (list def)) (default '()))
    ))
 
 ;;; Since instances are not named there is no need to include def.  

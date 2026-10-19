@@ -271,7 +271,11 @@
 	     (overloaded-tyvars '())
 	     (sig-mcontext? (some (lambda (v)
 				    (and (var-signature v)
-					 (not (null? (gtype-mcontext (var-signature v))))))
+					 (or (not (null? (gtype-mcontext (var-signature v))))
+					     ;; AllowAmbiguousTypes: a context on a
+					     ;; variable the type does not mention
+					     ;; still takes a dictionary
+					     (gtype-ambiguous-context? (var-signature v)))))
 				  all-vars))
 	     (mp-constraints (if (some (function var-signature) all-vars)
 				 '()
@@ -580,3 +584,24 @@
 	(when (not (memq v res))
 	  (push v res))))
     res))
+
+;;; Whether gtype G has a context on a type variable its type does not
+;;; mention (AllowAmbiguousTypes: k :: forall a. C a => Int).
+(define (gtype-ambiguous-context? g)
+  (let ((used (gtype-tyvar-nums (gtype-type g) '()))
+	(i 0)
+	(res '#f))
+    (dolist (ctx (gtype-context g))
+      (when (and (not (null? ctx)) (not (memv i used)))
+	(setf res '#t))
+      (incf i))
+    res))
+
+(define (gtype-tyvar-nums ty acc)
+  (cond ((gtyvar? ty) (cons (gtyvar-varnum ty) acc))
+	((ntycon? ty)
+	 (let ((a acc))
+	   (dolist (x (ntycon-args ty)) (setf a (gtype-tyvar-nums x a)))
+	   a))
+	((gtype? ty) (gtype-tyvar-nums (gtype-type ty) acc))
+	(else acc)))

@@ -492,7 +492,9 @@
 ;;; has an index), which then shadows the core one in that module.  (Other
 ;;; uses, as in derived Ix instances, are the core's.)
 
-(define *ix-core-names* '(|index| |range| |inRange| |rangeSize|))
+;;; Core names that are not the Prelude's (Ix's methods, Data.Array's
+;;; Array): a module may define them (Data.Primitive.Array's Array).
+(define *ix-core-names* '(|index| |range| |inRange| |rangeSize| |Array|))
 
 ;;; Whether the module imports the Prelude explicitly and leaves NAME out:
 ;;; import Prelude hiding (name), or import Prelude (...) without it.

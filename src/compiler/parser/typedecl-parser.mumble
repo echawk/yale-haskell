@@ -394,9 +394,16 @@
 		 (fundeps (if (and (not (null? more-vars)) (eq-token? '\|))
 			      (begin (advance-token) (parse-fundeps))
 			      '()))
-		 (decls (remove-inline-annotations (parse-where-decls))))
+		 (families-before (length *family-decls*))
+		 (decls (remove-inline-annotations (parse-where-decls)))
+		 ;; the associated families its body declared (pushed on
+		 ;; *family-decls*)
+		 (families (map (lambda (d) (tycon-name (synonym-decl-simple d)))
+				(lisp:subseq *family-decls* 0
+					     (- (length *family-decls*) families-before)))))
 	    (make class-decl (class class) (super-classes supers)
 		             (class-var class-var) (decls decls)
+			     (families families)
 			     (class-vars (if (null? more-vars)
 					     '()
 					     (cons class-var more-vars)))
@@ -483,7 +490,9 @@
 	(when (null? types)
 	  (signal-missing-token "<type>" "instance declaration"))
 	(when (not interface?)
-	   (setf decls (dynamic-let ((*in-instance-body?* '#t))
+	   (setf decls (dynamic-let ((*in-instance-body?* '#t)
+				     (*instance-class-qualifier*
+				      (name-qualifier (symbol->string (class-ref-name class)))))
 			 (parse-where-decls)))
 	   ;; InstanceSigs (GHC): a method's signature in the instance is
 	   ;; dropped (GHC checks it against the instance's type)
@@ -587,7 +596,21 @@
     (let ((rhs (parse-type)))
       (when (not (tycon? lhs))
 	(signal-invalid-syntax "a type family equation"))
+      ;; in an instance of M.C, an associated type F is C's: M.F
+      (when (and *in-instance-body?* (dynamic *instance-class-qualifier*)
+		 (not (name-qualifier (symbol->string (tycon-name lhs)))))
+	(setf (tycon-name lhs)
+	      (string->symbol (string-append (dynamic *instance-class-qualifier*) "."
+					     (symbol->string (tycon-name lhs))))))
       (push (tuple lhs rhs) *family-equations*))))
+
+;;; The module qualifier of a qualified name (Exts of Exts.IsList), or #f.
+(define *instance-class-qualifier* '#f)
+
+(define (name-qualifier s)
+  (let ((i (lisp:position #\. s :from-end '#t)))
+    (and i (> i 0) (char-upper-case? (string-ref s 0))
+	 (substring s 0 i))))
 
 ;;; data instance F t1 ... tn = constrs [deriving], newtype instance ...
 (define (parse-data-instance newtype?)

@@ -169,7 +169,9 @@
    (fundeps (type (list (tuple (list symbol) (list symbol)))) (default '()))
    ;; a multi-parameter class's multi-parameter superclasses
    ;; (class (MonadReader r m, MonadState s m) => MonadRWS r w s m)
-   (mp-super-classes (type (list mp-context)) (default '()))))
+   (mp-super-classes (type (list mp-context)) (default '()))
+   ;; the names of its associated type families (in its body)
+   (families (type (list symbol)) (default '()))))
 
 
 ;;; <instance-decl> -> instance [<context> =>] <tycls> <inst>

@@ -1,14 +1,18 @@
 -- Data.Functor.Classes (base): equality, ordering, showing and reading
 -- lifted to unary and binary type constructors.  Read1 and Read2 have
--- base's ReadS methods (liftReadsPrec, liftReadList), not its ReadPrec
--- ones (liftReadPrec), which Yale Haskell's Read class does not have.
+-- base's ReadS methods (liftReadsPrec, liftReadList) and its ReadPrec ones
+-- (liftReadPrec, liftReadListPrec), each defined from the other by
+-- default, as in base.
 module Data.Functor.Classes (
     Eq1(liftEq), eq1, Ord1(liftCompare), compare1,
     Show1(liftShowsPrec, liftShowList), showsPrec1,
-    Read1(liftReadsPrec, liftReadList), readsPrec1,
+    Read1(liftReadsPrec, liftReadList, liftReadPrec, liftReadListPrec),
+    readsPrec1, readPrec1, liftReadListDefault, liftReadListPrecDefault,
     Eq2(liftEq2), eq2, Ord2(liftCompare2), compare2,
     Show2(liftShowsPrec2, liftShowList2), showsPrec2,
-    Read2(liftReadsPrec2, liftReadList2), readsPrec2,
+    Read2(liftReadsPrec2, liftReadList2, liftReadPrec2, liftReadListPrec2),
+    readsPrec2, readPrec2, liftReadList2Default, liftReadListPrec2Default,
+    readUnaryWith, readBinaryWith,
     readsData, readData, readsUnaryWith, readsUnary, readsUnary1,
     readsBinaryWith, readsBinary1,
     showsUnaryWith, showsUnary, showsUnary1, showsBinaryWith, showsBinary1
@@ -18,6 +22,9 @@ import PreludeModern
 import Data.Functor.Identity (Identity(Identity))
 import Data.Functor.Const (Const(Const))
 import Data.List.NonEmpty (NonEmpty((:|)))
+import Text.ParserCombinators.ReadPrec (ReadPrec, readPrec_to_S, readS_to_Prec, prec, step, pfail)
+import qualified Text.Read.Lex as L
+import GHC.Read (Read(readPrec, readListPrec), list, expectP, parens)
 
 class Eq1 f where
   liftEq :: (a -> b -> Bool) -> f a -> f b -> Bool
@@ -41,8 +48,36 @@ showsPrec1 = liftShowsPrec showsPrec showList
 
 class Read1 f where
   liftReadsPrec :: (Int -> ReadS a) -> ReadS [a] -> Int -> ReadS (f a)
+  liftReadsPrec rp rl = readPrec_to_S (liftReadPrec (readS_to_Prec rp) (readS_to_Prec (const rl)))
   liftReadList :: (Int -> ReadS a) -> ReadS [a] -> ReadS [f a]
   liftReadList rp rl = readListWith (liftReadsPrec rp rl 0)
+  liftReadPrec :: ReadPrec a -> ReadPrec [a] -> ReadPrec (f a)
+  liftReadPrec rp rl = readS_to_Prec (liftReadsPrec (readPrec_to_S rp) (readPrec_to_S rl 0))
+  liftReadListPrec :: ReadPrec a -> ReadPrec [a] -> ReadPrec [f a]
+  liftReadListPrec rp rl = readS_to_Prec (\_ -> liftReadList (readPrec_to_S rp) (readPrec_to_S rl 0))
+
+readPrec1 :: (Read1 f, Read a) => ReadPrec (f a)
+readPrec1 = liftReadPrec readPrec readListPrec
+
+liftReadListDefault :: Read1 f => (Int -> ReadS a) -> ReadS [a] -> ReadS [f a]
+liftReadListDefault rp rl = readPrec_to_S (liftReadListPrec (readS_to_Prec rp) (readS_to_Prec (const rl))) 0
+
+liftReadListPrecDefault :: Read1 f => ReadPrec a -> ReadPrec [a] -> ReadPrec [f a]
+liftReadListPrecDefault rp rl = list (liftReadPrec rp rl)
+
+-- the reader of a constructor NAME with one argument, read by RP
+readUnaryWith :: ReadPrec a -> String -> (a -> t) -> String -> ReadPrec t
+readUnaryWith rp name cons kw = do
+  expectP (L.Ident name)
+  x <- step rp
+  if name == kw then return (cons x) else pfail
+
+readBinaryWith :: ReadPrec a -> ReadPrec b -> String -> (a -> b -> t) -> String -> ReadPrec t
+readBinaryWith rp1 rp2 name cons kw = do
+  expectP (L.Ident name)
+  x <- step rp1
+  y <- step rp2
+  if name == kw then return (cons x y) else pfail
 
 readsPrec1 :: (Read1 f, Read a) => Int -> ReadS (f a)
 readsPrec1 = liftReadsPrec readsPrec readList
@@ -72,9 +107,31 @@ showsPrec2 = liftShowsPrec2 showsPrec showList showsPrec showList
 class Read2 f where
   liftReadsPrec2 :: (Int -> ReadS a) -> ReadS [a] -> (Int -> ReadS b) -> ReadS [b]
                  -> Int -> ReadS (f a b)
+  liftReadsPrec2 rp1 rl1 rp2 rl2 =
+    readPrec_to_S (liftReadPrec2 (readS_to_Prec rp1) (readS_to_Prec (const rl1))
+                                 (readS_to_Prec rp2) (readS_to_Prec (const rl2)))
   liftReadList2 :: (Int -> ReadS a) -> ReadS [a] -> (Int -> ReadS b) -> ReadS [b]
                 -> ReadS [f a b]
   liftReadList2 rp1 rl1 rp2 rl2 = readListWith (liftReadsPrec2 rp1 rl1 rp2 rl2 0)
+  liftReadPrec2 :: ReadPrec a -> ReadPrec [a] -> ReadPrec b -> ReadPrec [b] -> ReadPrec (f a b)
+  liftReadPrec2 rp1 rl1 rp2 rl2 =
+    readS_to_Prec (liftReadsPrec2 (readPrec_to_S rp1) (readPrec_to_S rl1 0)
+                                  (readPrec_to_S rp2) (readPrec_to_S rl2 0))
+  liftReadListPrec2 :: ReadPrec a -> ReadPrec [a] -> ReadPrec b -> ReadPrec [b] -> ReadPrec [f a b]
+  liftReadListPrec2 rp1 rl1 rp2 rl2 =
+    readS_to_Prec (\_ -> liftReadList2 (readPrec_to_S rp1) (readPrec_to_S rl1 0)
+                                       (readPrec_to_S rp2) (readPrec_to_S rl2 0))
+
+readPrec2 :: (Read2 f, Read a, Read b) => ReadPrec (f a b)
+readPrec2 = liftReadPrec2 readPrec readListPrec readPrec readListPrec
+
+liftReadList2Default :: Read2 f => (Int -> ReadS a) -> ReadS [a] -> (Int -> ReadS b) -> ReadS [b] -> ReadS [f a b]
+liftReadList2Default rp1 rl1 rp2 rl2 =
+  readPrec_to_S (liftReadListPrec2 (readS_to_Prec rp1) (readS_to_Prec (const rl1))
+                                   (readS_to_Prec rp2) (readS_to_Prec (const rl2))) 0
+
+liftReadListPrec2Default :: Read2 f => ReadPrec a -> ReadPrec [a] -> ReadPrec b -> ReadPrec [b] -> ReadPrec [f a b]
+liftReadListPrec2Default rp1 rl1 rp2 rl2 = list (liftReadPrec2 rp1 rl1 rp2 rl2)
 
 readsPrec2 :: (Read2 f, Read a, Read b) => Int -> ReadS (f a b)
 readsPrec2 = liftReadsPrec2 readsPrec readList readsPrec readList

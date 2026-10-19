@@ -9,7 +9,13 @@
 (define (check-missing-names)
   (dolist (export (module-exports *module*))
     (remember-context export
-      (signal-missing-export export)))
+      (let ((def (and (is-type? 'entity-abbreviated export)
+		      (resolve-toplevel-name (entity-name export)))))
+	(if (and def (algdata? def))
+	    ;; T(..) of a type whose constructors are not in scope (an
+	    ;; abstract type imported from elsewhere): T, as in GHC
+	    (export-group (list (tuple (entity-name export) def)))
+	    (signal-missing-export export)))))
   (dolist (import-decl (module-imports *module*))
     (remember-context import-decl
       (with-slots import-decl (mode specs renamings) import-decl

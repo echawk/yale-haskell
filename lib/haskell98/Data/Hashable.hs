@@ -16,6 +16,8 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Numeric.Natural (Natural)
 import Control.Concurrent (ThreadId)
+import Data.Ratio (Ratio, numerator, denominator)
+import Data.Fixed (Fixed(MkFixed))
 
 infixl 0 `hashWithSalt`
 
@@ -41,6 +43,12 @@ instance Hashable Integer where
   hashWithSalt s n = combine s (fromInteger (n `mod` 4611686018427387847))
 instance Hashable Natural where
   hashWithSalt s n = hashWithSalt s (toInteger n)
+instance (Integral a, Hashable a) => Hashable (Ratio a) where
+  hashWithSalt s r = s `hashWithSalt` numerator r `hashWithSalt` denominator r
+
+instance Hashable (Fixed a) where
+  hashWithSalt s (MkFixed n) = hashWithSalt s n
+
 -- by its number, as base's (through show: the constructor is abstract)
 instance Hashable ThreadId where
   hashWithSalt s t = hashWithSalt s (show t)

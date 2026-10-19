@@ -1,0 +1,474 @@
+{-# LANGUAGE MagicHash #-}
+-- GHC/PrimOps.hi -- GHC's primitive operations (GHC.Exts):
+-- src/base/primops-runtime.lisp.  Unboxed tuples (# s, a #) are
+-- ordinary tuples, and Int# etc. are Int etc. (GHC.Exts).
+
+interface GHC.PrimOps where
+
+import PreludeCore(Char, Int, Float, Double)
+
+
+data State# s
+data RealWorld
+data Array# a
+data MutableArray# s a
+data SmallArray# a
+data SmallMutableArray# s a
+data ByteArray#
+data MutableByteArray# s
+data Addr#
+data MutVar# s a
+data MVar# s a
+data StablePtr# a
+
+newByteArray# :: Int -> State# s -> (State# s, MutableByteArray# s)
+newPinnedByteArray# :: Int -> State# s -> (State# s, MutableByteArray# s)
+newAlignedPinnedByteArray# :: Int -> Int -> State# s -> (State# s, MutableByteArray# s)
+byteArrayContents# :: ByteArray# -> Addr#
+mutableByteArrayContents# :: MutableByteArray# s -> Addr#
+sizeofByteArray# :: ByteArray# -> Int
+sizeofMutableByteArray# :: MutableByteArray# s -> Int
+getSizeofMutableByteArray# :: MutableByteArray# s -> State# s -> (State# s, Int)
+unsafeFreezeByteArray# :: MutableByteArray# s -> State# s -> (State# s, ByteArray#)
+unsafeThawByteArray# :: ByteArray# -> State# s -> (State# s, MutableByteArray# s)
+isByteArrayPinned# :: ByteArray# -> Int
+isMutableByteArrayPinned# :: MutableByteArray# s -> Int
+sameMutableByteArray# :: MutableByteArray# s -> MutableByteArray# s -> Int
+sameByteArray# :: ByteArray# -> ByteArray# -> Int
+shrinkMutableByteArray# :: MutableByteArray# s -> Int -> State# s -> State# s
+resizeMutableByteArray# :: MutableByteArray# s -> Int -> State# s -> (State# s, MutableByteArray# s)
+copyByteArray# :: ByteArray# -> Int -> MutableByteArray# s -> Int -> Int -> State# s -> State# s
+copyMutableByteArray# :: MutableByteArray# s -> Int -> MutableByteArray# s -> Int -> Int -> State# s -> State# s
+copyMutableByteArrayNonOverlapping# :: MutableByteArray# s -> Int -> MutableByteArray# s -> Int -> Int -> State# s -> State# s
+copyByteArrayToAddr# :: ByteArray# -> Int -> Addr# -> Int -> State# s -> State# s
+copyMutableByteArrayToAddr# :: MutableByteArray# s -> Int -> Addr# -> Int -> State# s -> State# s
+copyAddrToByteArray# :: Addr# -> MutableByteArray# s -> Int -> Int -> State# s -> State# s
+setByteArray# :: MutableByteArray# s -> Int -> Int -> Int -> State# s -> State# s
+compareByteArrays# :: ByteArray# -> Int -> ByteArray# -> Int -> Int -> Int
+indexCharArray# :: ByteArray# -> Int -> Char
+readCharArray# :: MutableByteArray# s -> Int -> State# s -> (State# s, Char)
+writeCharArray# :: MutableByteArray# s -> Int -> Char -> State# s -> State# s
+indexCharOffAddr# :: Addr# -> Int -> Char
+readCharOffAddr# :: Addr# -> Int -> State# s -> (State# s, Char)
+writeCharOffAddr# :: Addr# -> Int -> Char -> State# s -> State# s
+primSetCharArray# :: MutableByteArray# s -> Int -> Int -> Char -> State# s -> State# s
+primSetCharOffAddr# :: Addr# -> Int -> Int -> Char -> State# s -> State# s
+indexWideCharArray# :: ByteArray# -> Int -> Char
+readWideCharArray# :: MutableByteArray# s -> Int -> State# s -> (State# s, Char)
+writeWideCharArray# :: MutableByteArray# s -> Int -> Char -> State# s -> State# s
+indexWideCharOffAddr# :: Addr# -> Int -> Char
+readWideCharOffAddr# :: Addr# -> Int -> State# s -> (State# s, Char)
+writeWideCharOffAddr# :: Addr# -> Int -> Char -> State# s -> State# s
+primSetWideCharArray# :: MutableByteArray# s -> Int -> Int -> Char -> State# s -> State# s
+primSetWideCharOffAddr# :: Addr# -> Int -> Int -> Char -> State# s -> State# s
+indexIntArray# :: ByteArray# -> Int -> Int
+readIntArray# :: MutableByteArray# s -> Int -> State# s -> (State# s, Int)
+writeIntArray# :: MutableByteArray# s -> Int -> Int -> State# s -> State# s
+indexIntOffAddr# :: Addr# -> Int -> Int
+readIntOffAddr# :: Addr# -> Int -> State# s -> (State# s, Int)
+writeIntOffAddr# :: Addr# -> Int -> Int -> State# s -> State# s
+primSetIntArray# :: MutableByteArray# s -> Int -> Int -> Int -> State# s -> State# s
+primSetIntOffAddr# :: Addr# -> Int -> Int -> Int -> State# s -> State# s
+yale_indexWordArray# :: ByteArray# -> Int -> w
+yale_readWordArray# :: MutableByteArray# s -> Int -> State# s -> (State# s, w)
+yale_writeWordArray# :: MutableByteArray# s -> Int -> w -> State# s -> State# s
+yale_indexWordOffAddr# :: Addr# -> Int -> w
+yale_readWordOffAddr# :: Addr# -> Int -> State# s -> (State# s, w)
+yale_writeWordOffAddr# :: Addr# -> Int -> w -> State# s -> State# s
+yale_primSetWordArray# :: MutableByteArray# s -> Int -> Int -> w -> State# s -> State# s
+yale_primSetWordOffAddr# :: Addr# -> Int -> Int -> w -> State# s -> State# s
+indexInt8Array# :: ByteArray# -> Int -> Int
+readInt8Array# :: MutableByteArray# s -> Int -> State# s -> (State# s, Int)
+writeInt8Array# :: MutableByteArray# s -> Int -> Int -> State# s -> State# s
+indexInt8OffAddr# :: Addr# -> Int -> Int
+readInt8OffAddr# :: Addr# -> Int -> State# s -> (State# s, Int)
+writeInt8OffAddr# :: Addr# -> Int -> Int -> State# s -> State# s
+primSetInt8Array# :: MutableByteArray# s -> Int -> Int -> Int -> State# s -> State# s
+primSetInt8OffAddr# :: Addr# -> Int -> Int -> Int -> State# s -> State# s
+indexInt16Array# :: ByteArray# -> Int -> Int
+readInt16Array# :: MutableByteArray# s -> Int -> State# s -> (State# s, Int)
+writeInt16Array# :: MutableByteArray# s -> Int -> Int -> State# s -> State# s
+indexInt16OffAddr# :: Addr# -> Int -> Int
+readInt16OffAddr# :: Addr# -> Int -> State# s -> (State# s, Int)
+writeInt16OffAddr# :: Addr# -> Int -> Int -> State# s -> State# s
+primSetInt16Array# :: MutableByteArray# s -> Int -> Int -> Int -> State# s -> State# s
+primSetInt16OffAddr# :: Addr# -> Int -> Int -> Int -> State# s -> State# s
+indexInt32Array# :: ByteArray# -> Int -> Int
+readInt32Array# :: MutableByteArray# s -> Int -> State# s -> (State# s, Int)
+writeInt32Array# :: MutableByteArray# s -> Int -> Int -> State# s -> State# s
+indexInt32OffAddr# :: Addr# -> Int -> Int
+readInt32OffAddr# :: Addr# -> Int -> State# s -> (State# s, Int)
+writeInt32OffAddr# :: Addr# -> Int -> Int -> State# s -> State# s
+primSetInt32Array# :: MutableByteArray# s -> Int -> Int -> Int -> State# s -> State# s
+primSetInt32OffAddr# :: Addr# -> Int -> Int -> Int -> State# s -> State# s
+indexInt64Array# :: ByteArray# -> Int -> Int
+readInt64Array# :: MutableByteArray# s -> Int -> State# s -> (State# s, Int)
+writeInt64Array# :: MutableByteArray# s -> Int -> Int -> State# s -> State# s
+indexInt64OffAddr# :: Addr# -> Int -> Int
+readInt64OffAddr# :: Addr# -> Int -> State# s -> (State# s, Int)
+writeInt64OffAddr# :: Addr# -> Int -> Int -> State# s -> State# s
+primSetInt64Array# :: MutableByteArray# s -> Int -> Int -> Int -> State# s -> State# s
+primSetInt64OffAddr# :: Addr# -> Int -> Int -> Int -> State# s -> State# s
+yale_indexWord8Array# :: ByteArray# -> Int -> w
+yale_readWord8Array# :: MutableByteArray# s -> Int -> State# s -> (State# s, w)
+yale_writeWord8Array# :: MutableByteArray# s -> Int -> w -> State# s -> State# s
+yale_indexWord8OffAddr# :: Addr# -> Int -> w
+yale_readWord8OffAddr# :: Addr# -> Int -> State# s -> (State# s, w)
+yale_writeWord8OffAddr# :: Addr# -> Int -> w -> State# s -> State# s
+yale_primSetWord8Array# :: MutableByteArray# s -> Int -> Int -> w -> State# s -> State# s
+yale_primSetWord8OffAddr# :: Addr# -> Int -> Int -> w -> State# s -> State# s
+yale_indexWord16Array# :: ByteArray# -> Int -> w
+yale_readWord16Array# :: MutableByteArray# s -> Int -> State# s -> (State# s, w)
+yale_writeWord16Array# :: MutableByteArray# s -> Int -> w -> State# s -> State# s
+yale_indexWord16OffAddr# :: Addr# -> Int -> w
+yale_readWord16OffAddr# :: Addr# -> Int -> State# s -> (State# s, w)
+yale_writeWord16OffAddr# :: Addr# -> Int -> w -> State# s -> State# s
+yale_primSetWord16Array# :: MutableByteArray# s -> Int -> Int -> w -> State# s -> State# s
+yale_primSetWord16OffAddr# :: Addr# -> Int -> Int -> w -> State# s -> State# s
+yale_indexWord32Array# :: ByteArray# -> Int -> w
+yale_readWord32Array# :: MutableByteArray# s -> Int -> State# s -> (State# s, w)
+yale_writeWord32Array# :: MutableByteArray# s -> Int -> w -> State# s -> State# s
+yale_indexWord32OffAddr# :: Addr# -> Int -> w
+yale_readWord32OffAddr# :: Addr# -> Int -> State# s -> (State# s, w)
+yale_writeWord32OffAddr# :: Addr# -> Int -> w -> State# s -> State# s
+yale_primSetWord32Array# :: MutableByteArray# s -> Int -> Int -> w -> State# s -> State# s
+yale_primSetWord32OffAddr# :: Addr# -> Int -> Int -> w -> State# s -> State# s
+yale_indexWord64Array# :: ByteArray# -> Int -> w
+yale_readWord64Array# :: MutableByteArray# s -> Int -> State# s -> (State# s, w)
+yale_writeWord64Array# :: MutableByteArray# s -> Int -> w -> State# s -> State# s
+yale_indexWord64OffAddr# :: Addr# -> Int -> w
+yale_readWord64OffAddr# :: Addr# -> Int -> State# s -> (State# s, w)
+yale_writeWord64OffAddr# :: Addr# -> Int -> w -> State# s -> State# s
+yale_primSetWord64Array# :: MutableByteArray# s -> Int -> Int -> w -> State# s -> State# s
+yale_primSetWord64OffAddr# :: Addr# -> Int -> Int -> w -> State# s -> State# s
+indexFloatArray# :: ByteArray# -> Int -> Float
+readFloatArray# :: MutableByteArray# s -> Int -> State# s -> (State# s, Float)
+writeFloatArray# :: MutableByteArray# s -> Int -> Float -> State# s -> State# s
+indexFloatOffAddr# :: Addr# -> Int -> Float
+readFloatOffAddr# :: Addr# -> Int -> State# s -> (State# s, Float)
+writeFloatOffAddr# :: Addr# -> Int -> Float -> State# s -> State# s
+primSetFloatArray# :: MutableByteArray# s -> Int -> Int -> Float -> State# s -> State# s
+primSetFloatOffAddr# :: Addr# -> Int -> Int -> Float -> State# s -> State# s
+indexDoubleArray# :: ByteArray# -> Int -> Double
+readDoubleArray# :: MutableByteArray# s -> Int -> State# s -> (State# s, Double)
+writeDoubleArray# :: MutableByteArray# s -> Int -> Double -> State# s -> State# s
+indexDoubleOffAddr# :: Addr# -> Int -> Double
+readDoubleOffAddr# :: Addr# -> Int -> State# s -> (State# s, Double)
+writeDoubleOffAddr# :: Addr# -> Int -> Double -> State# s -> State# s
+primSetDoubleArray# :: MutableByteArray# s -> Int -> Int -> Double -> State# s -> State# s
+primSetDoubleOffAddr# :: Addr# -> Int -> Int -> Double -> State# s -> State# s
+indexAddrArray# :: ByteArray# -> Int -> Addr#
+readAddrArray# :: MutableByteArray# s -> Int -> State# s -> (State# s, Addr#)
+writeAddrArray# :: MutableByteArray# s -> Int -> Addr# -> State# s -> State# s
+indexAddrOffAddr# :: Addr# -> Int -> Addr#
+readAddrOffAddr# :: Addr# -> Int -> State# s -> (State# s, Addr#)
+writeAddrOffAddr# :: Addr# -> Int -> Addr# -> State# s -> State# s
+primSetAddrArray# :: MutableByteArray# s -> Int -> Int -> Addr# -> State# s -> State# s
+primSetAddrOffAddr# :: Addr# -> Int -> Int -> Addr# -> State# s -> State# s
+indexStablePtrArray# :: ByteArray# -> Int -> StablePtr# a
+readStablePtrArray# :: MutableByteArray# s -> Int -> State# s -> (State# s, StablePtr# a)
+writeStablePtrArray# :: MutableByteArray# s -> Int -> StablePtr# a -> State# s -> State# s
+indexStablePtrOffAddr# :: Addr# -> Int -> StablePtr# a
+readStablePtrOffAddr# :: Addr# -> Int -> State# s -> (State# s, StablePtr# a)
+writeStablePtrOffAddr# :: Addr# -> Int -> StablePtr# a -> State# s -> State# s
+primSetStablePtrArray# :: MutableByteArray# s -> Int -> Int -> StablePtr# a -> State# s -> State# s
+primSetStablePtrOffAddr# :: Addr# -> Int -> Int -> StablePtr# a -> State# s -> State# s
+casIntArray# :: MutableByteArray# s -> Int -> Int -> Int -> State# s -> (State# s, Int)
+fetchAddIntArray# :: MutableByteArray# s -> Int -> Int -> State# s -> (State# s, Int)
+fetchSubIntArray# :: MutableByteArray# s -> Int -> Int -> State# s -> (State# s, Int)
+fetchAndIntArray# :: MutableByteArray# s -> Int -> Int -> State# s -> (State# s, Int)
+fetchOrIntArray# :: MutableByteArray# s -> Int -> Int -> State# s -> (State# s, Int)
+fetchXorIntArray# :: MutableByteArray# s -> Int -> Int -> State# s -> (State# s, Int)
+fetchNandIntArray# :: MutableByteArray# s -> Int -> Int -> State# s -> (State# s, Int)
+atomicReadIntArray# :: MutableByteArray# s -> Int -> State# s -> (State# s, Int)
+atomicWriteIntArray# :: MutableByteArray# s -> Int -> Int -> State# s -> State# s
+plusAddr# :: Addr# -> Int -> Addr#
+minusAddr# :: Addr# -> Addr# -> Int
+addr2Int# :: Addr# -> Int
+int2Addr# :: Int -> Addr#
+eqAddrPrim :: Addr# -> Addr# -> Int
+ltAddrPrim :: Addr# -> Addr# -> Int
+addrLit# :: String -> Addr#
+newArray# :: Int -> a -> State# s -> (State# s, MutableArray# s a)
+readArray# :: MutableArray# s a -> Int -> State# s -> (State# s, a)
+writeArray# :: MutableArray# s a -> Int -> a -> State# s -> State# s
+indexArray# :: Array# a -> Int -> a
+sizeofArray# :: Array# a -> Int
+sizeofMutableArray# :: MutableArray# s a -> Int
+getSizeofMutableArray# :: MutableArray# s a -> State# s -> (State# s, Int)
+unsafeFreezeArray# :: MutableArray# s a -> State# s -> (State# s, Array# a)
+unsafeThawArray# :: Array# a -> State# s -> (State# s, MutableArray# s a)
+freezeArray# :: MutableArray# s a -> Int -> Int -> State# s -> (State# s, Array# a)
+thawArray# :: Array# a -> Int -> Int -> State# s -> (State# s, MutableArray# s a)
+cloneArray# :: Array# a -> Int -> Int -> Array# a
+cloneMutableArray# :: MutableArray# s a -> Int -> Int -> State# s -> (State# s, MutableArray# s a)
+copyArray# :: Array# a -> Int -> MutableArray# s a -> Int -> Int -> State# s -> State# s
+copyMutableArray# :: MutableArray# s a -> Int -> MutableArray# s a -> Int -> Int -> State# s -> State# s
+sameMutableArray# :: MutableArray# s a -> MutableArray# s a -> Int
+casArray# :: MutableArray# s a -> Int -> a -> a -> State# s -> (State# s, (Int, a))
+newSmallArray# :: Int -> a -> State# s -> (State# s, SmallMutableArray# s a)
+readSmallArray# :: SmallMutableArray# s a -> Int -> State# s -> (State# s, a)
+writeSmallArray# :: SmallMutableArray# s a -> Int -> a -> State# s -> State# s
+indexSmallArray# :: SmallArray# a -> Int -> a
+sizeofSmallArray# :: SmallArray# a -> Int
+sizeofSmallMutableArray# :: SmallMutableArray# s a -> Int
+getSizeofSmallMutableArray# :: SmallMutableArray# s a -> State# s -> (State# s, Int)
+unsafeFreezeSmallArray# :: SmallMutableArray# s a -> State# s -> (State# s, SmallArray# a)
+unsafeThawSmallArray# :: SmallArray# a -> State# s -> (State# s, SmallMutableArray# s a)
+freezeSmallArray# :: SmallMutableArray# s a -> Int -> Int -> State# s -> (State# s, SmallArray# a)
+thawSmallArray# :: SmallArray# a -> Int -> Int -> State# s -> (State# s, SmallMutableArray# s a)
+cloneSmallArray# :: SmallArray# a -> Int -> Int -> SmallArray# a
+cloneSmallMutableArray# :: SmallMutableArray# s a -> Int -> Int -> State# s -> (State# s, SmallMutableArray# s a)
+copySmallArray# :: SmallArray# a -> Int -> SmallMutableArray# s a -> Int -> Int -> State# s -> State# s
+copySmallMutableArray# :: SmallMutableArray# s a -> Int -> SmallMutableArray# s a -> Int -> Int -> State# s -> State# s
+sameSmallMutableArray# :: SmallMutableArray# s a -> SmallMutableArray# s a -> Int
+casSmallArray# :: SmallMutableArray# s a -> Int -> a -> a -> State# s -> (State# s, (Int, a))
+shrinkSmallMutableArray# :: SmallMutableArray# s a -> Int -> State# s -> State# s
+resizeSmallMutableArray# :: SmallMutableArray# s a -> Int -> a -> State# s -> (State# s, SmallMutableArray# s a)
+newMutVar# :: a -> State# s -> (State# s, MutVar# s a)
+readMutVar# :: MutVar# s a -> State# s -> (State# s, a)
+writeMutVar# :: MutVar# s a -> a -> State# s -> State# s
+sameMutVar# :: MutVar# s a -> MutVar# s a -> Int
+casMutVar# :: MutVar# s a -> a -> a -> State# s -> (State# s, (Int, a))
+newMVar# :: State# s -> (State# s, MVar# s a)
+takeMVar# :: MVar# s a -> State# s -> (State# s, a)
+readMVar# :: MVar# s a -> State# s -> (State# s, a)
+putMVar# :: MVar# s a -> a -> State# s -> State# s
+tryTakeMVar# :: MVar# s a -> State# s -> (State# s, (Int, a))
+tryReadMVar# :: MVar# s a -> State# s -> (State# s, (Int, a))
+tryPutMVar# :: MVar# s a -> a -> State# s -> (State# s, Int)
+isEmptyMVar# :: MVar# s a -> State# s -> (State# s, Int)
+sameMVar# :: MVar# s a -> MVar# s a -> Int
+makeStablePtr# :: a -> State# s -> (State# s, StablePtr# a)
+deRefStablePtr# :: StablePtr# a -> State# s -> (State# s, a)
+freeStablePtr# :: StablePtr# a -> State# s -> State# s
+eqStablePtr# :: StablePtr# a -> StablePtr# b -> Int
+touch# :: a -> State# s -> State# s
+reallyUnsafePtrEquality# :: a -> a -> Int
+
+{-#
+newByteArray# :: LispName("prim.new-byte-array#"), Strictness("S,S")
+newPinnedByteArray# :: LispName("prim.new-pinned-byte-array#"), Strictness("S,S")
+newAlignedPinnedByteArray# :: LispName("prim.new-aligned-pinned-byte-array#"), Strictness("S,S,S")
+byteArrayContents# :: LispName("prim.byte-array-contents#"), Strictness("S")
+mutableByteArrayContents# :: LispName("prim.mutable-byte-array-contents#"), Strictness("S")
+sizeofByteArray# :: LispName("prim.sizeof-byte-array#"), Strictness("S")
+sizeofMutableByteArray# :: LispName("prim.sizeof-mutable-byte-array#"), Strictness("S")
+getSizeofMutableByteArray# :: LispName("prim.get-sizeof-mutable-byte-array#"), Strictness("S,S")
+unsafeFreezeByteArray# :: LispName("prim.unsafe-freeze-byte-array#"), Strictness("S,S")
+unsafeThawByteArray# :: LispName("prim.unsafe-thaw-byte-array#"), Strictness("S,S")
+isByteArrayPinned# :: LispName("prim.is-pinned#"), Strictness("S")
+isMutableByteArrayPinned# :: LispName("prim.is-pinned#"), Strictness("S")
+sameMutableByteArray# :: LispName("prim.same-byte-array#"), Strictness("S,S")
+sameByteArray# :: LispName("prim.same-byte-array#"), Strictness("S,S")
+shrinkMutableByteArray# :: LispName("prim.shrink-mutable-byte-array#"), Strictness("S,S,S")
+resizeMutableByteArray# :: LispName("prim.resize-mutable-byte-array#"), Strictness("S,S,S")
+copyByteArray# :: LispName("prim.copy-byte-array#"), Strictness("S,S,S,S,S,S")
+copyMutableByteArray# :: LispName("prim.copy-mutable-byte-array#"), Strictness("S,S,S,S,S,S")
+copyMutableByteArrayNonOverlapping# :: LispName("prim.copy-mutable-byte-array#"), Strictness("S,S,S,S,S,S")
+copyByteArrayToAddr# :: LispName("prim.copy-byte-array-to-addr#"), Strictness("S,S,S,S,S")
+copyMutableByteArrayToAddr# :: LispName("prim.copy-mutable-byte-array-to-addr#"), Strictness("S,S,S,S,S")
+copyAddrToByteArray# :: LispName("prim.copy-addr-to-byte-array#"), Strictness("S,S,S,S,S")
+setByteArray# :: LispName("prim.set-byte-array#"), Strictness("S,S,S,S,S")
+compareByteArrays# :: LispName("prim.compare-byte-arrays#"), Strictness("S,S,S,S,S")
+indexCharArray# :: LispName("prim.index-char-array#"), Strictness("S,S")
+readCharArray# :: LispName("prim.read-char-array#"), Strictness("S,S,S")
+writeCharArray# :: LispName("prim.write-char-array#"), Strictness("S,S,S,S")
+indexCharOffAddr# :: LispName("prim.index-char-off-addr#"), Strictness("S,S")
+readCharOffAddr# :: LispName("prim.read-char-off-addr#"), Strictness("S,S,S")
+writeCharOffAddr# :: LispName("prim.write-char-off-addr#"), Strictness("S,S,S,S")
+primSetCharArray# :: LispName("prim.set-char-array#"), Strictness("S,S,S,S,S")
+primSetCharOffAddr# :: LispName("prim.set-char-off-addr#"), Strictness("S,S,S,S,S")
+indexWideCharArray# :: LispName("prim.index-wide-char-array#"), Strictness("S,S")
+readWideCharArray# :: LispName("prim.read-wide-char-array#"), Strictness("S,S,S")
+writeWideCharArray# :: LispName("prim.write-wide-char-array#"), Strictness("S,S,S,S")
+indexWideCharOffAddr# :: LispName("prim.index-wide-char-off-addr#"), Strictness("S,S")
+readWideCharOffAddr# :: LispName("prim.read-wide-char-off-addr#"), Strictness("S,S,S")
+writeWideCharOffAddr# :: LispName("prim.write-wide-char-off-addr#"), Strictness("S,S,S,S")
+primSetWideCharArray# :: LispName("prim.set-wide-char-array#"), Strictness("S,S,S,S,S")
+primSetWideCharOffAddr# :: LispName("prim.set-wide-char-off-addr#"), Strictness("S,S,S,S,S")
+indexIntArray# :: LispName("prim.index-int-array#"), Strictness("S,S")
+readIntArray# :: LispName("prim.read-int-array#"), Strictness("S,S,S")
+writeIntArray# :: LispName("prim.write-int-array#"), Strictness("S,S,S,S")
+indexIntOffAddr# :: LispName("prim.index-int-off-addr#"), Strictness("S,S")
+readIntOffAddr# :: LispName("prim.read-int-off-addr#"), Strictness("S,S,S")
+writeIntOffAddr# :: LispName("prim.write-int-off-addr#"), Strictness("S,S,S,S")
+primSetIntArray# :: LispName("prim.set-int-array#"), Strictness("S,S,S,S,S")
+primSetIntOffAddr# :: LispName("prim.set-int-off-addr#"), Strictness("S,S,S,S,S")
+yale_indexWordArray# :: LispName("prim.index-word-array#"), Strictness("S,S")
+yale_readWordArray# :: LispName("prim.read-word-array#"), Strictness("S,S,S")
+yale_writeWordArray# :: LispName("prim.write-word-array#"), Strictness("S,S,S,S")
+yale_indexWordOffAddr# :: LispName("prim.index-word-off-addr#"), Strictness("S,S")
+yale_readWordOffAddr# :: LispName("prim.read-word-off-addr#"), Strictness("S,S,S")
+yale_writeWordOffAddr# :: LispName("prim.write-word-off-addr#"), Strictness("S,S,S,S")
+yale_primSetWordArray# :: LispName("prim.set-word-array#"), Strictness("S,S,S,S,S")
+yale_primSetWordOffAddr# :: LispName("prim.set-word-off-addr#"), Strictness("S,S,S,S,S")
+indexInt8Array# :: LispName("prim.index-int8-array#"), Strictness("S,S")
+readInt8Array# :: LispName("prim.read-int8-array#"), Strictness("S,S,S")
+writeInt8Array# :: LispName("prim.write-int8-array#"), Strictness("S,S,S,S")
+indexInt8OffAddr# :: LispName("prim.index-int8-off-addr#"), Strictness("S,S")
+readInt8OffAddr# :: LispName("prim.read-int8-off-addr#"), Strictness("S,S,S")
+writeInt8OffAddr# :: LispName("prim.write-int8-off-addr#"), Strictness("S,S,S,S")
+primSetInt8Array# :: LispName("prim.set-int8-array#"), Strictness("S,S,S,S,S")
+primSetInt8OffAddr# :: LispName("prim.set-int8-off-addr#"), Strictness("S,S,S,S,S")
+indexInt16Array# :: LispName("prim.index-int16-array#"), Strictness("S,S")
+readInt16Array# :: LispName("prim.read-int16-array#"), Strictness("S,S,S")
+writeInt16Array# :: LispName("prim.write-int16-array#"), Strictness("S,S,S,S")
+indexInt16OffAddr# :: LispName("prim.index-int16-off-addr#"), Strictness("S,S")
+readInt16OffAddr# :: LispName("prim.read-int16-off-addr#"), Strictness("S,S,S")
+writeInt16OffAddr# :: LispName("prim.write-int16-off-addr#"), Strictness("S,S,S,S")
+primSetInt16Array# :: LispName("prim.set-int16-array#"), Strictness("S,S,S,S,S")
+primSetInt16OffAddr# :: LispName("prim.set-int16-off-addr#"), Strictness("S,S,S,S,S")
+indexInt32Array# :: LispName("prim.index-int32-array#"), Strictness("S,S")
+readInt32Array# :: LispName("prim.read-int32-array#"), Strictness("S,S,S")
+writeInt32Array# :: LispName("prim.write-int32-array#"), Strictness("S,S,S,S")
+indexInt32OffAddr# :: LispName("prim.index-int32-off-addr#"), Strictness("S,S")
+readInt32OffAddr# :: LispName("prim.read-int32-off-addr#"), Strictness("S,S,S")
+writeInt32OffAddr# :: LispName("prim.write-int32-off-addr#"), Strictness("S,S,S,S")
+primSetInt32Array# :: LispName("prim.set-int32-array#"), Strictness("S,S,S,S,S")
+primSetInt32OffAddr# :: LispName("prim.set-int32-off-addr#"), Strictness("S,S,S,S,S")
+indexInt64Array# :: LispName("prim.index-int64-array#"), Strictness("S,S")
+readInt64Array# :: LispName("prim.read-int64-array#"), Strictness("S,S,S")
+writeInt64Array# :: LispName("prim.write-int64-array#"), Strictness("S,S,S,S")
+indexInt64OffAddr# :: LispName("prim.index-int64-off-addr#"), Strictness("S,S")
+readInt64OffAddr# :: LispName("prim.read-int64-off-addr#"), Strictness("S,S,S")
+writeInt64OffAddr# :: LispName("prim.write-int64-off-addr#"), Strictness("S,S,S,S")
+primSetInt64Array# :: LispName("prim.set-int64-array#"), Strictness("S,S,S,S,S")
+primSetInt64OffAddr# :: LispName("prim.set-int64-off-addr#"), Strictness("S,S,S,S,S")
+yale_indexWord8Array# :: LispName("prim.index-word8-array#"), Strictness("S,S")
+yale_readWord8Array# :: LispName("prim.read-word8-array#"), Strictness("S,S,S")
+yale_writeWord8Array# :: LispName("prim.write-word8-array#"), Strictness("S,S,S,S")
+yale_indexWord8OffAddr# :: LispName("prim.index-word8-off-addr#"), Strictness("S,S")
+yale_readWord8OffAddr# :: LispName("prim.read-word8-off-addr#"), Strictness("S,S,S")
+yale_writeWord8OffAddr# :: LispName("prim.write-word8-off-addr#"), Strictness("S,S,S,S")
+yale_primSetWord8Array# :: LispName("prim.set-word8-array#"), Strictness("S,S,S,S,S")
+yale_primSetWord8OffAddr# :: LispName("prim.set-word8-off-addr#"), Strictness("S,S,S,S,S")
+yale_indexWord16Array# :: LispName("prim.index-word16-array#"), Strictness("S,S")
+yale_readWord16Array# :: LispName("prim.read-word16-array#"), Strictness("S,S,S")
+yale_writeWord16Array# :: LispName("prim.write-word16-array#"), Strictness("S,S,S,S")
+yale_indexWord16OffAddr# :: LispName("prim.index-word16-off-addr#"), Strictness("S,S")
+yale_readWord16OffAddr# :: LispName("prim.read-word16-off-addr#"), Strictness("S,S,S")
+yale_writeWord16OffAddr# :: LispName("prim.write-word16-off-addr#"), Strictness("S,S,S,S")
+yale_primSetWord16Array# :: LispName("prim.set-word16-array#"), Strictness("S,S,S,S,S")
+yale_primSetWord16OffAddr# :: LispName("prim.set-word16-off-addr#"), Strictness("S,S,S,S,S")
+yale_indexWord32Array# :: LispName("prim.index-word32-array#"), Strictness("S,S")
+yale_readWord32Array# :: LispName("prim.read-word32-array#"), Strictness("S,S,S")
+yale_writeWord32Array# :: LispName("prim.write-word32-array#"), Strictness("S,S,S,S")
+yale_indexWord32OffAddr# :: LispName("prim.index-word32-off-addr#"), Strictness("S,S")
+yale_readWord32OffAddr# :: LispName("prim.read-word32-off-addr#"), Strictness("S,S,S")
+yale_writeWord32OffAddr# :: LispName("prim.write-word32-off-addr#"), Strictness("S,S,S,S")
+yale_primSetWord32Array# :: LispName("prim.set-word32-array#"), Strictness("S,S,S,S,S")
+yale_primSetWord32OffAddr# :: LispName("prim.set-word32-off-addr#"), Strictness("S,S,S,S,S")
+yale_indexWord64Array# :: LispName("prim.index-word64-array#"), Strictness("S,S")
+yale_readWord64Array# :: LispName("prim.read-word64-array#"), Strictness("S,S,S")
+yale_writeWord64Array# :: LispName("prim.write-word64-array#"), Strictness("S,S,S,S")
+yale_indexWord64OffAddr# :: LispName("prim.index-word64-off-addr#"), Strictness("S,S")
+yale_readWord64OffAddr# :: LispName("prim.read-word64-off-addr#"), Strictness("S,S,S")
+yale_writeWord64OffAddr# :: LispName("prim.write-word64-off-addr#"), Strictness("S,S,S,S")
+yale_primSetWord64Array# :: LispName("prim.set-word64-array#"), Strictness("S,S,S,S,S")
+yale_primSetWord64OffAddr# :: LispName("prim.set-word64-off-addr#"), Strictness("S,S,S,S,S")
+indexFloatArray# :: LispName("prim.index-float-array#"), Strictness("S,S")
+readFloatArray# :: LispName("prim.read-float-array#"), Strictness("S,S,S")
+writeFloatArray# :: LispName("prim.write-float-array#"), Strictness("S,S,S,S")
+indexFloatOffAddr# :: LispName("prim.index-float-off-addr#"), Strictness("S,S")
+readFloatOffAddr# :: LispName("prim.read-float-off-addr#"), Strictness("S,S,S")
+writeFloatOffAddr# :: LispName("prim.write-float-off-addr#"), Strictness("S,S,S,S")
+primSetFloatArray# :: LispName("prim.set-float-array#"), Strictness("S,S,S,S,S")
+primSetFloatOffAddr# :: LispName("prim.set-float-off-addr#"), Strictness("S,S,S,S,S")
+indexDoubleArray# :: LispName("prim.index-double-array#"), Strictness("S,S")
+readDoubleArray# :: LispName("prim.read-double-array#"), Strictness("S,S,S")
+writeDoubleArray# :: LispName("prim.write-double-array#"), Strictness("S,S,S,S")
+indexDoubleOffAddr# :: LispName("prim.index-double-off-addr#"), Strictness("S,S")
+readDoubleOffAddr# :: LispName("prim.read-double-off-addr#"), Strictness("S,S,S")
+writeDoubleOffAddr# :: LispName("prim.write-double-off-addr#"), Strictness("S,S,S,S")
+primSetDoubleArray# :: LispName("prim.set-double-array#"), Strictness("S,S,S,S,S")
+primSetDoubleOffAddr# :: LispName("prim.set-double-off-addr#"), Strictness("S,S,S,S,S")
+indexAddrArray# :: LispName("prim.index-addr-array#"), Strictness("S,S")
+readAddrArray# :: LispName("prim.read-addr-array#"), Strictness("S,S,S")
+writeAddrArray# :: LispName("prim.write-addr-array#"), Strictness("S,S,S,S")
+indexAddrOffAddr# :: LispName("prim.index-addr-off-addr#"), Strictness("S,S")
+readAddrOffAddr# :: LispName("prim.read-addr-off-addr#"), Strictness("S,S,S")
+writeAddrOffAddr# :: LispName("prim.write-addr-off-addr#"), Strictness("S,S,S,S")
+primSetAddrArray# :: LispName("prim.set-addr-array#"), Strictness("S,S,S,S,S")
+primSetAddrOffAddr# :: LispName("prim.set-addr-off-addr#"), Strictness("S,S,S,S,S")
+indexStablePtrArray# :: LispName("prim.index-stable-ptr-array#"), Strictness("S,S")
+readStablePtrArray# :: LispName("prim.read-stable-ptr-array#"), Strictness("S,S,S")
+writeStablePtrArray# :: LispName("prim.write-stable-ptr-array#"), Strictness("S,S,S,S")
+indexStablePtrOffAddr# :: LispName("prim.index-stable-ptr-off-addr#"), Strictness("S,S")
+readStablePtrOffAddr# :: LispName("prim.read-stable-ptr-off-addr#"), Strictness("S,S,S")
+writeStablePtrOffAddr# :: LispName("prim.write-stable-ptr-off-addr#"), Strictness("S,S,S,S")
+primSetStablePtrArray# :: LispName("prim.set-stable-ptr-array#"), Strictness("S,S,S,S,S")
+primSetStablePtrOffAddr# :: LispName("prim.set-stable-ptr-off-addr#"), Strictness("S,S,S,S,S")
+casIntArray# :: LispName("prim.cas-int-array#"), Strictness("S,S,S,S,S")
+fetchAddIntArray# :: LispName("prim.fetch-add-int-array#"), Strictness("S,S,S,S")
+fetchSubIntArray# :: LispName("prim.fetch-sub-int-array#"), Strictness("S,S,S,S")
+fetchAndIntArray# :: LispName("prim.fetch-and-int-array#"), Strictness("S,S,S,S")
+fetchOrIntArray# :: LispName("prim.fetch-or-int-array#"), Strictness("S,S,S,S")
+fetchXorIntArray# :: LispName("prim.fetch-xor-int-array#"), Strictness("S,S,S,S")
+fetchNandIntArray# :: LispName("prim.fetch-nand-int-array#"), Strictness("S,S,S,S")
+atomicReadIntArray# :: LispName("prim.atomic-read-int-array#"), Strictness("S,S,S")
+atomicWriteIntArray# :: LispName("prim.atomic-write-int-array#"), Strictness("S,S,S,S")
+plusAddr# :: LispName("prim.plus-addr#"), Strictness("S,S")
+minusAddr# :: LispName("prim.minus-addr#"), Strictness("S,S")
+addr2Int# :: LispName("prim.addr-to-int#"), Strictness("S")
+int2Addr# :: LispName("prim.int-to-addr#"), Strictness("S")
+eqAddrPrim :: LispName("prim.eq-addr#"), Strictness("S,S")
+ltAddrPrim :: LispName("prim.lt-addr#"), Strictness("S,S")
+addrLit# :: LispName("prim.addr-lit#"), Strictness("S")
+newArray# :: LispName("prim.new-array#"), Strictness("S,N,S")
+readArray# :: LispName("prim.read-array#"), Strictness("S,S,S")
+writeArray# :: LispName("prim.write-array#"), Strictness("S,S,N,S")
+indexArray# :: LispName("prim.index-array#"), Strictness("S,S")
+sizeofArray# :: LispName("prim.sizeof-array#"), Strictness("S")
+sizeofMutableArray# :: LispName("prim.sizeof-array#"), Strictness("S")
+getSizeofMutableArray# :: LispName("prim.get-sizeof-array#"), Strictness("S,S")
+unsafeFreezeArray# :: LispName("prim.unsafe-freeze-array#"), Strictness("S,S")
+unsafeThawArray# :: LispName("prim.unsafe-thaw-array#"), Strictness("S,S")
+freezeArray# :: LispName("prim.freeze-array#"), Strictness("S,S,S,S")
+thawArray# :: LispName("prim.thaw-array#"), Strictness("S,S,S,S")
+cloneArray# :: LispName("prim.clone-array#"), Strictness("S,S,S")
+cloneMutableArray# :: LispName("prim.clone-mutable-array#"), Strictness("S,S,S,S")
+copyArray# :: LispName("prim.copy-array#"), Strictness("S,S,S,S,S,S")
+copyMutableArray# :: LispName("prim.copy-array#"), Strictness("S,S,S,S,S,S")
+sameMutableArray# :: LispName("prim.same-array#"), Strictness("S,S")
+casArray# :: LispName("prim.cas-array#"), Strictness("S,S,N,N,S")
+newSmallArray# :: LispName("prim.new-array#"), Strictness("S,N,S")
+readSmallArray# :: LispName("prim.read-array#"), Strictness("S,S,S")
+writeSmallArray# :: LispName("prim.write-array#"), Strictness("S,S,N,S")
+indexSmallArray# :: LispName("prim.index-array#"), Strictness("S,S")
+sizeofSmallArray# :: LispName("prim.sizeof-array#"), Strictness("S")
+sizeofSmallMutableArray# :: LispName("prim.sizeof-array#"), Strictness("S")
+getSizeofSmallMutableArray# :: LispName("prim.get-sizeof-array#"), Strictness("S,S")
+unsafeFreezeSmallArray# :: LispName("prim.unsafe-freeze-array#"), Strictness("S,S")
+unsafeThawSmallArray# :: LispName("prim.unsafe-thaw-array#"), Strictness("S,S")
+freezeSmallArray# :: LispName("prim.freeze-array#"), Strictness("S,S,S,S")
+thawSmallArray# :: LispName("prim.thaw-array#"), Strictness("S,S,S,S")
+cloneSmallArray# :: LispName("prim.clone-array#"), Strictness("S,S,S")
+cloneSmallMutableArray# :: LispName("prim.clone-mutable-array#"), Strictness("S,S,S,S")
+copySmallArray# :: LispName("prim.copy-array#"), Strictness("S,S,S,S,S,S")
+copySmallMutableArray# :: LispName("prim.copy-array#"), Strictness("S,S,S,S,S,S")
+sameSmallMutableArray# :: LispName("prim.same-array#"), Strictness("S,S")
+casSmallArray# :: LispName("prim.cas-array#"), Strictness("S,S,N,N,S")
+shrinkSmallMutableArray# :: LispName("prim.shrink-array#"), Strictness("S,S,S")
+resizeSmallMutableArray# :: LispName("prim.resize-array#"), Strictness("S,S,N,S")
+newMutVar# :: LispName("prim.new-mut-var#"), Strictness("N,S")
+readMutVar# :: LispName("prim.read-mut-var#"), Strictness("S,S")
+writeMutVar# :: LispName("prim.write-mut-var#"), Strictness("S,N,S")
+sameMutVar# :: LispName("prim.same-mut-var#"), Strictness("S,S")
+casMutVar# :: LispName("prim.cas-mut-var#"), Strictness("S,N,N,S")
+newMVar# :: LispName("prim.new-mvar#"), Strictness("S")
+takeMVar# :: LispName("prim.take-mvar#"), Strictness("S,S")
+readMVar# :: LispName("prim.read-mvar#"), Strictness("S,S")
+putMVar# :: LispName("prim.put-mvar#"), Strictness("S,N,S")
+tryTakeMVar# :: LispName("prim.try-take-mvar#"), Strictness("S,S")
+tryReadMVar# :: LispName("prim.try-read-mvar#"), Strictness("S,S")
+tryPutMVar# :: LispName("prim.try-put-mvar#"), Strictness("S,N,S")
+isEmptyMVar# :: LispName("prim.is-empty-mvar#"), Strictness("S,S")
+sameMVar# :: LispName("prim.same-mvar#"), Strictness("S,S")
+makeStablePtr# :: LispName("prim.make-stable-ptr#"), Strictness("N,S")
+deRefStablePtr# :: LispName("prim.deref-stable-ptr#"), Strictness("S,S")
+freeStablePtr# :: LispName("prim.free-stable-ptr#"), Strictness("S,S")
+eqStablePtr# :: LispName("prim.eq-stable-ptr#"), Strictness("S,S")
+touch# :: LispName("prim.touch#"), Strictness("N,S")
+reallyUnsafePtrEquality# :: LispName("prim.really-unsafe-ptr-equality#"), Strictness("N,N")
+#-}

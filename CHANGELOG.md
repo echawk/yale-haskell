@@ -21,6 +21,22 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- GHC primops for packages written against GHC.Exts (primitive, vector):
+  arrays, byte arrays (malloc'd memory), Addr#, MutVar#, MVar#, stable
+  pointers, threaded by the State# token (GHC.PrimOps,
+  src/base/primops-runtime.lisp), and GHC's internal constructors as
+  pattern synonyms (GHC.IO's IO, GHC.ST's ST, STRef, IORef, Ptr, W8#, I8#
+  ...), bundled with their types in export lists.  AllowAmbiguousTypes
+  for ordinary functions; a class's variables scope over its default
+  methods (ScopedTypeVariables); a class's associated families are in
+  C(..); local newtype deriving of a local class; lowercase GHC pragmas;
+  T(..) of an abstract imported type exports T.  Libraries: Read1/Read2's
+  ReadPrec methods, Writer.CPS and RWS.CPS, Data.Array.Byte,
+  HsBaseConfig.h, Fixed's Enum and Read, Hashable Ratio and Fixed,
+  Data.Hashable.Lifted, GHC.Exts' Down, sortWith, groupWith, the.
+  MicroCabal: per-package CPP options (patches/NAME.cpp-options),
+  -ffake-ghc by default, patches for data-fix and primitive.
+
 - The time package, ported (version 1.15: calendars, local time, time
   zones, formatting and parsing, ISO 8601), replacing the minimal
   Data.Time.  Typed Template Haskell (`[|| ||]`, `$$( )`) on the untyped.

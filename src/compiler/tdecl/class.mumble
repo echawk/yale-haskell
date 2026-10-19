@@ -231,6 +231,10 @@
 						  (signature-type sig))))
 		       (setf (signature-mcontext new-sig)
 			     (append class-mcontext (signature-mcontext sig)))
+		       ;; ScopedTypeVariables: the class's variables scope
+		       ;; over the default's body ((dummy :: a)), as in GHC
+		       (when (module-extension? "ScopedTypeVariables")
+			 (setf (signature-foralls new-sig) class-tyvars))
 		       (add-new-module-signature default-var new-sig)))
 		   (signal-default-not-in-class method-var class)))))
 	     (add-new-module-decl decl)))))))))

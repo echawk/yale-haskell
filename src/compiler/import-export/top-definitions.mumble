@@ -110,7 +110,15 @@
 		decls))))
 	  (setf (class-method-vars class-def)
 		(map (function tuple-2-2) method-group))
-	  (add-new-group class-name class-def method-group))))))
+	  ;; associated families: in C(..) with the methods
+	  (let ((fam-group '()))
+	    (dolist (name (class-decl-families class-decl))
+	      (let ((s (lisp:find name (module-synonyms *module*)
+				  :key (lambda (d) (tycon-name (synonym-decl-simple d))))))
+		(when s
+		  (push (tuple name (tycon-def (synonym-decl-simple s))) fam-group))))
+	    (setf (class-families class-def) (map (function tuple-2-2) fam-group))
+	    (add-new-group class-name class-def (append method-group fam-group))))))))
 
 (define (create-syn-definitions synonym-decl)
   (remember-context synonym-decl

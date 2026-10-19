@@ -1,0 +1,16 @@
+data-fix: the Eq1/Ord1/Show1 methods, not base 4.18's quantified superclasses (no QuantifiedConstraints).
+diff -ruN a/Data/Fix.hs b/Data/Fix.hs
+--- a/Data/Fix.hs	2026-10-19 05:41:27
++++ b/Data/Fix.hs	2026-10-19 05:41:27
+@@ -9,7 +9,11 @@
+ {-# LANGUAGE UndecidableInstances      #-}
+ 
+ #define HAS_POLY_TYPEABLE MIN_VERSION_base(4,7,0)
++#if defined(__YALE_HASKELL__)
++#define HAS_QUANTIFIED_FUNCTOR_CLASSES 0
++#else
+ #define HAS_QUANTIFIED_FUNCTOR_CLASSES MIN_VERSION_base(4,18,0)
++#endif
+ 
+ #if HAS_POLY_TYPEABLE
+ {-# LANGUAGE StandaloneDeriving        #-}

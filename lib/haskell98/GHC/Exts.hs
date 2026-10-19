@@ -1,4 +1,4 @@
-{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE MagicHash, PatternSynonyms, ViewPatterns #-}
 -- GHC.Exts (base) for MagicHash programs.  Yale Haskell has no unboxed
 -- types: Int# is Int, Double# is Double, and so on; the boxing
 -- constructors I#, D#, ... are the identity (parser/exp-parser.mumble),
@@ -32,12 +32,19 @@ module GHC.Exts (
     eqFloat#, neFloat#, ltFloat#, leFloat#, gtFloat#, geFloat#,
     eqAddr#, neAddr#, ltAddr#, leAddr#, gtAddr#, geAddr#,
     lazy, inline, oneShot, seq, seq#, build, augment,
-    IsList(fromList, toList, fromListN), IsString(fromString),
-    coerce, Coercible
+    IsList(fromList, toList, fromListN), Item, IsString(fromString),
+    coerce, Coercible,
+    module GHC.PrimOps, module GHC.PrimOpsTyped, UnliftedType, UnliftedRep,
+    Ptr(Ptr), FunPtr(FunPtr), Down(..), sortWith, groupWith, the, realWorld#, runRW#, noDuplicate#, keepAlive#
   ) where
 
-import GHC.IsList (IsList(fromList, toList, fromListN))
+import GHC.IsList (IsList(fromList, toList, fromListN), Item)
 import Data.Coerce (coerce, Coercible)
+import GHC.PrimOps
+import GHC.PrimOpsTyped
+import Foreign.Ptr (Ptr, FunPtr)
+import Data.Ord (Down(..), comparing)
+import Data.List (sortBy, groupBy)
 
 import Data.Bits
 import Data.Word (Word)
@@ -63,40 +70,13 @@ type Word16# = Word
 type Word32# = Word
 type Word64# = Word
 
--- An Addr# literal ("..."#, lexer.mumble): its bytes, in an array made
--- once (the literals are top-level tables in Happy's and Alex's code).
-newtype Addr# = Addr# (Array Int Int)
+-- Addr#, its literals ("..."#, lexer.mumble: GHC.Exts.addrLit#) and the
+-- operations on memory, arrays and mutable variables are GHC.PrimOps'
+-- (src/base/primops-runtime.lisp).
 
-addrLit# :: String -> Addr#
-addrLit# s = Addr# (listArray (0, length s - 1) (map fromEnum s))
-
-byteAt :: Addr# -> Int -> Int
-byteAt (Addr# a) i = a ! i
-
--- little-endian, as on the machines Yale Haskell runs on
-unsignedAt :: Addr# -> Int -> Int -> Int
-unsignedAt a size i = go (size - 1) 0
-  where base = i * size
-        go k acc | k < 0 = acc
-                 | otherwise = go (k - 1) (acc * 256 + byteAt a (base + k))
-
+-- the sign of the low BITS bits of N
 signed :: Int -> Int -> Int
 signed bits n = if n >= 2 ^ (bits - 1) then n - 2 ^ bits else n
-
-indexInt8OffAddr#, indexInt16OffAddr#, indexInt32OffAddr#, indexIntOffAddr#
-  :: Addr# -> Int -> Int
-indexInt8OffAddr# a i = signed 8 (unsignedAt a 1 i)
-indexInt16OffAddr# a i = signed 16 (unsignedAt a 2 i)
-indexInt32OffAddr# a i = signed 32 (unsignedAt a 4 i)
-indexIntOffAddr# a i = signed 64 (unsignedAt a 8 i)
-
-indexWord8OffAddr#, indexWord16OffAddr#, indexWord32OffAddr# :: Addr# -> Int -> Word
-indexWord8OffAddr# a i = fromIntegral (unsignedAt a 1 i)
-indexWord16OffAddr# a i = fromIntegral (unsignedAt a 2 i)
-indexWord32OffAddr# a i = fromIntegral (unsignedAt a 4 i)
-
-indexCharOffAddr# :: Addr# -> Int -> Char
-indexCharOffAddr# a i = toEnum (byteAt a i)
 
 int8ToInt#, int16ToInt#, int32ToInt#, int64ToInt#, intToInt8#, intToInt16#,
   intToInt32# :: Int -> Int
@@ -237,6 +217,30 @@ narrow32Word# w = w `mod` 4294967296
 -- and from other types
 data Any
 
+-- A Ptr is an Addr#: both are machine addresses here (GHC.Ptr)
+pattern Ptr :: Addr# -> Ptr a
+pattern Ptr a <- (unsafeCoerce -> a)
+  where Ptr a = unsafeCoerce a
+
+pattern FunPtr :: Addr# -> FunPtr a
+pattern FunPtr a <- (unsafeCoerce -> a)
+  where FunPtr a = unsafeCoerce a
+
+-- TransformListComp's helpers
+sortWith :: Ord b => (a -> b) -> [a] -> [a]
+sortWith f = sortBy (comparing f)
+
+groupWith :: Ord b => (a -> b) -> [a] -> [[a]]
+groupWith f = groupBy (\x y -> f x == f y) . sortWith f
+
+the :: Eq a => [a] -> a
+the (x : xs) | all (== x) xs = x
+the _ = error "GHC.Exts.the: empty list or not all equal"
+
+-- kinds (not checked): GHC's unlifted types' kinds
+data UnliftedType
+data UnliftedRep
+
 shiftL#, shiftRL# :: Word -> Int -> Word
 shiftL# = shiftL
 shiftRL# = shiftR
@@ -279,12 +283,26 @@ geFloat# a b = b2i (a >= b)
 
 -- an Addr# is its bytes here, so addresses compare by contents
 eqAddr#, neAddr#, ltAddr#, leAddr#, gtAddr#, geAddr# :: Addr# -> Addr# -> Int
-eqAddr# (Addr# a) (Addr# b) = b2i (a == b)
-neAddr# (Addr# a) (Addr# b) = b2i (a /= b)
-ltAddr# (Addr# a) (Addr# b) = b2i (a < b)
-leAddr# (Addr# a) (Addr# b) = b2i (a <= b)
-gtAddr# (Addr# a) (Addr# b) = b2i (a > b)
-geAddr# (Addr# a) (Addr# b) = b2i (a >= b)
+eqAddr# a b = eqAddrPrim a b
+neAddr# a b = 1 - eqAddrPrim a b
+ltAddr# a b = ltAddrPrim a b
+leAddr# a b = b2i (ltAddrPrim a b == 1 || eqAddrPrim a b == 1)
+gtAddr# a b = ltAddrPrim b a
+geAddr# a b = b2i (ltAddrPrim a b == 0)
+
+-- The State# token (GHC.PrimOps): realWorld#'s value is never looked at.
+realWorld# :: State# RealWorld
+realWorld# = unsafeCoerce (0 :: Int)
+
+runRW# :: (State# RealWorld -> o) -> o
+runRW# f = f realWorld#
+
+noDuplicate# :: State# s -> State# s
+noDuplicate# s = s
+
+
+keepAlive# :: a -> State# s -> (State# s -> b) -> b
+keepAlive# _ s k = k s
 
 lazy, inline, oneShot :: a -> a
 lazy x = x

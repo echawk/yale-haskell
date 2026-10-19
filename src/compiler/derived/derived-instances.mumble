@@ -273,7 +273,10 @@
 	  ((or (not under)
 	       (not (null? (instance-context under)))
 	       (not (null? (instance-head-args under)))
-	       (eq? (def-module (tycon-def type)) *module-name*))
+	       (eq? (def-module (tycon-def type)) *module-name*)
+	       ;; the class (so the field type's instance, perhaps) is this
+	       ;; module's, not compiled yet
+	       (eq? (def-module class) *module-name*))
 	   ;; otherwise each method is the field type's, coerced
 	   (add-special-derived-instance alg class 'newtype))
 	  (else

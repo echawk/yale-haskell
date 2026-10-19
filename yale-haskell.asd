@@ -171,6 +171,7 @@
                (:file "src/base/text-runtime")
                (:file "src/base/posix-runtime")
                (:file "src/base/parallel-runtime")
+               (:file "src/base/primops-runtime")
                (:file "src/cli/cli")
                (:file "src/cli/startup"))
   :build-operation "program-op"

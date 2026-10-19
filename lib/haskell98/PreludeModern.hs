@@ -23,7 +23,8 @@ module PreludeModern (
     Traversable(traverse, sequenceA, mapM, sequence),
     mapM_, sequence_, concat, concatMap, and, or, any, all, notElem,
     find, maximumBy, minimumBy, WrappedMonad(WrapMonad, unwrapMonad),
-    Word
+    Word,
+    errorWithoutStackTrace
   ) where
 
 import Data.Word (Word)   -- GHC's Prelude exports Word
@@ -492,3 +493,7 @@ instance Foldable (Array i) where
 
 instance Ix i => Traversable (Array i) where
   traverse f a = fmap (listArray (bounds a)) (traverse f (elems a))
+
+-- base's Prelude: error without a call stack (Yale Haskell's errors have none)
+errorWithoutStackTrace :: [Char] -> a
+errorWithoutStackTrace s = error s
