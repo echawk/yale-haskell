@@ -39,6 +39,21 @@
 	   ;; a variable and a type family application that reduces, or
 	   ;; mentions it, or meets a signature's variable (TypeFamilies)
 	   (unify-family type1 type2))
+	  ;; TypeFamilies: the variable occurs in TYPE2 only inside family
+	  ;; applications (m ~ ST (PrimState m)): those become new variables,
+	  ;; the variable is bound, and each new variable is unified with
+	  ;; its application, which may then reduce (PrimState (ST v) = v)
+	  ((and (ntyvar? type1)
+		(not (ntyvar-read-only? type1))
+		(occurs-in-type type1 type2)
+		(not (occurs-outside-families? type1 type2)))
+	   (let* ((pending '())
+		  (abstracted (abstract-family-apps type1 type2
+				(lambda (v app) (push (tuple v app) pending)))))
+	     (unify-1 type1 abstracted)
+	     (dolist (p (reverse pending))
+	       (unify-1 (tuple-2-1 p) (tuple-2-2 p)))
+	     'OK))
 	  ((ntyvar? type1)
 	   (cond ((occurs-in-type type1 type2)
 		  (type-error "Circular type: cannot unify ~A with ~A"
@@ -466,3 +481,33 @@
 	 (append (ast-type-tyvar-names (tyapp-fun type))
 		 (lisp:mapcan (function ast-type-tyvar-names) (tyapp-args type))))
 	(else '())))
+
+;;; Whether TYVAR occurs in TYPE other than inside a type family
+;;; application.
+(define (occurs-outside-families? tyvar type)
+  (let ((type (prune type)))
+    (cond ((family-app? type) '#f)
+	  ((gtype? type) (occurs-outside-families? tyvar (gtype-type type)))
+	  ((gtyvar? type) '#f)
+	  ((ntyvar? type) (eq? type tyvar))
+	  ((ntyapp? type)
+	   (or (occurs-outside-families? tyvar (ntyapp-fun type))
+	       (lisp:some (lambda (a) (occurs-outside-families? tyvar a)) (ntyapp-args type))))
+	  (else
+	   (lisp:some (lambda (a) (occurs-outside-families? tyvar a)) (ntycon-args type))))))
+
+;;; TYPE with each family application that mentions TYVAR replaced by a new
+;;; variable; RECORD gets (variable application) for each.
+(define (abstract-family-apps tyvar type record)
+  (let ((type (prune type)))
+    (cond ((and (family-app? type) (occurs-in-type tyvar type))
+	   (let ((v (**ntyvar)))
+	     (funcall record v type)
+	     v))
+	  ((ntyapp? type)
+	   (**ntyapp (abstract-family-apps tyvar (ntyapp-fun type) record)
+		     (map (lambda (a) (abstract-family-apps tyvar a record)) (ntyapp-args type))))
+	  ((ntycon? type)
+	   (**ntycon (ntycon-tycon type)
+		     (map (lambda (a) (abstract-family-apps tyvar a record)) (ntycon-args type))))
+	  (else type))))

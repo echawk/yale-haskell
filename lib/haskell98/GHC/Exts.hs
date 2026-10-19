@@ -35,7 +35,8 @@ module GHC.Exts (
     IsList(fromList, toList, fromListN), Item, IsString(fromString),
     coerce, Coercible,
     module GHC.PrimOps, module GHC.PrimOpsTyped, UnliftedType, UnliftedRep,
-    Ptr(Ptr), FunPtr(FunPtr), Down(..), sortWith, groupWith, the, realWorld#, runRW#, noDuplicate#, keepAlive#
+    Ptr(Ptr), FunPtr(FunPtr), Down(..), sortWith, groupWith, the, realWorld#, runRW#, noDuplicate#, keepAlive#,
+    atomicModifyMutVar#, atomicModifyMutVar2#, atomicModifyMutVar_#
   ) where
 
 import GHC.IsList (IsList(fromList, toList, fromListN), Item)
@@ -300,6 +301,26 @@ runRW# f = f realWorld#
 noDuplicate# :: State# s -> State# s
 noDuplicate# s = s
 
+
+-- one thread at a time (Control.Parallel's sparks do no IO): a read and
+-- a write.  atomicModifyMutVar2# answers the old value and f's result,
+-- whose first component is the new value.
+atomicModifyMutVar2# :: MutVar# s a -> (a -> c) -> State# s -> (State# s, a, c)
+atomicModifyMutVar2# mv f s =
+  case readMutVar# mv s of
+    (s1, old) -> let r = f old
+                 in case writeMutVar# mv (fstOf r) s1 of s2 -> (s2, old, r)
+  where fstOf r = case unsafeCoerce r of (a, _) -> a
+
+atomicModifyMutVar_# :: MutVar# s a -> (a -> a) -> State# s -> (State# s, a, a)
+atomicModifyMutVar_# mv f s =
+  case readMutVar# mv s of
+    (s1, old) -> let new = f old in case writeMutVar# mv new s1 of s2 -> (s2, old, new)
+
+atomicModifyMutVar# :: MutVar# s a -> (a -> b) -> State# s -> (State# s, c)
+atomicModifyMutVar# mv f s =
+  case atomicModifyMutVar2# mv f s of
+    (s1, _, r) -> (s1, case unsafeCoerce r of (_, c) -> c)
 
 keepAlive# :: a -> State# s -> (State# s -> b) -> b
 keepAlive# _ s k = k s

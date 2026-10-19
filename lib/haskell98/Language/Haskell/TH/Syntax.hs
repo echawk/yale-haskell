@@ -227,6 +227,8 @@ import Data.Word
 import Data.Int
 import Data.Ratio (Ratio)
 import Data.Void (Void)
+import Data.Array.Byte (ByteArray)
+import GHC.IsList (IsList(toList))
 import Numeric.Natural (Natural)
 import Foreign.ForeignPtr
 import Foreign.Ptr
@@ -2787,6 +2789,15 @@ instance Lift Char where
 -- the given memory address.
 --
 -- @since template-haskell-2.16.0.0
+-- GHC lifts the bytes as an Addr# literal; a list of Word8 via
+-- IsList's fromList builds the same array.
+instance Lift ByteArray where
+  liftTyped x = unsafeCodeCoerce (lift x)
+  lift ba = do
+    ws <- lift (toList ba)
+    return (SigE (AppE (VarE (mkNameG_v "base" "GHC.IsList" "fromList")) ws)
+                 (ConT (mkNameG_tc "base" "Data.Array.Byte" "ByteArray")))
+
 instance Lift a => Lift [a] where
   liftTyped x = unsafeCodeCoerce (lift x)
   lift xs = do { xs' <- mapM lift xs; return (ListE xs') }

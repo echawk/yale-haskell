@@ -40,6 +40,10 @@ operations are strict in it) and return the token."
 (cl:defmacro state-and (s value)
   `(cl:progn ,s (make-tuple +state-token+ ,value)))
 
+(cl:defmacro state3 (s a b)
+  "(# token, A, B #)"
+  `(cl:progn ,s (make-tuple +state-token+ ,a ,b)))
+
 ;;; ------------------------------------------------------------------
 ;;; Byte arrays
 
@@ -245,8 +249,8 @@ operations are strict in it) and return the token."
 (cl:defun prim.cas-array# (a i old new s)
   (cl:let ((cur (cl:svref a i)))
     (cl:if (cl:eq cur old)
-           (cl:progn (cl:setf (cl:svref a i) new) (state-and s (make-tuple 0 new)))
-           (state-and s (make-tuple 1 cur)))))
+           (cl:progn (cl:setf (cl:svref a i) new) (state3 s 0 new))
+           (state3 s 1 cur))))
 
 ;;; ------------------------------------------------------------------
 ;;; Mutable variables and MVars
@@ -258,8 +262,8 @@ operations are strict in it) and return the token."
 (cl:defun prim.cas-mut-var# (v old new s)
   (cl:let ((cur (cl:svref v 0)))
     (cl:if (cl:eq cur old)
-           (cl:progn (cl:setf (cl:svref v 0) new) (state-and s (make-tuple 0 new)))
-           (state-and s (make-tuple 1 cur)))))
+           (cl:progn (cl:setf (cl:svref v 0) new) (state3 s 0 new))
+           (state3 s 1 cur))))
 
 (cl:defvar *empty-mvar* (cl:make-symbol "EMPTY-MVAR"))
 (cl:defun prim.new-mvar# (s) (state-and s (cl:vector *empty-mvar*)))
@@ -277,17 +281,17 @@ operations are strict in it) and return the token."
 (cl:defun prim.put-mvar# (v x s)
   (cl:unless (cl:eq (cl:svref v 0) *empty-mvar*) (mvar-blocked))
   (with-state (s) (cl:setf (cl:svref v 0) x)))
-;;; the try forms answer (# s, 0 or 1, value #) as a pair of pairs
+;;; the try forms answer (# s, 0 or 1, value #)
 (cl:defun prim.try-take-mvar# (v s)
   (cl:let ((x (cl:svref v 0)))
     (cl:if (cl:eq x *empty-mvar*)
-           (state-and s (make-tuple 0 0))
-           (cl:progn (cl:setf (cl:svref v 0) *empty-mvar*) (state-and s (make-tuple 1 x))))))
+           (state3 s 0 0)
+           (cl:progn (cl:setf (cl:svref v 0) *empty-mvar*) (state3 s 1 x)))))
 (cl:defun prim.try-read-mvar# (v s)
   (cl:let ((x (cl:svref v 0)))
     (cl:if (cl:eq x *empty-mvar*)
-           (state-and s (make-tuple 0 0))
-           (state-and s (make-tuple 1 x)))))
+           (state3 s 0 0)
+           (state3 s 1 x))))
 (cl:defun prim.try-put-mvar# (v x s)
   (cl:if (cl:eq (cl:svref v 0) *empty-mvar*)
          (cl:progn (cl:setf (cl:svref v 0) x) (state-and s 1))

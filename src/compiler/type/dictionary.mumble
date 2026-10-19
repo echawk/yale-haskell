@@ -66,9 +66,17 @@
       (process-placeholder-1 p deferred decls)))
 
 (define (process-placeholder-1 p deferred decls)
-  (let* ((tyvar (placeholder-tyvar p))
-	 (type (prune tyvar)))
-    (cond ((and (ntycon? type) (family-app? (expand-ntype-synonym type)))
+  (process-placeholder-at p (prune (placeholder-tyvar p)) deferred decls))
+
+(define (process-placeholder-at p type deferred decls)
+  (let ((expanded (if (ntycon? type)
+		      (prune (expand-ntype-synonym type))
+		      type)))
+    (cond ((and (ntycon? type) (not (ntycon? expanded)))
+	   ;; a synonym or family application reducing to a variable or
+	   ;; an application (E (Box a) = a): dispatch on that
+	   (process-placeholder-at p expanded deferred decls))
+	  ((and (ntycon? type) (family-app? (expand-ntype-synonym type)))
 	   ;; a type family application not decided yet (TypeFamilies):
 	   ;; given by the enclosing binding's signature (Size (Rep a) =>),
 	   ;; or left for later
@@ -254,10 +262,13 @@
 	 (dict (dict-ref-code instance)))
     (do-contexts (class ctxt) (ty (instance-arg-types/checked instance type))
       (let ((ntype (prune ty)))
+	;; a synonym or a type family application (Item (Array a)) may
+	;; expand to something else than a constructor: a type variable
+	(when (ntycon? ntype)
+	  (setf ntype (prune (expand-ntype-synonym ntype))))
 	(cond
 	 ((ntycon? ntype)
-	  (mlet ((ntype (expand-ntype-synonym ntype))
-		 (alg (ntycon-tycon ntype))
+	  (mlet ((alg (ntycon-tycon ntype))
 		 (instance (lookup-instance/type alg class ntype))
 		 ((code dv1)
 		  (generate-dict-ref

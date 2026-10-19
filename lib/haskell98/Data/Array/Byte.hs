@@ -46,6 +46,12 @@ instance Show ByteArray where
 instance Semigroup ByteArray where
   a <> b = fromBytes (bytes a ++ bytes b)
 
+instance IsList ByteArray where
+  type Item ByteArray = Word8
+  fromList = fromBytes
+  fromListN _ = fromBytes
+  toList = bytes
+
 instance Monoid ByteArray where
   mempty = fromBytes []
   mconcat as = fromBytes (concatMap bytes as)

@@ -205,7 +205,7 @@ cloneMutableArray# :: MutableArray# s a -> Int -> Int -> State# s -> (State# s, 
 copyArray# :: Array# a -> Int -> MutableArray# s a -> Int -> Int -> State# s -> State# s
 copyMutableArray# :: MutableArray# s a -> Int -> MutableArray# s a -> Int -> Int -> State# s -> State# s
 sameMutableArray# :: MutableArray# s a -> MutableArray# s a -> Int
-casArray# :: MutableArray# s a -> Int -> a -> a -> State# s -> (State# s, (Int, a))
+casArray# :: MutableArray# s a -> Int -> a -> a -> State# s -> (State# s, Int, a)
 newSmallArray# :: Int -> a -> State# s -> (State# s, SmallMutableArray# s a)
 readSmallArray# :: SmallMutableArray# s a -> Int -> State# s -> (State# s, a)
 writeSmallArray# :: SmallMutableArray# s a -> Int -> a -> State# s -> State# s
@@ -222,20 +222,20 @@ cloneSmallMutableArray# :: SmallMutableArray# s a -> Int -> Int -> State# s -> (
 copySmallArray# :: SmallArray# a -> Int -> SmallMutableArray# s a -> Int -> Int -> State# s -> State# s
 copySmallMutableArray# :: SmallMutableArray# s a -> Int -> SmallMutableArray# s a -> Int -> Int -> State# s -> State# s
 sameSmallMutableArray# :: SmallMutableArray# s a -> SmallMutableArray# s a -> Int
-casSmallArray# :: SmallMutableArray# s a -> Int -> a -> a -> State# s -> (State# s, (Int, a))
+casSmallArray# :: SmallMutableArray# s a -> Int -> a -> a -> State# s -> (State# s, Int, a)
 shrinkSmallMutableArray# :: SmallMutableArray# s a -> Int -> State# s -> State# s
 resizeSmallMutableArray# :: SmallMutableArray# s a -> Int -> a -> State# s -> (State# s, SmallMutableArray# s a)
 newMutVar# :: a -> State# s -> (State# s, MutVar# s a)
 readMutVar# :: MutVar# s a -> State# s -> (State# s, a)
 writeMutVar# :: MutVar# s a -> a -> State# s -> State# s
 sameMutVar# :: MutVar# s a -> MutVar# s a -> Int
-casMutVar# :: MutVar# s a -> a -> a -> State# s -> (State# s, (Int, a))
+casMutVar# :: MutVar# s a -> a -> a -> State# s -> (State# s, Int, a)
 newMVar# :: State# s -> (State# s, MVar# s a)
 takeMVar# :: MVar# s a -> State# s -> (State# s, a)
 readMVar# :: MVar# s a -> State# s -> (State# s, a)
 putMVar# :: MVar# s a -> a -> State# s -> State# s
-tryTakeMVar# :: MVar# s a -> State# s -> (State# s, (Int, a))
-tryReadMVar# :: MVar# s a -> State# s -> (State# s, (Int, a))
+tryTakeMVar# :: MVar# s a -> State# s -> (State# s, Int, a)
+tryReadMVar# :: MVar# s a -> State# s -> (State# s, Int, a)
 tryPutMVar# :: MVar# s a -> a -> State# s -> (State# s, Int)
 isEmptyMVar# :: MVar# s a -> State# s -> (State# s, Int)
 sameMVar# :: MVar# s a -> MVar# s a -> Int

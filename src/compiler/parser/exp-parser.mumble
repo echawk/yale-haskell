@@ -698,6 +698,17 @@
 						 (pat (make var-pat (var vp)))
 						 (exp inner))))))))))))
 
+;;; Past a pattern's signature, whether a <- follows it (at bracket depth
+;;; 0, before the statement ends).
+(define (scan-to-larrow depth)
+  (token-case
+   (<- (eqv? depth 0))
+   ((\( \[) (scan-to-larrow (1+ depth)))
+   ((\) \]) (and (> depth 0) (scan-to-larrow (1- depth))))
+   ((\; \} = \| eof |where| |then| |else| |of|) '#f)
+   (\, (and (> depth 0) (scan-to-larrow depth)))
+   (else (advance-token) (scan-to-larrow depth))))
+
 (define (let-qual? q)
   (and (pair? q) (eq? (car q) 'let-qual)))
 
@@ -705,10 +716,13 @@
  (trace-parser qual
   (save-parser-context 
    (let* ((saved-excursion (save-scanner-state))
-	  (is-gen? (and (scan-pat) (eq-token? '<-))))
+	  (is-gen? (and (scan-pat)
+			(or (eq-token? '<-)
+			    ;; ScopedTypeVariables: p :: t <- e
+			    (and (pattern-signature-follows?) (scan-to-larrow 0))))))
     (restore-excursion saved-excursion)
     (cond (is-gen?
-	   (let ((pat (parse-pat)))
+	   (let ((pat (maybe-pattern-signature (parse-pat))))
 	     (advance-token) ; past the <-
 	     (let ((exp (parse-exp)))
 	       (make qual-generator (pat pat) (exp exp)))))
