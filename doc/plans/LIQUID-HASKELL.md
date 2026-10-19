@@ -18,7 +18,13 @@ declarations are not read yet.  Milestone 4 (lists and measures) done,
 list constructors and pattern matches, and specifications for the
 Prelude's list functions (head, tail, !!, length, null, ++, take, drop,
 replicate, map, reverse, filter); refined `data`, measures over other
-data types and `inline` are not done yet.  The rest is design.
+data types and `inline` are not done yet.  Milestone 5 (polymorphism and
+higher-order functions) done, 2026-10-19: refined instantiation of type
+variables at calls (not of list element types, which are untracked),
+lambdas and function names checked against refined function types,
+function-typed parameters, foldr, foldl, zipWith and zip, and Array's
+listArray and (!) at Int indexes (measures alo and ahi).  The rest is
+design.
 
 The aim is a refinement type checker inside Yale Haskell that accepts
 LiquidHaskell's specification language (`{-@ ... @-}` comments), checks

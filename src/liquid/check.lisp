@@ -50,6 +50,14 @@
 ;;;; for [] and (:) that do not use the head); constructors and pattern
 ;;;; matches give their equations.  Calls of the Prelude's list functions
 ;;;; use *library-specs*.
+;;;;
+;;;; Polymorphism (milestone 5): at a call of a function with a refined
+;;;; type, each type variable instantiated at a sort gets a new kvar
+;;;; (refined instantiation), when the call gives it a lower bound and it
+;;;; is not a list's element type; arguments of a function type (lambdas,
+;;;; function names) are checked against the expected refined function
+;;;; type.  Arrays at Int indexes have the measures alo and ahi, their
+;;;; bounds (Array's listArray and (!)).
 
 (in-package :yale-liquid)
 
@@ -120,6 +128,7 @@
       (cond ((member name '("Int" "Integer" "Char") :test #'string=) :int)
             ((string= name "Bool") :bool)
             ((member name '("[]" "String") :test #'string=) :list)
+            ((string= name "Array") :array)
             (t nil)))))
 
 (defun type-reft (type)
@@ -141,9 +150,11 @@
 (defun reft-at (type term su)
   "TYPE's refinement of TERM, binders substituted by SU; :true if none."
   (let ((r (type-reft type)))
-    (if (or (null r) (null term))
-        :true
-        (subst (cdr r) (cons (cons (car r) term) su)))))
+    (cond ((or (null r) (null term)) :true)
+          ;; an instantiated type variable: its kvar is over the binders in
+          ;; scope at the call, not the signature's
+          ((kvar-p (cdr r)) (list :kvar (second (cdr r)) (list (cons (car r) term))))
+          (t (subst (cdr r) (cons (cons (car r) term) su))))))
 
 ;;; ------------------------------------------------------------------
 ;;; Checking one function
@@ -156,6 +167,7 @@
 (defvar *fname*)
 (defvar *obligations*) ; (GOAL HYPS VARS LINE WHAT FNAME), latest first
 (defvar *fresh* 0)
+(defvar *fun-params* '()) ; ((NAME . TYPE) ..): parameters of a refined function type
 (defvar *templates*)        ; top-level NAME -> template
 (defvar *local-templates*)  ; ((NAME . template) ..), innermost first
 (defvar *kvars*)            ; ((KVAR ENV-VARS SORT) ..): each kvar's scope
@@ -171,12 +183,14 @@
     (push (list goal (append *guards* *hyps*) *vars* *line* what *fname*) *obligations*)))
 
 (defun check-function (name params body line type)
-  (let ((*vars* '()) (*hyps* '()) (*guards* '()) (*line* line) (*fname* name))
+  (let ((*vars* '()) (*hyps* '()) (*guards* '()) (*line* line) (*fname* name)
+        (*fun-params* '()))
     (multiple-value-bind (args res) (fun-parts type (length params))
       (let ((su '()))
         (loop for p in params
               for (binder . atype) in args
               do (let ((sort (base-sort atype)))
+                   (when (fun-type-p atype) (push (cons p atype) *fun-params*))
                    (when sort (push (cons p sort) *vars*))
                    (let ((h (reft-at atype p su)))
                      (unless (eq h :true) (push h *hyps*)))
@@ -233,7 +247,15 @@
                (if (string= (second e) ":")
                    (list :> (app "len" x) 0)
                    (list := (app "len" x) 0))))))
-    (:tail (let ((x (eval-body (second e)))) (and x (app "lq_tl" x))))))
+    (:tail (let ((x (eval-body (second e)))) (and x (app "lq_tl" x))))
+    ;; a lambda not passed where a refined function is expected: its body
+    ;; is checked with its parameters unrefined
+    (:lam (destructuring-bind (params psorts rsort body) (rest e)
+            (declare (ignore rsort))
+            (let ((*vars* *vars*) (*hyps* *hyps*) (*guards* *guards*))
+              (loop for p in params for s in psorts when s do (push (cons p s) *vars*))
+              (eval-body body))
+            nil))))
 
 ;;; ------------------------------------------------------------------
 ;;; Lists and measures
@@ -241,7 +263,10 @@
 (defparameter *list-sort* '(:tc "[]" :int))
 (defvar *measures* '())   ; ((NAME NIL-BODY TAIL-BINDER CONS-BODY) ..)
 
-(defun fq-sort (s) (if (eq s :list) *list-sort* s))
+(defparameter *array-sort* '(:tc "Array_t"))
+
+(defun fq-sort (s)
+  (case s (:list *list-sort*) (:array *array-sort*) (t s)))
 
 (defun list-equations (x ctor tl)
   "The measures' equations for X built by CTOR (with tail TL)."
@@ -274,6 +299,8 @@
 (defun measure-consts (specs)
   (append (list (cons "len" (parse-sort-string "func(1, [[@(0)]; int])"))
                 (cons "lq_tl" (parse-sort-string "func(1, [[@(0)]; [@(0)]])")))
+          (list (cons "alo" (parse-sort-string "func(0, [Array_t; int])"))
+                (cons "ahi" (parse-sort-string "func(0, [Array_t; int])")))
           (loop for s in specs
                 when (and (eq (first s) :measure) (string/= (second s) "len"))
                   collect (cons (second s)
@@ -297,11 +324,17 @@
 {-@ assume map :: (a -> b) -> xs:[a] -> {v:[b] | len v = len xs} @-}
 {-@ assume reverse :: xs:[a] -> {v:[a] | len v = len xs} @-}
 {-@ assume filter :: (a -> Bool) -> xs:[a] -> {v:[a] | len v <= len xs} @-}
+{-@ assume foldr :: (a -> b -> b) -> b -> [a] -> b @-}
+{-@ assume Array.listArray :: lo:Int -> hi:Int -> [e] -> {v:Array Int e | alo v = lo && ahi v = hi} @-}
+{-@ assume Array.! :: a:Array Int e -> {v:Int | alo a <= v && v <= ahi a} -> e @-}
+{-@ assume foldl :: (b -> a -> b) -> b -> [a] -> b @-}
+{-@ assume zipWith :: (a -> b -> c) -> xs:[a] -> ys:[b] -> {v:[c] | len v = (if len xs <= len ys then len xs else len ys)} @-}
+{-@ assume zip :: xs:[a] -> ys:[b] -> {v:[(a, b)] | len v = (if len xs <= len ys then len xs else len ys)} @-}
 ")
 
 (defun library-specs ()
   (mapcar (lambda (s)
-            (if (eq (first s) :assume)
+            (if (and (eq (first s) :assume) (not (search "Array." (second s))))
                 (list :assume (concatenate 'string "Prelude." (second s)) (third s))
                 s))
           (values (parse-spec-text *library-spec-text*))))
@@ -328,27 +361,173 @@
         (t (cons op terms))))
 
 (defun eval-call (f sort args)
-  (let ((terms (mapcar #'eval-body args))
-        (sig (gethash f *sigs*))
-        (tm (lookup-template f)))
+  (let ((fp (assoc f *fun-params* :test #'string=))
+        (tm (lookup-template f))
+        (sig (gethash f *sigs*)))
     (cond
-      (tm (call-template f tm sort terms))
-      ((null sig) (and sort (fresh-var sort)))
-      (t
-        (multiple-value-bind (params res) (fun-parts (car sig) (length args))
+      (fp (call-sig f (cdr fp) sort args))
+      (tm (call-template f tm sort (mapcar #'eval-body args)))
+      ((null sig) (mapc #'eval-body args) (and sort (fresh-var sort)))
+      (t (call-sig f (car sig) sort args)))))
+
+(defun call-sig (f type sort args)
+  "A call of F, of refined type TYPE: its type variables are instantiated
+with kvars, arguments of a function type are checked against it, the
+others must satisfy their refinements."
+  (let ((type (instantiate-call type sort args)))
+        (multiple-value-bind (params res) (fun-parts type (length args))
           (let ((su '()))
             (loop for (binder . atype) in params
-                  for term in terms
+                  for a in args
                   for i from 1
-                  do (let ((term (or term (and (type-reft atype) (fresh-var (base-sort atype))))))
-                       (oblige (reft-at atype term su)
-                               (format nil "argument ~d of ~a" i f))
-                       (when term (push (cons binder term) su))))
+                  do (if (fun-type-p atype)
+                         (check-fun-arg a atype su (format nil "argument ~d of ~a" i f))
+                         (let ((term (or (eval-body a)
+                                         (and (type-reft atype) (fresh-var (base-sort atype))))))
+                           (oblige (reft-at atype term su)
+                                   (format nil "argument ~d of ~a" i f))
+                           (when term (push (cons binder term) su)))))
             (let ((r (and (or sort (base-sort res)) (fresh-var (or sort (base-sort res))))))
               (when r
                 (let ((h (reft-at res r su)))
                   (unless (eq h :true) (push h *hyps*))))
-              r)))))))
+              r)))))
+
+;;; ------------------------------------------------------------------
+;;; Polymorphism and higher-order functions (milestone 5)
+
+(defun fun-type-p (type)
+  (and (consp type) (eq (first (strip-forall type)) :fun)))
+
+(defun strip-at (e)
+  (if (eq (first e) :at) (strip-at (third e)) e))
+
+(defun exp-sort (e)
+  "The sort of expression E, from its syntax."
+  (case (first e)
+    (:var (cdr (assoc (second e) *vars* :test #'string=)))
+    (:int :int)
+    (:bool :bool)
+    ((:nil :cons :tail) :list)
+    (:is :bool)
+    (:at (exp-sort (third e)))
+    ((:unknown :if :sorted) (second e))
+    (:call (third e))
+    (:let (exp-sort (fifth e)))
+    (:prim (if (member (second e) '(:+ :- :* :neg :div :mod)) :int :bool))
+    (t nil)))
+
+(defun match-tyvars (type e table)
+  "Record in TABLE the sorts at which expression E instantiates TYPE's
+type variables."
+  (case (and (consp type) (first type))
+    (:var (let ((s (exp-sort e)))
+            (when (and s (not (gethash (second type) table)))
+              (setf (gethash (second type) table) s))))
+    (:fun (let ((e (strip-at e)))
+            (when (eq (first e) :lam)
+              (let ((ty type))
+                (dolist (s (third e))
+                  (when (and (consp ty) (eq (first ty) :fun))
+                    (match-tyvars (third ty) (list :sorted s) table)
+                    (setf ty (fourth ty))))
+                (match-tyvars ty (list :sorted (fourth e)) table)))))))
+
+(defun instantiable-tyvars (type)
+  "The type variables of function type TYPE that get a lower bound at a
+call (an argument of that type, or a function argument's result) and do
+not occur inside a type constructor (list elements are not tracked)."
+  (let ((lower '()) (in-con '()))
+    (labels ((vars-in (ty)
+               (when (consp ty)
+                 (case (first ty)
+                   (:var (pushnew (second ty) in-con :test #'string=))
+                   (:con (mapc #'vars-in (third ty)))
+                   (:fun (vars-in (third ty)) (vars-in (fourth ty)))
+                   (:forall (vars-in (fourth ty))))))
+             (walk (ty)
+               (when (consp ty)
+                 (case (first ty)
+                   (:con (mapc #'vars-in (third ty)))
+                   (:fun (walk (third ty)) (walk (fourth ty)))
+                   (:forall (walk (fourth ty)))))))
+      (walk type)
+      (let ((ty (strip-forall type)))
+        (loop while (and (consp ty) (eq (first ty) :fun))
+              do (let ((a (strip-forall (third ty))))
+                   (when (eq (first a) :var) (pushnew (second a) lower :test #'string=))
+                   (when (eq (first a) :fun)
+                     (let ((r (nth-value 1 (fun-parts a most-positive-fixnum))))
+                       (when (eq (first r) :var) (pushnew (second r) lower :test #'string=)))))
+                 (setf ty (fourth ty)))))
+    (set-difference lower in-con :test #'string=)))
+
+(defun instantiate-call (type sort args)
+  "TYPE with each of its type variables that a call (with result SORT and
+arguments ARGS) instantiates at a sort replaced by a base type refined by
+a new kvar over the binders in scope."
+  (let ((table (make-hash-table :test #'equal))
+        (ok (instantiable-tyvars type)))
+    (multiple-value-bind (params res) (fun-parts type (length args))
+      (loop for (nil . atype) in params
+            for a in args
+            do (match-tyvars atype a table))
+      (match-tyvars res (list :sorted sort) table))
+    (let ((scope (scope-vars)) (ks (make-hash-table :test #'equal)))
+      (labels ((walk (ty)
+                 (if (atom ty)
+                     ty
+                     (case (first ty)
+                       (:var (let ((s (gethash (second ty) table)))
+                               (if (and s (member (second ty) ok :test #'string=))
+                                   (list :con (ecase s (:int "Int") (:bool "Bool") (:list "[]"))
+                                         '() '()
+                                         (cons *kvv*
+                                               (list :kvar
+                                                     (or (gethash (second ty) ks)
+                                                         (setf (gethash (second ty) ks)
+                                                               (new-kvar scope s)))
+                                                     '()))
+                                         '())
+                                   ty)))
+                       (:fun (list :fun (second ty) (walk (third ty)) (walk (fourth ty))))
+                       (:forall (walk (fourth ty)))
+                       (t ty)))))
+        (walk type)))))
+
+(defun check-fun-arg (arg ftype su what)
+  "ARG is passed where a function of refined type FTYPE (binders of the
+callee's earlier parameters substituted by SU) is expected: applied to
+arguments satisfying FTYPE's parameters, its result must satisfy FTYPE's
+result.  ARG is a lambda or a function's name; anything else is opaque."
+  (let ((*vars* *vars*) (*hyps* *hyps*) (*guards* *guards*) (*fun-params* *fun-params*)
+        (e (strip-at arg)))
+    (multiple-value-bind (fparams fres) (fun-parts ftype most-positive-fixnum)
+      (let* ((n (length fparams))
+             (lam (and (eq (first e) :lam) (= (length (second e)) n)))
+             (named (and (eq (first e) :call) (null (cdddr e))))
+             (names (if lam
+                        (second e)
+                        (loop repeat n collect (format nil "lq_a~d" (incf *fresh*))))))
+        (when (and (eq (first e) :lam) (not lam))
+          (eval-body e))
+        (loop for x in names
+              for (binder . ptype) in fparams
+              for i from 0
+              do (let ((s (or (base-sort ptype) (and lam (nth i (third e))))))
+                   (when s
+                     (push (cons x s) *vars*)
+                     (let ((h (reft-at ptype x su)))
+                       (unless (eq h :true) (push h *hyps*))))
+                   (when (fun-type-p ptype) (push (cons x ptype) *fun-params*))
+                   (push (cons binder x) su)))
+        (let ((term (cond (lam (eval-body (fifth e)))
+                          (named (eval-call (second e) (base-sort fres)
+                                            (mapcar (lambda (x) (list :var x)) names)))
+                          (t nil))))
+          (when (and (null term) (base-sort fres) (type-reft fres))
+            (setf term (fresh-var (base-sort fres))))
+          (oblige (reft-at fres term su) (format nil "the result of ~a" what)))))))
 
 ;;; ------------------------------------------------------------------
 ;;; The program
@@ -536,7 +715,7 @@ variables (all taken to be Int) its parameters, the value variable first."
                        (push (make-fq-qual
                               :name (format nil "Spec~d" (incf i))
                               :params (mapcar (lambda (x)
-                                                (list x (if (measure-arg-p x a) *list-sort* :int) nil))
+                                                (list x (measure-arg-sort x a) nil))
                                               (cons vv (remove vv fv :test #'string=)))
                               :body a)
                              qs))))))
@@ -553,11 +732,18 @@ variables (all taken to be Int) its parameters, the value variable first."
           (:type-alias (walk (fifth s))))))
     (nreverse qs)))
 
-(defun measure-arg-p (x e)
-  "Is X an argument of an application in E (so a list, a measure's)?"
-  (and (consp e)
-       (or (and (eq (first e) :app) (member x (cddr e) :test #'equal))
-           (some (lambda (y) (measure-arg-p x y)) (rest e)))))
+(defun measure-arg-sort (x e)
+  "X's sort in atom E: an array or a list when it is a measure's argument,
+else Int."
+  (labels ((find-app (e)
+             (and (consp e)
+                  (if (and (eq (first e) :app) (member x (cddr e) :test #'equal))
+                      (second e)
+                      (some #'find-app (rest e))))))
+    (let ((m (find-app e)))
+      (cond ((null m) :int)
+            ((member m '("alo" "ahi") :test #'equal) *array-sort*)
+            (t *list-sort*)))))
 
 (defun solve-obligations (obligations specs)
   "Solve OBLIGATIONS, (GOAL HYPS VARS LINE WHAT) each, with fixpoint.lisp;

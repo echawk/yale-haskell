@@ -126,7 +126,7 @@
 (define (liquid-var-name def)
   (symbol->string (def-name def)))
 
-;;; The sort of a type: :int, :bool, :list or #f.
+;;; The sort of a type: :int, :bool, :list, :array or #f.
 (define (liquid-sort type)
   (let ((ty (cond ((gtype? type) (gtype-type type))
 		  (else type))))
@@ -137,6 +137,7 @@
 	   ':int)
 	  ((eq? (ntycon-tycon ty) (core-symbol "Bool")) ':bool)
 	  ((eq? (ntycon-tycon ty) (core-symbol "List")) ':list)
+	  ((string=? (symbol->string (def-name (ntycon-tycon ty))) "Array") ':array)
 	  (else '#f))))
 
 (define (liquid-exp-sort e)
@@ -210,26 +211,36 @@
 		(list ':cons (liquid-exp (car args) names locals)
 		      (liquid-exp (cadr args) names locals)))
 	       ((not (var-ref? fn))
-		(list ':unknown sort))
+		(liquid-opaque-call sort args names locals))
 	       (else
 		(let* ((def (var-ref-var fn))
 		       (op (liquid-op def (length args))))
-		  (cond ((and (liquid-fromInteger? def) (eqv? (length args) 1)
+		  (cond ((liquid-array-call def args sort names locals))
+			((and (liquid-fromInteger? def) (eqv? (length args) 1)
 			      (integer-const? (car args)))
 			 (list ':int (integer-const-value (car args))))
 			(op (cons ':prim
 				  (cons op (map (lambda (a) (liquid-exp a names locals)) args))))
-			((and (not (memq def locals)) (liquid-callee def names))
+			((or (memq def locals) (liquid-callee def names))
 			 (cons ':call
-			       (cons (liquid-callee def names)
+			       (cons (if (memq def locals)
+					 (liquid-var-name def)
+					 (liquid-callee def names))
 				     (cons sort
 					   (map (lambda (a) (liquid-exp a names locals)) args)))))
-			(else (list ':unknown sort))))))))
+			(else (liquid-opaque-call sort args names locals))))))))
 	  ((is-type? 'if e)
 	   (list ':if sort
 		 (liquid-exp (if-test-exp e) names locals)
 		 (liquid-exp (if-then-exp e) names locals)
 		 (liquid-exp (if-else-exp e) names locals)))
+	  ((and (is-type? 'lambda e) (every (function var-pat?) (lambda-pats e)))
+	   (let ((params (map (lambda (p) (var-ref-var (var-pat-var p))) (lambda-pats e))))
+	     (list ':lam
+		   (map (function liquid-var-name) params)
+		   (map (lambda (p) (liquid-sort (var-type p))) params)
+		   (liquid-exp-sort (lambda-body e))
+		   (liquid-exp (lambda-body e) names (append params locals)))))
 	  ;; pattern matching on lists (cfn's case-block)
 	  ((is-type? 'case-block e)
 	   (liquid-case-block (case-block-exps e) sort names locals))
@@ -265,6 +276,42 @@
 		 (list ':letrec funs (liquid-exp (let-body e) names locals)))))
 	  (else (list ':unknown sort)))))
 
+;;; A call of something unknown: its value is unconstrained, but its
+;;; arguments are still checked.
+(define (liquid-opaque-call sort args names locals)
+  (cons ':call
+	(cons "?" (cons sort (map (lambda (a) (liquid-exp a names locals)) args)))))
+
+;;; Array's listArray and (!) at Int indexes: the Ix Int dictionary is
+;;; dropped and the bounds pair is passed as two arguments (their
+;;; specifications are yale-liquid's, under Array.NAME).
+(define (liquid-array-call def args sort names locals)
+  (let ((s (symbol->string (def-name def))))
+    (and (member s '("listArray" "!"))
+	 (def-module def)
+	 (lisp:search "Array" (symbol->string (def-module def)))
+	 (not (null? args))
+	 (var-ref? (car args))
+	 (string=? (symbol->string (def-name (var-ref-var (car args)))) "dict-Ix-Int")
+	 (cons ':call
+	       (cons (string-append "Array." s)
+		     (cons sort
+			   (map (lambda (a) (liquid-exp a names locals))
+				(liquid-flatten-pairs (cdr args)))))))))
+
+(define (liquid-flatten-pairs args)
+  (cond ((null? args) '())
+	((liquid-pair? (car args))
+	 (cons (app-arg (app-fn (car args)))
+	       (cons (app-arg (car args)) (liquid-flatten-pairs (cdr args)))))
+	(else (cons (car args) (liquid-flatten-pairs (cdr args))))))
+
+(define (liquid-pair? e)
+  (and (app? e) (app? (app-fn e))
+       (con-ref? (app-fn (app-fn e)))
+       (is-tuple-constructor? (con-ref-con (app-fn (app-fn e))))
+       (eqv? (tuple-constructor-arity (con-ref-con (app-fn (app-fn e)))) 2)))
+
 (define (liquid-lets decls body names locals)
   (if (null? decls)
       (liquid-exp body names locals)
@@ -296,13 +343,15 @@
 ;;; yale-liquid's *library-specs*, under Prelude.NAME.
 (define *liquid-library-functions*
   '("head" "tail" "!!" "length" "++" "take" "drop" "replicate" "map"
-    "null" "reverse" "filter"))
+    "null" "reverse" "filter" "foldr" "foldl" "zipWith" "zip"))
 
 (define (liquid-callee def names)
   (let ((s (symbol->string (def-name def))))
     (cond ((memq (def-name def) names) s)
-	  ((and (def-module def)
-		(string-starts? "Prelude" (symbol->string (def-module def)))
+	  ((and (or (def-prelude? def)
+		    (def-core? def)
+		    (and (def-module def)
+			 (string-starts? "Prelude" (symbol->string (def-module def)))))
 		(member s *liquid-library-functions*))
 	   (string-append "Prelude." s))
 	  (else '#f))))
