@@ -31,8 +31,7 @@
 ;;;; its result is a new variable with the result's refinement; div and
 ;;;; mod need a nonzero divisor; if's branches are evaluated under its
 ;;;; condition; the body's term must satisfy the result's refinement.  Each
-;;;; obligation is one Z3 validity check.  Termination is assumed, as
-;;;; LiquidHaskell does with --no-termination.
+;;;; obligation is one Z3 validity check.
 ;;;;
 ;;;; Inference (milestone 3): a function without a signature gets a
 ;;;; template, a refined type whose refinements are unknowns (kvars).  A
@@ -58,6 +57,16 @@
 ;;;; function names) are checked against the expected refined function
 ;;;; type.  Arrays at Int indexes have the measures alo and ahi, their
 ;;;; bounds (Array's listArray and (!)).
+;;;;
+;;;; Termination (milestone 6): at each recursive call of a function by
+;;;; itself, a metric of its arguments must be smaller than of its
+;;;; parameters, which must not be negative there.  The metric is the signature's
+;;;; / [e1, ..] (lexicographic), else the first that works of: an Int
+;;;; parameter, a list parameter's len, and the difference of an Int
+;;;; parameter and an Int binder in scope (a loop counting up to n).  These
+;;;; are checked after the kvars are solved, with their solution.  A
+;;;; function named in `lazy` is not checked; recursive values (no
+;;;; parameters) are not either.
 
 (in-package :yale-liquid)
 
@@ -65,8 +74,10 @@
   name line what goal)
 
 (defun failure-message (f)
-  (format nil "~a: ~a~%  needs ~a" (failure-name f) (failure-what f)
-          (expr->string (failure-goal f))))
+  (if (failure-goal f)
+      (format nil "~a: ~a~%  needs ~a" (failure-name f) (failure-what f)
+              (expr->string (failure-goal f)))
+      (format nil "~a: ~a" (failure-name f) (failure-what f))))
 
 ;;; ------------------------------------------------------------------
 ;;; Refined types
@@ -167,6 +178,11 @@
 (defvar *fname*)
 (defvar *obligations*) ; (GOAL HYPS VARS LINE WHAT FNAME), latest first
 (defvar *fresh* 0)
+(defvar *defining* '())  ; (DEF ..), the functions whose bodies are being checked,
+                         ; innermost first; DEF = (NAME PARAMS PSORTS METRIC SCOPE LINE)
+(defvar *term-sites* '()); ((DEF ARG-TERMS HYPS VARS LINE) ..): recursive calls
+(defvar *metrics*)       ; NAME -> the signature's metric
+(defvar *lazy* '())      ; names not checked for termination
 (defvar *fun-params* '()) ; ((NAME . TYPE) ..): parameters of a refined function type
 (defvar *templates*)        ; top-level NAME -> template
 (defvar *local-templates*)  ; ((NAME . template) ..), innermost first
@@ -184,8 +200,17 @@
 
 (defun check-function (name params body line type)
   (let ((*vars* '()) (*hyps* '()) (*guards* '()) (*line* line) (*fname* name)
-        (*fun-params* '()))
+        (*fun-params* '()) (*defining* *defining*))
     (multiple-value-bind (args res) (fun-parts type (length params))
+      (push (list name params (mapcar (lambda (a) (base-sort (cdr a))) args)
+                  (let ((m (gethash name *metrics*)))
+                    (and m (mapcar (lambda (e)
+                                     (subst e (loop for p in params
+                                                    for (b) in args
+                                                    collect (cons b p))))
+                                   m)))
+                  '() line)
+            *defining*)
       (let ((su '()))
         (loop for p in params
               for (binder . atype) in args
@@ -248,6 +273,7 @@
                    (list :> (app "len" x) 0)
                    (list := (app "len" x) 0))))))
     (:tail (let ((x (eval-body (second e)))) (and x (app "lq_tl" x))))
+    (:term (second e))
     ;; a lambda not passed where a refined function is expected: its body
     ;; is checked with its parameters unrefined
     (:lam (destructuring-bind (params psorts rsort body) (rest e)
@@ -361,6 +387,21 @@
         (t (cons op terms))))
 
 (defun eval-call (f sort args)
+  (let ((def (assoc f *defining* :test #'string=)))
+    ;; a recursive call: its arguments' terms are kept for the termination check
+    (when (and def (second def) (= (length args) (length (second def)))
+               (not (member f *lazy* :test #'string=)))
+      (setf args (mapcar (lambda (a)
+                           (if (eq (first (strip-at a)) :lam)
+                               a
+                               (list :term (eval-body a) (exp-sort a))))
+                         args))
+      (push (list def (mapcar (lambda (a) (and (eq (first a) :term) (second a))) args)
+                  (append *guards* *hyps*) *vars* *line*)
+            *term-sites*)))
+  (eval-call-1 f sort args))
+
+(defun eval-call-1 (f sort args)
   (let ((fp (assoc f *fun-params* :test #'string=))
         (tm (lookup-template f))
         (sig (gethash f *sigs*)))
@@ -412,6 +453,7 @@ others must satisfy their refinements."
     (:is :bool)
     (:at (exp-sort (third e)))
     ((:unknown :if :sorted) (second e))
+    (:term (third e))
     (:call (third e))
     (:let (exp-sort (fifth e)))
     (:prim (if (member (second e) '(:+ :- :* :neg :div :mod)) :int :bool))
@@ -538,6 +580,10 @@ obligations), in program order."
   (let* ((specs (append (library-specs) specs))
          (*sigs* (spec-signatures specs))
          (*measures* (spec-measures specs))
+         (*metrics* (spec-metrics specs))
+         (*lazy* (loop for s in specs when (eq (first s) :lazy) collect (second s)))
+         (*term-sites* '())
+         (*defining* '())
         (*templates* (make-hash-table :test #'equal))
         (*local-templates* '())
         (*kvars* '())
@@ -560,7 +606,106 @@ obligations), in program order."
           (cond ((and sig (cdr sig)) (check-function name params body line (car sig)))
                 (tm (check-template-function name params body line tm)))
           (setf obligations (append obligations (reverse *obligations*))))))
-    (solve-obligations obligations specs)))
+    (multiple-value-bind (failures solution) (solve-obligations obligations specs)
+      (append failures (check-termination solution specs)))))
+
+;;; ------------------------------------------------------------------
+;;; Termination
+
+(defun spec-metrics (specs)
+  (let ((table (make-hash-table :test #'equal)))
+    (dolist (s specs)
+      (when (and (eq (first s) :sig) (fourth s))
+        (dolist (n (second s)) (setf (gethash n table) (fourth s)))))
+    table))
+
+(defun lex-decrease (new old)
+  "NEW (a metric's terms at a call) is lexicographically smaller than OLD
+(the caller's), which is not negative there: a descending chain of
+non-negative integers is finite."
+  (if (null new)
+      :false
+      (pred-or (pred-and (list :<= 0 (first old)) (list :< (first new) (first old)))
+               (pred-and (list := (first new) (first old))
+                         (lex-decrease (rest new) (rest old))))))
+
+(defun default-metrics (def)
+  (destructuring-bind (name params psorts metric scope line) def
+    (declare (ignore name metric line))
+    (let ((ints (loop for p in params for s in psorts when (eq s :int) collect p))
+          (others (loop for (x . s) in scope
+                        when (and (eq s :int) (not (member x params :test #'string=)))
+                          collect x)))
+      (append (mapcar #'list ints)
+              (loop for p in params for s in psorts
+                    when (eq s :list) collect (list (app "len" p)))
+              (loop for p in ints
+                    append (loop for x in (append others (remove p ints :test #'string=))
+                                 collect (list (list :- x p))
+                                 collect (list (list :- p x))))))))
+
+(defun apply-kvar-solution (p solution)
+  (map-expr (lambda (e)
+              (if (kvar-p e)
+                  (multiple-value-bind (q found) (gethash (second e) solution)
+                    (if found (subst q (third e)) :true))
+                  e))
+            p))
+
+(defun check-termination (solution specs)
+  "The failures of the recursive functions whose metric does not
+decrease at their recursive calls."
+  (let ((defs '()) (failures '()) (consts (measure-consts specs)))
+    (dolist (site (reverse *term-sites*))
+      (pushnew (first site) defs :test #'eq))
+    (when defs
+      (with-z3 (z)
+        (flet ((decreases-p (metric site)
+                 (destructuring-bind (def terms hyps vars line) site
+                   (declare (ignore line))
+                   (let* ((su (loop for p in (second def) for tm in terms collect (cons p tm)))
+                          (new (mapcar (lambda (e) (subst e su)) metric)))
+                     (and (notany (lambda (pt) (null (cdr pt)))
+                                  (remove-if-not (lambda (pt)
+                                                   (some (lambda (e) (member (car pt) (free-vars e)
+                                                                             :test #'string=))
+                                                         metric))
+                                                 su))
+                          (eq (check-valid
+                               (lex-decrease new metric)
+                               :hyps (append
+                                      (loop for (x . s) in vars
+                                            when (eq s :list) collect (list :>= (app "len" x) 0))
+                                      (mapcar (lambda (h) (apply-kvar-solution h solution)) hyps))
+                               :vars (mapcar (lambda (p) (cons (car p) (fq-sort (cdr p))))
+                                             (remove-duplicates vars :key #'car :test #'string=
+                                                                     :from-end t))
+                               :consts consts :z3 z)
+                              :valid))))))
+          (dolist (def (reverse defs))
+            (let ((sites (remove-if-not (lambda (s) (eq (first s) def)) *term-sites*))
+                  (name (first def)))
+              (if (fourth def)
+                  (dolist (site (reverse sites))
+                    (unless (decreases-p (fourth def) site)
+                      (push (make-failure name (fifth site)
+                                          "termination: the metric does not decrease"
+                                          (lex-decrease
+                                           (mapcar (lambda (e)
+                                                     (subst e (loop for p in (second def)
+                                                                    for tm in (second site)
+                                                                    collect (cons p tm))))
+                                                   (fourth def))
+                                           (fourth def)))
+                            failures)))
+                  (unless (some (lambda (m) (every (lambda (site) (decreases-p m site)) sites))
+                                (default-metrics def))
+                    (push (make-failure name (sixth def)
+                                        (format nil "termination: no argument decreases at ~
+its recursive calls (give a metric, ~a :: .. / [..], or declare it lazy)" name)
+                                        nil)
+                          failures))))))))
+    (nreverse failures)))
 
 ;;; ------------------------------------------------------------------
 ;;; Templates
@@ -625,7 +770,9 @@ of the formals."
                 (format nil "the result of ~a" name))))))
 
 (defun check-template-function (name params body line tm)
-  (let ((*vars* '()) (*hyps* '()) (*guards* '()) (*line* line) (*fname* name))
+  (let ((*vars* '()) (*hyps* '()) (*guards* '()) (*line* line) (*fname* name)
+        (*defining* (cons (list name params (mapcar #'second (template-params tm)) nil '() line)
+                          *defining*)))
     (check-template-body name params body tm)))
 
 (defun eval-letrec (funs body)
@@ -637,9 +784,11 @@ of the formals."
         (push (cons name (make-template* scope (mapcar (constantly t) params) psorts rsort))
               *local-templates*)))
     (dolist (f funs)
-      (destructuring-bind (name params fbody line &rest sorts) f
-        (declare (ignore sorts))
-        (let ((*vars* *vars*) (*hyps* *hyps*) (*guards* *guards*) (*line* (or line *line*)))
+      (destructuring-bind (name params fbody line psorts rsort) f
+        (declare (ignore rsort))
+        (let ((*vars* *vars*) (*hyps* *hyps*) (*guards* *guards*) (*line* (or line *line*))
+              (*defining* (cons (list name params psorts nil scope (or line *line*))
+                                *defining*)))
           (check-template-body name params fbody (cdr (assoc name *local-templates*
                                                              :test #'string=))))))
     (eval-body body)))
@@ -749,7 +898,7 @@ else Int."
   "Solve OBLIGATIONS, (GOAL HYPS VARS LINE WHAT) each, with fixpoint.lisp;
 the failures of the ones with concrete goals."
   (when (null obligations)
-    (return-from solve-obligations '()))
+    (return-from solve-obligations (values '() (make-hash-table :test #'equal))))
   (let* ((info (make-fq-info))
          (ids (make-hash-table :test #'equal))
          (next 0))
@@ -792,9 +941,11 @@ the failures of the ones with concrete goals."
     (let ((result (solve-fq info)))
       (when (eq (result-status result) :crash)
         (error "liquid: the fixpoint solver failed: ~a" (result-message result)))
-      (loop for o in obligations
-            for id from 1
-            when (member id (result-unsafe-ids result))
-              collect (destructuring-bind (goal hyps vars line what fname) o
-                        (declare (ignore hyps vars))
-                        (make-failure fname line what goal))))))
+      (values
+       (loop for o in obligations
+             for id from 1
+             when (member id (result-unsafe-ids result))
+               collect (destructuring-bind (goal hyps vars line what fname) o
+                         (declare (ignore hyps vars))
+                         (make-failure fname line what goal)))
+       (result-solution result)))))

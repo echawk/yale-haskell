@@ -23,10 +23,14 @@ higher-order functions) done, 2026-10-19: refined instantiation of type
 variables at calls (not of list element types, which are untracked),
 lambdas and function names checked against refined function types,
 function-typed parameters, foldr, foldl, zipWith and zip, and Array's
-listArray and (!) at Int indexes (measures alo and ahi).  The rest is
-design.
+listArray and (!) at Int indexes (measures alo and ahi).  Milestone 6
+(termination) done, 2026-10-19: each self-recursive call must decrease a
+metric that is non-negative at the caller: the signature's `/ [..]`
+(lexicographic), else the first that works of an Int parameter, a list
+parameter's `len`, and the difference of an Int parameter and an Int
+binder in scope; `lazy` turns the check off.  The rest is design.
 
-Known limits of milestones 2-5, to be lifted later:
+Known limits of milestones 2-6, to be lifted later:
 - **Error reports.** An error is reported at the line of the function it
   is in, not of the expression (cfn's nodes mostly have no source
   positions), and its message names the checker's own variables
@@ -56,8 +60,13 @@ Known limits of milestones 2-5, to be lifted later:
   above, `foldr`, `foldl`, `zipWith`, `zip`, and Array's `listArray` and
   `(!)` with Int indexes (not `bounds`, `array`, `//`, or other index
   types); other library functions are unconstrained.
-- **Termination** is assumed (milestone 6), as LiquidHaskell's
-  `--no-termination`.
+- **Termination.** Only a function's calls of itself are checked:
+  mutual recursion (between top-level functions, or local functions of
+  one group) and recursive values with no parameters (`ones = 1 : ones`)
+  are assumed to terminate.  Without a written metric only the default
+  candidates above are tried (no `n - i + 1`, no sums).  `data size`,
+  `autosize` and `lazyvar` are not supported, and a recursive function
+  passed as a value is not checked at the calls through it.
 
 The aim is a refinement type checker inside Yale Haskell that accepts
 LiquidHaskell's specification language (`{-@ ... @-}` comments), checks
