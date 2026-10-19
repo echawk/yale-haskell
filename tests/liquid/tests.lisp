@@ -9,9 +9,7 @@
 ;;;;      lh/expected-parse-failures.txt);
 ;;;;   3. with Z3: validity checks, and the fixpoint solver over the vendored
 ;;;;      liquid-fixpoint tests (pos SAFE, neg UNSAFE, except those listed
-;;;;      in fq/expected-failures.txt);
-;;;;   4. with Z3 and SWI-Prolog: differential testing of the SMT encoding
-;;;;      against the clpfd backend on random integer formulas.
+;;;;      in fq/expected-failures.txt).
 ;;;; It returns true when nothing failed.  Missing solvers skip their parts
 ;;;; with a note.
 
@@ -25,7 +23,7 @@
    #:parse-spec-string #:parse-spec-text #:extract-spec-comments
    #:check-valid #:solve-fq-file #:result-status #:result-solution
    #:result-unsafe-ids #:result-message
-   #:z3-available-p #:swipl-available-p #:prolog-check-valid
+   #:z3-available-p
    #:liquid-parse-error)
   (:export #:run-all))
 
@@ -288,52 +286,6 @@ here instead of reporting them (see RECORD-EXPECTED-PARSE-FAILURES).")
           (when xpass (format t "  note: listed but now right: ~{~a~^ ~}~%" xpass)))))))
 
 ;;; ------------------------------------------------------------------
-;;; 4. Differential testing: Z3 against the clpfd backend
-
-(defun random-elt (xs state) (nth (random (length xs) state) xs))
-
-(defun random-int-expr (depth state)
-  (if (or (zerop depth) (< (random 10 state) 3))
-      (if (< (random 2 state) 1) (random-elt '("x" "y" "z") state) (- (random 7 state) 3))
-      (let ((op (random-elt '(:+ :- :* :/ :mod :ite) state)))
-        (case op
-          (:ite (list :ite (random-bool-expr (1- depth) state)
-                      (random-int-expr (1- depth) state) (random-int-expr (1- depth) state)))
-          ;; nonzero divisors: SMT-LIB leaves x div 0 unspecified
-          ((:/ :mod) (list op (random-int-expr (1- depth) state) (random-elt '(2 3 -2 -3) state)))
-          (t (list op (random-int-expr (1- depth) state) (random-int-expr (1- depth) state)))))))
-
-(defun random-bool-expr (depth state)
-  (if (or (zerop depth) (< (random 10 state) 4))
-      (if (< (random 6 state) 1)
-          "b"
-          (list (random-elt '(:= :/= :< :<= :> :>=) state)
-                (random-int-expr 2 state) (random-int-expr 2 state)))
-      (let ((op (random-elt '(:and :or :not :=> :<=>) state)))
-        (if (eq op :not)
-            (list :not (random-bool-expr (1- depth) state))
-            (list op (random-bool-expr (1- depth) state) (random-bool-expr (1- depth) state))))))
-
-(defun differential-tests (&key (count 150) (seed 42))
-  (section (format nil "Z3 against SWI-Prolog clpfd on ~d random formulas" count)
-    (let ((state (sb-ext:seed-random-state seed))
-          (vars '(("x" . :int) ("y" . :int) ("z" . :int) ("b" . :bool)))
-          (agree 0) (z3-invalid-no-cex 0) (unsupported 0))
-      (dotimes (i count)
-        (let* ((hyp (random-bool-expr 2 state))
-               (goal (random-bool-expr 3 state))
-               (z (check-valid goal :hyps (list hyp) :vars vars)))
-          (multiple-value-bind (p model) (prolog-check-valid goal :hyps (list hyp) :vars vars :bound 8)
-            (cond ((member p '(:unsupported :timeout)) (incf unsupported))
-                  ((and (eq z :valid) (eq p :counterexample))
-                   (fail "Z3 says valid but clpfd found ~s for ~a => ~a" model
-                         (expr->string hyp) (expr->string goal)))
-                  ((and (eq z :invalid) (eq p :none-in-bounds)) (incf z3-invalid-no-cex))
-                  (t (incf agree))))))
-      (format t "  agree ~d, Z3 invalid without a counterexample in bounds ~d, skipped ~d~%"
-              agree z3-invalid-no-cex unsupported))))
-
-;;; ------------------------------------------------------------------
 
 (defun run-all ()
   (let ((*failures* 0) (*checks* 0))
@@ -342,8 +294,5 @@ here instead of reporting them (see RECORD-EXPECTED-PARSE-FAILURES).")
     (if (z3-available-p)
         (z3-tests)
         (format t "~&SKIPPED: Z3 not found; the solver tests did not run~%"))
-    (if (and (z3-available-p) (swipl-available-p))
-        (differential-tests)
-        (format t "~&SKIPPED: differential tests need Z3 and SWI-Prolog~%"))
     (format t "~&~:[OK~;FAILED~]: ~d failure~:p (~d unit checks)~%" (plusp *failures*) *failures* *checks*)
     (zerop *failures*)))

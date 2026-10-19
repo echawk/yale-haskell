@@ -19,10 +19,9 @@
 ;;;;   smt.lisp         SMT-LIB2 encoding of elaborated formulas
 ;;;;   z3.lisp          the Z3 process driver
 ;;;;   fixpoint.lisp    the fixpoint (predicate abstraction) solver
-;;;;   prolog.lisp      an optional cross-check backend (SWI-Prolog's clpfd)
 ;;;;
 ;;;; Everything is plain Common Lisp; the only dependency is UIOP (part of
-;;;; ASDF) for running Z3 and SWI-Prolog as subprocesses.
+;;;; ASDF) for running Z3 as a subprocess.
 
 (defpackage :yale-liquid
   (:use :common-lisp)
@@ -48,8 +47,6 @@
    #:formula->smt2 #:check-valid
    ;; solver
    #:solve-fq #:solve-fq-file #:fixpoint-result #:result-status
-   #:result-unsafe-ids #:result-solution #:result-message
-   ;; prolog
-   #:*swipl-path* #:swipl-available-p #:prolog-check-valid))
+   #:result-unsafe-ids #:result-solution #:result-message))
 
 (in-package :yale-liquid)

@@ -3,6 +3,7 @@
 #   make deps       fetch the Lisp libraries (ocicl install; see ocicl.csv)
 #   make            build the compiler and an executable for each dialect
 #   make test       run the test suite (tests/README.md)
+#   make liquid-test  run yale-liquid's tests (tests/liquid/README.md)
 #   make bench      time the benchmark programs (bench/README.md)
 #   make profile FILE=prog.hs   profile a Haskell 98 program (sb-sprof)
 #   make clean      delete everything under build/
@@ -74,7 +75,7 @@ define step
 	  echo "*** $(1) failed; full log in $(LOGS)/$(1).log"; exit 1; }
 endef
 
-.PHONY: all compiler test bench profile clean ref deps $(DIALECTS)
+.PHONY: all compiler test liquid-test bench profile clean ref deps $(DIALECTS)
 .SECONDEXPANSION:
 .SECONDARY:
 
@@ -121,6 +122,10 @@ deps:
 
 test: all
 	@tests/run-tests
+
+# yale-liquid (tests/liquid/README.md); needs Z3 for the solver tests
+liquid-test:
+	@tests/liquid/run-tests
 
 bench: all
 	@bench/run-bench $(BENCHFLAGS)

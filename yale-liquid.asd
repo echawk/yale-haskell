@@ -29,8 +29,7 @@
                (:file "sortcheck")
                (:file "smt")
                (:file "z3")
-               (:file "fixpoint")
-               (:file "prolog"))
+               (:file "fixpoint"))
   :in-order-to ((test-op (test-op :yale-liquid/test))))
 
 (defsystem :yale-liquid/test
