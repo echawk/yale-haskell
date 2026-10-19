@@ -21,6 +21,15 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- Libraries for packages on the way to Agda and jni: the binary package
+  (Data.Binary, .Get, .Put, .Builder, with binary's encodings),
+  Data.Text.Encoding (and .Error, Data.Text.Lazy.Encoding),
+  Type.Reflection, Data.Type.Coercion, GHC.TypeNats, GHC.TypeLits'
+  classes and singletons (no type-level literals), GHC.OverloadedLabels,
+  Control.Exception's SomeAsyncException and blocked-thread exceptions,
+  TBQueue, and Hashable ThreadId.  `~~` and qualified equality
+  operators in contexts.  MicroCabal patches for async and boring.
+
 - Parallelism: Control.Parallel (`par`, `pseq`) and
   Control.Parallel.Strategies (the parallel package's interface).  With
   `+RTS -N[n]` (or `GHCRTS`) sparks run on a pool of lparallel worker

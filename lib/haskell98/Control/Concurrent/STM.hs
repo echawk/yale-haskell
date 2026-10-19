@@ -8,11 +8,14 @@ module Control.Concurrent.STM (
     TChan, newTChan, newTChanIO, writeTChan, readTChan, tryReadTChan,
     isEmptyTChan,
     TQueue, newTQueue, newTQueueIO, writeTQueue, readTQueue, tryReadTQueue,
-    isEmptyTQueue, flushTQueue
+    isEmptyTQueue, flushTQueue,
+    TBQueue, newTBQueue, newTBQueueIO, writeTBQueue, readTBQueue,
+    tryReadTBQueue, flushTBQueue, lengthTBQueue, isEmptyTBQueue, isFullTBQueue
   ) where
 
 import Control.Monad.STM
 import Data.IORef
+import Numeric.Natural (Natural)
 
 io :: IO a -> STM a
 io = unsafeIOToSTM
@@ -112,3 +115,32 @@ tryReadTChan :: TChan a -> STM (Maybe a)
 tryReadTChan = tryReadTQueue
 isEmptyTChan :: TChan a -> STM Bool
 isEmptyTChan = isEmptyTQueue
+
+-- A bounded queue: writeTBQueue retries while it holds its capacity.
+data TBQueue a = TBQueue (TQueue a) (TVar Int) Int
+
+newTBQueue :: Natural -> STM (TBQueue a)
+newTBQueue n = do { q <- newTQueue; c <- newTVar 0; return (TBQueue q c (fromIntegral n)) }
+newTBQueueIO :: Natural -> IO (TBQueue a)
+newTBQueueIO n = do { q <- newTQueueIO; c <- newTVarIO 0; return (TBQueue q c (fromIntegral n)) }
+writeTBQueue :: TBQueue a -> a -> STM ()
+writeTBQueue (TBQueue q c cap) x = do
+  n <- readTVar c
+  if n >= cap then retry else do { writeTVar c (n + 1); writeTQueue q x }
+readTBQueue :: TBQueue a -> STM a
+readTBQueue (TBQueue q c _) = do { x <- readTQueue q; modifyTVar' c (subtract 1); return x }
+tryReadTBQueue :: TBQueue a -> STM (Maybe a)
+tryReadTBQueue (TBQueue q c _) = do
+  r <- tryReadTQueue q
+  case r of
+    Just _ -> modifyTVar' c (subtract 1)
+    Nothing -> return ()
+  return r
+flushTBQueue :: TBQueue a -> STM [a]
+flushTBQueue (TBQueue q c _) = do { writeTVar c 0; flushTQueue q }
+lengthTBQueue :: TBQueue a -> STM Natural
+lengthTBQueue (TBQueue _ c _) = fmap fromIntegral (readTVar c)
+isEmptyTBQueue :: TBQueue a -> STM Bool
+isEmptyTBQueue (TBQueue q _ _) = isEmptyTQueue q
+isFullTBQueue :: TBQueue a -> STM Bool
+isFullTBQueue (TBQueue _ c cap) = fmap (>= cap) (readTVar c)

@@ -15,6 +15,7 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Numeric.Natural (Natural)
+import Control.Concurrent (ThreadId)
 
 infixl 0 `hashWithSalt`
 
@@ -40,6 +41,10 @@ instance Hashable Integer where
   hashWithSalt s n = combine s (fromInteger (n `mod` 4611686018427387847))
 instance Hashable Natural where
   hashWithSalt s n = hashWithSalt s (toInteger n)
+-- by its number, as base's (through show: the constructor is abstract)
+instance Hashable ThreadId where
+  hashWithSalt s t = hashWithSalt s (show t)
+
 instance Hashable Char where
   hashWithSalt s c = combine s (fromEnum c)
 instance Hashable Bool where

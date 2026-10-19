@@ -388,9 +388,18 @@
 	  ((=> -> = \| \; \} |where| \:\: <- eof) '#f)
 	  (else (advance-token) (scan-for-tilde depth))))))
 
+;;; ~, or ~~ (heterogeneous equality, here the same), possibly qualified
+;;; (Eq.~~, from Data.Type.Equality).
 (define (tilde-here?)
   (or (eq? *token* '\~)
-      (and (eq? *token* 'varsym) (string=? (car *token-args*) "~"))))
+      (and (eq? *token* 'varsym) (equality-operator? (car *token-args*)))))
+
+(define (equality-operator? s)
+  (let ((op (let ((i (lisp:position #\. s :from-end '#t)))
+	      (if (and i (> (string-length s) 0) (char-upper-case? (string-ref s 0)))
+		  (substring s (1+ i) (string-length s))
+		  s))))
+    (or (string=? op "~") (string=? op "~~"))))
 
 (define (parse-equality-assertion)
   (let ((left (parse-btype)))

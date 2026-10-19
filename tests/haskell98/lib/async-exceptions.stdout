@@ -1,0 +1,5 @@
+caught Boom
+async: Boom
+thread blocked indefinitely in an MVar operation
+(True,1,1)
+True

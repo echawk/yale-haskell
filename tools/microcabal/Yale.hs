@@ -58,7 +58,7 @@ builtinPackages :: [PackageName]
 builtinPackages =
   [ "base", "ghc-prim", "array", "containers", "bytestring", "text",
     "deepseq", "directory", "filepath", "process", "time", "mtl",
-    "transformers", "parsec", "pretty", "random", "stm", "parallel", "QuickCheck",
+    "transformers", "parsec", "pretty", "random", "stm", "parallel", "binary", "QuickCheck",
     "hashable", "unordered-containers", "scientific", "haskeline",
     "ansi-terminal", "utf8-string", "old-time", "old-locale", "xhtml",
     "unix", "knob",

@@ -12,6 +12,10 @@
 module Control.Exception (
     SomeException(SomeException), IOException, ErrorCall(ErrorCall), ArithException(..),
     AsyncException(..), AssertionFailed(AssertionFailed),
+    SomeAsyncException(SomeAsyncException), asyncExceptionToException,
+    asyncExceptionFromException, BlockedIndefinitelyOnMVar(..),
+    BlockedIndefinitelyOnSTM(..), Deadlock(..), NonTermination(..),
+    NestedAtomically(..), interruptible,
     Exception(toException, fromException, displayException),
     Handler(Handler), catches, catchJust, handleJust, tryJust,
     catch, handle, try, evaluate, throw, throwIO,
@@ -133,6 +137,65 @@ instance Show AsyncException where
   showsPrec _ UserInterrupt = showString "user interrupt"
 
 instance Exception AsyncException
+
+-- The class of asynchronous exceptions, as base's: an exception type
+-- that is one has toException = asyncExceptionToException and
+-- fromException = asyncExceptionFromException.
+data SomeAsyncException = forall e . Exception e => SomeAsyncException e
+
+instance Show SomeAsyncException where
+  showsPrec p (SomeAsyncException e) = showsPrec p e
+
+instance Exception SomeAsyncException
+
+asyncExceptionToException :: Exception e => e -> SomeException
+asyncExceptionToException = toException . SomeAsyncException
+
+asyncExceptionFromException :: Exception e => SomeException -> Maybe e
+asyncExceptionFromException x = case fromException x of
+  Just (SomeAsyncException a) -> fromDynamic (toDyn a)
+  Nothing -> Nothing
+
+-- Raised by GHC's runtime when a thread can never be woken; here a
+-- blocking operation that cannot proceed fails with them.
+data BlockedIndefinitelyOnMVar = BlockedIndefinitelyOnMVar
+
+instance Show BlockedIndefinitelyOnMVar where
+  showsPrec _ _ = showString "thread blocked indefinitely in an MVar operation"
+
+instance Exception BlockedIndefinitelyOnMVar
+
+data BlockedIndefinitelyOnSTM = BlockedIndefinitelyOnSTM
+
+instance Show BlockedIndefinitelyOnSTM where
+  showsPrec _ _ = showString "thread blocked indefinitely in an STM transaction"
+
+instance Exception BlockedIndefinitelyOnSTM
+
+data Deadlock = Deadlock
+
+instance Show Deadlock where
+  showsPrec _ _ = showString "<<deadlock>>"
+
+instance Exception Deadlock
+
+data NonTermination = NonTermination
+
+instance Show NonTermination where
+  showsPrec _ _ = showString "<<loop>>"
+
+instance Exception NonTermination
+
+data NestedAtomically = NestedAtomically
+
+instance Show NestedAtomically where
+  showsPrec _ _ = showString "Control.Concurrent.STM.atomically was nested"
+
+instance Exception NestedAtomically
+
+-- no asynchronous exceptions are delivered, so nothing to allow
+interruptible :: IO a -> IO a
+interruptible a = a
 
 newtype AssertionFailed = AssertionFailed String
 

@@ -1,0 +1,44 @@
+async: Control.Concurrent's forkIO/forkOn instead of the fork# primops, and no GHC.IO.
+diff -ruN a/Control/Concurrent/Async/Internal.hs b/Control/Concurrent/Async/Internal.hs
+--- a/Control/Concurrent/Async/Internal.hs	2026-10-19 02:09:53
++++ b/Control/Concurrent/Async/Internal.hs	2026-10-19 02:09:53
+@@ -54,8 +54,12 @@
+ import Data.IORef
+ 
+ import GHC.Exts
++#ifdef __YALE_HASKELL__
++import GHC.Conc (ThreadId)
++#else
+ import GHC.IO hiding (finally, onException)
+ import GHC.Conc (ThreadId(..))
++#endif
+ 
+ #if defined(__MHS__)
+ import Data.Traversable
+@@ -935,6 +939,18 @@
+ -- A version of forkIO that does not include the outer exception
+ -- handler: saves a bit of time when we will be installing our own
+ -- exception handler.
++#ifdef __YALE_HASKELL__
++-- Yale Haskell: Control.Concurrent's forks (a thread runs to completion
++-- when forked), and no asynchronous exceptions to unmask.
++rawForkIO :: IO () -> IO ThreadId
++rawForkIO = forkIO
++
++rawForkOn :: Int -> IO () -> IO ThreadId
++rawForkOn = forkOn
++
++unsafeUnmask :: IO a -> IO a
++unsafeUnmask a = a
++#else
+ {-# INLINE rawForkIO #-}
+ rawForkIO ::
+   CALLSTACK
+@@ -952,6 +968,7 @@
+    case forkOn# cpu action_plus s of (# s1, tid #) -> (# s1, ThreadId tid #)
+   where
+    (IO action_plus) = debugLabelMe >> action
++#endif
+ 
+ debugLabelMe ::
+   CALLSTACK

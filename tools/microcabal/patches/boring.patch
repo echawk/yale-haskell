@@ -1,0 +1,26 @@
+boring: no Generic default methods (Yale Haskell has no Rep).
+diff -ruN a/Data/Boring.hs b/Data/Boring.hs
+--- a/Data/Boring.hs	2026-10-19 05:08:04
++++ b/Data/Boring.hs	2026-10-19 05:08:04
+@@ -132,8 +132,10 @@
+ --
+ class Boring a where
+     boring :: a
++#ifndef __YALE_HASKELL__
+     default boring :: (Generic a, GBoring (Rep a)) => a
+     boring = to gboring
++#endif
+ 
+ instance Boring () where
+     boring = ()
+@@ -245,8 +247,10 @@
+ -- so we don't have 'Absurd' instances for tuples.
+ class Absurd a where
+     absurd :: a -> b
++#ifndef __YALE_HASKELL__
+     default absurd :: (Generic a, GAbsurd (Rep a)) => a -> b
+     absurd = gabsurd . from
++#endif
+ 
+ instance Absurd V.Void where
+     absurd = V.absurd
