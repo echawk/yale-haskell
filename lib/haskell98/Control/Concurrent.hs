@@ -19,6 +19,7 @@ import Control.Exception (SomeException, try)
 import Data.IORef
 import System.IO (hPutStrLn, stderr)
 import System.IO.Unsafe (unsafePerformIO)
+import ParallelPrims (primNumCapabilities)
 
 newtype ThreadId = ThreadId Int deriving (Eq, Ord)
 
@@ -72,8 +73,10 @@ yield = return ()
 threadDelay :: Int -> IO ()
 threadDelay _ = return ()
 
+-- +RTS -N's (Control.Parallel's sparks use them; threads still run one
+-- at a time)
 getNumCapabilities :: IO Int
-getNumCapabilities = return 1
+getNumCapabilities = primNumCapabilities
 
 setNumCapabilities :: Int -> IO ()
 setNumCapabilities _ = return ()

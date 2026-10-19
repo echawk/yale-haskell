@@ -179,6 +179,21 @@ be accepted.
   completion; an MVar or STM operation that would block fails.  Worker
   threads that report through MVars work (nofib fannkuch-redux,
   binary-trees).
+- **Control.Parallel, Control.Parallel.Strategies** (the parallel
+  package): real parallelism.  With `+RTS -N[n]` (or `GHCRTS`), `par`
+  sparks are evaluated by a pool of lparallel worker threads, and thunk
+  evaluation becomes thread-safe from the first spark (a compare-and-swap
+  claim; another thread waits on a claimed thunk; a failed spark's
+  thunks go back to unevaluated, so the error is raised where the value
+  is demanded); see src/base/parallel-runtime.lisp.  Without -N, `par`
+  does nothing, as with GHC's non-threaded runtime.  SBCL only.  Not
+  there: `forkIO` threads in parallel (they still run one at a time),
+  Control.Monad.Par, ParallelArrays, spark statistics (`+RTS -s`), and a
+  `<<loop>>` report for a thunk that is re-entered after parallel
+  evaluation has started (it waits instead).  Reading an evaluated thunk
+  inline has no read barrier (sequential code would pay for it); on arm64
+  that leaves a theoretical window in which a thread sees another's
+  just-finished thunk's claim instead of its value (not observed).
 - **GHC.Generics, Control.DeepSeq**: the classes exist and deriving
   them gives empty instances, so programs that derive them for a library
   compile.  Generic representations and deep `rnf` for user types (it
@@ -191,7 +206,7 @@ be accepted.
 | extension | what it needs | size |
 |---|---|---|
 | QuantifiedConstraints | contexts with `forall` in instance heads; dictionary functions as dictionary fields | medium-large |
-| Real concurrency | a thread-safe runtime: thunk update and the allocation paths under SBCL threads | large |
+| Real concurrency | `forkIO` threads on SBCL threads: blocking MVars and STM, and the IO primitives' shared state (thunk update is thread-safe already, Control.Parallel) | large |
 | GHC.Generics' `Rep` | type families exist now; the derived `from`/`to` and the representation types | large |
 
 ### 5. Not realistic here

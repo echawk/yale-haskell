@@ -56,8 +56,40 @@
 (define *haskell-program-name* "haskell")
 
 (define (set-haskell-program-args file args)
-  (setf *haskell-program-args* args)
+  (setf *haskell-program-args* (strip-rts-options args))
   (setf *haskell-program-name* (lisp:pathname-name (lisp:pathname file))))
+
+;;; GHC's runtime options: +RTS .. -RTS (or to the end) among the
+;;; program's arguments, and the GHCRTS environment variable; they are
+;;; not passed to the program.  Of them only -N[n] (capabilities, for
+;;; Control.Parallel) has an effect.
+(define (strip-rts-options args)
+  (let ((env (getenv "GHCRTS")))
+    (when env (rts-options (split-rts-words env))))
+  (let ((out '()) (in-rts '#f))
+    (dolist (a args)
+      (cond ((string=? a "+RTS") (setf in-rts '#t))
+	    ((string=? a "-RTS") (setf in-rts '#f))
+	    (in-rts (rts-options (list a)))
+	    (else (push a out))))
+    (reverse out)))
+
+(define (split-rts-words s)
+  (let ((words '()) (start 0))
+    (dotimes (i (1+ (string-length s)))
+      (when (or (= i (string-length s)) (char=? (string-ref s i) #\space))
+	(when (> i start) (push (substring s start i) words))
+	(setf start (1+ i))))
+    (reverse words)))
+
+(define (rts-options words)
+  (dolist (w words)
+    (when (and (>= (string-length w) 2) (string=? (substring w 0 2) "-N"))
+      (let ((n (if (= (string-length w) 2)
+		   0
+		   (lisp:parse-integer w :start 2 :junk-allowed '#t))))
+	(when (and n (>= n 0))
+	  (setf *capabilities* n))))))
 
 ;;; primGetArgs :: IO [String]
 (define (prim.get-args)

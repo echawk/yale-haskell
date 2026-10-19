@@ -41,6 +41,27 @@
 	      (or (lisp:eq ,c '|%thunk-evaluated%|) (lisp:eq ,c '|%thunk-unevaluated%|)
 		  (lisp:eq ,c '|%thunk-blackhole%|)))))))
 
+;;; Parallel evaluation (Control.Parallel, src/base/parallel-runtime.lisp).
+;;; Once the first spark is made with more than one capability,
+;;; *parallel-active* is true and force-thunk-parallel evaluates thunks
+;;; instead of the code below: a thunk is claimed with a compare-and-swap
+;;; of its marker, its cdr then holds a claim (the owning thread and the
+;;; closure), and a thread that finds a thunk claimed by another one waits
+;;; for it instead of reporting <<loop>>; the result is stored before the
+;;; marker (with a barrier between).  Before that, and on Lisps without
+;;; threads, nothing changes.
+
+(define *parallel-active* '#f)
+(define *capabilities* 1)   ; +RTS -N (0: one per processor)
+
+(lisp:defstruct (claim (:constructor make-claim (owner code))
+		       (:predicate claim?))
+  owner code)
+
+(define-syntax (memory-barrier)
+  #+sbcl '(sb-thread:barrier (:memory))
+  #-sbcl ''#f)
+
 ;;; Blackhole bookkeeping for non-local exits (doc/EVAL-APPLY-GRIN.md
 ;;; section 4.2).  When *track-blackholes* is true (bound by prim.catch-io,
 ;;; and by apply-exec in the interactive system, for the extent of the
@@ -60,6 +81,11 @@
     (let ((th (car (dynamic *blackhole-trail*))))
       (setf (dynamic *blackhole-trail*) (cdr (dynamic *blackhole-trail*)))
       (when (lisp:eq (car th) '|%thunk-blackhole%|)
+	;; a thunk claimed in parallel mode holds its claim: put the
+	;; closure back before the thunk is marked unevaluated
+	(when (claim? (cdr th))
+	  (setf (cdr th) (claim-code (cdr th)))
+	  (memory-barrier))
 	(setf (car th) '|%thunk-unevaluated%|)))))
 
 (define-syntax (with-blackhole-restore . body)
@@ -76,6 +102,12 @@
 ;;; TH is a thunk that is not evaluated (marked unevaluated or blackhole).
 
 (define (force-thunk th)
+  (declare (type pair th))
+  (cond ((dynamic *parallel-active*)
+	 (lisp:funcall 'force-thunk-parallel th))
+	(else (force-thunk-sequential th))))
+
+(define (force-thunk-sequential th)
   (declare (type pair th))
   (if (lisp:eq (car th) '|%thunk-blackhole%|)
       (haskell-loop-error)

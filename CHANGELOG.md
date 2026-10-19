@@ -21,6 +21,15 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- Parallelism: Control.Parallel (`par`, `pseq`) and
+  Control.Parallel.Strategies (the parallel package's interface).  With
+  `+RTS -N[n]` (or `GHCRTS`) sparks run on a pool of lparallel worker
+  threads, and thunk evaluation is thread-safe from the first spark;
+  `getNumCapabilities` and `numCapabilities` report n.  `+RTS ... -RTS`
+  options are no longer passed to the program.  Tests in
+  tests/haskell98/parallel/ (the test runner reads a test's program
+  arguments from its `.args` file).
+
 - Refinement types (milestone 2 of doc/plans/LIQUID-HASKELL.md):
   `--liquid` checks top-level functions against `{-@ @-}` refined
   signatures, type aliases and `assume`s with Z3 (first-order Int and

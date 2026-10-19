@@ -288,7 +288,7 @@ Other commands (`mcabal help`):
 - The packages Yale Haskell provides itself count as installed and are
   never fetched: base, ghc-prim, array, containers, bytestring, text,
   deepseq, directory, filepath, process, time, mtl, transformers,
-  parsec, pretty, random, stm, QuickCheck, hashable,
+  parsec, pretty, random, stm, parallel, QuickCheck, hashable,
   unordered-containers, scientific, haskeline, ansi-terminal,
   utf8-string, old-time, old-locale, xhtml, unix, knob, and the
   compatibility packages fail, semigroups, void, nats, tagged-compat

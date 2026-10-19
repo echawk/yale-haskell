@@ -1,0 +1,18 @@
+-- ParallelPrims.hi -- Control.Parallel's primitives:
+-- src/base/parallel-runtime.lisp.
+
+interface ParallelPrims where
+
+-- primPar x y: hand the unevaluated x to the spark pool (when there is
+-- more than one capability), then y.  Lazy in both arguments, as GHC's
+-- par#: were it strict in y, strictness analysis would evaluate y before
+-- the spark is made, and the parent would then evaluate x itself.
+primPar :: a -> b -> b
+
+-- the number of capabilities (+RTS -N)
+primNumCapabilities :: IO Int
+
+{-#
+primPar :: LispName("prim.par"), Strictness("N,N")
+primNumCapabilities :: LispName("prim.num-capabilities")
+#-}

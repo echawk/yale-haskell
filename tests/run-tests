@@ -39,6 +39,9 @@ run_one() {
   # options for the compiler, e.g. --haskell2010
   flags=""
   [ -f "$base.flags" ] && flags=$(head -1 "$base.flags")
+  # arguments for the program, e.g. +RTS -N4 -RTS
+  args=""
+  [ -f "$base.args" ] && args=$(head -1 "$base.args")
 
   case "$hs" in
     *.repl)
@@ -50,7 +53,7 @@ run_one() {
       status=$? ;;
     *)
       perl -e "$LIMITED" "$RT_LIMIT" \
-        env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell $flags "$hs" \
+        env YALE_HASKELL_DIALECT="$dialect" bin/yale-haskell $flags "$hs" $args \
         < "$in" > "$out" 2> "$err"
       status=$? ;;
   esac
