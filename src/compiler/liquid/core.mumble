@@ -91,11 +91,15 @@
   (let ((sp (ast-node-line-number ast)))
     (if (is-type? 'source-pointer sp) (source-pointer-line sp) '#f)))
 
-;;; A binding: (NAME (PARAM ...) BODY LINE).
+;;; A binding: (NAME (PARAM ...) BODY LINE (SORT ...) SORT), or #f.
 
 (define (liquid-binding d names)
+  (liquid-fun d names '()))
+
+;;; A function binding D, inside the scope of LOCALS.
+(define (liquid-fun d names locals)
   (let* ((var (var-ref-var (var-pat-var (valdef-lhs d))))
-	 (rhs (guarded-rhs-rhs (car (single-fun-def-rhs-list (car (valdef-definitions d))))))
+	 (rhs (liquid-valdef-rhs d))
 	 (params '()))
     (do () ((not (is-type? 'lambda rhs)))
       (dolist (p (lambda-pats rhs))
@@ -103,12 +107,17 @@
       (setf rhs (lambda-body rhs)))
     (if (memq '#f params)
 	'#f
-	(let ((params (reverse params)))
+	(let* ((params (map (function var-ref-var) (reverse params)))
+	       (sp (liquid-find-file d)))
 	  (list (symbol->string (def-name var))
-		(map (lambda (p) (liquid-var-name (var-ref-var p))) params)
-		(liquid-exp rhs names (map (function var-ref-var) params))
-		(let ((sp (liquid-find-file d)))
-		  (if sp (source-pointer-line sp) 1)))))))
+		(map (function liquid-var-name) params)
+		(liquid-exp rhs names (append params locals))
+		(if sp (source-pointer-line sp) 1)
+		(map (lambda (p) (liquid-sort (var-type p))) params)
+		(liquid-exp-sort rhs))))))
+
+(define (liquid-valdef-rhs d)
+  (guarded-rhs-rhs (car (single-fun-def-rhs-list (car (valdef-definitions d))))))
 
 (define (liquid-var-name def)
   (symbol->string (def-name def)))
@@ -212,12 +221,34 @@
 	  ((and (is-type? 'let e)
 		(null? (cdr (let-decls e)))
 		(valdef? (car (let-decls e)))
-		(var-pat? (valdef-lhs (car (let-decls e)))))
+		(var-pat? (valdef-lhs (car (let-decls e))))
+		(not (is-type? 'lambda (liquid-valdef-rhs (car (let-decls e))))))
 	   (let* ((d (car (let-decls e)))
-		  (def (var-ref-var (var-pat-var (valdef-lhs d))))
-		  (rhs (guarded-rhs-rhs
-			(car (single-fun-def-rhs-list (car (valdef-definitions d)))))))
+		  (def (var-ref-var (var-pat-var (valdef-lhs d)))))
 	     (list ':let (liquid-var-name def) (liquid-sort (var-type def))
-		   (liquid-exp rhs names locals)
+		   (liquid-exp (liquid-valdef-rhs d) names locals)
 		   (liquid-exp (let-body e) names (cons def locals)))))
+	  ;; local functions, possibly recursive
+	  ((and (is-type? 'let e) (liquid-local-funs (let-decls e)))
+	   (let* ((ds (liquid-local-funs (let-decls e)))
+		  (names (append (map (lambda (d) (def-name (var-ref-var (var-pat-var (valdef-lhs d)))))
+				      ds)
+				 names))
+		  (funs (map (lambda (d) (liquid-fun d names locals)) ds)))
+	     (if (memq '#f funs)
+		 (list ':unknown sort)
+		 (list ':letrec funs (liquid-exp (let-body e) names locals)))))
 	  (else (list ':unknown sort)))))
+
+;;; The bindings of DECLS if they are all functions v = \x ... -> e, else #f.
+(define (liquid-local-funs decls)
+  (let ((ds '()))
+    (dolist (d decls)
+      (dolist (d1 (if (is-type? 'recursive-decl-group d)
+		      (recursive-decl-group-decls d)
+		      (list d)))
+	(if (and (valdef? d1) (var-pat? (valdef-lhs d1))
+		 (is-type? 'lambda (liquid-valdef-rhs d1)))
+	    (push d1 ds)
+	    (return-from liquid-local-funs '#f))))
+    (reverse ds)))

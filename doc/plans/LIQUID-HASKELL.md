@@ -8,7 +8,12 @@ typed output to the small language of src/liquid/check.lisp, which asks
 Z3 about each obligation), for Int and Bool arithmetic, comparisons,
 calls, `if` and `let`; anything else is an unconstrained value.  An
 unproved obligation is a compile error at its binding's line.  Tests in
-tests/haskell98/liquid/.  The rest is design.
+tests/haskell98/liquid/.  Milestone 3 (inference) done, 2026-10-19:
+functions without a signature get templates with kvars (local
+functions' parameters and results, top-level functions' results),
+solved together by src/liquid/fixpoint.lisp over the default
+qualifiers and the atoms of the written refinements; `qualif`
+declarations are not read yet.  The rest is design.
 
 The aim is a refinement type checker inside Yale Haskell that accepts
 LiquidHaskell's specification language (`{-@ ... @-}` comments), checks

@@ -5,13 +5,16 @@
 ;;;; The program comes from the compiler (src/compiler/liquid/core.mumble),
 ;;;; one entry per top-level binding:
 ;;;;
-;;;;   PROGRAM ::= ((NAME (PARAM ...) BODY LINE) ...)
+;;;;   PROGRAM ::= (FUN ...)
+;;;;   FUN     ::= (NAME (PARAM ...) BODY LINE [(SORT ...) SORT])
+;;;;               the optional sorts are the parameters' and the result's
 ;;;;   BODY    ::= (:var X) | (:int N) | (:bool T-or-NIL)
 ;;;;             | (:prim OP E ...)        OP :+ :- :* :neg :< :<= :> :>= :=
 ;;;;                                       :/= :and :or :not :div :mod
 ;;;;             | (:call F SORT E ...)    a top-level function
 ;;;;             | (:if SORT E E E)
 ;;;;             | (:let X SORT E E)
+;;;;             | (:letrec (FUN ...) E)   local functions, FUN as above
 ;;;;             | (:unknown SORT)         anything else: some value
 ;;;;             | (:at LINE E)            E's source line
 ;;;;   SORT    ::= :int | :bool | NIL      (NIL: another type)
@@ -25,8 +28,19 @@
 ;;;; its result is a new variable with the result's refinement; div and
 ;;;; mod need a nonzero divisor; if's branches are evaluated under its
 ;;;; condition; the body's term must satisfy the result's refinement.  Each
-;;;; obligation is one Z3 validity check (check-valid).  Termination is
-;;;; assumed, as LiquidHaskell does with --no-termination.
+;;;; obligation is one Z3 validity check.  Termination is assumed, as
+;;;; LiquidHaskell does with --no-termination.
+;;;;
+;;;; Inference (milestone 3): a function without a signature gets a
+;;;; template, a refined type whose refinements are unknowns (kvars).  A
+;;;; local function's parameters and result each get one, over the
+;;;; binders in scope and its earlier parameters; a top-level function's
+;;;; parameters are unrefined (any caller) and its result gets one.  The
+;;;; obligations of all the functions are solved together by fixpoint.lisp
+;;;; (predicate abstraction over the default qualifiers, comparisons of v
+;;;; with 0 and with the binders in scope, and the atoms of the written
+;;;; refinements).  A local function used as a value, not called, has its
+;;;; parameters' kvars weakened to true.
 
 (in-package :yale-liquid)
 
@@ -130,8 +144,12 @@
 (defvar *guards*)      ; path conditions
 (defvar *line*)
 (defvar *fname*)
-(defvar *obligations*) ; (GOAL HYPS VARS LINE WHAT), latest first
+(defvar *obligations*) ; (GOAL HYPS VARS LINE WHAT FNAME), latest first
 (defvar *fresh* 0)
+(defvar *templates*)        ; top-level NAME -> template
+(defvar *local-templates*)  ; ((NAME . template) ..), innermost first
+(defvar *kvars*)            ; ((KVAR ENV-VARS SORT) ..): each kvar's scope
+(defparameter *kvv* "lq_v") ; a kvar's value variable
 
 (defun fresh-var (sort)
   (let ((v (format nil "lq_t~d" (incf *fresh*))))
@@ -140,7 +158,7 @@
 
 (defun oblige (goal what)
   (unless (eq goal :true)
-    (push (list goal (append *guards* *hyps*) *vars* *line* what) *obligations*)))
+    (push (list goal (append *guards* *hyps*) *vars* *line* what *fname*) *obligations*)))
 
 (defun check-function (name params body line type)
   (let ((*vars* '()) (*hyps* '()) (*guards* '()) (*line* line) (*fname* name))
@@ -171,10 +189,8 @@
     (:call (eval-call (second e) (third e) (cdddr e)))
     (:if (destructuring-bind (sort c a b) (rest e)
            (let* ((tc (eval-body c))
-                  (ta (let ((*guards* (if tc (cons tc *guards*) *guards*)))
-                        (eval-body a)))
-                  (tb (let ((*guards* (if tc (cons (pred-not tc) *guards*) *guards*)))
-                        (eval-body b))))
+                  (ta (eval-branch tc a))
+                  (tb (eval-branch (and tc (pred-not tc)) b)))
              (cond ((and tc ta tb) (list :ite tc ta tb))
                    (sort (let ((r (fresh-var sort)))
                            (when (and tc ta) (push (pred-imp tc (list := r ta)) *hyps*))
@@ -186,7 +202,18 @@
               (when sort
                 (push (cons x sort) *vars*)
                 (when tv (push (list := x tv) *hyps*)))
-              (eval-body body))))))
+              (eval-body body))))
+    (:letrec (eval-letrec (second e) (third e)))))
+
+(defun eval-branch (guard e)
+  "E's term under GUARD (or none); the facts it adds hold under GUARD only."
+  (let ((old *hyps*)
+        (term (let ((*guards* (if guard (cons guard *guards*) *guards*)))
+                (eval-body e))))
+    (when guard
+      (setf *hyps* (append (mapcar (lambda (h) (pred-imp guard h)) (ldiff *hyps* old))
+                           old)))
+    term))
 
 (defun eval-prim (op terms)
   (cond ((member nil terms) nil)
@@ -201,9 +228,12 @@
 
 (defun eval-call (f sort args)
   (let ((terms (mapcar #'eval-body args))
-        (sig (gethash f *sigs*)))
-    (if (null sig)
-        (and sort (fresh-var sort))
+        (sig (gethash f *sigs*))
+        (tm (lookup-template f)))
+    (cond
+      (tm (call-template f tm sort terms))
+      ((null sig) (and sort (fresh-var sort)))
+      (t
         (multiple-value-bind (params res) (fun-parts (car sig) (length args))
           (let ((su '()))
             (loop for (binder . atype) in params
@@ -217,26 +247,238 @@
               (when r
                 (let ((h (reft-at res r su)))
                   (unless (eq h :true) (push h *hyps*))))
-              r))))))
+              r)))))))
 
 ;;; ------------------------------------------------------------------
 ;;; The program
 
 (defun check-program (program specs)
-  "Check PROGRAM's functions that have a signature.  Returns the list of
-failures (unproved obligations), in program order."
+  "Check PROGRAM's functions.  Returns the list of failures (unproved
+obligations), in program order."
   (let ((*sigs* (spec-signatures specs))
+        (*templates* (make-hash-table :test #'equal))
+        (*local-templates* '())
+        (*kvars* '())
         (*fresh* 0)
-        (failures '()))
-    (with-z3 (z)
-      (dolist (b program)
-        (destructuring-bind (name params body line) b
-          (let ((sig (gethash name *sigs*))
-                (*obligations* '()))
-            (when (and sig (cdr sig))
-              (check-function name params body line (car sig))
-              (dolist (o (reverse *obligations*))
-                (destructuring-bind (goal hyps vars oline what) o
-                  (unless (eq (check-valid goal :hyps hyps :vars vars :z3 z) :valid)
-                    (push (make-failure name oline what goal) failures)))))))))
-    (nreverse failures)))
+        (obligations '()))
+    ;; templates for the top-level functions without a signature
+    (dolist (b program)
+      (destructuring-bind (name params body line &optional psorts rsort) b
+        (declare (ignore body line))
+        (unless (or (gethash name *sigs*) (/= (length psorts) (length params)))
+          (setf (gethash name *templates*)
+                (make-template* '() (mapcar (lambda (s) (declare (ignore s)) nil) psorts)
+                                psorts rsort)))))
+    (dolist (b program)
+      (destructuring-bind (name params body line &optional psorts rsort) b
+        (declare (ignore psorts rsort))
+        (let ((sig (gethash name *sigs*))
+              (tm (gethash name *templates*))
+              (*obligations* '()))
+          (cond ((and sig (cdr sig)) (check-function name params body line (car sig)))
+                (tm (check-template-function name params body line tm)))
+          (setf obligations (append obligations (reverse *obligations*))))))
+    (solve-obligations obligations specs)))
+
+;;; ------------------------------------------------------------------
+;;; Templates
+
+
+(defstruct (template (:constructor make-template (params result)))
+  params    ; ((FORMAL SORT KVAR) ..), KVAR NIL when unrefined
+  result)   ; (SORT KVAR)
+
+(defun formal-name (i) (format nil "lq_p~d" i))
+
+(defun new-kvar (scope sort)
+  (let ((k (format nil "k~d" (incf *fresh*))))
+    (push (list k scope sort) *kvars*)
+    k))
+
+(defun make-template* (scope refine psorts rsort)
+  "A template over SCOPE ((NAME . SORT) ..): the parameters of sort
+PSORTS get a kvar each when REFINE says so, the result one."
+  (let ((params '()) (formals '()) (i 0))
+    (loop for s in psorts
+          for r in refine
+          do (let ((f (formal-name (incf i))))
+               (push (list f s (and s r (new-kvar (append formals scope) s))) params)
+               (when s (push (cons f s) formals))))
+    (make-template (nreverse params)
+                   (list rsort (and rsort (new-kvar (append formals scope) rsort))))))
+
+(defun kapp (k su) (list :kvar k su))
+
+(defun scope-vars ()
+  "The binders in scope that a kvar may mention (not the fresh ones)."
+  (remove-duplicates
+   (remove-if (lambda (p) (and (>= (length (car p)) 3) (string= "lq_" (car p) :end2 3)))
+              *vars*)
+   :key #'car :test #'string= :from-end t))
+
+(defun lookup-template (f)
+  (let ((l (assoc f *local-templates* :test #'string=)))
+    (cond (l (cdr l))
+          ((gethash f *sigs*) nil)
+          (t (gethash f *templates*)))))
+
+(defun bind-template-params (params tm)
+  "Assume the template's refinements of PARAMS; returns the substitution
+of the formals."
+  (let ((su '()))
+    (loop for p in params
+          for (formal sort k) in (template-params tm)
+          do (when sort
+               (push (cons p sort) *vars*)
+               (when k (push (kapp k (cons (cons *kvv* p) su)) *hyps*))
+               (push (cons formal p) su)))
+    su))
+
+(defun check-template-body (name params body tm)
+  (let* ((su (bind-template-params params tm))
+         (term (eval-body body)))
+    (destructuring-bind (rsort k) (template-result tm)
+      (when k
+        (oblige (kapp k (cons (cons *kvv* (or term (fresh-var rsort))) su))
+                (format nil "the result of ~a" name))))))
+
+(defun check-template-function (name params body line tm)
+  (let ((*vars* '()) (*hyps* '()) (*guards* '()) (*line* line) (*fname* name))
+    (check-template-body name params body tm)))
+
+(defun eval-letrec (funs body)
+  (let ((*local-templates* *local-templates*)
+        (scope (scope-vars)))
+    (dolist (f funs)
+      (destructuring-bind (name params fbody line psorts rsort) f
+        (declare (ignore fbody line))
+        (push (cons name (make-template* scope (mapcar (constantly t) params) psorts rsort))
+              *local-templates*)))
+    (dolist (f funs)
+      (destructuring-bind (name params fbody line &rest sorts) f
+        (declare (ignore sorts))
+        (let ((*vars* *vars*) (*hyps* *hyps*) (*guards* *guards*) (*line* (or line *line*)))
+          (check-template-body name params fbody (cdr (assoc name *local-templates*
+                                                             :test #'string=))))))
+    (eval-body body)))
+
+(defun call-template (f tm sort terms)
+  (let ((params (template-params tm)))
+    (if (/= (length terms) (length params))
+        (progn (escape-template tm) (and sort (fresh-var sort)))
+        (let ((su '()) (i 0))
+          (loop for (formal psort k) in params
+                for term in terms
+                do (incf i)
+                   (when psort
+                     (let ((term (or term (fresh-var psort))))
+                       (when k
+                         (oblige (kapp k (cons (cons *kvv* term) su))
+                                 (format nil "argument ~d of ~a" i f)))
+                       (push (cons formal term) su))))
+          (destructuring-bind (rsort k) (template-result tm)
+            (let ((r (and (or sort rsort) (fresh-var (or sort rsort)))))
+              (when (and r k (or (null sort) (eq sort rsort)))
+                (push (kapp k (cons (cons *kvv* r) su)) *hyps*))
+              r))))))
+
+(defun escape-template (tm)
+  "TM's function is used as a value: its parameters may be anything."
+  (let ((*hyps* '()) (*guards* '()) (su '()))
+    (loop for (formal psort k) in (template-params tm)
+          do (when psort
+               (let ((x (fresh-var psort)))
+                 (when k (oblige (kapp k (cons (cons *kvv* x) su)) "an escaping function"))
+                 (push (cons formal x) su))))))
+
+;;; ------------------------------------------------------------------
+;;; Solving
+
+(defparameter *default-qualifier-ops* '(:< :<= :> :>= := :/=))
+
+(defun default-qualifiers ()
+  (let ((qs '()) (i 0))
+    (dolist (op *default-qualifier-ops*)
+      (push (make-fq-qual :name (format nil "Cmp~d" (incf i))
+                          :params '(("v" :int nil) ("x" :int nil))
+                          :body (list op "v" "x"))
+            qs)
+      (push (make-fq-qual :name (format nil "Cmz~d" i)
+                          :params '(("v" :int nil))
+                          :body (list op "v" 0))
+            qs))
+    (nreverse qs)))
+
+(defun spec-qualifiers (specs)
+  "One qualifier per atom of the specifications' refinements, its free
+variables (all taken to be Int) its parameters, the value variable first."
+  (let ((qs '()) (i 0))
+    (labels ((reft (vv p)
+               (dolist (a (conjuncts p))
+                 (when (and (consp a) (member (car a) *default-qualifier-ops*))
+                   (let ((fv (free-vars a)))
+                     (when (member vv fv :test #'string=)
+                       (push (make-fq-qual
+                              :name (format nil "Spec~d" (incf i))
+                              :params (mapcar (lambda (x) (list x :int nil))
+                                              (cons vv (remove vv fv :test #'string=)))
+                              :body a)
+                             qs))))))
+             (walk (ty)
+               (when (consp ty)
+                 (case (first ty)
+                   (:fun (walk (third ty)) (walk (fourth ty)))
+                   (:forall (walk (fourth ty)))
+                   (:con (let ((r (fifth ty))) (when r (reft (car r) (cdr r)))))))))
+      (dolist (s specs)
+        (case (first s)
+          (:sig (walk (third s)))
+          (:assume (walk (third s)))
+          (:type-alias (walk (fifth s))))))
+    (nreverse qs)))
+
+(defun solve-obligations (obligations specs)
+  "Solve OBLIGATIONS, (GOAL HYPS VARS LINE WHAT) each, with fixpoint.lisp;
+the failures of the ones with concrete goals."
+  (when (null obligations)
+    (return-from solve-obligations '()))
+  (let* ((info (make-fq-info))
+         (ids (make-hash-table :test #'equal))
+         (next 0))
+    (flet ((bind (x sort)
+             (let ((key (cons x sort)))
+               (or (gethash key ids)
+                   (let ((id (incf next)))
+                     (setf (gethash id (fq-info-binds info)) (list x sort "lq_bv" :true))
+                     (setf (gethash key ids) id))))))
+      (let ((n 0))
+        (dolist (o obligations)
+          (destructuring-bind (goal hyps vars line what fname) o
+            (declare (ignore what fname))
+            (push (make-fq-constraint
+                   :id (incf n)
+                   :env (mapcar (lambda (p) (bind (car p) (cdr p)))
+                                (remove-duplicates vars :key #'car :test #'string=
+                                                        :from-end t))
+                   :lhs (list :int "lq_lv" (pred-and-list hyps))
+                   :rhs (list :int "lq_rv" goal)
+                   :tag '() :line line)
+                  (fq-info-constraints info)))))
+      (setf (fq-info-constraints info) (nreverse (fq-info-constraints info)))
+      (dolist (kv *kvars*)
+        (destructuring-bind (k scope sort) kv
+          (push (make-fq-wf :kvar k :env (mapcar (lambda (p) (bind (car p) (cdr p))) scope)
+                            :sort sort :vv *kvv*)
+                (fq-info-wfs info))))
+      (setf (fq-info-quals info) (append (default-qualifiers) (spec-qualifiers specs))))
+    (when (uiop:getenv "YALE_HASKELL_LIQUID_DEBUG")
+      (print-fq info *error-output*))
+    (let ((result (solve-fq info)))
+      (when (eq (result-status result) :crash)
+        (error "liquid: the fixpoint solver failed: ~a" (result-message result)))
+      (loop for o in obligations
+            for id from 1
+            when (member id (result-unsafe-ids result))
+              collect (destructuring-bind (goal hyps vars line what fname) o
+                        (declare (ignore hyps vars))
+                        (make-failure fname line what goal))))))
