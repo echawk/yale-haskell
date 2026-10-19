@@ -26,6 +26,39 @@ function-typed parameters, foldr, foldl, zipWith and zip, and Array's
 listArray and (!) at Int indexes (measures alo and ahi).  The rest is
 design.
 
+Known limits of milestones 2-5, to be lifted later:
+- **Error reports.** An error is reported at the line of the function it
+  is in, not of the expression (cfn's nodes mostly have no source
+  positions), and its message names the checker's own variables
+  (`lq_t6`, `lq_p1`) and cfn's (`ARG9055`) instead of `v` and the
+  source's names.
+- **Qualifiers.** `qualif` declarations are not read; the qualifiers
+  are the defaults (comparisons with 0, with the binders in scope and
+  with `len`) and the atoms of the written refinements, whose free
+  variables are taken to be Int unless they are a measure's argument.
+- **Signatures.** Local functions (`where`, `let`) cannot have
+  signatures; their refinements are always inferred.  In a function
+  parameter's refined type, the binders of the function's earlier
+  parameters are not substituted.
+- **Data types.** Only lists have measures and pattern-match facts:
+  `case` on other data types, tuples, refined `data` declarations,
+  measures over other types and `inline` are not supported (their values
+  are unconstrained).  A measure whose `(:)` equation uses the head is
+  ignored.
+- **List elements** carry no refinements, so a type variable that is a
+  list's element type (`head`, `map`, `foldr`'s `a`) is not refined at a
+  call, and `[{v:Int | v > 0}]` means nothing.
+- **Higher-order code.** A function without a signature that is used as
+  a value (not called) gets unrefined parameters; a function-typed
+  parameter of such a function is unrefined; an argument that is
+  neither a lambda nor a function's name is opaque.
+- **Library.** Specifications exist only for the Prelude list functions
+  above, `foldr`, `foldl`, `zipWith`, `zip`, and Array's `listArray` and
+  `(!)` with Int indexes (not `bounds`, `array`, `//`, or other index
+  types); other library functions are unconstrained.
+- **Termination** is assumed (milestone 6), as LiquidHaskell's
+  `--no-termination`.
+
 The aim is a refinement type checker inside Yale Haskell that accepts
 LiquidHaskell's specification language (`{-@ ... @-}` comments), checks
 Yale programs against it with an SMT solver, and infers refinements
