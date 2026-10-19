@@ -66,7 +66,9 @@ Known limits of milestones 2-6, to be lifted later:
   are assumed to terminate.  Without a written metric only the default
   candidates above are tried (no `n - i + 1`, no sums).  `data size`,
   `autosize` and `lazyvar` are not supported, and a recursive function
-  passed as a value is not checked at the calls through it.
+  passed as a value is not checked at the calls through it.  A recursive
+  function that none of the candidates fits is rejected until it gets a
+  metric or `lazy`, as in LiquidHaskell.
 
 The aim is a refinement type checker inside Yale Haskell that accepts
 LiquidHaskell's specification language (`{-@ ... @-}` comments), checks
