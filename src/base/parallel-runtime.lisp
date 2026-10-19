@@ -18,14 +18,13 @@
 ;;; that demands the value.  Sparks beyond *max-sparks* waiting are
 ;;; dropped, as GHC's spark pool overflows.
 ;;;
-;;; Memory ordering: the writer of a result orders its stores with write
-;;; barriers (above), and force-thunk-parallel reads with a read barrier.
-;;; The inline fast path that reads an already evaluated thunk
-;;; (force-inline, unbox) has no read barrier, so that sequential programs
-;;; do not pay for one: on weakly ordered hardware (arm64) a thread could
-;;; in principle load the cdr before the marker and see a claim instead of
-;;; the value of a thunk that another thread has just finished.  This was
-;;; not observed; a read barrier there costs about 0.3 ns per read.
+;;; Memory ordering: the writer of a value stores it, then the marker, with
+;;; write barriers before each (evaluate-claimed-thunk, and publish-thunk
+;;; for a thunk entered before parallel evaluation began); every reader of
+;;; an evaluated thunk (force-thunk-parallel, and force-inline and unbox
+;;; inline) has a read barrier between the marker and the value.  The
+;;; inline ones test *parallel-active*, a global, first, so a sequential
+;;; program does not pay for them.
 
 (cl:in-package "MUMBLE-USER")
 
@@ -58,9 +57,11 @@
                   (cl:let ((n (capabilities)))
                     (cl:when (cl:> n 1)
                       (cl:setf *capabilities* n)
-                      (cl:prog1 (cl:setf lparallel:*kernel*
-                                         (lparallel:make-kernel (cl:1- n) :name "spark"))
-                        (cl:setf *parallel-active* cl:t))))))))
+                      ;; before any worker runs (read-barrier tests it)
+                      (cl:setf *parallel-active* cl:t)
+                      (sb-thread:barrier (:memory))
+                      (cl:setf lparallel:*kernel*
+                               (lparallel:make-kernel (cl:1- n) :name "spark"))))))))
 
 ;;; ------------------------------------------------------------------
 ;;; Thunks

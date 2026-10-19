@@ -51,7 +51,10 @@
 ;;; marker (with a barrier between).  Before that, and on Lisps without
 ;;; threads, nothing changes.
 
-(define *parallel-active* '#f)
+;;; A global (not a special), so the test in the inline readers is one load;
+;;; it is set before any worker thread starts.
+#+sbcl (sb-ext:defglobal *parallel-active* '#f)
+#-sbcl (define *parallel-active* '#f)
 (define *capabilities* 1)   ; +RTS -N (0: one per processor)
 
 (lisp:defstruct (claim (:constructor make-claim (owner code))
@@ -60,6 +63,20 @@
 
 (define-syntax (memory-barrier)
   #+sbcl '(sb-thread:barrier (:memory))
+  #-sbcl ''#f)
+
+;;; Write barriers order the stores of a thunk's value (publish-thunk).
+(define-syntax (write-barrier)
+  #+sbcl '(sb-thread:barrier (:write))
+  #-sbcl ''#f)
+
+;;; Between reading an evaluated thunk's marker and its value: with
+;;; parallel evaluation another thread may just have stored both, and on
+;;; arm64 the loads could otherwise be satisfied out of order (the value
+;;; from before the marker).  Before parallel evaluation begins there is
+;;; no other thread, and no barrier.
+(define-syntax (read-barrier)
+  #+sbcl '(when *parallel-active* (sb-thread:barrier (:read)))
   #-sbcl ''#f)
 
 ;;; Blackhole bookkeeping for non-local exits (doc/EVAL-APPLY-GRIN.md
@@ -103,9 +120,23 @@
 
 (define (force-thunk th)
   (declare (type pair th))
-  (cond ((dynamic *parallel-active*)
+  (cond (*parallel-active*
 	 (lisp:funcall 'force-thunk-parallel th))
 	(else (force-thunk-sequential th))))
+
+;;; Store a thunk's value: the value, then the marker.  Once parallel
+;;; evaluation has begun (a thunk entered before it may finish after), with
+;;; write barriers, so another thread that sees the marker sees the value,
+;;; and the value's own fields.
+
+(define-syntax (publish-thunk th result)
+  (let ((th1 (gensym)) (r (gensym)))
+    `(let ((,th1 ,th) (,r ,result))
+       (when *parallel-active* (write-barrier))
+       (setf (cdr ,th1) ,r)
+       (when *parallel-active* (write-barrier))
+       (setf (car ,th1) '|%thunk-evaluated%|)
+       ,r)))
 
 (define (force-thunk-sequential th)
   (declare (type pair th))
@@ -118,8 +149,7 @@
 	      (setf (dynamic *blackhole-trail*) (cons th old))
 	      (let ((result (funcall (the function code))))
 		(setf (dynamic *blackhole-trail*) old)
-		(setf (car th) '|%thunk-evaluated%|)
-		(setf (cdr th) result)))
+		(publish-thunk th result)))
 	    (begin
 	      ;; Drop the closure while it runs, as GHC's blackholing does:
 	      ;; the thunk no longer keeps the closure's free variables alive
@@ -127,8 +157,7 @@
 	      ;; evaluation.  Kept when tracking, to restore the thunk.
 	      (setf (cdr th) '())
 	      (let ((result (funcall (the function code))))
-		(setf (car th) '|%thunk-evaluated%|)
-		(setf (cdr th) result)))))))
+		(publish-thunk th result)))))))
 
 
 ;;; (delay form)
@@ -151,7 +180,7 @@
   (let ((temp (gensym)))
     `(let ((,temp ,form))
        (if (and (lisp:consp ,temp) (lisp:eq (car ,temp) '|%thunk-evaluated%|))
-	   (cdr ,temp)
+	   (begin (read-barrier) (cdr ,temp))
 	   ,temp))))
 
 ;;; (forced? form)
@@ -173,7 +202,7 @@
     `(let ((,temp ,object))
        (if (lisp:consp ,temp)
 	   (let ((,c (car ,temp)))
-	     (cond ((lisp:eq ,c '|%thunk-evaluated%|) (cdr ,temp))
+	     (cond ((lisp:eq ,c '|%thunk-evaluated%|) (read-barrier) (cdr ,temp))
 		   ((or (lisp:eq ,c '|%thunk-unevaluated%|) (lisp:eq ,c '|%thunk-blackhole%|))
 		    (force-thunk ,temp))
 		   (else ,temp)))

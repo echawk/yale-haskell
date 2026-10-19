@@ -190,10 +190,7 @@ be accepted.
   there: `forkIO` threads in parallel (they still run one at a time),
   Control.Monad.Par, ParallelArrays, spark statistics (`+RTS -s`), and a
   `<<loop>>` report for a thunk that is re-entered after parallel
-  evaluation has started (it waits instead).  Reading an evaluated thunk
-  inline has no read barrier (sequential code would pay for it); on arm64
-  that leaves a theoretical window in which a thread sees another's
-  just-finished thunk's claim instead of its value (not observed).
+  evaluation has started (it waits instead).
 - **GHC.Generics, Control.DeepSeq**: the classes exist and deriving
   them gives empty instances, so programs that derive them for a library
   compile.  Generic representations and deep `rnf` for user types (it
