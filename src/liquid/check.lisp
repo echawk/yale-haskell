@@ -67,6 +67,19 @@
 ;;;; are checked after the kvars are solved, with their solution.  A
 ;;;; function named in `lazy` is not checked; recursive values (no
 ;;;; parameters) are not either.
+;;;;
+;;;; Type classes (milestone 7): a refined class method type, from
+;;;; `class C a where m :: T`, is the type of calls through the selector
+;;;; sel-C/m (whose first argument is the dictionary) and is checked for
+;;;; each of the module's instance methods i-C-Type-m, at that type; an
+;;;; `instance` specification gives one instance method its own type.
+;;;;
+;;;; Reflection (milestone 8): a function named in `reflect` or `inline`
+;;;; (Int and Bool parameters and result, a body of arithmetic, if and
+;;;; calls of such functions) becomes a logic function of the same name: a
+;;;; call's result equals its application, and each obligation assumes
+;;;; the definitions of the applications in it, unfolded a bounded number
+;;;; of times (a simple proof by logical evaluation).
 
 (in-package :yale-liquid)
 
@@ -183,6 +196,8 @@
 (defvar *term-sites* '()); ((DEF ARG-TERMS HYPS VARS LINE) ..): recursive calls
 (defvar *metrics*)       ; NAME -> the signature's metric
 (defvar *lazy* '())      ; names not checked for termination
+(defvar *reflected* (make-hash-table :test #'equal))
+                         ; NAME -> (PARAMS BODY RSORT), reflected functions' definitions
 (defvar *fun-params* '()) ; ((NAME . TYPE) ..): parameters of a refined function type
 (defvar *templates*)        ; top-level NAME -> template
 (defvar *local-templates*)  ; ((NAME . template) ..), innermost first
@@ -196,7 +211,10 @@
 
 (defun oblige (goal what)
   (unless (eq goal :true)
-    (push (list goal (append *guards* *hyps*) *vars* *line* what *fname*) *obligations*)))
+    (let ((hyps (append *guards* *hyps*)))
+      (push (list goal (append (unfold-facts (cons goal hyps)) hyps)
+                  *vars* *line* what *fname*)
+            *obligations*))))
 
 (defun check-function (name params body line type)
   (let ((*vars* '()) (*hyps* '()) (*guards* '()) (*line* line) (*fname* name)
@@ -399,7 +417,15 @@
       (push (list def (mapcar (lambda (a) (and (eq (first a) :term) (second a))) args)
                   (append *guards* *hyps*) *vars* *line*)
             *term-sites*)))
-  (eval-call-1 f sort args))
+  (let ((def (gethash f *reflected*)))
+    (if (and def (= (length args) (length (first def))))
+        (let* ((terms (mapcar #'eval-body args))
+               (r (eval-call-1 f sort (mapcar (lambda (a tm) (list :term tm (exp-sort a)))
+                                              args terms))))
+          (when (and r (every #'identity terms))
+            (push (logic-equal (third def) r (apply #'app f terms)) *hyps*))
+          r)
+        (eval-call-1 f sort args))))
 
 (defun eval-call-1 (f sort args)
   (let ((fp (assoc f *fun-params* :test #'string=))
@@ -584,11 +610,13 @@ obligations), in program order."
          (*lazy* (loop for s in specs when (eq (first s) :lazy) collect (second s)))
          (*term-sites* '())
          (*defining* '())
+         (*reflected* (reflected-definitions program specs))
         (*templates* (make-hash-table :test #'equal))
         (*local-templates* '())
         (*kvars* '())
         (*fresh* 0)
         (obligations '()))
+    (add-class-signatures specs program *sigs*)
     ;; templates for the top-level functions without a signature
     (dolist (b program)
       (destructuring-bind (name params body line &optional psorts rsort) b
@@ -608,6 +636,153 @@ obligations), in program order."
           (setf obligations (append obligations (reverse *obligations*))))))
     (multiple-value-bind (failures solution) (solve-obligations obligations specs)
       (append failures (check-termination solution specs)))))
+
+;;; ------------------------------------------------------------------
+;;; Type classes
+
+(defun subst-tyvar (type a replacement)
+  (cond ((atom type) type)
+        ((and (eq (first type) :var) (equal (second type) a)) replacement)
+        (t (mapcar (lambda (x) (subst-tyvar x a replacement)) type))))
+
+(defun add-class-signatures (specs program sigs)
+  "Signatures from the class and instance specifications: the class
+methods' selectors (assumed), and the program's instance methods
+(checked)."
+  (dolist (s specs)
+    (case (first s)
+      (:class
+       (destructuring-bind (supers cls tyvars methods) (rest s)
+         (declare (ignore supers))
+         (dolist (m methods)
+           (destructuring-bind (name . type) m
+             (setf (gethash (format nil "sel-~a/~a" cls name) sigs)
+                   (cons (list :fun "lq_dict" '(:var "lq_dict" nil nil) type) nil))
+             (let ((prefix (format nil "i-~a-" cls))
+                   (suffix (format nil "-~a" name)))
+               (dolist (b program)
+                 (let ((f (first b)))
+                   (when (and (> (length f) (+ (length prefix) (length suffix)))
+                              (string= prefix f :end2 (length prefix))
+                              (string= suffix f :start2 (- (length f) (length suffix)))
+                              (not (gethash f sigs)))
+                     (let ((ty (subseq f (length prefix) (- (length f) (length suffix)))))
+                       (setf (gethash f sigs)
+                             (cons (if (and tyvars
+                                            (member ty '("Int" "Integer" "Char" "Bool")
+                                                    :test #'string=))
+                                       (subst-tyvar type (first tyvars)
+                                                    (list :con ty nil nil nil nil))
+                                       type)
+                                   t)))))))))))
+      (:instance
+       (destructuring-bind (supers cls args methods) (rest s)
+         (declare (ignore supers))
+         (let ((ty (and (consp (first args)) (eq (first (first args)) :con)
+                        (second (first args)))))
+           (when ty
+             (dolist (m methods)
+               (destructuring-bind (name assumed type) m
+                 (setf (gethash (format nil "i-~a-~a-~a" cls ty name) sigs)
+                       (cons type (not assumed))))))))))))
+
+;;; ------------------------------------------------------------------
+;;; Reflection
+
+(defun logic-equal (sort a b)
+  (if (eq sort :bool) (list :<=> a b) (list := a b)))
+
+(defun body-logic (e params reflected)
+  "Body E of a reflected function as a logic expression over PARAMS, or
+:fail."
+  (labels ((walk (e)
+             (ecase (first e)
+               (:var (if (member (second e) params :test #'string=) (second e) (fail)))
+               (:int (second e))
+               (:bool (if (second e) :true :false))
+               (:at (walk (third e)))
+               (:term (or (second e) (fail)))
+               (:prim (let ((args (mapcar #'walk (cddr e))))
+                        (case (second e)
+                          (:div (list :/ (first args) (second args)))
+                          (:neg (list :neg (first args)))
+                          (:not (pred-not (first args)))
+                          (:and (pred-and (first args) (second args)))
+                          (:or (pred-or (first args) (second args)))
+                          (t (cons (second e) args)))))
+               (:if (list :ite (walk (third e)) (walk (fourth e)) (walk (fifth e))))
+               (:call (if (member (second e) reflected :test #'string=)
+                          (apply #'app (second e) (mapcar #'walk (cdddr e)))
+                          (fail)))
+               ((:let :letrec :unknown :nil :cons :is :tail :lam :sorted) (fail))))
+           (fail () (return-from body-logic :fail)))
+    (walk e)))
+
+(defun reflected-definitions (program specs)
+  (let ((names (loop for s in specs
+                     when (member (first s) '(:reflect :inline)) collect (second s)))
+        (table (make-hash-table :test #'equal)))
+    (dolist (b program)
+      (destructuring-bind (name params body line &optional psorts rsort) b
+        (declare (ignore line))
+        (when (and (member name names :test #'string=)
+                   params
+                   (every (lambda (s) (member s '(:int :bool))) psorts)
+                   (member rsort '(:int :bool)))
+          (let ((logic (body-logic body params names)))
+            (unless (eq logic :fail)
+              (setf (gethash name table) (list params logic rsort psorts)))))))
+    table))
+
+(defun reflected-consts ()
+  (let ((out '()))
+    (maphash (lambda (name def)
+               (destructuring-bind (params body rsort psorts) def
+                 (declare (ignore params body))
+                 (push (cons name (parse-sort-string
+                                   (format nil "func(0, [~{~a; ~}~a])"
+                                           (mapcar #'string-downcase psorts)
+                                           (string-downcase rsort))))
+                       out)))
+             *reflected*)
+    out))
+
+(defun reflected-apps (preds)
+  "The applications of reflected functions in the expressions PREDS."
+  (let ((acc '()))
+    (labels ((walk (e)
+               (cond ((atom e))
+                     ((kvar-p e) (dolist (p (third e)) (walk (cdr p))))
+                     (t (when (and (eq (first e) :app) (stringp (second e))
+                                   (gethash (second e) *reflected*))
+                          (pushnew e acc :test #'equal))
+                        (mapc #'walk (rest e))))))
+      (mapc #'walk preds))
+    acc))
+
+(defparameter *unfold-depth* 8)
+(defparameter *unfold-limit* 200)
+
+(defun unfold-facts (preds)
+  "The definitions of the reflected functions' applications in PREDS, and
+of the applications in those, to a bounded depth."
+  (when (plusp (hash-table-count *reflected*))
+    (let ((seen '()) (facts '()) (todo (reflected-apps preds)))
+      (loop repeat *unfold-depth*
+            while todo
+            do (let ((next '()))
+                 (dolist (a todo)
+                   (unless (or (member a seen :test #'equal)
+                               (>= (length seen) *unfold-limit*))
+                     (push a seen)
+                     (destructuring-bind (params body rsort psorts) (gethash (second a) *reflected*)
+                       (declare (ignore psorts))
+                       (when (= (length params) (length (cddr a)))
+                         (let ((b (subst body (mapcar #'cons params (cddr a)))))
+                           (push (logic-equal rsort a b) facts)
+                           (setf next (append (reflected-apps (list b)) next)))))))
+                 (setf todo next)))
+      facts)))
 
 ;;; ------------------------------------------------------------------
 ;;; Termination
@@ -655,7 +830,7 @@ non-negative integers is finite."
 (defun check-termination (solution specs)
   "The failures of the recursive functions whose metric does not
 decrease at their recursive calls."
-  (let ((defs '()) (failures '()) (consts (measure-consts specs)))
+  (let ((defs '()) (failures '()) (consts (append (measure-consts specs) (reflected-consts))))
     (dolist (site (reverse *term-sites*))
       (pushnew (first site) defs :test #'eq))
     (when defs
@@ -933,9 +1108,11 @@ the failures of the ones with concrete goals."
           (push (make-fq-wf :kvar k :env (mapcar (lambda (p) (bind (car p) (cdr p))) scope)
                             :sort (fq-sort sort) :vv *kvv*)
                 (fq-info-wfs info))))
-      (setf (fq-info-consts info) (measure-consts specs))
+      (setf (fq-info-consts info) (append (measure-consts specs) (reflected-consts)))
       (setf (fq-info-quals info) (append (default-qualifiers) (list-qualifiers)
-                                         (spec-qualifiers specs))))
+                                         (spec-qualifiers specs)
+                                         (loop for s in specs
+                                               when (eq (first s) :qualif) collect (second s)))))
     (when (uiop:getenv "YALE_HASKELL_LIQUID_DEBUG")
       (print-fq info *error-output*))
     (let ((result (solve-fq info)))

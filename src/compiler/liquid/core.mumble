@@ -121,20 +121,24 @@
 		(liquid-exp-sort rhs))))))
 
 ;;; The parameters' sorts: their own types, else (cfn's generated
-;;; parameters) the argument types of the function's type FTYPE.
+;;; parameters) the argument types of the function's type FTYPE, which
+;;; lacks the leading dictionary parameters of an overloaded function.
 (define (liquid-param-sorts params ftype)
   (let ((ty (cond ((gtype? ftype) (gtype-type ftype))
-		  (else ftype))))
-    (map (lambda (p)
-	   (let ((arg (and ty (setf ty (prune ty))
-			   (ntycon? ty)
-			   (eq? (ntycon-tycon ty) (core-symbol "Arrow"))
-			   (car (ntycon-args ty)))))
-	     (when (and ty (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "Arrow")))
-	       (setf ty (cadr (ntycon-args ty))))
+		  (else ftype)))
+	(args '()))
+    (do () ((not (and ty (begin (setf ty (prune ty)) (ntycon? ty))
+		      (eq? (ntycon-tycon ty) (core-symbol "Arrow")))))
+      (push (car (ntycon-args ty)) args)
+      (setf ty (cadr (ntycon-args ty))))
+    (let ((args (reverse args)))
+      (do () ((>= (length args) (length params)))
+	(push '#f args))
+      (map (lambda (p arg)
 	     (or (liquid-sort (var-type p))
-		 (and arg (liquid-sort arg)))))
-	 params)))
+		 (and arg (liquid-sort arg))))
+	   params
+	   (lisp:subseq args 0 (length params))))))
 
 (define (liquid-valdef-rhs d)
   (guarded-rhs-rhs (car (single-fun-def-rhs-list (car (valdef-definitions d))))))
@@ -373,6 +377,9 @@
 (define (liquid-callee def names)
   (let ((s (symbol->string (def-name def))))
     (cond ((memq (def-name def) names) s)
+	  ;; a class method's selector, sel-Class/method (its dictionary is
+	  ;; the first argument)
+	  ((string-starts? "sel-" s) s)
 	  ((and (liquid-prelude-def? def)
 		(member s *liquid-library-functions*))
 	   (string-append "Prelude." s))

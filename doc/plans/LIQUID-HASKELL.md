@@ -28,26 +28,34 @@ listArray and (!) at Int indexes (measures alo and ahi).  Milestone 6
 metric that is non-negative at the caller: the signature's `/ [..]`
 (lexicographic), else the first that works of an Int parameter, a list
 parameter's `len`, and the difference of an Int parameter and an Int
-binder in scope; `lazy` turns the check off.  The rest is design.
+binder in scope; `lazy` turns the check off.  Milestone 7 (type
+classes) done, 2026-10-19: a refined `class` method type is the type of
+calls through the method's selector and is checked for each of the
+module's instances of it; `instance` specifications give one instance
+method its own type.  Milestone 8, a first part, 2026-10-19: `reflect`
+and `inline` make a first-order Int/Bool function a logic function
+whose definition is unfolded (a bounded proof by logical evaluation)
+in each obligation, and `qualif` declarations add qualifiers.
 
-Known limits of milestones 2-6, to be lifted later:
+Known limits of milestones 2-8, to be lifted later:
 - **Error reports.** An error is reported at the line of the function it
   is in, not of the expression (cfn's nodes mostly have no source
   positions), and its message names the checker's own variables
   (`lq_t6`, `lq_p1`) and cfn's (`ARG9055`) instead of `v` and the
   source's names.
-- **Qualifiers.** `qualif` declarations are not read; the qualifiers
-  are the defaults (comparisons with 0, with the binders in scope and
-  with `len`) and the atoms of the written refinements, whose free
-  variables are taken to be Int unless they are a measure's argument.
+- **Qualifiers.** Besides `qualif` declarations (written as in .fq
+  files, `qualif Q(v:int, x:int) { v < x }`), the qualifiers are the
+  defaults (comparisons with 0, with the binders in scope and with
+  `len`) and the atoms of the written refinements, whose free variables
+  are taken to be Int unless they are a measure's argument.
 - **Signatures.** Local functions (`where`, `let`) cannot have
   signatures; their refinements are always inferred.  In a function
   parameter's refined type, the binders of the function's earlier
   parameters are not substituted.
 - **Data types.** Only lists have measures and pattern-match facts:
   `case` on other data types, tuples, refined `data` declarations,
-  measures over other types and `inline` are not supported (their values
-  are unconstrained).  A measure whose `(:)` equation uses the head is
+  and measures over other types are not supported (their values are
+  unconstrained).  A measure whose `(:)` equation uses the head is
   ignored.
 - **List elements** carry no refinements, so a type variable that is a
   list's element type (`head`, `map`, `foldr`'s `a`) is not refined at a
@@ -69,6 +77,20 @@ Known limits of milestones 2-6, to be lifted later:
   passed as a value is not checked at the calls through it.  A recursive
   function that none of the candidates fits is rejected until it gets a
   metric or `lazy`, as in LiquidHaskell.
+- **Type classes.** Only single-parameter classes; superclasses, default
+  methods and class measures (`class measure`, `instance measure`) are
+  not supported.  An instance's method is checked at the class's type
+  with the class variable replaced only for Int, Integer, Char and Bool
+  instances (others keep it abstract).  Calls through a dictionary of an
+  imported class use its specification only if the module states it.
+- **Reflection.** Only functions with Int and Bool parameters and result
+  whose bodies are arithmetic, `if` and calls of reflected functions
+  are reflected (others are silently not); unfolding is bounded (8
+  levels, 200 applications), so a proof that needs more fails, and there
+  is no `ple` / `rewrite` control, no proof combinators (`===`, `***
+  QED`) and no reflection of functions over lists or data types.
+- **Not done (milestone 8):** abstract refinements, `using`, and
+  `relational` specifications.
 
 The aim is a refinement type checker inside Yale Haskell that accepts
 LiquidHaskell's specification language (`{-@ ... @-}` comments), checks
