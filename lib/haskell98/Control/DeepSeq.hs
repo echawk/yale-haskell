@@ -15,6 +15,7 @@ import Data.Complex (Complex((:+)))
 import Data.Functor.Identity (Identity(Identity))
 import Data.Functor.Const (Const(Const))
 import Data.Proxy (Proxy(Proxy))
+import Data.Fixed (Fixed)
 
 infixr 0 $!!, `deepseq`
 infixl 4 <$!!>
@@ -49,6 +50,9 @@ instance NFData1 [] where
 instance NFData1 Maybe where
   liftRnf _ Nothing = ()
   liftRnf r (Just x) = r x
+
+instance NFData (Fixed a) where
+  rnf x = x `seq` ()
 
 instance NFData a => NFData1 (Either a) where
   liftRnf = liftRnf2 rnf

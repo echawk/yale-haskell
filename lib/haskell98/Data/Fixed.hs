@@ -50,6 +50,17 @@ type Pico = Fixed E12
 res :: HasResolution a => Fixed a -> Integer
 res = resolution
 
+-- as base's: the underlying count of resolution units
+instance Enum (Fixed a) where
+  succ (MkFixed a) = MkFixed (succ a)
+  pred (MkFixed a) = MkFixed (pred a)
+  toEnum = MkFixed . toEnum
+  fromEnum (MkFixed a) = fromEnum a
+  enumFrom (MkFixed a) = map MkFixed (enumFrom a)
+  enumFromThen (MkFixed a) (MkFixed b) = map MkFixed (enumFromThen a b)
+  enumFromTo (MkFixed a) (MkFixed b) = map MkFixed (enumFromTo a b)
+  enumFromThenTo (MkFixed a) (MkFixed b) (MkFixed c) = map MkFixed (enumFromThenTo a b c)
+
 instance HasResolution a => Num (Fixed a) where
   MkFixed a + MkFixed b = MkFixed (a + b)
   MkFixed a - MkFixed b = MkFixed (a - b)
@@ -76,6 +87,22 @@ instance HasResolution a => RealFrac (Fixed a) where
   round = round . toRational
   ceiling = ceiling . toRational
   floor = floor . toRational
+
+-- a decimal number, rounded to the resolution
+instance HasResolution a => Read (Fixed a) where
+  readsPrec _ s0 =
+    [ (r, rest)
+    | (q, rest) <- readDecimal (dropWhile (== ' ') s0)
+    , let r = MkFixed (round (q * fromInteger (resolution r))) ]
+    where
+      readDecimal ('-' : s) = [ (negate q, rest) | (q, rest) <- readUnsigned s ]
+      readDecimal s = readUnsigned s
+      readUnsigned s = case span (`elem` "0123456789") s of
+        ([], _) -> []
+        (ds, '.' : t) -> case span (`elem` "0123456789") t of
+          ([], _) -> [(fromInteger (read ds), '.' : t)]
+          (fs, rest) -> [(fromInteger (read ds) + fromInteger (read fs) / 10 ^ length fs, rest)]
+        (ds, rest) -> [(fromInteger (read ds), rest)]
 
 instance HasResolution a => Show (Fixed a) where
   showsPrec p n = showParen (p > 6 && n < 0) (showString (showFixed False n))

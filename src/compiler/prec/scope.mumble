@@ -44,10 +44,14 @@
 	       (make-pattern-synonym-template
 		(cadr syn)
 		(massage-pattern
+		 ;; a template has no signature patterns: its parameters are
+		 ;; typed through the pattern%P%argI functions, if any
 		 (instantiate-pattern-synonym
-		  syn
-		  (map (lambda (v) (make var-pat (var (generated-var-ref v))))
-		       (cadr syn)))))))
+		  (list (car syn) (cadr syn) (caddr syn))
+		  (pattern-synonym-typed-args
+		   syn
+		   (map (lambda (v) (make var-pat (var (generated-var-ref v))))
+			(cadr syn))))))))
 	  (when template
 	    (register-pattern-synonym def template)))))))
 
@@ -516,12 +520,28 @@
 ;;; exp-structs
 ;;;===================================================================
 
+;;; A lambda whose patterns have views (pattern synonyms with view
+;;; patterns) matches them in nested cases: \(P x) -> e is
+;;; \v -> case f v of x -> e for P's view f.
 (define-walker-method scope lambda (object env)
   (setf env (add-pattern-variables (lambda-pats object) env))
-  (setf (lambda-pats object)
-	(map (function reject-view-pats) (massage-pattern-list (lambda-pats object))))
+  (let ((lifted (lift-view-pats (massage-pattern-list (lambda-pats object)))))
+    (setf (lambda-pats object) (car lifted))
+    (when (pair? (cdr lifted))
+      ;; the views' variables (the synonyms' are bound by the cases)
+      (setf env (add-pattern-variables (car lifted) env))
+      (setf (lambda-body object)
+	    (wrap-view-cases (cdr lifted) (lambda-body object)))))
   (setf (lambda-body object) (scope-ast-1 (lambda-body object) env))
   object)
+
+;;; VIEWS, (name fn pat) outermost first: case fn name of pat -> ... BODY
+(define (wrap-view-cases views body)
+  (if (null? views)
+      body
+      (let ((v (car views)))
+	(**case (make app (fn (cadr v)) (arg (generated-var-ref (car v))))
+		(list (**alt/simple (caddr v) (wrap-view-cases (cdr views) body)))))))
 
 (define-walker-method scope let (object env)
   (setf env (add-local-declarations (let-decls object) env))

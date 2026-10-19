@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Time/LocalTime/Internal/
+:o= all
+:package
+TimeOfDay.hs

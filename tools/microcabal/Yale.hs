@@ -128,10 +128,21 @@ stagePackage env db name vers flds = do
     forM_ [base ++ ".hs", base ++ ".lhs"] $ \ f -> do
       b <- doesFileExist f
       when b $ removeFile f
+  -- reexported-modules: M as N makes N a module re-exporting M
+  let renames (m : "as" : n : rest) = (m, n) : renames rest
+      renames (_ : rest) = renames rest
+      renames [] = []
+      reexps = renames (words (map (\ c -> if c == ',' then ' ' else c)
+                                   (unwords (getFieldStrings flds [] "reexported-modules"))))
+  forM_ reexps $ \ (m, n) -> do
+    let f = pdir </> "src" </> modulePath n ++ ".hs"
+    mkdir env (parentDir f)
+    writeFile f $ "module " ++ n ++ " (module " ++ m ++ ") where\nimport " ++ m ++ "\n"
   forM_ incDirs $ \ d -> do
     mkdir env (pdir </> "include" </> d)
     copyTree env d (pdir </> "include" </> d)
   applyPatch env name (pdir </> "src")
+  preprocessModules env (pdir </> "src") (libModules flds ++ getFieldStrings flds [] "other-modules")
   writeFile (pdir </> "yale-package") $ unlines
     [ "name: " ++ name
     , "version: " ++ showVersion vers
@@ -139,6 +150,27 @@ stagePackage env db name vers flds = do
     , "cpp-options: " ++ unwords (cppOpts ++ extraCpp)
     , "include-dirs: " ++ unwords [ "include" </> d | d <- incDirs ] ]
   return pdir
+
+-- A module whose source is a happy grammar (.y, .ly) or an alex lexer
+-- (.x) is generated, as Cabal does, with the flags Cabal passes (happy
+-- -agc, alex -g); the tools are MicroCabal's (instDir/bin, where they are
+-- installed with mcabal install happy alex) or on the PATH.
+preprocessModules :: Env -> FilePath -> [String] -> IO ()
+preprocessModules env src mdls =
+  forM_ (nub mdls) $ \ m -> do
+    let base = src </> modulePath m
+    hs <- or <$> mapM doesFileExist [base ++ ".hs", base ++ ".lhs"]
+    unless hs $ do
+      let tools = [(".y", "happy", "-agc"), (".ly", "happy", "-agc"), (".x", "alex", "-g")]
+      found <- filterM (\ (ext, _, _) -> doesFileExist (base ++ ext)) tools
+      case found of
+        (ext, tool, flags) : _ -> do
+          let local = instDir env </> "bin" </> tool
+          b <- doesFileExist local
+          let exe = if b then local else tool
+          message env 0 $ "Preprocessing " ++ m ++ " with " ++ tool
+          cmd env $ exe ++ " " ++ flags ++ " " ++ base ++ ext ++ " -o " ++ base ++ ".hs"
+        [] -> return ()
 
 -- $YALE_MCABAL_PATCHES/NAME.patch (tools/microcabal/patches, which the
 -- mcabal script names), if there is one: a patch to the package's staged
@@ -242,10 +274,14 @@ yaleInstallLib env (Section _ _ glob) (Section _ name flds) = do
       db = yaleDB env
   mdls <- buildableModules env (stageDB env </> namever) (libModules flds)
   mkdir env db
-  -- other versions of the package go: one version is installed at a time
+  -- other versions of the package go: one version is installed at a time;
+  -- of this version only the sources are replaced (its data and include
+  -- files are installed before the library)
   ds <- listDirectory db
-  forM_ (filter (isPkgDir name) ds) $ \ d -> rmrf env (db </> d)
-  cmd env $ "cp -R " ++ stageDB env </> namever ++ " " ++ db </> namever
+  forM_ (filter (isPkgDir name) ds) $ \ d ->
+    if d == namever then rmrf env (db </> d </> "src") else rmrf env (db </> d)
+  mkdir env (db </> namever)
+  cmd env $ "cp -R " ++ stageDB env </> namever ++ "/. " ++ db </> namever
   -- fill the unit cache for the installed sources
   unless (null mdls) $
     compileModules env [db] (stageDB env) name mdls

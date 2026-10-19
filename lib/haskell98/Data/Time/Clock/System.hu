@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Time/Clock/
+:o= all
+:package
+System.hs

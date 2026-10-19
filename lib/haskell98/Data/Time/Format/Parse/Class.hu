@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Time/Format/Parse/
+:o= all
+:package
+Class.hs

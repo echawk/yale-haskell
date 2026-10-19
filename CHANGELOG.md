@@ -21,6 +21,19 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- The time package, ported (version 1.15: calendars, local time, time
+  zones, formatting and parsing, ISO 8601), replacing the minimal
+  Data.Time.  Typed Template Haskell (`[|| ||]`, `$$( )`) on the untyped.
+  Pattern synonyms: a signature types the arguments (also in other
+  modules, through typing functions in the template), and a synonym with
+  views can be used in a lambda.  Signatures on tuple pattern
+  components; a lambda's `->` inside a view pattern's expression;
+  `{-#UNPACK#-}` under MagicHash; a package's default extensions in the
+  dependency scan (MagicHash's implicit GHC.Exts); happy's generated
+  parsers' GHC-only `#error`.  MicroCabal: happy and alex build and
+  generate `.y`/`.x` modules; internal libraries; renamed
+  reexported-modules; data files kept on install.
+
 - Libraries for packages on the way to Agda and jni: the binary package
   (Data.Binary, .Get, .Put, .Builder, with binary's encodings),
   Data.Text.Encoding (and .Error, Data.Text.Lazy.Encoding),

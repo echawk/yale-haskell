@@ -124,19 +124,13 @@
            (\) (**pcon/def (core-symbol "UnitConstructor") '()))
 	   (\, (**pcon/def (tuple-constructor (parse-tuple-con-commas 2)) '()))
 	   (else
-	    (let ((pat (if (view-pattern-follows?)
-			   (parse-view-pattern)
-			   (parse-pat))))
+	    (let ((pat (maybe-pattern-signature
+			(if (view-pattern-follows?)
+			    (parse-view-pattern)
+			    (parse-pat)))))
 	      (token-case
 		(\, (**pcon/tuple (cons pat (parse-pat-list '\)))))
 		(\) pat)
-		;; (pat :: type), outside Haskell 1.2
-		((no-advance satisfies pattern-signature-follows?)
-		 (advance-token)
-		 (let ((signature (parse-signature)))
-		   (require-token \)
-		     (signal-missing-token "`)'" "pattern type signature"))
-		   (make sig-pat (pattern pat) (signature signature))))
 		(else
 		 (signal-missing-token "`)' or `,'" "pattern")))))))
      (\[ (token-case
@@ -150,8 +144,17 @@
 (define (pattern-signature-follows?)
   (and (eq? *token* '\:\:) (haskell98?)))
 
+;;; PAT, or PAT :: type when a signature follows (outside Haskell 1.2):
+;;; (p :: t), and each component of a tuple ((a :: t, b :: u) = ...).
+(define (maybe-pattern-signature pat)
+  (if (pattern-signature-follows?)
+      (begin
+	(advance-token)
+	(make sig-pat (pattern pat) (signature (parse-signature))))
+      pat))
+
 (define (parse-pat-list term)  ;; , separated
-  (let ((pat (parse-pat)))
+  (let ((pat (maybe-pattern-signature (parse-pat))))
     (token-case
      (\, (cons pat (parse-pat-list term)))
      ((unquote term) (list pat))
@@ -345,11 +348,22 @@
 (define (scan-for-view-arrow depth)
   (token-case
    (-> (eqv? depth 0))
+   ;; a lambda's -> is its own: \x -> e is an expression, not a view
+   (\\ (and (skip-lambda-arrow 0) (scan-for-view-arrow depth)))
    ((\( \[) (scan-for-view-arrow (1+ depth)))
    ((\) \]) (and (> depth 0) (scan-for-view-arrow (1- depth))))
    (\, (and (> depth 0) (scan-for-view-arrow depth)))
    ((= \| \; \} |where| <- eof) '#f)
    (else (advance-token) (scan-for-view-arrow depth))))
+
+;;; Past a lambda's parameters and its ->.
+(define (skip-lambda-arrow depth)
+  (token-case
+   (-> (or (eqv? depth 0) (skip-lambda-arrow depth)))
+   ((\( \[) (skip-lambda-arrow (1+ depth)))
+   ((\) \]) (and (> depth 0) (skip-lambda-arrow (1- depth))))
+   ((= \; \} eof) '#f)
+   (else (advance-token) (skip-lambda-arrow depth))))
 
 (define *view-pattern-count* 0)
 
@@ -435,7 +449,8 @@
 ;;; Across modules, a synonym travels as a template attached to its
 ;;; builder's def (register-pattern-synonym below).
 
-(define *pattern-synonyms* '())     ; (name params pat)
+(define *pattern-synonyms* '())     ; (name params pat [type])
+(define *pattern-synonym-types* '()) ; (name . type), from the signatures
 (define *pattern-builders* '())     ; decls of the pattern%P functions
 
 (define (at-pattern-synonym?)
@@ -461,11 +476,11 @@
 			 (parse-pattern-synonym-params))))
 	(token-case
 	 (= (let ((pat (parse-pat)))
-	      (push (list name params pat) *pattern-synonyms*)
+	      (push (pattern-synonym-entry name params pat) *pattern-synonyms*)
 	      (push (pattern-builder name params (pattern->exp pat))
 		    *pattern-builders*)))
 	 (<- (let ((pat (parse-synonym-pattern name)))
-	       (push (list name params pat) *pattern-synonyms*)
+	       (push (pattern-synonym-entry name params pat) *pattern-synonyms*)
 	       (let ((builder '#f))
 		 (when (eq-token? '|where|)
 		   (advance-token)
@@ -495,6 +510,13 @@
   (let ((names (parse-pattern-synonym-names)))
     (require-token \:\: (signal-missing-token "`::'" "pattern synonym signature"))
     (let ((signature (parse-signature)))
+      (when (not (eq? *token* '=>))
+	(dolist (n names)
+	  (push (cons n (signature-type signature)) *pattern-synonym-types*)
+	  ;; a synonym defined before its signature
+	  (let ((syn (assq n *pattern-synonyms*)))
+	    (when syn
+	      (setf (cdr (cddr syn)) (list (signature-type signature)))))))
       (if (eq? *token* '=>)
 	  (skip-to-decl-end)
 	  (push (make signdecl
@@ -617,10 +639,100 @@
 	       (exponent (float-const-exponent c))))
 	(else c)))
 
+;;; A synonym with views and a signature gets, for each parameter whose
+;;; type T has no type variables, a function pattern%P%argI :: T -> T, the
+;;; identity: its template (scope.mumble) matches the parameter through
+;;; it, so that a use in another module types it too (the template has no
+;;; signatures).  Their names are the entry's fifth element.
+(define (add-pattern-synonym-arg-functions)
+  (dolist (syn *pattern-synonyms*)
+    (when (and (pair? (cdddr syn)) (pattern-has-view? (caddr syn)))
+      (let ((i 0))
+	(setf (cdr (cdddr syn))
+	      (list
+	       (map (lambda (param ty)
+		      (declare (ignore param))
+		      (incf i)
+		      (if (and ty (not (type-mentions-tyvar? ty)))
+			  (let ((fname (string->symbol
+					(format '#f "~A%arg~A"
+						(symbol->string (pattern-builder-name (car syn))) i))))
+			    (push (make signdecl
+					(vars (list (generated-var-ref fname)))
+					(signature (make signature (context '())
+							 (type (**tycon/def (core-symbol "Arrow")
+									    (list (copy-type-ast ty)
+										  (copy-type-ast ty)))))))
+				  *pattern-builders*)
+			    (push (**define fname '(|arg%x|) (generated-var-ref '|arg%x|))
+				  *pattern-builders*)
+			    fname)
+			  '#f))
+		    (cadr syn)
+		    (pattern-synonym-arg-types syn (length (cadr syn))))))))))
+
+(define (pattern-has-view? p)
+  (cond ((is-type? 'view-pat p) '#t)
+	((is-type? 'pcon p) (lisp:some (function pattern-has-view?) (pcon-pats p)))
+	((is-type? 'list-pat p) (lisp:some (function pattern-has-view?) (list-pat-pats p)))
+	((is-type? 'pp-pat-list p) (lisp:some (function pattern-has-view?) (pp-pat-list-pats p)))
+	((is-type? 'as-pat p) (pattern-has-view? (as-pat-pattern p)))
+	((is-type? 'irr-pat p) (pattern-has-view? (irr-pat-pattern p)))
+	((is-type? 'bang-pat p) (pattern-has-view? (bang-pat-pattern p)))
+	(else '#f)))
+
+;;; The arguments ARGS of a synonym's template, each matched through its
+;;; parameter's typing function when there is one.
+(define (pattern-synonym-typed-args syn args)
+  (if (pair? (cddddr* syn))
+      (map (lambda (a fname)
+	     (if fname
+		 (make view-pat (fn (generated-var-ref fname)) (pattern a))
+		 a))
+	   args (car (cddddr* syn)))
+      args))
+
+(define (cddddr* l) (cdr (cdddr l)))
+
 ;;; The pattern of a use: a copy of the synonym's, its parameters replaced.
+;;; With a signature (pattern P :: Year -> MonthOfYear -> Month), an
+;;; argument whose type has no type variables is matched at that type,
+;;; (p :: Year), so that what the synonym's views compute is not left
+;;; ambiguous.
 (define (instantiate-pattern-synonym syn args)
-  (copy-pattern (caddr syn)
-		(map (lambda (v a) (tuple v a)) (cadr syn) args)))
+  (let ((types (pattern-synonym-arg-types syn (length args))))
+    (copy-pattern (caddr syn)
+		  (map (lambda (v a ty)
+			 (tuple v (if (and ty (not (type-mentions-tyvar? ty)))
+				      (make sig-pat (pattern a)
+					    (signature (make signature (context '())
+							     (type (copy-type-ast ty)))))
+				      a)))
+		       (cadr syn) args types))))
+
+;;; The argument types of synonym NAME's signature (#f for each when it
+;;; has none).
+(define (pattern-synonym-entry name params pat)
+  (let ((ty (assq name *pattern-synonym-types*)))
+    (if ty (list name params pat (cdr ty)) (list name params pat))))
+
+(define (pattern-synonym-arg-types syn n)
+  (arrow-arg-types (and (pair? (cdddr syn)) (cadddr syn)) n))
+
+(define (arrow-arg-types ty n)
+  (cond ((eqv? n 0) '())
+	((and ty (is-type? 'tycon ty) (eq? (tycon-def ty) (core-symbol "Arrow"))
+	      (eqv? (length (tycon-args ty)) 2))
+	 (cons (car (tycon-args ty)) (arrow-arg-types (cadr (tycon-args ty)) (1- n))))
+	(else (cons '#f (arrow-arg-types '#f (1- n))))))
+
+(define (type-mentions-tyvar? ty)
+  (cond ((is-type? 'tycon ty) (lisp:some (function type-mentions-tyvar?) (tycon-args ty)))
+	(else '#t)))
+
+(define (copy-type-ast ty)
+  (make tycon (name (tycon-name ty)) (def (tycon-def ty))
+	(args (map (function copy-type-ast) (tycon-args ty)))))
 
 (define (copy-pattern p env)
   (cond ((is-type? 'var-pat p)

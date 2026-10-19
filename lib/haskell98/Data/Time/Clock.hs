@@ -1,111 +1,51 @@
--- Data.Time.Clock (time): UTCTime from the system clock (Haskell 98's
--- Time) and NominalDiffTime, picosecond-exact, shown as time shows it
--- ("1.5s", "0.001234s").
+-- Ported from the time package, version 1.15 (BSD; Ashley Yakeley),
+-- for Yale Haskell: no TH.Lift instances, no Safe Haskell.
+{-# LANGUAGE LambdaCase, PatternSynonyms, ViewPatterns, DeriveDataTypeable, DeriveGeneric #-}
+
+-- | Types and functions for UTC and UT1
 module Data.Time.Clock (
-    UTCTime, NominalDiffTime, DiffTime, getCurrentTime, diffUTCTime,
-    addUTCTime, nominalDiffTimeToSeconds, secondsToNominalDiffTime,
-    nominalDay, picosecondsToDiffTime, secondsToDiffTime,
-    POSIXTime, getPOSIXTime, utcTimeToPOSIXSeconds, posixSecondsToUTCTime
-  ) where
+    -- * Universal Time
 
-import Time (toUTCTime, toClockTime, CalendarTime(..), ctYear, ctMonth,
-             ctDay, ctHour, ctMin, ctSec, Month(January), Day(Thursday))
-import TimePrims (primGetClockTime)
-import Time (ClockTime, addToClockTime, TimeDiff(TimeDiff))
-import Data.Ratio ((%), numerator, denominator)
+    -- | Time as measured by the Earth.
+    UniversalTime (..),
 
--- picoseconds
-newtype NominalDiffTime = NominalDiffTime Integer deriving (Eq, Ord)
-type DiffTime = NominalDiffTime
+    -- * Absolute intervals
+    DiffTime,
+    pattern Picoseconds,
+    pattern Seconds,
+    pattern Minutes,
+    pattern Hours,
+    secondsToDiffTime,
+    picosecondsToDiffTime,
+    diffTimeToPicoseconds,
 
-newtype UTCTime = UTCTime Integer deriving (Eq, Ord)   -- picoseconds since 1970
+    -- * UTC
 
-picos :: Integer
-picos = 1000000000000
+    -- | UTC is time as measured by a clock, corrected to keep pace with the earth by adding or removing
+    -- occasional seconds, known as \"leap seconds\".
+    -- These corrections are not predictable and are announced with six month's notice.
+    -- No table of these corrections is provided, as any program compiled with it would become
+    -- out of date in six months.
+    --
+    -- If you don't care about leap seconds, use 'UTCTime' and 'NominalDiffTime' for your clock calculations,
+    -- and you'll be fine.
+    UTCTime (..),
+    NominalDiffTime,
+    pattern Nominal,
+    secondsToNominalDiffTime,
+    nominalDiffTimeToSeconds,
+    nominalDay,
+    module Data.Time.Clock.Internal.UTCDiff,
+    getCurrentTime,
+    getTime_resolution,
+) where
 
-instance Show NominalDiffTime where
-  showsPrec p (NominalDiffTime n)
-    | n < 0 = showParen (p > 6) (showChar '-' . showsPrec 7 (NominalDiffTime (negate n)))
-    | otherwise =
-        let (s, f) = n `quotRem` picos
-            digits = reverse (dropWhile (== '0') (reverse (pad (show f))))
-            pad d = replicate (12 - length d) '0' ++ d
-        in showString (show s ++ (if null digits then "" else '.' : digits) ++ "s")
-
-instance Num NominalDiffTime where
-  NominalDiffTime a + NominalDiffTime b = NominalDiffTime (a + b)
-  NominalDiffTime a - NominalDiffTime b = NominalDiffTime (a - b)
-  NominalDiffTime a * NominalDiffTime b = NominalDiffTime ((a * b) `quot` picos)
-  negate (NominalDiffTime a) = NominalDiffTime (negate a)
-  abs (NominalDiffTime a) = NominalDiffTime (abs a)
-  signum (NominalDiffTime a) = NominalDiffTime (signum a * picos)
-  fromInteger n = NominalDiffTime (n * picos)
-
-instance Real NominalDiffTime where
-  toRational (NominalDiffTime a) = a % picos
-
-instance Fractional NominalDiffTime where
-  NominalDiffTime a / NominalDiffTime b = NominalDiffTime ((a * picos) `quot` b)
-  fromRational r = NominalDiffTime ((numerator r * picos) `quot` denominator r)
-
-instance RealFrac NominalDiffTime where
-  properFraction (NominalDiffTime a) =
-    let (q, r) = a `quotRem` picos in (fromInteger q, NominalDiffTime r)
-
-instance Enum NominalDiffTime where
-  toEnum n = NominalDiffTime (toInteger n)
-  fromEnum (NominalDiffTime a) = fromInteger a
-
-getCurrentTime :: IO UTCTime
-getCurrentTime = do
-  (s, ps) <- primGetClockTime
-  return (UTCTime (s * picos + ps))
-
--- Data.Time.Clock.POSIX's: seconds since 1970 as a NominalDiffTime
-type POSIXTime = NominalDiffTime
-
-getPOSIXTime :: IO POSIXTime
-getPOSIXTime = fmap utcTimeToPOSIXSeconds getCurrentTime
-
-utcTimeToPOSIXSeconds :: UTCTime -> POSIXTime
-utcTimeToPOSIXSeconds (UTCTime t) = NominalDiffTime t
-
-posixSecondsToUTCTime :: POSIXTime -> UTCTime
-posixSecondsToUTCTime (NominalDiffTime t) = UTCTime t
-
-diffUTCTime :: UTCTime -> UTCTime -> NominalDiffTime
-diffUTCTime (UTCTime a) (UTCTime b) = NominalDiffTime (a - b)
-
-addUTCTime :: NominalDiffTime -> UTCTime -> UTCTime
-addUTCTime (NominalDiffTime d) (UTCTime t) = UTCTime (t + d)
-
-nominalDiffTimeToSeconds :: NominalDiffTime -> Rational
-nominalDiffTimeToSeconds = toRational
-
-secondsToNominalDiffTime :: Rational -> NominalDiffTime
-secondsToNominalDiffTime = fromRational
-
-secondsToDiffTime :: Integer -> DiffTime
-secondsToDiffTime = fromInteger
-
-picosecondsToDiffTime :: Integer -> DiffTime
-picosecondsToDiffTime = NominalDiffTime
-
-nominalDay :: NominalDiffTime
-nominalDay = 86400
-
--- 2026-10-12 08:15:03.123456 UTC
-instance Show UTCTime where
-  show (UTCTime t) =
-    let (s, ps) = t `divMod` picos
-        -- the calendar time s seconds after the epoch
-        epoch = toClockTime (CalendarTime 1970 January 1 0 0 0 0 Thursday 0 "UTC" 0 False)
-        c = toUTCTime (addSeconds s epoch)
-        two n = (if n < 10 then "0" else "") ++ show n
-        frac = reverse (dropWhile (== '0') (reverse (let d = show ps in replicate (12 - length d) '0' ++ d)))
-    in show (ctYear c) ++ "-" ++ two (fromEnum (ctMonth c) + 1) ++ "-" ++ two (ctDay c)
-       ++ " " ++ two (ctHour c) ++ ":" ++ two (ctMin c) ++ ":" ++ two (ctSec c)
-       ++ (if null frac then "" else '.' : frac) ++ " UTC"
-
-addSeconds :: Integer -> ClockTime -> ClockTime
-addSeconds n t = addToClockTime (TimeDiff 0 0 0 0 0 (fromInteger n) 0) t
+import Data.Time.Clock.Internal.DiffTime
+import Data.Time.Clock.Internal.NominalDiffTime
+import Data.Time.Clock.Internal.SystemTime
+import Data.Time.Clock.Internal.UTCDiff
+import Data.Time.Clock.Internal.UTCTime
+import Data.Time.Clock.Internal.UniversalTime
+import Data.Time.Clock.POSIX
+import Data.Time.Format.Parse ()
+import Data.Time.LocalTime ()

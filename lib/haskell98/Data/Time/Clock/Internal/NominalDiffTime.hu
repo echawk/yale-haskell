@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Time/Clock/Internal/
+:o= all
+:package
+NominalDiffTime.hs

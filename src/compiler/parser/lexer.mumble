@@ -237,6 +237,18 @@
 	    (advance-char) (advance-char)
 	    (decf *quote-depth*)
 	    (emit-token 'close-quote))
+	   ((and (> *quote-depth* 0) (char=? *char* #\|) (char=? *peek-char* #\|)
+		 (char=? (peek-char-2) #\]))
+	    ;; the end of a typed quote
+	    (advance-char) (advance-char) (advance-char)
+	    (decf *quote-depth*)
+	    (emit-token 'close-quote))
+	   ((typed-splice-here?)
+	    ;; typed Template Haskell: $$(c) and $$c
+	    (advance-char) (advance-char)
+	    (if (char=? *char* #\()
+		(begin (advance-char) (emit-token 'typed-splice-paren))
+		(emit-token 'typed-splice-var)))
 	   ((splice-here?)
 	    ;; TemplateHaskell: $(e) and $x (the variable is the next token)
 	    (advance-char)
@@ -303,16 +315,22 @@
     (#\; (advance-char)
 	 (emit-token '\;))
     (#\[ (let ((kind (quote-bracket-here?)))
-	   (if kind
+	   (cond
+	    ((eq? kind 'open-typed-quote)
+	     ;; [||
+	     (advance-char) (advance-char) (advance-char)
+	     (incf *quote-depth*)
+	     (emit-token kind))
+	    (kind
 	       ;; TemplateHaskell: [| [e| [p| [t| open a quote
 	       (begin
 		 (advance-char)
 		 (when (not (char=? *char* #\|)) (advance-char))
 		 (advance-char)
 		 (incf *quote-depth*)
-		 (emit-token kind))
-	       (begin (advance-char)
-		      (emit-token '\[)))))
+		 (emit-token kind)))
+	    (else (advance-char)
+		  (emit-token '\[)))))
     (#\] (advance-char)
 	 (emit-token '\]))
     ;; `_' alone is the wildcard; followed by identifier characters it
@@ -640,9 +658,11 @@
 
 (define (scan-var-con)
   (let ((name (scan-list-of (large small digit #\' #\_))))
-    ;; MagicHash (GHC): I#, Int#, x# are names
+    ;; MagicHash (GHC): I#, Int#, x# are names; not the # of a pragma's
+    ;; #-} ({-#UNPACK#-})
     (if (and (char=? *char* #\#) (not *at-eof?*)
-	     (language-extension? "MagicHash"))
+	     (language-extension? "MagicHash")
+	     (not (and (char=? *peek-char* #\-) (char=? (peek-char-2) #\}))))
 	(append name (scan-list-of (#\#)))
 	name)))
 
@@ -956,14 +976,14 @@
 
 ;;; TemplateHaskell: the token a quote's opening bracket starts, or #f:
 ;;; [| and [e| an expression's, [p| a pattern's, [t| a type's, [d|
-;;; declarations'.  [|| (typed
-;;; Template Haskell) is not one.  Inside a quote, |] ends it.
+;;; declarations', [|| a typed expression quote (not [e||).  Inside a
+;;; quote, |] (or ||]) ends it.
 
 (define (quote-bracket-here?)
   (and (or (language-extension? "TemplateHaskell")
 	   (language-extension? "TemplateHaskellQuotes"))
        (cond ((char=? *peek-char* #\|)
-	      (and (not (char=? (peek-char-2) #\|)) 'open-exp-quote))
+	      (if (char=? (peek-char-2) #\|) 'open-typed-quote 'open-exp-quote))
 	     ((char=? (peek-char-2) #\|)
 	      (case *peek-char*
 		(#\e 'open-exp-quote)
@@ -972,6 +992,17 @@
 		(#\d 'open-decs-quote)
 		(else '#f)))
 	     (else '#f))))
+
+;;; typed Template Haskell: $$ that starts a typed splice, as $ does
+(define (typed-splice-here?)
+  (and (char=? *char* #\$)
+       (char=? *peek-char* #\$)
+       (language-extension? "TemplateHaskell")
+       (let ((c (peek-char-2)))
+	 (or (char=? c #\() (char-lower-case? c) (char=? c #\_)))
+       (or (not *char-before-token*)
+	   (char-whitespace? *char-before-token*)
+	   (memv *char-before-token* '(#\( #\[ #\, #\;)))))
 
 ;;; TemplateHaskell: a $ that starts a splice, as GHC has it: a prefix
 ;;; occurrence (after a space, an opening bracket or nothing) right before

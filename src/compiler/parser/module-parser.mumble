@@ -347,7 +347,7 @@
 	      ((and (eqv? depth 0) (memq type '(|=| \| |::|)))
 	       (return-from naked-splice-ahead? '#f))
 	      ((memq type '(\( \[ \{ splice-paren open-exp-quote open-pat-quote
-			    open-type-quote))
+			    open-type-quote open-typed-quote typed-splice-paren))
 	       (incf depth))
 	      ((memq type '(\) \] \} close-quote))
 	       (decf depth)))))))
@@ -386,6 +386,7 @@
   (setf (module-algdatas mod-ast)
 	(append (module-algdatas mod-ast) (reverse *family-data-decls*)))
   (setf (module-type-equations mod-ast) (reverse *family-equations*))
+  (add-pattern-synonym-arg-functions)
   (setf (module-pattern-synonyms mod-ast) *pattern-synonyms*)
   (setf (module-splices mod-ast) (reverse *splices*))
   (setf *splices* '())
@@ -394,6 +395,7 @@
   (dolist (d *pattern-builders*)
     (setf (module-decls mod-ast) (decl-push d (module-decls mod-ast))))
   (setf *pattern-synonyms* '())
+  (setf *pattern-synonym-types* '())
   (setf *pattern-builders* '())
   (setf *family-decls* '())
   (setf *family-data-decls* '())
@@ -416,6 +418,13 @@
   ;; OverloadedLists: list literals call GHC.IsList.fromList
   (when (language-extension? "OverloadedLists")
     (push (make import-decl (module-name '|GHC.IsList|) (mode 'all)
+		(specs '()) (renamings '()) (qualified? '#t) (as-name '#f))
+	  (module-imports mod-ast)))
+  ;; TemplateHaskell: typed quotes and splices call YaleSplice's
+  ;; yaleTypedQuote and yaleTypedSplice (exp-parser.mumble)
+  (when (and (language-extension? "TemplateHaskell")
+	     (not (eq? (module-name mod-ast) '|Language.Haskell.TH.YaleSplice|)))
+    (push (make import-decl (module-name '|Language.Haskell.TH.YaleSplice|) (mode 'all)
 		(specs '()) (renamings '()) (qualified? '#t) (as-name '#f))
 	  (module-imports mod-ast)))
   ;; OverloadedStrings: string literals call Data.String.fromString

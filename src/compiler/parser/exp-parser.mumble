@@ -326,8 +326,21 @@
 	(record-splice (make splice (exp e))))))
     (splice-var
      (save-parser-context (record-splice (make splice (exp (var->ast))))))
+    ;; typed Template Haskell: $$(c) and $$c splice unTypeCode c
+    (typed-splice-paren
+     (save-parser-context
+      (let ((e (parse-exp)))
+	(require-token \) (signal-missing-token "`)'" "a splice"))
+	(record-splice (make splice (exp (typed-splice-exp e)))))))
+    (typed-splice-var
+     (save-parser-context
+      (record-splice (make splice (exp (typed-splice-exp (var->ast)))))))
     ;; TemplateHaskell's quotes: th/quote.mumble
     (open-exp-quote (parse-quote-body 'exp (function parse-exp)))
+    ;; [|| e ||] is the untyped quote, coerced to a Code
+    (open-typed-quote
+     (let ((q (parse-quote-body 'exp (function parse-exp))))
+       (make app (fn (generated-var-ref '|Language.Haskell.TH.YaleSplice.yaleTypedQuote|)) (arg q))))
     (open-pat-quote (parse-quote-body 'pat (function parse-pat)))
     (open-type-quote (parse-quote-body 'type (function parse-type)))
     (open-decs-quote (parse-quote-body 'decs (function parse-quoted-decls)))
@@ -983,6 +996,9 @@
 	  *family-decls* (list-ref saved 5) *family-data-decls* (list-ref saved 6)
 	  *family-equations* (list-ref saved 7))
     mod))
+
+(define (typed-splice-exp e)
+  (make app (fn (generated-var-ref '|Language.Haskell.TH.YaleSplice.yaleTypedSplice|)) (arg e)))
 
 (define (parse-quote-body kind parse-fn)
   (save-parser-context

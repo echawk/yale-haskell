@@ -6,12 +6,23 @@
 -- qualifies as GHC does (GHC.Internal.Tuple.(,)), are printed as the
 -- syntax; other global names stay qualified with their original module,
 -- which the compiler resolves even where that module is not imported.
-module Language.Haskell.TH.YaleSplice (spliceExpText, spliceDecsText) where
+module Language.Haskell.TH.YaleSplice (
+    spliceExpText, spliceDecsText, yaleTypedQuote, yaleTypedSplice
+  ) where
 
 import Data.Data
 import System.IO.Unsafe (unsafePerformIO)
 import Language.Haskell.TH.Syntax
 import Language.Haskell.TH.Ppr (pprint)
+
+-- typed Template Haskell, on the untyped: [|| e ||] is
+-- yaleTypedQuote [| e |], and $$(c) is $(yaleTypedSplice c)
+-- (parser/exp-parser.mumble)
+yaleTypedQuote :: Quote m => m Exp -> Code m a
+yaleTypedQuote = unsafeCodeCoerce
+
+yaleTypedSplice :: Quote m => Code m a -> m Exp
+yaleTypedSplice = unTypeCode
 
 spliceExpText :: Q Exp -> String
 spliceExpText q = unsafePerformIO (fmap (pprint . everywhere builtinName) (unQ q))

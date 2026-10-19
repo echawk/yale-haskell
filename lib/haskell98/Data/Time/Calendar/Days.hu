@@ -1,0 +1,4 @@
+:output $LIBRARYBIN/Data/Time/Calendar/
+:o= all
+:package
+Days.hs

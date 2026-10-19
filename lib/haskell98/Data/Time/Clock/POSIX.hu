@@ -1,3 +1,4 @@
 :output $LIBRARYBIN/Data/Time/Clock/
 :o= all
+:package
 POSIX.hs

@@ -632,7 +632,13 @@
 	  (else
 	   (let ((result (scan-module-tokens
 			  (let ((saved *language-extensions*))
+			    ;; as the parser starts (parser-driver.mumble): an
+			    ;; installed package's extensions, so their implicit
+			    ;; imports are seen (MagicHash's GHC.Exts)
 			    (setf *language-extensions* '())
+			    (add-language-extensions
+			     (let ((p (package-of-file file)))
+			       (if p (package-extensions p) *default-language-extensions*)))
 			    (let ((tokens (lex-file-quietly file ext)))
 			      ;; the imports some extensions add (parser/
 			      ;; module-parser.mumble's wrapup-module)

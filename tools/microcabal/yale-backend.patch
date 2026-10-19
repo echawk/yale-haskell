@@ -25,7 +25,33 @@
        loop e ("--dry-run"    : as) = loop e{ dryRun = True } as
        loop e ("--nightly"    : as) = loop e{ useNightly = True } as
        loop e ("--no-nightly" : as) = loop e{ useNightly = False } as
-@@ -519,7 +521,8 @@
+@@ -313,7 +315,9 @@
+       info = FlagInfo { os = I.os, arch = I.arch, flags = eflags env, impl = comp }
+       ncbl@(Cabal sects) = normalizeAndPatch env info cbl
+       glob = getGlobal ncbl
+-      sectLib s@(Section "library"         _ _) | TgtLib `elem` targets env && isBuildable s = buildLib env glob s
++      -- the package's own (internal) libraries, built before the ones that use them
++      ownLibs = [ n | Section "library" n _ <- sects, n /= (case glob of Section _ _ g -> getFieldString g "name") ]
++      sectLib s@(Section "library"         _ _) | TgtLib `elem` targets env && isBuildable s = buildLib env glob ownLibs s
+       sectLib s@(Section "foreign-library" _ _) | TgtFor `elem` targets env && isBuildable s = buildForeignLib env glob s
+       sectLib _ = return Nothing
+       sectExe ll s@(Section "executable"   _ _) | TgtExe `elem` targets env && isBuildable s = void $ buildExe env glob s ll
+@@ -357,11 +361,11 @@
+           in  replField mhso mfs' fs
+         localFiles = map (\ n -> distDir env ++ "/" ++  n ++ "-" ++ showVersion vers ++ ".pkg") locals
+ 
+-buildLib :: Env -> Section -> Section -> IO (Maybe Name)
+-buildLib env glob sect@(Section _ name flds) = do
++buildLib :: Env -> Section -> [Name] -> Section -> IO (Maybe Name)
++buildLib env glob ownLibs sect@(Section _ name flds) = do
+   message env 0 $ "Building library " ++ name
+   createPathFile env glob
+-  let pkgs = getBuildDependsPkg flds
++  let pkgs = filter (`notElem` ownLibs) (getBuildDependsPkg flds)
+   mapM_ (checkDep env) pkgs
+   buildPkgLib (backend env) env glob sect
+   return (Just name)
+@@ -519,7 +523,8 @@
    \  -q                            be quiet\n\
    \  -r                            do recursive installs for missing packages\n\
    \  --ghc                         compile using ghc\n\

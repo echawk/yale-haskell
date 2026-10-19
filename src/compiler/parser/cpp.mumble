@@ -316,6 +316,12 @@
 	   (cond ((string=? word "define") (cpp-define-line rest))
 		 ((string=? word "undef")
 		  (lisp:remhash (cpp-first-name rest) (dynamic *cpp-macros*)))
+		 ;; happy's and alex's generated code (happy 2 writes only
+		 ;; GHC code) refuses a compiler without __GLASGOW_HASKELL__;
+		 ;; Yale Haskell compiles it (GHC.Exts's primops)
+		 ((and (string=? word "error")
+		       (lisp:search "isn't being built with GHC" rest))
+		  '#f)
 		 ((string=? word "error")
 		  (cpp-error "#error ~A" rest))
 		 ((string=? word "warning")
