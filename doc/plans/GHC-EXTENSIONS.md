@@ -15,8 +15,8 @@ nofib suites (`tools/conformance/nofib.py`, with `--suite real
 | nofib imaginary + spectral | 68 pass | 69 pass (mandel) |
 | nofib real + gc + shootout | 28 pass, 11 compile errors, 2 wrong, 1 timeout | 40 pass, 2 known (ByteString pointers), no failures |
 
-The three failing probes: GHCIntWraps (a deliberate departure: Int is
-the 63-bit fixnum), QuantifiedConstraints, TemplateHaskell.  Typeable is
+The two failing probes: GHCIntWraps (a deliberate departure: Int is
+the 63-bit fixnum) and QuantifiedConstraints.  Typeable is
 GHC's: every type constructor is Typeable without an instance (the type
 checker builds the dictionary from the constructor's name and the
 arguments' dictionaries, util/instance-manager.mumble), so typeOf, cast
@@ -196,11 +196,10 @@ be accepted.
 
 ### 5. Not realistic here
 
-- **TemplateHaskell / QuasiQuotes**: compile-time evaluation of Haskell
-  producing syntax trees.  In principle possible (the compiler is in
-  Lisp and can run compiled code), but it needs the whole TH AST library
-  and a staging story; out of scope for now.  TEMPLATE-HASKELL.md has
-  the design and milestones.
+- **TemplateHaskell / QuasiQuotes**: in progress (TEMPLATE-HASKELL.md):
+  the library, name quotes ('f, ''T) and expression splices ($(e), $x)
+  of imported functions work; quotes ([| |]), declaration splices,
+  reify and QuasiQuotes do not yet.
 - **GHC's runtime features**: `+RTS` options, profiling, the GHC event
   log, `GHC.Stats`, sparks (`par` is ignored), weak pointers with
   finalizers' timing, stable names.

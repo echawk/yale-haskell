@@ -154,10 +154,54 @@
 
 (define (lookup-toplevel-name name)
   (or (resolve-toplevel-name name)
+      (and (dynamic *th-global-names?*) (resolve-th-global-name name))
       (begin
-        (signal-undefined-symbol name)
+	(if (and (dynamic *splice-parent*)
+		 (defined-in-module? name (dynamic *splice-parent*)))
+	    (signal-stage-restriction name)
+	    (signal-undefined-symbol name))
 	*undefined-def*)))
 
+
+;;; TemplateHaskell: in a splice's code (th/splices.mumble), a qualified
+;;; name M.x not in scope here is x of module M, a global name's NameG
+;;; whose module need not be imported; GHC.Internal.Types.x and the like
+;;; are Yale Haskell's core x (derived/lift.mumble's th-global-name).
+
+(define *th-global-names?* '#f)
+
+;;; The module whose splice is being run, if any: a splice may use only
+;;; imported functions, so a name the module defines is not in scope in
+;;; the splice's fragment (GHC's stage restriction).
+
+(define *splice-parent* '#f)
+
+(define (defined-in-module? name mod)
+  (or (lisp:some (lambda (d)
+		   (and (valdef? d)
+			(lisp:some (lambda (v) (eq? (var-ref-name v) name))
+				   (collect-pattern-vars (valdef-lhs d)))))
+		 (module-decls mod))
+      (lisp:some (lambda (dd)
+		   (lisp:some (lambda (c)
+				(eq? (con-ref-name (constr-constructor c)) name))
+			      (data-decl-constrs dd)))
+		 (module-algdatas mod))))
+
+(define (signal-stage-restriction name)
+  (phase-error 'stage-restriction
+    "~A is defined in this module: a splice may use only imported functions~%~
+     (Template Haskell's stage restriction).  Move it to another module."
+    name))
+
+(define (resolve-th-global-name name)
+  (mlet (((occ modname) (split-qualified-name name)))
+    (cond ((eq? modname '#f) '#f)
+	  ((string-starts? "GHC.Internal." (symbol->string modname))
+	   (table-entry *prelude-core-symbols* occ))
+	  (else
+	   (let ((m (table-entry *modules* modname)))
+	     (and m (table-entry (module-symbol-table m) occ)))))))
 
 ;;; Some kinds of lookups (e.g., matching a signature declaration)
 ;;; require that the name be defined in the current scope and not
@@ -671,6 +715,18 @@
 
 (define (signal-bad-do message)
   (phase-error 'bad-do "~A" message))
+
+;;; TemplateHaskell: a splice is the code it produced (th/splices.mumble).
+
+(define-walker-method scope splice (object env)
+  (if (eq? (splice-expansion object) '#f)
+      ;; not run: typed at the interactive prompt
+      (begin
+	(phase-error 'splice-not-run
+	  "Template Haskell splices are not supported here yet (only in modules).")
+	object)
+      (dynamic-let ((*th-global-names?* '#t))
+	(scope-ast-1 (splice-expansion object) env))))
 
 (define-walker-method scope pp-exp-list (object env)
   (massage-pp-exp-list (scope-ast/list (pp-exp-list-exps object) env)))

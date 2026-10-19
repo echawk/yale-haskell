@@ -296,7 +296,7 @@ Other commands (`mcabal help`):
   are "complete, or in the part commonly used", so a program may still
   find a module or function missing.
   `template-haskell` also counts as installed, so that packages depend on
-  it, but there is no Template Haskell (below).
+  it; Template Haskell itself is only partly there (below).
 - `impl(ghc ...)` conditions in a `.cabal` file are false (the compiler
   is called `yale`).
 
@@ -358,13 +358,15 @@ dated: a package listed there as failing may build now.
 
 ### Limitations
 
-- **Template Haskell is not supported.**  A module with
-  `{-# LANGUAGE TemplateHaskell #-}` or `QuasiQuotes` is installed but not
-  compiled; a package exposing such a module next to others (tagged's
-  Data.Proxy.TH) still builds, but anything that imports it fails.
-  `import Language.Haskell.TH` gives "Cannot find module".  Packages
-  that need TH at their core (aeson via exceptions, lens, ...) do not
-  build.
+- **Template Haskell is partly supported**: the library
+  (`Language.Haskell.TH`), name quotes and expression splices of imported
+  functions, but not yet quotes (`[| |]`), declaration splices, `reify`
+  or QuasiQuotes (doc/plans/TEMPLATE-HASKELL.md).  So `mcabal` still
+  installs a module with `{-# LANGUAGE TemplateHaskell #-}` or
+  `QuasiQuotes` without compiling it; a package exposing such a module
+  next to others (tagged's Data.Proxy.TH) still builds, but anything that
+  imports it fails.  Packages that need TH at their core (aeson via
+  exceptions, lens, ...) do not build.
 - Several `GHC.*` internals are missing or partial: `GHC.IO`'s `IO`
   constructor with `State# RealWorld` (async, attoparsec), unboxed
   primitives and the kind `TYPE` (primitive, vector), parts of

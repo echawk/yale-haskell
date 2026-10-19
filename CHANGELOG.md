@@ -47,6 +47,10 @@ compiled interface, so a new version recompiles cached units.
 - Template Haskell: quoted names ('f, 'C, '(:), ''T, ''(~)) under
   TemplateHaskell or TemplateHaskellQuotes; in a type the tick is still
   DataKinds' promotion.  th-abstraction builds.
+- Template Haskell: expression splices, $(e) and $x, of imported
+  functions (milestone 2 of doc/plans/TEMPLATE-HASKELL.md); a name the
+  module defines gets a stage-restriction error; --printers splices
+  shows each splice's code.
 - Multi-parameter superclasses (class (MonadReader r m, ...) =>
   MonadRWS r w s m) hold wherever the class does; a class without
   methods may have instances with contexts.  mtl's MonadRWS.

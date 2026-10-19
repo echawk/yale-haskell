@@ -1,7 +1,13 @@
 # Plan: Template Haskell
 
-Status: design only (2026-10-16).  Nothing here is implemented.  This
-guide says what Template Haskell (TH) is, how its parts map onto Yale
+Status (2026-10-18): milestone 1 (the library, DeriveLift) and
+milestone 2 (expression splices of imported functions) are done, and the
+name quotes of milestone 3.  Milestone 2 departs from 3.3 and 3.4 below:
+splices run right after parsing (src/compiler/th/splices.mumble), each
+as a fragment module with the module's imports, and the Exp comes back
+as text, printed by pprint and parsed (Language.Haskell.TH.YaleSplice),
+with global names resolved by prec/scope.mumble's resolve-th-global-name.
+The rest is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
 Haskell's pipeline, which files change, and where the hard parts are,
 so that the work can be split into milestones that each end in passing
 tests.

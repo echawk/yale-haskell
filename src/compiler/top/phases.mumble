@@ -48,6 +48,8 @@
 	 (if (eq? (module-type m) 'interface)
 	     (push m interface-mods)
 	     (push m regular-mods)))
+       ;; TemplateHaskell: run the splices (th/splices.mumble)
+       (expand-splices regular-mods)
        (dynamic-let ((*unit*  (module-name (car all-mods))))
 	 (values
 	   all-mods
@@ -108,6 +110,7 @@
 ;;; Here are the actual phase bodies
 
 (predefine (parse-files files))
+(predefine (expand-splices mods))  ; in th/splices.mumble
 
 (define (haskell-parse-files filenames)
   (phase-body parse

@@ -318,6 +318,14 @@
     ;; TemplateHaskell's quoted names ('f, ''T): lexer.mumble
     (name-quote (parse-name-quote '#f))
     (type-name-quote (parse-name-quote '#t))
+    ;; TemplateHaskell's splices: lexer.mumble, th/splices.mumble
+    (splice-paren
+     (save-parser-context
+      (let ((e (parse-exp)))
+	(require-token \) (signal-missing-token "`)'" "a splice"))
+	(record-splice (make splice (exp e))))))
+    (splice-var
+     (save-parser-context (record-splice (make splice (exp (var->ast))))))
     (\(
      (token-case
        (\) (**con/def (core-symbol "UnitConstructor")))
@@ -933,6 +941,15 @@
 
 (define (exp-from-list exps)
   (if (null? (cdr exps)) (car exps) (make pp-exp-list (exps exps))))
+
+;;; TemplateHaskell's splices, kept for the module (module-parser.mumble's
+;;; wrapup-module).
+
+(define *splices* '())
+
+(define (record-splice s)
+  (push s *splices*)
+  s)
 
 ;;; TemplateHaskell: after 'f or ''T, the name; a reference to
 ;;; %nameq.K.NAME, which prec/scope.mumble replaces by the Name (K: v a

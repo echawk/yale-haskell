@@ -339,6 +339,8 @@
 	(append (module-algdatas mod-ast) (reverse *family-data-decls*)))
   (setf (module-type-equations mod-ast) (reverse *family-equations*))
   (setf (module-pattern-synonyms mod-ast) *pattern-synonyms*)
+  (setf (module-splices mod-ast) (reverse *splices*))
+  (setf *splices* '())
   (dolist (d *pattern-builders*)
     (setf (module-decls mod-ast) (decl-push d (module-decls mod-ast))))
   (setf *pattern-synonyms* '())

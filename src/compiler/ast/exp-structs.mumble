@@ -302,6 +302,16 @@
    (exp (type exp))))
 
 
+;;; TemplateHaskell: an expression splice, $(e) or $x.  Before scope,
+;;; th/splices.mumble runs e and puts the code it produces in expansion,
+;;; which scope puts in its place.
+
+(define-struct splice
+  (include exp)
+  (slots
+   (exp (type exp))
+   (expansion (type (maybe exp)) (default '#f))))
+
 ;;; These structures are used by the precedence parser.  
 
 (define-struct pp-exp-list  ; list of expressions & ops for the prec parser

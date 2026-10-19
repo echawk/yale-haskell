@@ -615,7 +615,11 @@
   (append (if (language-extension? "OverloadedStrings") '(|Data.String|) '())
 	  (if (language-extension? "OverloadedLists") '(|GHC.IsList|) '())
 	  (if (language-extension? "RecursiveDo") '(|Control.Monad.Fix|) '())
-	  (if (language-extension? "MagicHash") '(|GHC.Exts|) '())))
+	  (if (language-extension? "MagicHash") '(|GHC.Exts|) '())
+	  ;; the fragments that run splices import it (th/splices.mumble)
+	  (if (language-extension? "TemplateHaskell")
+	      '(|Language.Haskell.TH.YaleSplice|)
+	      '())))
 
 (define (scan-module-header file)
   (let ((ext    (filename-type file))

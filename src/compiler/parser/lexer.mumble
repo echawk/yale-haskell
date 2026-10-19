@@ -228,6 +228,12 @@
 	    (advance-char) (advance-char) (emit-token '\)))
 	   ((record-dot-here?)
 	    (lex-record-dot))
+	   ((splice-here?)
+	    ;; TemplateHaskell: $(e) and $x (the variable is the next token)
+	    (advance-char)
+	    (if (char=? *char* #\()
+		(begin (advance-char) (emit-token 'splice-paren))
+		(emit-token 'splice-var)))
 	   (else
 	    (lex-varsym))))
     (digit (let ((before *char-before-token*))
@@ -929,6 +935,20 @@
 	      (and (not (char=? (peek-char-2) #\'))
 		   (or (char-alphabetic? *peek-char*)
 		       (memv *peek-char* '(#\_ #\( #\[))))))))
+
+;;; TemplateHaskell: a $ that starts a splice, as GHC has it: a prefix
+;;; occurrence (after a space, an opening bracket or nothing) right before
+;;; ( or a variable.  f $ x and f$x are the operator.
+
+(define (splice-here?)
+  (and (char=? *char* #\$)
+       (language-extension? "TemplateHaskell")
+       (or (char=? *peek-char* #\()
+	   (char-lower-case? *peek-char*)
+	   (char=? *peek-char* #\_))
+       (or (not *char-before-token*)
+	   (char-whitespace? *char-before-token*)
+	   (memv *char-before-token* '(#\( #\[ #\, #\;)))))
 
 (define (promotion-tick?)
   (and (language-extension? "DataKinds")

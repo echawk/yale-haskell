@@ -1,0 +1,8 @@
+;;; th.mumble -- compilation unit definition for Template Haskell
+;;; (doc/plans/TEMPLATE-HASKELL.md)
+
+(define-compilation-unit th
+  (source-filename "$Y2/src/compiler/th/")
+  (require global)
+  (unit splices
+    (source-filename "splices.mumble")))

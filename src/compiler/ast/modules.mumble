@@ -104,6 +104,9 @@
     (standalone-derivings (type list) (default '()))
     ;; the GHC extensions its file's LANGUAGE pragmas name (strings)
     (extensions (type list) (default '()))
+    ;; TemplateHaskell: its expression splices, in source order
+    ;; (th/splices.mumble)
+    (splices (type list) (default '()))
     ;; TypeFamilies: (tuple lhs-tycon-ast rhs-ast) for each equation of a
     ;; type family given here; after the type declaration phase, the
     ;; (tuple family (tuple args rhs)) added, for the interface

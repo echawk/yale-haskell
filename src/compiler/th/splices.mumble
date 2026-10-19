@@ -1,0 +1,100 @@
+;;; splices.mumble -- running Template Haskell's expression splices
+;;; (doc/plans/TEMPLATE-HASKELL.md, milestone 2)
+;;;
+;;; After parsing, before the other phases (top/phases.mumble's
+;;; compile-haskell-files), each splice $(e) of a module (parser's
+;;; record-splice, in source order) is run:
+;;;
+;;;  - e becomes the binding splice_expression :: Q Exp of a fragment module,
+;;;    Yale_Splice_N, whose imports are copies of the module's own, so e
+;;;    sees what the module imports and nothing the module defines (TH's
+;;;    stage restriction: a splice may use only imported functions);
+;;;  - the fragment is compiled and loaded, and its splice_text, the Exp
+;;;    printed by pprint (lib/haskell98/Language/Haskell/TH/YaleSplice.hs),
+;;;    is parsed as an expression: the splice's expansion, which the scope
+;;;    phase puts in its place (prec/scope.mumble).  There, a global
+;;;    name's qualified M.x need not have M imported.
+;;;
+;;; A splice inside another's expression is run first, and the outer one's
+;;; fragment has its expansion.  --printers splices shows each expansion.
+
+(define *splice-counter* 0)
+
+(define (expand-splices mods)
+  (dolist (m mods)
+    (dolist (s (module-splices m))
+      (setf (splice-expansion s) (run-expression-splice s m)))))
+
+(define (run-expression-splice s mod)
+  (incf *splice-counter*)
+  (let* ((name (string->symbol (format '#f "Yale_Splice_~A" *splice-counter*)))
+	 (file (source-file-of s))
+	 (frag (splice-fragment name mod file))
+	 (text '#f))
+    (set-splice-hole frag s)
+    (dynamic-let ((*printers* (if (memq 'extension (dynamic *printers*))
+				  (dynamic *printers*)
+				  '()))
+		  (*splice-parent* mod))
+      (eval (modules->lisp-code (list frag))))
+    (let ((var (table-entry (module-symbol-table frag) '|splice_text|)))
+      (setf text (haskell-string->string (force (eval (fullname var))))))
+    (remove-module-from-symbol-table frag)
+    (when (memq 'splices (dynamic *printers*))
+      (format '#t "~&Splice at line ~A of ~A:~%~A~%"
+	      (source-line-of s) file text))
+    (parse-splice-text text mod file)))
+
+(define (splice-fragment name mod file)
+  (let ((frag (car (dynamic-let ((*language-extensions* (module-extensions mod)))
+		     (parse-from-string
+		      (format '#f "module ~A where~%~
+                                   import qualified Language.Haskell.TH.Syntax~%~
+                                   import qualified Language.Haskell.TH.YaleSplice~%~
+                                   splice_expression :: Language.Haskell.TH.Syntax.Q Language.Haskell.TH.Syntax.Exp~%~
+                                   splice_expression = splice_expression~%~
+                                   splice_text :: [Char]~%~
+                                   splice_text = Language.Haskell.TH.YaleSplice.spliceExpText splice_expression~%"
+			      name)
+		      (function parse-module-list)
+		      file)))))
+    (setf (module-imports frag)
+	  (append (module-imports frag)
+		  (map (function copy-import-decl) (module-imports mod))))
+    (setf (module-extensions frag) (module-extensions mod))
+    (setf (module-unit frag) name)
+    frag))
+
+;;; A copy for another module: import/export fills in the copy's own
+;;; module slot and resolves its entities.
+
+(define (copy-import-decl d)
+  (let ((c (lisp:copy-structure d)))
+    (setf (import-decl-specs c)
+	  (map (function lisp:copy-structure) (import-decl-specs d)))
+    (setf (import-decl-renamings c)
+	  (map (function lisp:copy-structure) (import-decl-renamings d)))
+    c))
+
+(define (set-splice-hole frag s)
+  (dolist (d (module-decls frag))
+    ;; errors in the fragment's bindings are the splice's
+    (setf (ast-node-line-number d) (ast-node-line-number s))
+    (when (and (valdef? d)
+	       (var-pat? (valdef-lhs d))
+	       (eq? (var-ref-name (var-pat-var (valdef-lhs d))) '|splice_expression|))
+      (setf (guarded-rhs-rhs
+	     (car (single-fun-def-rhs-list (car (valdef-definitions d)))))
+	    (splice-exp s)))))
+
+(define (parse-splice-text text mod file)
+  (dynamic-let ((*language-extensions* (module-extensions mod)))
+    (parse-from-string text (function parse-exp) file)))
+
+(define (source-file-of ast)
+  (let ((sp (ast-node-line-number ast)))
+    (if (is-type? 'source-pointer sp) (source-pointer-file sp) "<splice>")))
+
+(define (source-line-of ast)
+  (let ((sp (ast-node-line-number ast)))
+    (if (is-type? 'source-pointer sp) (source-pointer-line sp) "?")))
