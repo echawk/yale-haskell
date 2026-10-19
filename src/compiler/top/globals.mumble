@@ -30,6 +30,9 @@
 (define *printer-class* '())
 (define *printers* '(phase-time))
 
+;;; --liquid: check refined signatures (liquid/core.mumble)
+(define *liquid?* '#f)
+
 (define *all-printers*
   '(phase-time time compiling loading reading extension
     parse splices import type-decl scope depend

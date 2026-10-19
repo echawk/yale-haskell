@@ -50,6 +50,8 @@
                       :description "turn off the FLIC optimizer")
    (clingon:make-option :string :long-name "optimizers" :key :optimizers :persistent t
                         :description "FLIC optimizers, comma-separated: names (exactly these), +name, -name, all, none; of foldr,inline,constant,lisp")
+   (clingon:make-option :flag :long-name "liquid" :key :liquid :persistent t
+                        :description "check the {-@ @-} refined signatures with Z3 (doc/plans/LIQUID-HASKELL.md)")
    (clingon:make-option :flag :long-name "cpp" :key :cpp :persistent t
                         :description "run the C preprocessor on every source file (files with {-# LANGUAGE CPP #-} always are)")
    (clingon:make-option :list :long-name "define" :short-name #\D :key :define :persistent t
@@ -128,6 +130,10 @@
                         (clingon:getopt* cmd :extension)))
     (when (clingon:getopt* cmd :cpp)
       (mumble-set "*CPP?*" t))
+    (when (clingon:getopt* cmd :liquid)
+      (mumble-set "*LIQUID?*" t)
+      ;; the program's own modules are compiled, so checked, every time
+      (setf (uiop:getenv "YALE_HASKELL_CACHE") "library"))
     (when (clingon:getopt* cmd :define)
       (mumble-set "*CPP-DEFINES*" (clingon:getopt* cmd :define)))
     (when (clingon:getopt* cmd :include-dir)

@@ -1,0 +1,9 @@
+;;; liquid.mumble -- compilation unit definition for refinement type
+;;; checking (doc/plans/LIQUID-HASKELL.md; yale-liquid, src/liquid/, does
+;;; the logic)
+
+(define-compilation-unit liquid
+  (source-filename "$Y2/src/compiler/liquid/")
+  (require global)
+  (unit core
+    (source-filename "core.mumble")))

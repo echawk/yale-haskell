@@ -162,7 +162,7 @@
 (defsystem :yale-haskell/executable
   :description "The yale-haskell command line: the compiler, the prelude, the runtime and the CLI, saved as an executable."
   :class executable-system
-  :depends-on (:yale-haskell :clingon :cffi :cl-ppcre)
+  :depends-on (:yale-haskell :clingon :cffi :cl-ppcre :yale-liquid)
   :serial t
   :components ((:file "tools/build/executable")
                (:file "src/ffi/ffi-runtime")

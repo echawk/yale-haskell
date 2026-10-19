@@ -78,8 +78,12 @@
 		   (haskell-type-check big-let mods)
 		   (setf big-let (haskell-cfn big-let))
 		   (when (or (memq 'typed (dynamic *printers*))
-			     (env-flag? "YALE_HASKELL_TYPED_CENSUS"))
+			     (env-flag? "YALE_HASKELL_TYPED_CENSUS")
+			     (dynamic *liquid?*))
 		     (haskell-typed big-let))
+		   ;; --liquid (liquid/core.mumble)
+		   (when (dynamic *liquid?*)
+		     (liquid-check-modules big-let))
 		   (setf big-let (haskell-dependency-reanalysis big-let))
 		   (setf big-let (haskell-ast-to-flic big-let))
 		   (setf big-let (haskell-optimize big-let))
@@ -175,6 +179,7 @@
 
 
 (predefine (retype-core x))           ; in typed/retype.mumble
+(predefine (liquid-check-modules x))  ; in liquid/core.mumble
 (predefine (print-typed-core x))
 (predefine (typed-report x))
 ;;; The typed core (typed/): a type on every expression of cfn's output.

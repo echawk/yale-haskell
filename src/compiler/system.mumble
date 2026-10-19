@@ -35,6 +35,7 @@
 (load "$Y2/src/compiler/csys/csys")
 (load "$Y2/src/compiler/command-interface/command-interface")
 (load "$Y2/src/compiler/th/th.mumble")
+(load "$Y2/src/compiler/liquid/liquid.mumble")
 
 ;;; Define some functions to actually do the work.  The compilation unit 
 ;;; facility has conveniently kept a list of all of the unit definitions,

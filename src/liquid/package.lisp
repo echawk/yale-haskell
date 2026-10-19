@@ -19,6 +19,7 @@
 ;;;;   smt.lisp         SMT-LIB2 encoding of elaborated formulas
 ;;;;   z3.lisp          the Z3 process driver
 ;;;;   fixpoint.lisp    the fixpoint (predicate abstraction) solver
+;;;;   check.lisp       checking a program against refined signatures
 ;;;;
 ;;;; Everything is plain Common Lisp; the only dependency is UIOP (part of
 ;;;; ASDF) for running Z3 as a subprocess.
@@ -47,6 +48,9 @@
    #:formula->smt2 #:check-valid
    ;; solver
    #:solve-fq #:solve-fq-file #:fixpoint-result #:result-status
-   #:result-unsafe-ids #:result-solution #:result-message))
+   #:result-unsafe-ids #:result-solution #:result-message
+   ;; checking programs
+   #:check-program #:failure-name #:failure-line #:failure-what
+   #:failure-goal #:failure-message))
 
 (in-package :yale-liquid)

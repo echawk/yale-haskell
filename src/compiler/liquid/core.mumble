@@ -1,0 +1,199 @@
+;;; core.mumble -- refinement type checking (doc/plans/LIQUID-HASKELL.md,
+;;; milestone 2): --liquid checks each module's top-level functions against
+;;; the refined signatures in its {-@ ... @-} comments.
+;;;
+;;; After cfn and the typed core (typed/retype.mumble), each top-level
+;;; binding is converted to yale-liquid's small language (the grammar is in
+;;; src/liquid/check.lisp): parameters, Int and Bool arithmetic and
+;;; comparisons (the Int, Integer and Char instances' methods, which the
+;;; type checker has already chosen), calls of the module's functions, if
+;;; and let; anything else is (:unknown SORT), some value of its type.
+;;; yale-liquid (a plain Common Lisp system in the image) parses the
+;;; specifications and asks Z3 about each obligation; an unproved one is
+;;; a compile error at its line.  yale-liquid's functions are called by
+;;; name, as it is loaded after the compiler.
+
+(define (liquid-call name . args)
+  (lisp:apply (lisp:symbol-function (lisp:find-symbol name "YALE-LIQUID")) args))
+
+(define (liquid-check-modules big-let)
+  (let* ((decls (liquid-top-decls big-let))
+	 (file (liquid-source-file decls)))
+    (when (and file (file-exists? file))
+      (let ((text (read-file-text file)))
+	(when (lisp:search "{-@" text)
+	  (mlet (((specs errors) (liquid-call "PARSE-SPEC-TEXT" text)))
+	    (dolist (e errors)
+	      (liquid-report file 1 (lisp:format lisp:nil "~A" e)))
+	    (let* ((names (map (lambda (d) (def-name (var-ref-var (var-pat-var (valdef-lhs d)))))
+			       decls))
+		   (program (lisp:remove '#f (map (lambda (d) (liquid-binding d names)) decls)))
+		   (failures (begin
+			       ;; YALE_HASKELL_LIQUID_DEBUG=1: what is checked
+			       (when (env-flag? "YALE_HASKELL_LIQUID_DEBUG")
+				 (lisp:format lisp:*error-output* "~&~S~%~S~%" specs program))
+			       (liquid-call "CHECK-PROGRAM" program specs))))
+	      (dolist (f failures)
+		(liquid-report file (liquid-call "FAILURE-LINE" f)
+			       (liquid-call "FAILURE-MESSAGE" f))))))))
+    big-let))
+
+;;; The top-level bindings v = e (cfn's output is a let of them, some in
+;;; recursive groups).
+(define (liquid-top-decls big-let)
+  (let ((result '()))
+    (when (is-type? 'let big-let)
+      (dolist (d (let-decls big-let))
+	(dolist (d1 (if (is-type? 'recursive-decl-group d)
+			(recursive-decl-group-decls d)
+			(list d)))
+	  (when (and (valdef? d1) (var-pat? (valdef-lhs d1)))
+	    (push d1 result)))))
+    (reverse result)))
+
+(define (liquid-source-file decls)
+  (lisp:some (lambda (d)
+	       (let ((sp (ast-node-line-number d)))
+		 (and (is-type? 'source-pointer sp) (source-pointer-file sp))))
+	     decls))
+
+(define (liquid-report file line message)
+  (let ((node (**var '|liquid|)))
+    (setf (ast-node-line-number node)
+	  (make source-pointer (line (if (integer? line) line 1)) (file file)))
+    (remember-context node
+      (phase-error 'liquid-unsafe "Refinement type error: ~A" message))))
+
+(define (liquid-line ast)
+  (let ((sp (ast-node-line-number ast)))
+    (if (is-type? 'source-pointer sp) (source-pointer-line sp) '#f)))
+
+;;; A binding: (NAME (PARAM ...) BODY LINE).
+
+(define (liquid-binding d names)
+  (let* ((var (var-ref-var (var-pat-var (valdef-lhs d))))
+	 (rhs (guarded-rhs-rhs (car (single-fun-def-rhs-list (car (valdef-definitions d))))))
+	 (params '()))
+    (do () ((not (is-type? 'lambda rhs)))
+      (dolist (p (lambda-pats rhs))
+	(push (if (var-pat? p) (var-pat-var p) '#f) params))
+      (setf rhs (lambda-body rhs)))
+    (if (memq '#f params)
+	'#f
+	(let ((params (reverse params)))
+	  (list (symbol->string (def-name var))
+		(map (lambda (p) (liquid-var-name (var-ref-var p))) params)
+		(liquid-exp rhs names (map (function var-ref-var) params))
+		(or (liquid-line d) 1))))))
+
+(define (liquid-var-name def)
+  (symbol->string (def-name def)))
+
+;;; The sort of a type: :int, :bool or #f.
+(define (liquid-sort type)
+  (let ((ty (cond ((gtype? type) (gtype-type type))
+		  (else type))))
+    (when ty (setf ty (prune ty)))
+    (cond ((not (ntycon? ty)) '#f)
+	  ((memq (ntycon-tycon ty)
+		 (list (core-symbol "Int") (core-symbol "Integer") (core-symbol "Char")))
+	   ':int)
+	  ((eq? (ntycon-tycon ty) (core-symbol "Bool")) ':bool)
+	  (else '#f))))
+
+(define (liquid-exp-sort e)
+  (liquid-sort (or (exp-core-type e) (exp-inferred-type e))))
+
+;;; The instance methods and Prelude functions that are logic operators:
+;;; (name . op); a method's name is i-Class-Type-name.
+(define *liquid-ops*
+  '(("+" . :+) ("-" . :-) ("*" . :*) ("negate" . :neg)
+    ("<" . :<) ("<=" . :<=) (">" . :>) (">=" . :>=) ("==" . :=) ("/=" . :/=)
+    ("div" . :div) ("mod" . :mod) ("quot" . :div) ("rem" . :mod)))
+
+(define (liquid-op def nargs)
+  (let ((s (symbol->string (def-name def))))
+    (cond ((and (string=? s "&&") (eqv? nargs 2)) ':and)
+	  ((and (string=? s "||") (eqv? nargs 2)) ':or)
+	  ((and (string=? s "not") (eqv? nargs 1)) ':not)
+	  (else
+	   (let ((op (liquid-method-op s)))
+	     (and op
+		  (eqv? nargs (if (eq? (cdr op) ':neg) 1 2))
+		  (cdr op)))))))
+
+;;; i-Num-Int-+ -> ("+" . :+), for the Int, Integer, Char and Bool instances
+(define (liquid-method-op s)
+  (lisp:some (lambda (ty)
+	       (lisp:some (lambda (cls)
+			    (let ((prefix (string-append "i-" cls "-" ty "-")))
+			      (and (string-starts? prefix s)
+				   (assoc (substring s (string-length prefix) (string-length s))
+					  *liquid-ops*))))
+			  '("Num" "Ord" "Eq" "Integral")))
+	     '("Int" "Integer" "Char" "Bool")))
+
+(define (liquid-fromInteger? def)
+  (let ((s (symbol->string (def-name def))))
+    (or (string=? s "i-Num-Int-fromInteger")
+	(string=? s "i-Num-Integer-fromInteger"))))
+
+(define (liquid-exp e names locals)
+  (let ((line (liquid-line e))
+	(core (liquid-exp-1 e names locals)))
+    (if (and line (memq (car core) '(:call :prim :if)))
+	(list ':at line core)
+	core)))
+
+(define (liquid-exp-1 e names locals)
+  (let ((sort (liquid-exp-sort e)))
+    (cond ((integer-const? e) (list ':int (integer-const-value e)))
+	  ((char-const? e) (list ':int (char->integer (char-const-value e))))
+	  ((con-ref? e)
+	   (cond ((eq? (con-ref-con e) (core-symbol "True")) (list ':bool '#t))
+		 ((eq? (con-ref-con e) (core-symbol "False")) (list ':bool '#f))
+		 (else (list ':unknown sort))))
+	  ((var-ref? e)
+	   (let ((def (var-ref-var e)))
+	     (cond ((memq def locals) (list ':var (liquid-var-name def)))
+		   ((memq (def-name def) names)
+		    (list ':call (symbol->string (def-name def)) sort))
+		   (else (list ':unknown sort)))))
+	  ((app? e)
+	   (let ((args '())
+		 (fn e))
+	     (do () ((not (app? fn)))
+	       (push (app-arg fn) args)
+	       (setf fn (app-fn fn)))
+	     (if (not (var-ref? fn))
+		 (list ':unknown sort)
+		 (let* ((def (var-ref-var fn))
+			(op (liquid-op def (length args))))
+		   (cond ((and (liquid-fromInteger? def) (eqv? (length args) 1)
+			       (integer-const? (car args)))
+			  (list ':int (integer-const-value (car args))))
+			 (op (cons ':prim
+				   (cons op (map (lambda (a) (liquid-exp a names locals)) args))))
+			 ((memq (def-name def) names)
+			  (cons ':call
+				(cons (symbol->string (def-name def))
+				      (cons sort
+					    (map (lambda (a) (liquid-exp a names locals)) args)))))
+			 (else (list ':unknown sort)))))))
+	  ((is-type? 'if e)
+	   (list ':if sort
+		 (liquid-exp (if-test-exp e) names locals)
+		 (liquid-exp (if-then-exp e) names locals)
+		 (liquid-exp (if-else-exp e) names locals)))
+	  ((and (is-type? 'let e)
+		(null? (cdr (let-decls e)))
+		(valdef? (car (let-decls e)))
+		(var-pat? (valdef-lhs (car (let-decls e)))))
+	   (let* ((d (car (let-decls e)))
+		  (def (var-ref-var (var-pat-var (valdef-lhs d))))
+		  (rhs (guarded-rhs-rhs
+			(car (single-fun-def-rhs-list (car (valdef-definitions d)))))))
+	     (list ':let (liquid-var-name def) (liquid-sort (var-type def))
+		   (liquid-exp rhs names locals)
+		   (liquid-exp (let-body e) names (cons def locals)))))
+	  (else (list ':unknown sort)))))
