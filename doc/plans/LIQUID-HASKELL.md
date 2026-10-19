@@ -1,7 +1,14 @@
 # Plan: refinement types in the style of LiquidHaskell
 
-Status: milestone 1 (the typed core) done, 2026-10-17; the rest is
-design only.
+Status: milestone 1 (the typed core) done, 2026-10-17; milestone 2
+(checking with Z3) done, 2026-10-19: `--liquid` checks a module's
+top-level functions against the `{-@ @-}` signatures, type aliases and
+`assume`s in its source (src/compiler/liquid/core.mumble converts cfn's
+typed output to the small language of src/liquid/check.lisp, which asks
+Z3 about each obligation), for Int and Bool arithmetic, comparisons,
+calls, `if` and `let`; anything else is an unconstrained value.  An
+unproved obligation is a compile error at its binding's line.  Tests in
+tests/haskell98/liquid/.  The rest is design.
 
 The aim is a refinement type checker inside Yale Haskell that accepts
 LiquidHaskell's specification language (`{-@ ... @-}` comments), checks

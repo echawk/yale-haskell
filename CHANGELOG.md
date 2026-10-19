@@ -21,6 +21,12 @@ compiled interface, so a new version recompiles cached units.
 
 ## Unreleased
 
+- Refinement types (milestone 2 of doc/plans/LIQUID-HASKELL.md):
+  `--liquid` checks top-level functions against `{-@ @-}` refined
+  signatures, type aliases and `assume`s with Z3 (first-order Int and
+  Bool code); yale-liquid is in the image, without its Prolog
+  cross-check, and `make liquid-test` runs its tests.
+
 - Deriving: classes of type constructors through a newtype (Bifunctor
   (Biap bi)), with the field's flexible context (Ord1 (bi a)); derived
   Functor, Foldable and Traversable with a context on an application

@@ -83,7 +83,7 @@
 		     (haskell-typed big-let))
 		   ;; --liquid (liquid/core.mumble)
 		   (when (dynamic *liquid?*)
-		     (liquid-check-modules big-let))
+		     (haskell-liquid big-let))
 		   (setf big-let (haskell-dependency-reanalysis big-let))
 		   (setf big-let (haskell-ast-to-flic big-let))
 		   (setf big-let (haskell-optimize big-let))
@@ -185,6 +185,11 @@
 ;;; The typed core (typed/): a type on every expression of cfn's output.
 ;;; Run only when asked for (--emit typed, or YALE_HASKELL_TYPED_CENSUS=1
 ;;; for its coverage report alone); it changes nothing.
+
+(define (haskell-liquid big-let)
+  (phase-body liquid
+    (liquid-check-modules big-let)
+    #f))
 
 (define (haskell-typed big-let)
   (phase-body typed

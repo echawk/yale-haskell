@@ -19,6 +19,9 @@
 (define (liquid-check-modules big-let)
   (let* ((decls (liquid-top-decls big-let))
 	 (file (liquid-source-file decls)))
+    (when (env-flag? "YALE_HASKELL_LIQUID_DEBUG")
+      (lisp:format lisp:*error-output* "~&liquid: ~A bindings, file ~A, top ~A~%"
+		   (length decls) file (lisp:type-of big-let)))
     (when (and file (file-exists? file))
       (let ((text (read-file-text file)))
 	(when (lisp:search "{-@" text)
@@ -35,7 +38,9 @@
 			       (liquid-call "CHECK-PROGRAM" program specs))))
 	      (dolist (f failures)
 		(liquid-report file (liquid-call "FAILURE-LINE" f)
-			       (liquid-call "FAILURE-MESSAGE" f))))))))
+			       (liquid-call "FAILURE-MESSAGE" f)))
+	      (when (or (not (null? failures)) (not (null? errors)))
+		(abort-compilation)))))))
     big-let))
 
 ;;; The top-level bindings v = e (cfn's output is a let of them, some in
@@ -51,11 +56,29 @@
 	    (push d1 result)))))
     (reverse result)))
 
+;;; The file of the first source position in the bindings (cfn's top-level
+;;; valdefs themselves have none).
 (define (liquid-source-file decls)
-  (lisp:some (lambda (d)
-	       (let ((sp (ast-node-line-number d)))
-		 (and (is-type? 'source-pointer sp) (source-pointer-file sp))))
-	     decls))
+  (let ((sp (lisp:some (function liquid-find-file) decls)))
+    (and sp (source-pointer-file sp))))
+
+;;; The first source position in X (a binding or an expression), or #f.
+(define (liquid-find-file x)
+  (cond ((and (lisp:typep x 'ast-node)
+	      (is-type? 'source-pointer (ast-node-line-number x)))
+	 (ast-node-line-number x))
+	((valdef? x)
+	 (lisp:some (lambda (sfd)
+		      (lisp:some (lambda (g) (liquid-find-file (guarded-rhs-rhs g)))
+				 (single-fun-def-rhs-list sfd)))
+		    (valdef-definitions x)))
+	((app? x) (or (liquid-find-file (app-fn x)) (liquid-find-file (app-arg x))))
+	((is-type? 'lambda x) (liquid-find-file (lambda-body x)))
+	((is-type? 'if x) (or (liquid-find-file (if-test-exp x))
+			      (liquid-find-file (if-then-exp x))
+			      (liquid-find-file (if-else-exp x))))
+	((is-type? 'let x) (liquid-find-file (let-body x)))
+	(else '#f)))
 
 (define (liquid-report file line message)
   (let ((node (**var '|liquid|)))
@@ -84,7 +107,8 @@
 	  (list (symbol->string (def-name var))
 		(map (lambda (p) (liquid-var-name (var-ref-var p))) params)
 		(liquid-exp rhs names (map (function var-ref-var) params))
-		(or (liquid-line d) 1))))))
+		(let ((sp (liquid-find-file d)))
+		  (if sp (source-pointer-line sp) 1)))))))
 
 (define (liquid-var-name def)
   (symbol->string (def-name def)))
