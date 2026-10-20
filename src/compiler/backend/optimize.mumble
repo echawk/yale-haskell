@@ -1450,7 +1450,13 @@
 	   ;; references again!
 	   ;; We copy the value anyway to avoid problems with shared
 	   ;; structure in the multiple reference case.
+	   ;; Only once, though: a copy of the referring value (an
+	   ;; invariant-argument wrapper, inlined at each call:
+	   ;; hoist-invariant-args) refers to it again, and copying the
+	   ;; worker into each, its own calls through the wrapper included,
+	   ;; grew vector's stream loops exponentially pass by pass.
 	   (record-hack 'ref-inline-single-ref var)
+	   (setf (var-single-ref var) '#f)
 	   (optimize-inline var (var-value var)))
 	  ((and (var-inline-value var) (dynamic *do-inline-optimizations*))
 	   ;; Use the previously saved value in preference to the current
