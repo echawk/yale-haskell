@@ -22,7 +22,8 @@ module GHC.Generics (
     SourceUnpackedness(NoSourceUnpackedness, SourceNoUnpack, SourceUnpack),
     SourceStrictness(NoSourceStrictness, SourceLazy, SourceStrict),
     DecidedStrictness(DecidedLazy, DecidedStrict, DecidedUnpack),
-    Generically(Generically), Generically1(Generically1)
+    Generically(Generically), Generically1(Generically1),
+    Meta(MetaData, MetaCons, MetaSel)
   ) where
 
 import Prelude hiding (foldr)
@@ -278,3 +279,10 @@ data DecidedStrictness = DecidedLazy | DecidedStrict | DecidedUnpack
 -- DerivingVia's helpers: instances through the generic representation
 newtype Generically a = Generically a
 newtype Generically1 f a = Generically1 (f a)
+
+-- | The metadata of a representation's M1 (base): used as promoted types
+-- ('MetaSel 'Nothing u s d) by programs over GHC's representations.
+-- Symbol is String here (kinds are not checked).
+data Meta = MetaData String String String Bool
+          | MetaCons String FixityI Bool
+          | MetaSel (Maybe String) SourceUnpackedness SourceStrictness DecidedStrictness

@@ -48,7 +48,9 @@
 	  (resolve-class (mp-context-class c)))
 	(dolist (old (class-instances class-def))
 	  (when (and (instance-ok? old)
-		     (same-instance-heads? (instance-mp-types old) types))
+		     ;; (overlapping heads are allowed, the most specific
+		     ;; chosen: mp-classes.mumble's find-mp-instance)
+		     (identical-instance-heads? (instance-mp-types old) types))
 	    (signal-multiple-mp-instance class-def)))
 	(let ((inst (new-mp-instance class-def types tyvars)))
 	  (setf (instance-context inst) context)
@@ -122,6 +124,23 @@
 ;;; be the same: a tyvar, or the same type constructor with arguments that
 ;;; could be the same, synonyms expanded (GRead1 v (D1 d f) and
 ;;; GRead1 v (C1 c f), D1 = M1 D and C1 = M1 C, do not overlap).
+;;; The same heads up to the names of their type variables.
+(define (identical-instance-heads? types1 types2)
+  (and (eqv? (length types1) (length types2))
+       (every (function identical-head-type?) types1 types2)))
+
+(define (identical-head-type? t1 t2)
+  (cond ((and (tyvar? t1) (tyvar? t2)) '#t)
+	((and (tycon? t1) (tycon? t2))
+	 (and (eq? (tycon-def t1) (tycon-def t2))
+	      (eqv? (length (tycon-args t1)) (length (tycon-args t2)))
+	      (every (function identical-head-type?) (tycon-args t1) (tycon-args t2))))
+	((and (tyapp? t1) (tyapp? t2))
+	 (and (identical-head-type? (tyapp-fun t1) (tyapp-fun t2))
+	      (eqv? (length (tyapp-args t1)) (length (tyapp-args t2)))
+	      (every (function identical-head-type?) (tyapp-args t1) (tyapp-args t2))))
+	(else '#f)))
+
 (define (same-instance-heads? types1 types2)
   (every (lambda (t1 t2) (instance-types-may-overlap? t1 t2 8))
 	 types1 types2))
