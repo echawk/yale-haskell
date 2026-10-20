@@ -7,6 +7,12 @@
 
 (predefine (add-derived-instances modules)) ; in derived/derived-instances.mumble
 
+(define (synonym-refs-among-nodes refs)
+  (let ((nodes (map (function car) refs)))
+    (map (lambda (r)
+	   (cons (car r) (lisp:remove-if-not (lambda (d) (memq d nodes)) (cdr r))))
+	 refs)))
+
 (define (process-type-declarations modules)
 ;;; Convert data & type decls to definitions
  (let ((interface? (eq? (module-type (car modules)) 'interface)))
@@ -33,7 +39,9 @@
   ;; TypeFamilies: the equations, now that all the types are defined
   (when (not interface?)
     (walk-modules modules (function process-family-equations)))
-  (multiple-value-bind (ty vals) (topsort *synonym-refs*)
+  ;; (a synonym another group of modules defined, a data family, is no
+  ;; node: topsort would never place what refers to it)
+  (multiple-value-bind (ty vals) (topsort (synonym-refs-among-nodes *synonym-refs*))
     (when (eq? ty 'cyclic) (signal-recursive-synonyms vals)))
   ;; Build the class heirarchy
   (compute-super-classes modules)

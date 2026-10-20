@@ -1,7 +1,7 @@
 -- Data.Traversable (base): the class is PreludeModern's.
 module Data.Traversable (
     Traversable(traverse, sequenceA, mapM, sequence),
-    for, forM, mapAccumL, mapAccumR, fmapDefault, foldMapDefault
+    for, forM, mapAccumL, mapAccumR, mapAccumM, forAccumM, fmapDefault, foldMapDefault
   ) where
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1, null, length, elem, notElem, maximum, minimum, sum, product, concat, concatMap, and, or, any, all, mapM_, sequence_, mapM, sequence)
@@ -42,6 +42,26 @@ instance Applicative (StateR s) where
     let (s', v) = kv s
         (s'', f) = kf s'
     in (s'', f v))
+
+-- The state transformer of mapAccumM (base 4.18)
+newtype StateM m s a = StateM (s -> m (s, a))
+
+runStateM :: StateM m s a -> s -> m (s, a)
+runStateM (StateM f) = f
+
+instance Monad m => Functor (StateM m s) where
+  fmap f (StateM k) = StateM (\s -> k s >>= \(s', v) -> return (s', f v))
+
+instance Monad m => Applicative (StateM m s) where
+  pure x = StateM (\s -> return (s, x))
+  StateM kf <*> StateM kv = StateM (\s ->
+    kf s >>= \(s', f) -> kv s' >>= \(s'', v) -> return (s'', f v))
+
+mapAccumM :: (Monad m, Traversable t) => (s -> a -> m (s, b)) -> s -> t a -> m (s, t b)
+mapAccumM f s t = runStateM (traverse (\x -> StateM (\acc -> f acc x)) t) s
+
+forAccumM :: (Monad m, Traversable t) => s -> t a -> (s -> a -> m (s, b)) -> m (s, t b)
+forAccumM s t f = mapAccumM f s t
 
 mapAccumL :: Traversable t => (a -> b -> (a, c)) -> a -> t b -> (a, t c)
 mapAccumL f s t = runStateL (traverse (\x -> StateL (\acc -> f acc x)) t) s

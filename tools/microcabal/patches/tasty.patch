@@ -1,0 +1,27 @@
+tasty: its own Control.Concurrent.Async forks with Control.Concurrent's forkIO
+instead of the fork# primop (as tools/microcabal/patches/async.patch).
+--- a/Control/Concurrent/Async.hs
++++ b/Control/Concurrent/Async.hs
+@@ -59,7 +59,11 @@
+ import Control.Concurrent
+ import Control.Monad
+ import Data.IORef
++#ifdef __YALE_HASKELL__
++import GHC.Conc (ThreadId)
++#else
+ import GHC.Conc (ThreadId(..))
++#endif
+ import GHC.Exts
+ import GHC.IO hiding (onException)
+ 
+@@ -289,5 +293,10 @@
+ -- exception handler.
+ {-# INLINE rawForkIO #-}
+ rawForkIO :: IO () -> IO ThreadId
++#ifdef __YALE_HASKELL__
++-- Yale Haskell: Control.Concurrent's fork (as in the async patch)
++rawForkIO = forkIO
++#else
+ rawForkIO action = IO $ \ s ->
+    case (fork# (unIO action) s) of (# s1, tid #) -> (# s1, ThreadId tid #)
++#endif

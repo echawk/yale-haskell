@@ -173,6 +173,12 @@
 (define (prim.get-clock-time)
   (make-haskell-tuple2 (- (lisp:get-universal-time) *unix-epoch*) 0))
 
+;;; primMonotonicNSec :: IO Integer -- nanoseconds from an arbitrary
+;;; start, never going back (GHC.Clock)
+(define (prim.monotonic-nsec)
+  (lisp:round (lisp:* (lisp:get-internal-real-time) 1000000000)
+	      lisp:internal-time-units-per-second))
+
 ;;; Local time zone at Unix time SECS, from portable CL.  CL only
 ;;; decodes universal times (>= 1900); earlier times use 1900's zone.
 

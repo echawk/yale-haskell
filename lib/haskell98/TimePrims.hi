@@ -7,10 +7,12 @@ primGetClockTime    :: IO (Integer, Integer)
 primTimeZoneOffset  :: Integer -> IO Int
 primIsDST           :: Integer -> IO Bool
 primTimeZoneName    :: Integer -> IO String
+primMonotonicNSec   :: IO Integer
 
 {-#
 primGetClockTime    :: LispName("prim.get-clock-time")
 primTimeZoneOffset  :: LispName("prim.time-zone-offset")
 primIsDST           :: LispName("prim.is-dst")
 primTimeZoneName    :: LispName("prim.time-zone-name")
+primMonotonicNSec   :: LispName("prim.monotonic-nsec")
 #-}

@@ -5,6 +5,7 @@ module Control.Concurrent.STM (
     modifyTVar', stateTVar, swapTVar,
     TMVar, newTMVar, newEmptyTMVar, newTMVarIO, newEmptyTMVarIO, takeTMVar,
     putTMVar, readTMVar, tryTakeTMVar, tryPutTMVar, isEmptyTMVar,
+    swapTMVar, tryReadTMVar, writeTMVar,
     TChan, newTChan, newTChanIO, writeTChan, readTChan, tryReadTChan,
     isEmptyTChan,
     TQueue, newTQueue, newTQueueIO, writeTQueue, readTQueue, tryReadTQueue,
@@ -75,6 +76,12 @@ tryTakeTMVar :: TMVar a -> STM (Maybe a)
 tryTakeTMVar (TMVar v) = do { m <- readTVar v; writeTVar v Nothing; return m }
 tryPutTMVar :: TMVar a -> a -> STM Bool
 tryPutTMVar (TMVar v) x = readTVar v >>= maybe (writeTVar v (Just x) >> return True) (const (return False))
+swapTMVar :: TMVar a -> a -> STM a
+swapTMVar (TMVar v) new = readTVar v >>= maybe retry (\old -> writeTVar v (Just new) >> return old)
+tryReadTMVar :: TMVar a -> STM (Maybe a)
+tryReadTMVar (TMVar v) = readTVar v
+writeTMVar :: TMVar a -> a -> STM ()
+writeTMVar (TMVar v) x = writeTVar v (Just x)
 isEmptyTMVar :: TMVar a -> STM Bool
 isEmptyTMVar (TMVar v) = fmap (maybe True (const False)) (readTVar v)
 

@@ -352,6 +352,9 @@
 		   (list body))))
     (and (every (lambda (p)
 		  (and (tycon? p)
+		       ;; the function type's tycon is named Arrow, as
+		       ;; Control.Arrow's class: never a constraint
+		       (not (eq? (tycon-def p) (core-symbol "Arrow")))
 		       (let ((def (resolve-toplevel-name (tycon-name p))))
 			 (or (class? def)
 			     (and (synonym? def)
