@@ -410,7 +410,9 @@
   object)
 
 (define-walker-method scope type-app (object env)
-  (resolve-type (type-app-type object))
+  ;; the type may be a partial application (@MV.MVector, of kind
+  ;; * -> * -> *), as a class argument may
+  (resolve-type-1 (type-app-type object) '() '#t)
   (setf (type-app-exp object) (scope-ast-1 (type-app-exp object) env))
   object)
 

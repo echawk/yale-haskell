@@ -80,7 +80,8 @@
 	   ;; a type family application not decided yet (TypeFamilies):
 	   ;; given by the enclosing binding's signature (Size (Rep a) =>),
 	   ;; or left for later
-	   (let ((given (given-app-dict-params p type decls)))
+	   (let ((given (given-app-dict-params p type decls))
+		 (family (ntycon-tycon (expand-ntype-synonym type))))
 	     (cond ((not (null? given))
 		    (setf (placeholder-exp p)
 			  (if (dict-placeholder? p)
@@ -88,6 +89,12 @@
 			      (let ((m (method-placeholder-method p)))
 				(method-reference-code m (method-var-class m) given))))
 		    deferred)
+		   ;; a data family with an instance of its own (instance
+		   ;; Show (Vector a)): that instance, at any arguments
+		   ((and (data-family-def? family)
+			 (family-instance-for p family))
+		    (process-instantiated-tyvar (expand-ntype-synonym type)
+						p deferred decls))
 		   (else (cons p deferred)))))
 	  ((ntycon? type)
 	   (process-instantiated-tyvar
@@ -224,6 +231,14 @@
 ;;; appropriate dictionary is generated.  This reference must be recursively
 ;;; dictionary converted since dictionaries may need subdictionaries
 ;;; when referenced.
+
+;;; The instance of P's class whose head is the data family FAMILY, or #f.
+(define (family-instance-for p family)
+  (let ((class (if (dict-placeholder? p)
+		   (dict-placeholder-class p)
+		   (method-var-class (method-placeholder-method p)))))
+    (lisp:find-if (lambda (i) (and (instance-ok? i) (eq? (instance-algdata i) family)))
+		  (class-instances class))))
 
 (define (process-instantiated-tyvar tycon p deferred decls)
   (let* ((alg (ntycon-tycon tycon))

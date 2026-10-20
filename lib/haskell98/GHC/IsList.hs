@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 -- GHC.IsList (base): OverloadedLists' class (parser/exp-parser.mumble).
 -- Item is an associated type family, as in base.
-module GHC.IsList (IsList(fromList, toList, fromListN), Item) where
+module GHC.IsList (IsList(..), Item) where
 
 import qualified Data.Map as M
 import qualified Data.Set as S

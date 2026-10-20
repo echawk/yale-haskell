@@ -156,6 +156,15 @@
 		 (**ntycon (ntycon-tycon fam) (list-head fargs arity)))))))
 
 (define (unify-app-con app con)
+  (if (and (algdata? (ntycon-tycon con))
+	   (algdata-data-family (ntycon-tycon con)))
+      ;; a data instance (Vec:2, for Vec Bool) is its family application
+      ;; here: f a is Vec Bool, f = Vec, a = Bool
+      (unify-app-con-1 app (data-instance-family-app
+			    (algdata-data-family (ntycon-tycon con)) con))
+      (unify-app-con-1 app con)))
+
+(define (unify-app-con-1 app con)
   (let* ((n (length (ntyapp-args app)))
 	 (cargs (ntycon-args con))
 	 (m (length cargs)))
@@ -389,6 +398,12 @@
 
 (define (instance-arg-types instance type)
   (cond ((instance-catch-all? instance) (list type))
+	;; at a data instance of the family the instance is for
+	((and (data-family-def? (instance-algdata instance))
+	      (ntycon? type)
+	      (not (eq? (ntycon-tycon type) (instance-algdata instance))))
+	 (instance-arg-types instance
+	   (data-instance-family-app (instance-algdata instance) type)))
 	((null? (instance-head-args instance))
 	 (ntycon-args type))
 	(else

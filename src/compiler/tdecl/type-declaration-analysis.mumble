@@ -13,6 +13,12 @@
   (setf *synonym-refs* '())
   (walk-modules modules
    (lambda ()
+     ;; families before the other synonyms, whose bodies may apply one
+     ;; partially (type IOVector = MVector RealWorld, MVector a data
+     ;; family of two parameters)
+     (dolist (s (module-synonyms *module*))
+       (when (synonym-decl-family? s)
+	 (family->def s)))
      ;; synonyms first: a constructor field may be a polytype synonym
      ;; of the same module, expanded by algdata->def
      (setf (module-synonym-defs *module*)

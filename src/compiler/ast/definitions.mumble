@@ -183,6 +183,9 @@
    ;; newtype or a via type (derived/derived-instances.mumble)
    (special-derivings (type list) (default '()))
    (export-to-lisp? (type bool) (default '#f) (bit #t))
+   ;; a data family's data instance (data instance Vec Bool = ...): the
+   ;; family (tdecl/alg-syn.mumble's process-family-equations)
+   (data-family (type t) (default '#f))
    (implemented-by-lisp? (type bool) (default '#f) (bit #t))
    ))
 
@@ -229,7 +232,8 @@
   (slots
    ;; These slots always have initializers supplied with MAKE.
    ;; (#f for an instance of a multi-parameter class: mp-types below)
-   (algdata (type (maybe algdata)))
+   ;; (or a data family's synonym def: instance Show (Vector a))
+   (algdata (type (maybe def)))
    (tyvars (type (list symbol)))
    (class (type class))
    (context (type (list context)))

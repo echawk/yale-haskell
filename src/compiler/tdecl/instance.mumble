@@ -157,12 +157,17 @@
       (resolve-class class)
       ;; instance C String (TypeSynonymInstances): the synonym's expansion
       (do () ((not (and (haskell98?) (tycon? simple)
-			(synonym? (tycon-def simple)))))
+			(synonym? (tycon-def simple))
+			(not (synonym-family? (tycon-def simple))))))
 	(setf simple (expand-synonym simple)))
       (let ((alg-def (tycon-def simple))
 	    (class-def (class-ref-class class))
 	    (flexible? (flexible-instance-head? simple)))
-        (when (not (algdata? (tycon-def simple)))
+        ;; or a data family: instance NFData (Vector a), for each of its
+	;; data instances (util/instance-manager.mumble's
+	;; data-family-instance)
+        (when (not (or (algdata? (tycon-def simple))
+		       (data-family-def? (tycon-def simple))))
 	  (signal-datatype-required (tycon-def simple)))
         (let ((tyvars (if flexible?
 			  (flexible-head-tyvars (tycon-args simple) '())
@@ -703,7 +708,10 @@
 ;;;  All super class instances must exist
 
 (define (check-inst-type inst)
-  (when (not (instance-catch-all? inst))
+  ;; (a data family's instance: its data instances have no context, and
+  ;; its superclasses' instances may be at each of them)
+  (when (not (or (instance-catch-all? inst)
+		 (data-family-def? (instance-algdata inst))))
     (check-inst-type-1 inst)))
 
 (define (check-inst-type-1 inst)

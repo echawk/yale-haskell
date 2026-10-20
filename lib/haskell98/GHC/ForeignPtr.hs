@@ -7,7 +7,9 @@
 module GHC.ForeignPtr (
     ForeignPtr(ForeignPtr), ForeignPtrContents(..),
     unsafeForeignPtrToPtr, castForeignPtr, newForeignPtr_, mallocForeignPtrBytes,
-    unsafeWithForeignPtr, withForeignPtr, touchForeignPtr
+    unsafeWithForeignPtr, withForeignPtr, touchForeignPtr,
+    mallocPlainForeignPtrBytes, mallocPlainForeignPtrAlignedBytes,
+    mallocForeignPtrAlignedBytes
   ) where
 
 import GHC.PrimOps (Addr#, MutableByteArray#, RealWorld)
@@ -37,3 +39,14 @@ pattern ForeignPtr a c <- ((\fp -> (toAddr fp, FinalPtr)) -> (a, c))
 
 unsafeWithForeignPtr :: ForeignPtr a -> (Ptr a -> IO b) -> IO b
 unsafeWithForeignPtr = withForeignPtr
+
+-- GHC's plain variants keep no finalizer; here every one is malloc's,
+-- whose alignment (16) is what Storable types ask for.
+mallocPlainForeignPtrBytes :: Int -> IO (ForeignPtr a)
+mallocPlainForeignPtrBytes = mallocForeignPtrBytes
+
+mallocPlainForeignPtrAlignedBytes :: Int -> Int -> IO (ForeignPtr a)
+mallocPlainForeignPtrAlignedBytes n _ = mallocForeignPtrBytes n
+
+mallocForeignPtrAlignedBytes :: Int -> Int -> IO (ForeignPtr a)
+mallocForeignPtrAlignedBytes n _ = mallocForeignPtrBytes n

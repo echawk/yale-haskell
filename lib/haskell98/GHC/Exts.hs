@@ -32,7 +32,7 @@ module GHC.Exts (
     eqFloat#, neFloat#, ltFloat#, leFloat#, gtFloat#, geFloat#,
     eqAddr#, neAddr#, ltAddr#, leAddr#, gtAddr#, geAddr#,
     lazy, inline, oneShot, seq, seq#, build, augment,
-    IsList(fromList, toList, fromListN), Item, IsString(fromString),
+    IsList(..), Item, IsString(fromString),
     coerce, Coercible,
     module GHC.PrimOps, module GHC.PrimOpsTyped, UnliftedType, UnliftedRep,
     RuntimeRep(..), Levity(..), TYPE, LiftedRep, SPEC(..),
@@ -40,7 +40,7 @@ module GHC.Exts (
     atomicModifyMutVar#, atomicModifyMutVar2#, atomicModifyMutVar_#
   ) where
 
-import GHC.IsList (IsList(fromList, toList, fromListN), Item)
+import GHC.IsList (IsList(..), Item)
 import Data.Coerce (coerce, Coercible)
 import GHC.PrimOps
 import GHC.PrimOpsTyped

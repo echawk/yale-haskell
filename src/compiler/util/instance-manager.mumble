@@ -93,7 +93,40 @@
       ;; at T applied to fewer arguments than it takes (Typeable Maybe)
       (get-typeable-instance alg-def class-def (length (ntycon-args type)))
       (or (lookup-instance/type-1 alg-def class-def type)
+	  (data-family-instance alg-def class-def)
 	  (catch-all-instance class-def))))
+
+(define (data-family-def? def)
+  (and (synonym? def) (eq? (synonym-family? def) 'data)))
+
+;;; TypeFamilies: an instance whose head is a data family (instance Show
+;;; (Vector a)), when ALG-DEF is one of the family's data instances
+;;; (Vector Int's); #f otherwise.  Its types are the family application
+;;; the data instance stands for (data-instance-family-app).
+
+(define (data-family-instance alg-def class-def)
+  (and (algdata? alg-def)
+       (lisp:find-if (lambda (i)
+		       (and (instance-ok? i)
+			    (data-family-def? (instance-algdata i))
+			    (data-instance-equation (instance-algdata i) alg-def)))
+		     (class-instances class-def))))
+
+;;; The family's equation whose right side is the data instance ALG-DEF.
+(define (data-instance-equation family alg-def)
+  (lisp:find-if (lambda (eq)
+		  (let ((rhs (tuple-2-2 eq)))
+		    (and (tycon? rhs) (eq? (tycon-def rhs) alg-def))))
+		(synonym-equations family)))
+
+;;; TYPE, an application of a data instance of FAMILY, as the family
+;;; application it stands for: Vec:2 for Vec Bool is Vec Bool.
+(define (data-instance-family-app family type)
+  (let* ((eq   (data-instance-equation family (ntycon-tycon type)))
+	 (env  (map (lambda (v a) (tuple (tyvar-name v) a))
+		    (tycon-args (tuple-2-2 eq)) (ntycon-args type))))
+    (**ntycon family (map (lambda (a) (expand-ntype-synonym-1 a env))
+			  (tuple-2-1 eq)))))
 
 ;;; The class's catch-all instance C a, or #f: used at a type no other
 ;;; instance is for (tdecl/instance.mumble's catch-all-instance->def).
