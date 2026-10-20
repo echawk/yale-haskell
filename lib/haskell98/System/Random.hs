@@ -1,11 +1,15 @@
--- System.Random (random): Haskell 98's Random (the Report's generator,
--- not random-1.2's SplitMix, so the numbers differ from GHC's).
-module System.Random (module Random, uniform, uniformR) where
+-- System.Random (random 1.2): the Haskell 98 Random library, and
+-- uniform and uniformR by the Uniform classes (System.Random.Stateful).
+module System.Random (
+    module Random, Uniform, UniformRange, uniform, uniformR, genWord64, genWord32
+  ) where
 
 import Random
+import System.Random.Stateful (Uniform(uniformM), UniformRange(uniformRM),
+                               runStateGen, genWord64, genWord32)
 
-uniform :: (RandomGen g, Random a) => g -> (a, g)
-uniform = random
+uniform :: (RandomGen g, Uniform a) => g -> (a, g)
+uniform g = runStateGen g uniformM
 
-uniformR :: (RandomGen g, Random a) => (a, a) -> g -> (a, g)
-uniformR = randomR
+uniformR :: (RandomGen g, UniformRange a) => (a, a) -> g -> (a, g)
+uniformR r g = runStateGen g (uniformRM r)

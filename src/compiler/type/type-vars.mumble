@@ -47,13 +47,18 @@
 	 ((method-var? var)
 ;;; The context of a method variable always has the carrier class
 ;;; first.
-	  (mlet (((ntype new-tyvars) (instantiate-gtype/newvars type))
+	  ;; (a multi-parameter constraint of the method's own, Gen g m in
+	  ;; uniformM :: Gen g m => g -> m a, follows the one-parameter
+	  ;; dictionaries, as the instances' methods take it)
+	  (mlet (((ntype new-tyvars mps) (instantiate-gtype/mp type))
 		 (_ (setf (dynamic *instance-tyvars*) new-tyvars))
 		 (carrier-tyvar (car new-tyvars))
 		 (extra-context (cdr new-tyvars))
 		 (p (**method-placeholder
 		     var carrier-tyvar (dynamic *enclosing-decls*) object))
-		 (new-object (insert-dict-placeholders p extra-context object)))
+		 (new-object (insert-mp-placeholders
+			      (insert-dict-placeholders p extra-context object)
+			      mps object)))
 	    (remember-placeholder p)
 	    (return-type (**save-old-exp object new-object) ntype)))
 	 ;; a variable whose type is a polytype (polytypes.mumble)

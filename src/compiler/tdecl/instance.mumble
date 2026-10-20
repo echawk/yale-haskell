@@ -462,7 +462,10 @@
 	  (setf (instance-decls inst) '())))))))
 
 (define (dict-method-ref method-var inst-var inst)
-  (if (null? (signature-context (method-var-method-signature method-var)))
+  ;; the method's own context (one- or multi-parameter) stays its
+  ;; parameters: the instance's dictionaries alone are applied
+  (if (and (null? (signature-context (method-var-method-signature method-var)))
+	   (null? (signature-mcontext (method-var-method-signature method-var))))
       (**var/def inst-var)
       (let ((sig (generate-method-signature inst method-var '#f)))
 	(make overloaded-var-ref
