@@ -58,7 +58,12 @@
       (token->symbol)))
 
 (define (prefix-type-operator?)
-  (and (type-operator-here?) (eq? (peek-1-type) '\))))
+  (and (or (type-operator-here?)
+	   ;; a constructor operator in parentheses needs no TypeOperators,
+	   ;; as in GHC ((Eq.:~:) in semigroupoids)
+	   (and (haskell98?) (eq? *token* 'consym)
+		(not (mem-string (car *token-args*) '(":")))))
+       (eq? (peek-1-type) '\))))
 
 (define (type-operator-here?)
   (and (memq *token* '(consym varsym))

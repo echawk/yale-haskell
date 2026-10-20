@@ -27,6 +27,7 @@ module GHC.Generics (
 
 import Prelude hiding (foldr)
 import PreludeModern
+import Monad (MonadPlus(mzero, mplus))
 import Data.Kind (Type)
 import GHC.Exts (Addr#, Char#, Double#, Float#, Int#, Word#)
 
@@ -173,6 +174,31 @@ instance (Applicative f, Applicative g) => Applicative (f :*: g) where
 instance (Alternative f, Alternative g) => Alternative (f :*: g) where
   empty = empty :*: empty
   (a :*: b) <|> (c :*: d) = (a <|> c) :*: (b <|> d)
+-- base's Monad and MonadPlus instances (4.9)
+instance Monad U1 where
+  _ >>= _ = U1
+instance MonadPlus U1 where
+  mzero = U1
+  mplus _ _ = U1
+instance Monad Par1 where
+  Par1 x >>= f = f x
+instance Monad f => Monad (Rec1 f) where
+  Rec1 x >>= f = Rec1 (x >>= \a -> unRec1 (f a))
+instance MonadPlus f => MonadPlus (Rec1 f) where
+  mzero = Rec1 mzero
+  mplus (Rec1 a) (Rec1 b) = Rec1 (mplus a b)
+instance Monad f => Monad (M1 i c f) where
+  M1 x >>= f = M1 (x >>= \a -> unM1 (f a))
+instance MonadPlus f => MonadPlus (M1 i c f) where
+  mzero = M1 mzero
+  mplus (M1 a) (M1 b) = M1 (mplus a b)
+instance (Monad f, Monad g) => Monad (f :*: g) where
+  (m :*: n) >>= f = (m >>= \a -> fstP (f a)) :*: (n >>= \a -> sndP (f a))
+    where fstP (a :*: _) = a
+          sndP (_ :*: b) = b
+instance (MonadPlus f, MonadPlus g) => MonadPlus (f :*: g) where
+  mzero = mzero :*: mzero
+  mplus (a :*: b) (c :*: d) = mplus a c :*: mplus b d
 instance (Applicative f, Applicative g) => Applicative (f :.: g) where
   pure a = Comp1 (pure (pure a))
   Comp1 f <*> Comp1 a = Comp1 (liftA2 (<*>) f a)

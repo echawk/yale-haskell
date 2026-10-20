@@ -396,6 +396,10 @@
 	      (skip-pragma *current-line*))
 	     ((string-ci=? (list->string word) "language")
 	      (lex-language-pragma))
+	     ((mem-string-ci (list->string word) '("options" "options_ghc"))
+	      (lex-options-pragma))
+	     ((mem-string-ci (list->string word) '("options_haddock" "include"))
+	      (skip-pragma *current-line*))
 	     (else
 	      (emit-token 'begin-annotation)
 	      (emit-token/string 'varid word)))))

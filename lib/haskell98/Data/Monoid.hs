@@ -152,3 +152,19 @@ instance Applicative Last where
 instance Monad Last where
   return = pure
   Last a >>= k = Last (a >>= getLast . k)
+
+-- base's Foldable and Traversable instances (4.8, 4.12)
+instance Foldable Dual where foldMap f (Dual a) = f a
+instance Traversable Dual where traverse f (Dual a) = fmap Dual (f a)
+instance Foldable Sum where foldMap f (Sum a) = f a
+instance Traversable Sum where traverse f (Sum a) = fmap Sum (f a)
+instance Foldable Product where foldMap f (Product a) = f a
+instance Traversable Product where traverse f (Product a) = fmap Product (f a)
+instance Foldable First where foldMap f (First m) = foldMap f m
+instance Traversable First where traverse f (First m) = fmap First (traverse f m)
+instance Foldable Last where foldMap f (Last m) = foldMap f m
+instance Traversable Last where traverse f (Last m) = fmap Last (traverse f m)
+instance Foldable f => Foldable (Alt f) where foldMap f (Alt t) = foldMap f t
+instance Traversable f => Traversable (Alt f) where traverse f (Alt t) = fmap Alt (traverse f t)
+instance Foldable f => Foldable (Ap f) where foldMap f (Ap t) = foldMap f t
+instance Traversable f => Traversable (Ap f) where traverse f (Ap t) = fmap Ap (traverse f t)

@@ -4,6 +4,7 @@ module Data.Bifoldable1 (Bifoldable1(bifold1, bifoldMap1)) where
 import PreludeModern
 import Data.Bifoldable (Bifoldable)
 import Data.Functor.Const (Const(Const))
+import Data.Semigroup (Arg(Arg))
 
 class Bifoldable t => Bifoldable1 t where
   bifold1    :: Semigroup m => t m m -> m
@@ -23,6 +24,12 @@ instance Bifoldable1 ((,,) x) where
 
 instance Bifoldable1 ((,,,) x y) where
   bifoldMap1 f g (_, _, a, b) = f a <> g b
+
+instance Bifoldable1 ((,,,,) x y z) where
+  bifoldMap1 f g (_, _, _, a, b) = f a <> g b
+
+instance Bifoldable1 Arg where
+  bifoldMap1 f g (Arg a b) = f a <> g b
 
 instance Bifoldable1 Const where
   bifoldMap1 f _ (Const a) = f a

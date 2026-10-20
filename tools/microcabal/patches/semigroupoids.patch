@@ -1,5 +1,6 @@
-semigroupoids: gduplicated and gextended left out; their types need family
-equalities Yale Haskell does not yet decide (Rep1 h x ~ Rep1 w a).
+semigroupoids: gduplicated and gextended left out (their inner Rep1 h x ~
+Rep1 w a is still undecided by Yale Haskell); Alt's some and many are
+functions, not methods (no ConstrainedClassMethods).
 --- a/Data/Functor/Extend.hs
 +++ b/Data/Functor/Extend.hs
 @@ -19,8 +19,10 @@
@@ -29,3 +30,104 @@ equalities Yale Haskell does not yet decide (Rep1 h x ~ Rep1 w a).
  
  -- * Extends for Prelude types:
  --
+--- a/Data/Functor/Alt.hs
++++ b/Data/Functor/Alt.hs
+@@ -19,6 +19,9 @@
+ ----------------------------------------------------------------------------
+ module Data.Functor.Alt
+   ( Alt(..)
++#ifdef __YALE_HASKELL__
++  , some, many
++#endif
+   , optional
+   , galt
+   , module Data.Functor.Apply
+@@ -119,6 +122,7 @@
+ class Functor f => Alt f where
+   -- | '<|>' without a required @empty@
+   (<!>) :: f a -> f a -> f a
++#ifndef __YALE_HASKELL__
+ 
+   some :: Applicative f => f a -> f [a]
+   some v = some_v
+@@ -129,6 +133,20 @@
+   many v = many_v
+     where many_v = some_v <!> pure []
+           some_v = (:) <$> v <*> many_v
++#else
++
++-- Yale Haskell: no ConstrainedClassMethods; some and many are functions
++-- (the class defaults; no instance here overrides them but by these)
++some :: (Alt f, Applicative f) => f a -> f [a]
++some v = some_v
++  where many_v = some_v <!> pure []
++        some_v = (:) <$> v <*> many_v
++
++many :: (Alt f, Applicative f) => f a -> f [a]
++many v = many_v
++  where many_v = some_v <!> pure []
++        some_v = (:) <$> v <*> many_v
++#endif
+ 
+ -- | One or none.
+ optional :: (Alt f, Applicative f) => f a -> f (Maybe a)
+@@ -150,17 +168,23 @@
+ instance (Alt f, Functor g) => Alt (f :.: g) where
+   Comp1 as <!> Comp1 bs = Comp1 (as <!> bs)
+ 
++#ifndef __YALE_HASKELL__
+ newtype Magic f = Magic { runMagic :: forall a. Applicative f => f a -> f [a] }
++#endif
+ 
+ instance Alt f => Alt (M1 i c f) where
+   M1 f <!> M1 g = M1 (f <!> g)
++#ifndef __YALE_HASKELL__
+   some = runMagic (unsafeCoerce (Magic some :: Magic f))
+   many = runMagic (unsafeCoerce (Magic many :: Magic f))
++#endif
+ 
+ instance Alt f => Alt (Rec1 f) where
+   Rec1 f <!> Rec1 g = Rec1 (f <!> g)
++#ifndef __YALE_HASKELL__
+   some = runMagic (unsafeCoerce (Magic some :: Magic f))
+   many = runMagic (unsafeCoerce (Magic many :: Magic f))
++#endif
+ 
+ -- | @since 5.3.8@
+ instance Semigroup c => Alt (K1 i c) where
+@@ -168,18 +192,24 @@
+ 
+ instance Alt U1 where
+   _ <!> _ = U1
++#ifndef __YALE_HASKELL__
+   some _ = U1
+   many _ = U1
++#endif
+ 
+ instance Alt V1 where
+   v <!> u = v `seq` u `seq` undefined
++#ifndef __YALE_HASKELL__
+   some v = v `seq` undefined
+   many v = v `seq` undefined
++#endif
+ 
+ instance Alt Proxy where
+   _ <!> _ = Proxy
++#ifndef __YALE_HASKELL__
+   some _ = Proxy
+   many _ = Proxy
++#endif
+ 
+ instance Alt (Either a) where
+   Left _ <!> b = b
+@@ -199,8 +229,10 @@
+ instance Alt Identity where
+   {-# INLINEABLE (<!>) #-}
+   m <!> _ = m
++#ifndef __YALE_HASKELL__
+   some (Identity x) = Identity . repeat $ x
+   many (Identity x) = Identity . repeat $ x
++#endif
+ 
+ instance Alt [] where
+   (<!>) = (++)
