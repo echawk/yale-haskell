@@ -4,7 +4,7 @@ module Data.ByteString.Builder (
     char7, string7, char8, string8, charUtf8, stringUtf8, intDec,
     integerDec, int8Dec, int16Dec, int32Dec, int64Dec, wordDec, word8Dec,
     doubleDec, floatDec, word8, int8, wordHex, word8Hex, word16Hex,
-    word32Hex, word64Hex
+    word32Hex, word64Hex, shortByteString
   ) where
 
 import PreludeModern (Semigroup((<>)), Monoid(mempty))
@@ -85,3 +85,7 @@ word32Hex :: Word32 -> Builder
 word32Hex w = Builder (showHex w)
 word64Hex :: Word64 -> Builder
 word64Hex w = Builder (showHex w)
+
+-- | A ShortByteString (a ByteString here, Data.ByteString.Short).
+shortByteString :: ByteString -> Builder
+shortByteString = byteString

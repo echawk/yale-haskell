@@ -1,0 +1,249 @@
+text-short: cbits/cbits.c's functions in Haskell (Yale Haskell neither compiles
+a package's C sources nor passes a ByteArray# through the FFI).
+--- a/Data/Text/Short/Internal.hs
++++ b/Data/Text/Short/Internal.hs
+@@ -153,7 +153,144 @@
+ #endif
+ 
+ import qualified PrimOps
++#ifdef __YALE_HASKELL__
++import           Foreign.Storable               (peekByteOff)
++import           Data.Word                      (Word8)
++import           Prelude                        (maxBound, negate, (&&), (||))
++#endif
+ 
++
++#ifdef __YALE_HASKELL__
++-- Yale Haskell: cbits/cbits.c's functions in Haskell (packages' C
++-- sources are not compiled; the FFI does not pass a ByteArray#).
++byteAt :: ByteArray# -> Int -> Int
++byteAt ba (I# i) = fromIntegral (GHC.Exts.indexWord8Array# ba i)
++
++leadP :: Int -> Bool
++leadP b = (b .&. 0xc0) /= 0x80
++
++c_text_short_length :: ByteArray# -> CSize -> IO CSize
++c_text_short_length ba n = return (fromIntegral (List.length
++  [ () | j <- [0 .. fromIntegral n - 1], leadP (byteAt ba j) ]))
++
++c_text_short_is_ascii :: ByteArray# -> CSize -> IO CInt
++c_text_short_is_ascii ba n = return
++  (if List.all (\j -> byteAt ba j < 0x80) [0 .. fromIntegral n - 1] then 1 else 0)
++
++cpWidth :: Int -> Int
++cpWidth b0 | b0 < 0x80 = 1
++           | b0 >= 0xf0 = 4
++           | b0 >= 0xe0 = 3
++           | otherwise = 2
++
++indexOfs :: ByteArray# -> Int -> Int -> Int
++indexOfs ba n i = go 0 0
++  where go m j | j == i = m
++               | i - j >= n - m = n
++               | otherwise = go (m + cpWidth (byteAt ba m)) (j + 1)
++
++indexOfsRev :: ByteArray# -> Int -> Int -> Int
++indexOfsRev ba n i = go n i
++  where go m j | j >= m = n
++               | otherwise = let m' = back (m - 1)
++                             in if j == 0 then m' else go m' (j - 1)
++        back k = if leadP (byteAt ba k) then k else back (k - 1)
++
++decodeAt :: ByteArray# -> Int -> Int
++decodeAt ba o =
++  let b0 = byteAt ba o
++      c k = byteAt ba (o + k) .&. 0x3f
++  in case cpWidth b0 of
++       1 -> b0
++       2 -> shiftL (b0 .&. 0x1f) 6 .|. c 1
++       3 -> shiftL (b0 .&. 0x0f) 12 .|. shiftL (c 1) 6 .|. c 2
++       _ -> shiftL (b0 .&. 0x07) 18 .|. shiftL (c 1) 12 .|. shiftL (c 2) 6 .|. c 3
++
++c_text_short_index_ofs :: ByteArray# -> CSize -> CSize -> IO CSize
++c_text_short_index_ofs ba n i
++  | n == 0 = return 0
++  | otherwise = return (fromIntegral (indexOfs ba (fromIntegral n) (fromIntegral i)))
++
++c_text_short_index_ofs_rev :: ByteArray# -> CSize -> CSize -> IO CSize
++c_text_short_index_ofs_rev ba n i =
++  return (fromIntegral (indexOfsRev ba (fromIntegral n) (fromIntegral i)))
++
++c_text_short_index :: ByteArray# -> CSize -> CSize -> IO CCodePoint
++c_text_short_index ba n i =
++  let o = if n == 0 then 0 else indexOfs ba (fromIntegral n) (fromIntegral i)
++  in return (if o >= fromIntegral n then maxBound else fromIntegral (decodeAt ba o))
++
++c_text_short_index_rev :: ByteArray# -> CSize -> CSize -> IO CCodePoint
++c_text_short_index_rev ba n i =
++  let o = indexOfsRev ba (fromIntegral n) (fromIntegral i)
++  in return (if o >= fromIntegral n then maxBound else fromIntegral (decodeAt ba o))
++
++c_text_short_ofs_cp :: ByteArray# -> CSize -> IO CCodePoint
++c_text_short_ofs_cp ba o = return (fromIntegral (decodeAt ba (fromIntegral o)))
++
++c_text_short_ofs_cp_rev :: ByteArray# -> CSize -> IO CCodePoint
++c_text_short_ofs_cp_rev ba o =
++  let back k = if leadP (byteAt ba k) then k else back (k - 1)
++  in return (fromIntegral (decodeAt ba (back (fromIntegral o - 1))))
++
++-- | 0 for well-formed UTF-8 (shortest forms, no surrogates), else 1.
++c_text_short_is_valid_utf8 :: ByteArray# -> CSize -> IO CInt
++c_text_short_is_valid_utf8 ba n0 = return (go 0)
++  where
++    n = fromIntegral n0
++    cont k = k < n && (byteAt ba k .&. 0xc0) == 0x80
++    go j
++      | j >= n = 0
++      | otherwise =
++          let b0 = byteAt ba j in
++          if b0 < 0x80 then go (j + 1)
++          else if b0 < 0xc2 then 1
++          else if b0 < 0xe0 then (if cont (j + 1) then go (j + 2) else 1)
++          else if b0 < 0xf0 then
++            (if cont (j + 1) && cont (j + 2)
++               then let cp = decodeAt ba j
++                    in if cp < 0x800 || (cp >= 0xd800 && cp <= 0xdfff) then 1 else go (j + 3)
++               else 1)
++          else if b0 < 0xf5 then
++            (if cont (j + 1) && cont (j + 2) && cont (j + 3)
++               then let cp = decodeAt ba j
++                    in if cp < 0x10000 || cp > 0x10ffff then 1 else go (j + 4)
++               else 1)
++          else 1
++
++peekByte :: CString -> Int -> IO Int
++peekByte p k = fmap (\w -> fromIntegral (w :: Word8)) (peekByteOff p k)
++
++c_strlen :: CString -> IO CSize
++c_strlen p = go 0
++  where go k = do b <- peekByte p k
++                  if b == 0 then return (fromIntegral k) else go (k + 1)
++
++-- | Modified UTF-8 (NUL as C0 80): the length, negative when it has NULs.
++c_text_short_mutf8_strlen :: CString -> IO Int
++c_text_short_mutf8_strlen p = go 0 0
++  where go j nulls = do
++          b0 <- peekByte p j
++          if b0 == 0 then return (if nulls > 0 then negate (j - nulls) else j)
++          else if b0 == 0xc0 then do
++                 b1 <- peekByte p (j + 1)
++                 go (j + 2) (if b1 == 0x80 then nulls + 1 else nulls)
++          else go (j + cpWidth b0) nulls
++
++c_text_short_mutf8_trans :: CString -> MutableByteArray# RealWorld -> IO ()
++c_text_short_mutf8_trans p mba = go 0 0
++  where go j k = do
++          b0 <- peekByte p j
++          if b0 == 0 then return ()
++          else if b0 == 0xc0 then do
++                 b1 <- peekByte p (j + 1)
++                 if b1 == 0x80 then put k 0 >> go (j + 2) (k + 1)
++                   else put k b0 >> put (k + 1) b1 >> go (j + 2) (k + 2)
++          else put k b0 >> go (j + 1) (k + 1)
++        put (I# k) b = stToIO (ST (\s -> case GHC.Exts.writeWord8Array# mba k (fromIntegral b) s of
++                                           s1 -> (# s1, () #)))
++#endif
++
+ -- | A compact representation of Unicode strings.
+ --
+ -- A 'ShortText' value is a sequence of Unicode scalar values, as defined in
+@@ -280,7 +417,9 @@
+ length :: ShortText -> Int
+ length st = fromIntegral $ unsafeDupablePerformIO (c_text_short_length (toByteArray# st) (toCSize st))
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_length" c_text_short_length :: ByteArray# -> CSize -> IO CSize
++#endif
+ 
+ -- | \(\mathcal{O}(n)\) Test whether 'ShortText' contains only ASCII code-points (i.e. only U+0000 through U+007F).
+ --
+@@ -303,7 +442,9 @@
+   where
+     sz = toCSize st
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_is_ascii" c_text_short_is_ascii :: ByteArray# -> CSize -> IO CInt
++#endif
+ 
+ -- | \(\mathcal{O}(n)\) Test whether /all/ code points in 'ShortText' satisfy a predicate.
+ --
+@@ -801,9 +942,13 @@
+ 
+ type CCodePoint = Word
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_is_valid_utf8" c_text_short_is_valid_utf8 :: ByteArray# -> CSize -> IO CInt
++#endif
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_index_cp" c_text_short_index :: ByteArray# -> CSize -> CSize -> IO CCodePoint
++#endif
+ 
+ -- | \(\mathcal{O}(n)\) Lookup /i/-th code-point in 'ShortText'.
+ --
+@@ -841,7 +986,9 @@
+   where
+     cp = CP $ unsafeDupablePerformIO (c_text_short_index_rev (toByteArray# st) (toCSize st) (fromIntegral i))
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_index_cp_rev" c_text_short_index_rev :: ByteArray# -> CSize -> CSize -> IO CCodePoint
++#endif
+ 
+ 
+ -- | \(\mathcal{O}(n)\) Split 'ShortText' into two halves.
+@@ -910,9 +1057,13 @@
+   where
+     !stsz  = toB st
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_index_ofs" c_text_short_index_ofs :: ByteArray# -> CSize -> CSize -> IO CSize
++#endif
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_index_ofs_rev" c_text_short_index_ofs_rev :: ByteArray# -> CSize -> CSize -> IO CSize
++#endif
+ 
+ 
+ -- | \(\mathcal{O}(n)\) Inverse operation to 'cons'
+@@ -1537,13 +1688,17 @@
+ readCodePoint st (csizeFromB -> ofs)
+   = CP $ unsafeDupablePerformIO (c_text_short_ofs_cp (toByteArray# st) ofs)
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_ofs_cp" c_text_short_ofs_cp :: ByteArray# -> CSize -> IO CCodePoint
++#endif
+ 
+ readCodePointRev :: ShortText -> B -> CP
+ readCodePointRev st (csizeFromB -> ofs)
+   = CP $ unsafeDupablePerformIO (c_text_short_ofs_cp_rev (toByteArray# st) ofs)
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_ofs_cp_rev" c_text_short_ofs_cp_rev :: ByteArray# -> CSize -> IO CCodePoint
++#endif
+ 
+ ----------------------------------------------------------------------------
+ -- string & list literals
+@@ -1592,7 +1747,9 @@
+           -- is unsigned; the overflow would occur when converting to
+           -- 'B')
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "strlen" c_strlen :: CString -> IO CSize
++#endif
+ 
+ -- GHC uses an encoding resembling Modified UTF-8 for non-ASCII string-literals
+ {-# NOINLINE fromLitMUtf8Addr# #-}
+@@ -1611,9 +1768,13 @@
+       c_text_short_mutf8_trans ptr (unMBA# mba)
+       stToIO (unsafeFreeze mba)
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_mutf8_strlen" c_text_short_mutf8_strlen :: CString -> IO Int
++#endif
+ 
++#ifndef __YALE_HASKELL__
+ foreign import ccall unsafe "hs_text_short_mutf8_trans" c_text_short_mutf8_trans :: CString -> MutableByteArray# RealWorld -> IO ()
++#endif
+ 
+ -- $setup
+ -- >>> :set -XOverloadedStrings

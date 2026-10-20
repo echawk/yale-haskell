@@ -386,10 +386,11 @@
 ;;; The guards of RHS-LIST, given VIEWS: each guard g becomes the pattern
 ;;; guard  p1 <- e1 v1, ..., pn <- en vn, g.
 
-(define (add-view-pattern-guards views rhs-list)
+(define (add-view-pattern-guards views rhs-list . where-decls)
   (cond ((null? views)
 	 rhs-list)
-	((null? (cdr rhs-list))
+	((and (null? (cdr rhs-list))
+	      (or (null? where-decls) (null? (car where-decls))))
 	 (list (view-guarded-rhs views (car rhs-list))))
 	(else
 	 ;; several guards: one guard binds the views, then a case over
@@ -414,8 +415,15 @@
 							    (var (generated-var-ref r)))))))
 			       (exp choice))))
 	   (list (make guarded-rhs
+		       ;; a where's bindings, which see the views' variables
+		       ;; as the guards and rhss do, follow the views
 		       (guard (make pattern-guard
-				    (quals (append (view-quals views) (list bind)))))
+				    (quals (append (view-quals views)
+						   (if (and (pair? where-decls)
+							    (pair? (car where-decls)))
+						       (list (make qual-let (decls (car where-decls))))
+						       '())
+						   (list bind)))))
 		       (rhs (generated-var-ref r))))))))
 
 (define (view-quals views)

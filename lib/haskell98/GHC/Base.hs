@@ -4,7 +4,7 @@
 module GHC.Base (
     module GHC.Exts, Int, Double, Float, Char, Word, Bool(..), Ordering(..),
     quotInt, remInt, divInt, modInt, ord, unsafeChr, ($!), until, asTypeOf,
-    otherwise, id, const, (.), flip, ($)
+    otherwise, id, const, (.), flip, ($), assert
   ) where
 
 import GHC.Exts
@@ -19,3 +19,7 @@ modInt = mod
 
 unsafeChr :: Int -> Char
 unsafeChr = chr
+
+-- | As GHC with assertions off (-O, -fignore-asserts): the value.
+assert :: Bool -> a -> a
+assert _ x = x

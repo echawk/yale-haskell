@@ -14,6 +14,7 @@ module Data.ByteString (
     fromStrict, toStrict, fromChunks, toChunks,
     putStr, getLine, getContents, interact, readFile, writeFile,
     appendFile, hPutStr, hPut, hGetLine, hGetContents, hGet
+      , packCString, packCStringLen, useAsCString, useAsCStringLen
   ) where
 
 import Prelude hiding (head, last, tail, init, null, length, map, reverse,
@@ -34,6 +35,11 @@ import Data.ByteString.Char8 (empty, append, tail, init, null, length,
          hGetLine, hGetContents, hGet)
 import Data.ByteString.Rep
 import Data.Word (Word8)
+import Foreign.C.String (CString, CStringLen)
+import Foreign.Ptr (Ptr, castPtr, plusPtr)
+import Foreign.Storable (peek, pokeByteOff)
+import Foreign.Marshal.Array (peekArray)
+import Foreign.Marshal.Alloc (allocaBytes)
 
 infixl 9 !?
 
@@ -163,3 +169,27 @@ zipWith f a b = P.zipWith f (unpack a) (unpack b)
 
 unzip :: [(Word8, Word8)] -> (ByteString, ByteString)
 unzip ps = (pack (P.map fst ps), pack (P.map snd ps))
+
+-- C strings (bytestring's): copies of the bytes
+packCString :: CString -> IO ByteString
+packCString p = go (castPtr p) []
+  where go q acc = do w <- peek q
+                      if w == (0 :: Word8) then return (bsFromString (P.reverse acc))
+                        else go (q `plusPtr` 1) (w2c w : acc)
+
+packCStringLen :: CStringLen -> IO ByteString
+packCStringLen (p, n) = fmap (bsFromString . P.map w2c) (peekArray n (castPtr p :: Ptr Word8))
+
+useAsCString :: ByteString -> (CString -> IO a) -> IO a
+useAsCString bs k = do
+  let ws = P.map c2w (unBS bs)
+  allocaBytes (P.length ws + 1) (\p -> do
+    mapM_ (\(i, w) -> pokeByteOff p i w) (P.zip [0 ..] (ws ++ [0]))
+    k p)
+
+useAsCStringLen :: ByteString -> (CStringLen -> IO a) -> IO a
+useAsCStringLen bs k = do
+  let ws = P.map c2w (unBS bs)
+  allocaBytes (max 1 (P.length ws)) (\p -> do
+    mapM_ (\(i, w) -> pokeByteOff p i w) (P.zip [0 ..] ws)
+    k (p, P.length ws))

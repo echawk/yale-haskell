@@ -19,7 +19,9 @@
 
 module Text.Printf(
    printf, hPrintf,
-   PrintfType, HPrintfType, PrintfArg, IsChar
+   PrintfType, HPrintfType, PrintfArg(formatArg), IsChar,
+   FieldFormatter, FieldFormat(..), FormatAdjustment(..), FormatSign(..),
+   formatString, formatChar, formatInt, formatInteger
 ) where
 
 import Prelude
@@ -126,6 +128,33 @@ instance (PrintfArg a, HPrintfType r) => HPrintfType (a -> r) where
 
 class PrintfArg a where
     toUPrintf :: a -> UPrintf
+    toUPrintf x = UFormatter (formatArg x)
+    -- base 4.7's interface: format by the % specification
+    formatArg :: a -> FieldFormatter
+    formatArg x ff = showString (fmt [fmtChar ff] [toUPrintf x])
+
+-- base 4.7's field formatting (width and padding are applied by printf)
+type FieldFormatter = FieldFormat -> ShowS
+
+data FormatAdjustment = LeftAdjust | ZeroPad
+data FormatSign = SignPlus | SignSpace
+
+data FieldFormat = FieldFormat {
+    fmtWidth :: Maybe Int, fmtPrecision :: Maybe Int,
+    fmtAdjust :: Maybe FormatAdjustment, fmtSign :: Maybe FormatSign,
+    fmtAlternate :: Bool, fmtModifiers :: String, fmtChar :: Char }
+
+formatString :: IsChar c => [c] -> FieldFormatter
+formatString s ff = showString (maybe id take (fmtPrecision ff) (map toChar s))
+
+formatChar :: Char -> FieldFormatter
+formatChar c _ = showChar c
+
+formatInteger :: Integer -> FieldFormatter
+formatInteger i ff = showString (fmt [fmtChar ff] [UInteger 0 i])
+
+formatInt :: (Integral a, Bounded a) => a -> FieldFormatter
+formatInt i = formatInteger (toInteger i)
 
 instance PrintfArg Char where
     toUPrintf c = UChar c
@@ -192,6 +221,7 @@ instance IsChar Char where
 -------------------
 
 data UPrintf = UChar Char | UString String | UInteger Integer Integer | UFloat Float | UDouble Double
+             | UFormatter FieldFormatter
 
 uprintf :: String -> [UPrintf] -> String
 uprintf ""       []       = ""
@@ -217,6 +247,9 @@ fmt cs us =
 	c:cs'' ->
 	    case us' of
 	    []     -> argerr
+	    UFormatter f : us'' ->
+		adjust ("", f (FieldFormat Nothing (if prec < 0 then Nothing else Just prec)
+					   Nothing Nothing False "" c) "") ++ uprintf cs'' us''
 	    u:us'' ->
 		(case c of
 		'c' -> adjust  ("", [toEnum (toint u)])
