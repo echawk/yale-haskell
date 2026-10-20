@@ -246,6 +246,19 @@
 			 (resolve-toplevel-name name))))
 	    (when (algdata? alg)
 	      (push alg res))))))
+    ;; and those of other modules whose constructors are in scope (a
+    ;; re-export: Data.Vector.Unboxed's Vector(V_UnboxAs, ...), the
+    ;; instances being Data.Vector.Unboxed.Base's)
+    (table-for-each
+     (lambda (key d)
+       (declare (ignore key))
+       (when (and (con? d)
+		  (not (eq? (def-module d) *module-name*))
+		  (algdata? (con-alg d))
+		  (eq? (algdata-data-family (con-alg d)) def)
+		  (not (memq (con-alg d) res)))
+	 (push (con-alg d) res)))
+     *symbol-table*)
     (reverse res)))
 
 (define (gather-data-family-group name def)
