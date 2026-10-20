@@ -207,8 +207,25 @@
 (define (add-mp-mp-superclass-contexts signature)
   (setf (signature-mcontext signature)
 	(with-mp-mp-superclasses
-	 (append (signature-mcontext signature)
-		 (one-parameter-mp-superclasses (signature-context signature))))))
+	 (append-new-mp-contexts
+	  (signature-mcontext signature)
+	  (one-parameter-mp-superclasses (signature-context signature))))))
+
+;;; MCONTEXT with those of NEW it does not have (an instance's dictionary
+;;; signature has them already: tdecl/instance.mumble).
+(define (append-new-mp-contexts mcontext new)
+  (dolist (c mcontext)
+    (resolve-class (mp-context-class c)))
+  (dolist (c new)
+    (when (not (lisp:some
+		(lambda (c2)
+		  (and (eq? (class-ref-class (mp-context-class c2))
+			    (class-ref-class (mp-context-class c)))
+		       (every (function ast-types-equal?)
+			      (mp-context-types c2) (mp-context-types c))))
+		mcontext))
+      (setf mcontext (append mcontext (list c)))))
+  mcontext)
 
 ;;; The multi-parameter superclasses of a context's one-parameter classes
 ;;; (Unbox a gives G.Vector Vector a), as multi-parameter constraints.
