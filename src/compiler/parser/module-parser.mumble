@@ -176,11 +176,15 @@
     ;; (a strategy: a newtype's instances are its field type's where the
     ;; class is not a standard one, as deriving newtype would be)
     (when (not (eq-token? '|instance|))
-      (advance-token))
+      (if (and (eq-token? 'varid) (string=? (car *token-args*) "via"))
+	  (begin (advance-token)
+		 (setf *standalone-via* (parse-btype)))
+	  (advance-token)))
     (advance-token)
     (mlet (((single mp) (split-contexts (parse-optional-context)))
 	   (class (class->ast))
-	   (type (parse-atype)))
+	   (type (parse-atype))
+	   (via (let ((v *standalone-via*)) (setf *standalone-via* '#f) v)))
      (if (and (haskell98?) (not (memq *token* '(\; \} $\} eof))))
       ;; a multi-parameter class (deriving instance C i (N f)): an
       ;; instance whose methods are the newtype's field type's
@@ -192,11 +196,15 @@
       (begin
 	(when (not (tycon? type))
 	  (signal-invalid-syntax "a standalone deriving declaration"))
-	;; the name, or the definition of a built-in type ((), (a, b), [a])
-	(push (tuple class (if (algdata? (tycon-def type))
-			       (tycon-def type)
-			       (tycon-name type)))
-	      *standalone-derivings*))))
+	;; the name, or the definition of a built-in type ((), (a, b), [a]);
+	;; with via T, (%via target T args) (derived-instances.mumble)
+	(let ((target (if (algdata? (tycon-def type))
+			  (tycon-def type)
+			  (tycon-name type))))
+	  (push (tuple class (if via
+				 (list '%via target via (tycon-args type))
+				 target))
+		*standalone-derivings*)))))
     (terminate-topdecl mod-ast in-layout? 'topdecl))
    (|instance| (let ((instance-decl (parse-instance-decl '#f)))
 		 (push-decl-list instance-decl (module-instances mod-ast)))
@@ -374,6 +382,8 @@
    (splice-var (var->ast))
    (else (parse-exp))))
 
+(define *standalone-via* '#f)   ; deriving via T instance ...: T
+
 (define (at-standalone-deriving?)
   (and (haskell98?) (eq-token? '|deriving|)
        (or (eq? (peek-1-type) '|instance|)
@@ -381,7 +391,9 @@
 	   (and (eq? (peek-2-type) '|instance|)
 		(or (eq? (peek-1-type) '|newtype|)
 		    (and (eq? (peek-1-type) 'varid)
-			 (member (peek-1-text) '("stock" "anyclass"))))))))
+			 (member (peek-1-text) '("stock" "anyclass")))))
+	   ;; DerivingVia: deriving via T instance ...
+	   (and (eq? (peek-1-type) 'varid) (equal? (peek-1-text) "via")))))
 
 ;;; A standalone deriving declaration adds the class to the deriving
 ;;; clause of the type's declaration when that is in this module; one for

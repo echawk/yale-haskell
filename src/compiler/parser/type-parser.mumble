@@ -41,10 +41,21 @@
 
 (define (parse-type-operators-1 left)
   (if (type-operator-here?)
-      (let* ((name (type-operator-name))
-	     (right (parse-btype)))
+      ;; the operands and operators, associated by the operators'
+      ;; fixities once they are known (a %type-op-chain, symbol-table's
+      ;; reassociate-type-chain!)
+      (let ((items (list left)))
+	(do () ((not (type-operator-here?)))
+	  (let* ((name (type-operator-name))
+		 (right (parse-btype)))
+	    (setf items (append items
+				(list (make tycon (name name) (def *undefined-def*) (args '()))
+				      right)))))
 	(parse-type-operators
-	 (make tycon (name name) (def *undefined-def*) (args (list left right)))))
+	 (if (null? (cdddr items))
+	     (make tycon (name (tycon-name (cadr items))) (def *undefined-def*)
+		   (args (list (car items) (caddr items))))
+	     (make tycon (name '|%type-op-chain|) (def *undefined-def*) (args items)))))
       left))
 
 ;;; A type operator's name; a varsym (+) gets a prefix, as types and

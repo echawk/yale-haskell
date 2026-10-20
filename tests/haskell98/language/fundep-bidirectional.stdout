@@ -1,0 +1,3 @@
+SPair 1 2
+LPair 'a' 'b'
+Just (SPair True False)

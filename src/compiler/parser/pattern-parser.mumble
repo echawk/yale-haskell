@@ -118,7 +118,18 @@
 		(parse-record-pat pcon)
 		pcon)))
      (literal (let ((value (literal->ast)))
-		(make const-pat (value value))))
+		(if (and (is-type? 'string-const value)
+			 (language-extension? "OverloadedStrings"))
+		    ;; OverloadedStrings: the view ((==) (fromString "s") -> True)
+		    (let ((name (string->symbol
+				 (format '#f "view%~A" (incf *view-pattern-count*)))))
+		      (push (list name
+				  (make app (fn (generated-var-ref '|==|))
+					(arg (overloaded-string value)))
+				  (**pcon/def (core-symbol "True") '()))
+			    *view-patterns*)
+		      (make var-pat (var (generated-var-ref name))))
+		    (make const-pat (value value)))))
      (_ (make wildcard-pat))
      (\( (token-case
            (\) (**pcon/def (core-symbol "UnitConstructor") '()))

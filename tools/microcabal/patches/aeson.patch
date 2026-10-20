@@ -1,0 +1,89 @@
+aeson: GFromJSONKey and GToJSONKey are constraint synonyms (Yale Haskell cannot
+give a catch-all instance its class's superclass dictionaries).
+--- a/Data/Aeson.hs
++++ b/Data/Aeson.hs
+@@ -89,9 +89,9 @@
+     , FromJSONKey(..)
+     , FromJSONKeyFunction(..)
+     -- *** Generic keys
+-    , GToJSONKey()
++    , GToJSONKey
+     , genericToJSONKey
+-    , GFromJSONKey()
++    , GFromJSONKey
+     , genericFromJSONKey
+     -- ** Liftings to unary and binary type constructors
+     , FromJSON1(..)
+--- a/Data/Aeson/Types/Class.hs
++++ b/Data/Aeson/Types/Class.hs
+@@ -65,9 +65,9 @@
+     , coerceFromJSONKeyFunction
+     , mapFromJSONKeyFunction
+     -- ** Generic keys
+-    , GToJSONKey()
++    , GToJSONKey
+     , genericToJSONKey
+-    , GFromJSONKey()
++    , GFromJSONKey
+     , genericFromJSONKey
+     -- * Object key-value pairs
+     , KeyValue(..)
+--- a/Data/Aeson/Types.hs
++++ b/Data/Aeson/Types.hs
+@@ -65,9 +65,9 @@
+     , mapFromJSONKeyFunction
+ 
+     -- *** Generic keys
+-    , GToJSONKey()
++    , GToJSONKey
+     , genericToJSONKey
+-    , GFromJSONKey()
++    , GFromJSONKey
+     , genericFromJSONKey
+ 
+     -- ** Liftings to unary and binary type constructors
+--- a/Data/Aeson/Types/FromJSON.hs
++++ b/Data/Aeson/Types/FromJSON.hs
+@@ -44,7 +44,7 @@
+     , coerceFromJSONKeyFunction
+     , mapFromJSONKeyFunction
+ 
+-    , GFromJSONKey()
++    , GFromJSONKey
+     , genericFromJSONKey
+ 
+     -- * List functions
+@@ -518,8 +518,9 @@
+   where
+     cnames = unTagged2 (constructorTags (keyModifier opts) :: Tagged2 (Rep a) [String])
+ 
+-class    (ConstructorNames f, SumFromString f) => GFromJSONKey f where
+-instance (ConstructorNames f, SumFromString f) => GFromJSONKey f where
++-- Yale Haskell: a constraint synonym (a class with superclasses whose one
++-- instance is for every type cannot have the superclasses' dictionaries)
++type GFromJSONKey f = (ConstructorNames f, SumFromString f)
+ 
+ -------------------------------------------------------------------------------
+ -- Functions needed for documentation
+--- a/Data/Aeson/Types/ToJSON.hs
++++ b/Data/Aeson/Types/ToJSON.hs
+@@ -44,7 +44,7 @@
+     , toJSONKeyKey
+     , contramapToJSONKeyFunction
+ 
+-    , GToJSONKey()
++    , GToJSONKey
+     , genericToJSONKey
+ 
+     -- * Object key-value pairs
+@@ -593,8 +593,8 @@
+            => JSONKeyOptions -> ToJSONKeyFunction a
+ genericToJSONKey opts = toJSONKeyKey (Key.fromString . keyModifier opts . getConName . from)
+ 
+-class    GetConName f => GToJSONKey f
+-instance GetConName f => GToJSONKey f
++-- Yale Haskell: a constraint synonym (see FromJSON's GFromJSONKey)
++type GToJSONKey f = GetConName f
+ 
+ -------------------------------------------------------------------------------
+ -- Liftings of FromJSON and ToJSON to unary and binary type constructors

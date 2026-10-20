@@ -1,12 +1,13 @@
 -- Data.Version (base), for Yale Haskell's Haskell 98 dialect.  As in
 -- base, versions compare by their branch only (tags are deprecated).
 module Data.Version (
-    Version(Version, versionBranch, versionTags), showVersion, parseVersionString,
-    makeVersion
+    Version(Version, versionBranch, versionTags), showVersion, parseVersion,
+    parseVersionString, makeVersion
   ) where
 
 import Data.List (intercalate, sort)
-import Data.Char (isDigit)
+import Data.Char (isDigit, isAlphaNum)
+import Text.ParserCombinators.ReadP (ReadP, sepBy1, munch1, char, many)
 
 data Version = Version { versionBranch :: [Int], versionTags :: [String] }
   deriving (Read, Show)
@@ -36,3 +37,10 @@ parseVersionString s = case go s of
                    (ds, "")      -> Just [read ds]
                    (ds, '.':r)   -> fmap (read ds :) (go r)
                    _             -> Nothing
+
+-- | base's: numbers separated by dots, then -tags.
+parseVersion :: ReadP Version
+parseVersion = do
+  branch <- sepBy1 (fmap read (munch1 isDigit)) (char '.')
+  tags <- many (char '-' >> munch1 isAlphaNum)
+  return (Version branch tags)

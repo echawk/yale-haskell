@@ -650,6 +650,8 @@
 
 
 (define (resolve-tycon tycon)
+  (when (eq? (tycon-name tycon) '|%type-op-chain|)
+    (reassociate-type-chain! tycon))
   (when (eq? (tycon-def tycon) *undefined-def*)
     (remember-context tycon
       (let ((def (or (promoted-tycon-def (tycon-name tycon))
@@ -658,6 +660,52 @@
 	  (signal-tycon-name-required (tycon-name tycon)))
 	(setf (tycon-def tycon) def)))))
 
+
+;;; TypeOperators: a chain t0 op1 t1 op2 t2 .. (parser/type-parser.mumble)
+;;; becomes the applications its operators' fixities give, the fixity of a
+;;; constructor operator being its data constructor's (infixr 1 :* in
+;;; aeson), else infixl 9.  CHAIN is changed in place into the outermost.
+
+(define (reassociate-type-chain! chain)
+  (let* ((operands '())
+	 (ops '())
+	 (items (tycon-args chain))
+	 (reduce-top!
+	  (lambda ()
+	    (let* ((op (car ops))
+		   (r (car operands))
+		   (l (cadr operands)))
+	      (setf ops (cdr ops))
+	      (setf operands
+		    (cons (make tycon (name (tycon-name op)) (def *undefined-def*)
+				(args (list l r)))
+			  (cddr operands)))))))
+    (setf operands (list (car items)))
+    (do ((rest (cdr items) (cddr rest)))
+	((null? rest))
+      (let* ((op (car rest))
+	     (f (type-operator-fixity (tycon-name op))))
+	(do () ((or (null? ops)
+		    (let ((g (type-operator-fixity (tycon-name (car ops)))))
+		      (not (or (> (fixity-precedence g) (fixity-precedence f))
+			       (and (eqv? (fixity-precedence g) (fixity-precedence f))
+				    (not (eq? (fixity-associativity f) 'r))))))))
+	  (funcall reduce-top!))
+	(setf ops (cons op ops))
+	(setf operands (cons (cadr rest) operands))))
+    (do () ((null? ops)) (funcall reduce-top!))
+    (let ((top (car operands)))
+      (setf (tycon-name chain) (tycon-name top))
+      (setf (tycon-def chain) (tycon-def top))
+      (setf (tycon-args chain) (tycon-args top)))))
+
+(define (type-operator-fixity name)
+  (let* ((con-name (add-con-prefix/symbol name))
+	 (local (get-local-fixity con-name))
+	 (con (and (not local) (resolve-toplevel-name con-name))))
+    (or local
+	(and (con? con) (con-fixity con))
+	(make fixity (associativity 'l) (precedence 9)))))
 
 ;;; DataKinds: a type named K ('K, or K where no type is named K) that a
 ;;; data constructor in scope is named: K's promoted type, 'K of the

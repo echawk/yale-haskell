@@ -6,7 +6,8 @@
 -- program may give instances for CInt and Int32 both.  The FFI passes
 -- them as the underlying type (backend/interface-codegen.mumble).
 module Foreign.C.Types (
-    CChar, CSChar, CUChar, CShort, CUShort, CInt, CUInt, CLong, CULong, CPtrdiff, CSize, CWchar, CSigAtomic, CLLong, CULLong, CBool, CIntPtr, CUIntPtr, CIntMax, CUIntMax, CClock, CTime, CUSeconds, CSUSeconds, CFloat, CDouble,
+    -- (with their constructors, as base exports them)
+    CChar(..), CSChar(..), CUChar(..), CShort(..), CUShort(..), CInt(..), CUInt(..), CLong(..), CULong(..), CPtrdiff(..), CSize(..), CWchar(..), CSigAtomic(..), CLLong(..), CULLong(..), CBool(..), CIntPtr(..), CUIntPtr(..), CIntMax(..), CUIntMax(..), CClock(..), CTime(..), CUSeconds(..), CSUSeconds(..), CFloat(..), CDouble(..),
     CFile, CFpos, CJmpBuf
   ) where
 

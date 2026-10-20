@@ -41,12 +41,30 @@
     ;; StandaloneDeriving of a type declared in another module
     (dolist (d (reverse (module-standalone-derivings *module*)))
       (remember-context (tuple-2-1 d)
-	(let ((class-ref (tuple-2-1 d))
-	      (alg       (if (algdata? (tuple-2-2 d))
-			     (tuple-2-2 d)
-			     (lookup-toplevel-name (tuple-2-2 d)))))
+	(let* ((class-ref (tuple-2-1 d))
+	       (via?      (and (pair? (tuple-2-2 d)) (eq? (car (tuple-2-2 d)) '%via)))
+	       (target    (if via? (cadr (tuple-2-2 d)) (tuple-2-2 d)))
+	       (alg       (if (algdata? target)
+			      target
+			      (lookup-toplevel-name target))))
 	  (resolve-class class-ref)
-	  (cond ;; every type constructor is Typeable already (a data
+	  (cond (via?
+		 ;; deriving via T instance C (A a ..): T with the head's
+		 ;; variables A's own (by position)
+		 (let* ((via   (caddr (tuple-2-2 d)))
+			(args  (list-ref (tuple-2-2 d) 3))
+			(pairs (lisp:remove-if-not (lambda (p) (tyvar? (car p)))
+						   (map (function cons) args
+							(list-head (algdata-tyvars alg)
+								   (min (length args)
+									(length (algdata-tyvars alg))))))))
+		   (resolve-type-1 via '() '#t)
+		   (add-special-derived-instance
+		    alg (class-ref-class class-ref)
+		    (substitute-tyvars-simultaneously
+		     via (map (lambda (p) (tyvar-name (car p))) pairs)
+		     (map (lambda (p) (**tyvar (cdr p))) pairs)))))
+		;; every type constructor is Typeable already (a data
 		;; family too: deriving instance Typeable Vector)
 		((typeable-class? (class-ref-class class-ref)))
 		((not (algdata? alg))

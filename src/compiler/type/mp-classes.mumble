@@ -59,7 +59,11 @@
       (dotimes (i (length (class-tyvars class)))
 	(when (not (memv i determined))
 	  (push i res)))
-      (nreverse res)))))
+      ;; each determined by another (Strict lazy strict | lazy -> strict,
+      ;; strict -> lazy): all of them, or every instance would match
+      (if (null? res)
+	  (gtype-index-list (length (class-tyvars class)))
+	  (nreverse res))))))
 
 ;;; Structural equality of ntypes (tyvars by identity).
 
@@ -256,8 +260,11 @@
 ;;; The instance's head types at the non-determining positions, unified
 ;;; with TYPES (fundep improvement).  Returns the bindings.
 
-(define (improve-from-instance inst bindings types)
-  (let ((positions (mp-determining-positions (instance-class inst)))
+(define (improve-from-instance inst bindings types . matched)
+  ;; (MATCHED: the positions the instance was found by, a fundep's `from')
+  (let ((positions (if (pair? matched)
+		       (car matched)
+		       (mp-determining-positions (instance-class inst))))
 	(heads (instance-mp-types inst)))
     (dotimes (i (length types))
       (when (not (memv i positions))
@@ -316,10 +323,16 @@
     (dolist (p mps)
       (let* ((class (mp-placeholder-class p))
 	     (types (mp-placeholder-types p))
-	     (before (map (function mp-type-snapshot) types))
-	     (found (find-mp-instance class types)))
-	(when found
-	  (improve-through-instance (tuple-2-1 found) (tuple-2-2 found) types 8))
+	     (before (map (function mp-type-snapshot) types)))
+	;; by each functional dependency: an instance whose head agrees at
+	;; its `from' positions (strict -> lazy improves the lazy type from
+	;; the strict one)
+	(dolist (fd (class-fundeps class))
+	  (let ((found (find-mp-instance-1 (class-instances class) (tuple-2-1 fd)
+					   (map (function reduce-mp-type) types))))
+	    (when found
+	      (improve-through-instance (tuple-2-1 found) (tuple-2-2 found) types 8
+					(tuple-2-1 fd)))))
 	(dolist (q mps)
 	  (when (and (not (eq? p q))
 		     (eq? (mp-placeholder-class q) class))
@@ -334,8 +347,10 @@
 ;;; (WriterT w m): MonadState Int (WriterT w (StateT t Identity)) makes t
 ;;; Int through the StateT instance), DEPTH levels deep.
 
-(define (improve-through-instance inst bindings types depth)
-  (let ((bindings (improve-from-instance inst bindings types)))
+(define (improve-through-instance inst bindings types depth . matched)
+  (let ((bindings (if (pair? matched)
+		      (improve-from-instance inst bindings types (car matched))
+		      (improve-from-instance inst bindings types))))
     (when (> depth 0)
       (dolist (c (instance-mcontext inst))
 	(let ((class (class-ref-class (mp-context-class c))))
