@@ -1,0 +1,31 @@
+semigroupoids: gduplicated and gextended left out; their types need family
+equalities Yale Haskell does not yet decide (Rep1 h x ~ Rep1 w a).
+--- a/Data/Functor/Extend.hs
++++ b/Data/Functor/Extend.hs
+@@ -19,8 +19,10 @@
+   ( -- * Extendable Functors
+     -- $definition
+     Extend(..)
++#ifndef __YALE_HASKELL__
+   , gduplicated
+   , gextended
++#endif
+   ) where
+ 
+ import Prelude hiding (id, (.))
+@@ -72,6 +74,7 @@
+ --   2. Will not compile if @w@ contains fields where the type variable appears underneath the composition of type constructors (e.g., @f (g a)@).
+ --
+ -- @since 5.3.8
++#ifndef __YALE_HASKELL__
+ gduplicated :: (Extend (Rep1 w), Generic1 w) => w a -> w (w a)
+ gduplicated = to1 . fmap to1 . duplicated . from1
+ 
+@@ -80,6 +83,7 @@
+ -- @since 5.3.8
+ gextended :: (Extend (Rep1 w), Generic1 w) => (w a -> b) -> w a -> w b
+ gextended f = to1 . extended (f . to1) . from1
++#endif
+ 
+ -- * Extends for Prelude types:
+ --
