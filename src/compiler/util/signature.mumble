@@ -206,7 +206,27 @@
 
 (define (add-mp-mp-superclass-contexts signature)
   (setf (signature-mcontext signature)
-	(with-mp-mp-superclasses (signature-mcontext signature))))
+	(with-mp-mp-superclasses
+	 (append (signature-mcontext signature)
+		 (one-parameter-mp-superclasses (signature-context signature))))))
+
+;;; The multi-parameter superclasses of a context's one-parameter classes
+;;; (Unbox a gives G.Vector Vector a), as multi-parameter constraints.
+(define (one-parameter-mp-superclasses context)
+  (lisp:mapcan
+   (lambda (c)
+     (resolve-class (context-class c))
+     (let ((class (class-ref-class (context-class c))))
+       (if (class? class)
+	   (map (lambda (s)
+		  (**mp-context (**class/def (tuple-2-1 s))
+				(map (lambda (p)
+				       (instantiate-mp-super-template
+					p (list (**tyvar (context-tyvar c)))))
+				     (tuple-2-2 s))))
+		(class-mp-mp-supers class))
+	   '())))
+   context))
 
 ;;; A forall-type's multi-parameter context, resolved; VARS with the
 ;;; variables it mentions.  (Its classes' superclasses join it when it is

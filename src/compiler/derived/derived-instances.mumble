@@ -46,9 +46,13 @@
 			     (tuple-2-2 d)
 			     (lookup-toplevel-name (tuple-2-2 d)))))
 	  (resolve-class class-ref)
-	  (if (not (algdata? alg))
-	      (signal-not-derivable (tuple-2-2 d))
-	      (setf insts (derive-instance alg (class-ref-class class-ref) insts))))))
+	  (cond ;; every type constructor is Typeable already (a data
+		;; family too: deriving instance Typeable Vector)
+		((typeable-class? (class-ref-class class-ref)))
+		((not (algdata? alg))
+		 (signal-not-derivable (tuple-2-2 d)))
+		(else
+		 (setf insts (derive-instance alg (class-ref-class class-ref) insts)))))))
     insts))
 
 ;;; The derived instance of CLASS for ALG, added to INSTS (the standard

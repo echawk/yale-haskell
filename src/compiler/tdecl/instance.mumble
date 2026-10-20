@@ -438,6 +438,8 @@
 		  (add-new-module-signature definition-var signature)))))
 	  (setf (instance-methods inst) new-instance-vars)
 	  (add-new-module-def dictionary
+	   (if (empty-dictionary-class? class)
+	     (**null)   ; (generate-dictionary-type)
 	     (**tuple/l (append (map (lambda (m-v)
 				       (dict-method-ref
 					(tuple-2-1 m-v)	(tuple-2-2 m-v)	inst))
@@ -448,7 +450,7 @@
      "Num ~A has no ~A instance here (base's Num has no superclasses)."
 						     algdata c))
 					   (get-class-dict algdata c)))
-				     super*))))
+				     super*)))))
 	  (let ((dict-sig (generate-dictionary-signature inst)))
 	    (add-new-module-signature dictionary dict-sig))
 	  (setf (instance-decls inst) '())))))))
@@ -631,6 +633,21 @@
 	    rest))))
 
 (define (generate-dictionary-type inst simple)
+  (if (empty-dictionary-class? (instance-class inst))
+      ;; [T a ..] rather than (), so that the instance's context is on
+      ;; type variables of the dictionary's type (instance Unbox a =>
+      ;; Unbox (Complex a), Unbox's superclasses all multi-parameter);
+      ;; its value is []
+      (**tycon/def (core-symbol "List") (list simple))
+      (generate-dictionary-type-1 inst simple)))
+
+;;; A class whose dictionary has nothing: no methods, no superclasses
+;;; (multi-parameter ones are passed apart).
+(define (empty-dictionary-class? class)
+  (and (null? (class-method-vars class))
+       (null? (class-super* class))))
+
+(define (generate-dictionary-type-1 inst simple)
   (let* ((class (instance-class inst))
 	 (algdata (instance-algdata inst))
 	 (tyvar (class-tyvar class)))

@@ -6,6 +6,11 @@
 (define (lookup-instance alg-def class-def)
   (let ((res (lookup-instance-1 alg-def (class-instances class-def))))
     (cond ((not (eq? res '#f)) res)
+	  ;; a data family (an instance on it wanting its superclass's)
+	  ((data-family-def? alg-def)
+	   (and (typeable-class? class-def)
+		(get-typeable-instance alg-def class-def
+				       (length (synonym-args alg-def)))))
 	  ((algdata-real-tuple? alg-def)
 	   (or (lookup-possible-tuple-instances alg-def class-def)
 	       (and (typeable-class? class-def)

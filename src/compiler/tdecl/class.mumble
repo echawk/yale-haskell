@@ -47,6 +47,22 @@
 			     '())))
 		     mp-super-classes))
 	      (setf super-classes '()))
+	    ;; a one-parameter class's multi-parameter superclasses
+	    ;; (class (G.Vector Vector a, M.MVector MVector a) => Unbox a):
+	    ;; templates over its variable, as above
+	    (when (and (null? class-vars) (not (null? mp-super-classes)))
+	      (setf (class-mp-mp-supers def)
+		    (lisp:mapcan
+		     (lambda (mc)
+		       (resolve-class (mp-context-class mc))
+		       (let ((positions
+			      (map (lambda (ty) (mp-super-template ty (list class-var)))
+				   (mp-context-types mc))))
+			 (if (and (class? (class-ref-class (mp-context-class mc)))
+				  (every (lambda (p) (not (eq? p '#f))) positions))
+			     (list (tuple (class-ref-class (mp-context-class mc)) positions))
+			     '())))
+		     mp-super-classes)))
 	    (dolist (context super-classes)
               (with-slots context (class tyvar) context
 		(when (not (eq? class-var tyvar))
