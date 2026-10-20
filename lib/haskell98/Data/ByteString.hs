@@ -1,5 +1,5 @@
 -- Data.ByteString (bytestring): ByteStrings as Word8s; the Char8
--- functions with the bytes converted (Data.ByteString.Internal).
+-- functions with the bytes converted (Data.ByteString.Rep).
 module Data.ByteString (
     ByteString, pack, unpack, empty, singleton, cons, snoc, append, head,
     last, tail, init, uncons, unsnoc, null, length, map, reverse,
@@ -32,7 +32,7 @@ import Data.ByteString.Char8 (empty, append, tail, init, null, length,
          toStrict, fromChunks, toChunks, putStr, getLine, getContents,
          interact, readFile, writeFile, appendFile, hPutStr, hPut,
          hGetLine, hGetContents, hGet)
-import Data.ByteString.Internal
+import Data.ByteString.Rep
 import Data.Word (Word8)
 
 infixl 9 !?

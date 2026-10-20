@@ -12,7 +12,7 @@ module Foreign.ForeignPtr (
     touchForeignPtr, castForeignPtr,
     mallocForeignPtr, mallocForeignPtrBytes,
     mallocForeignPtrArray, mallocForeignPtrArray0,
-    addForeignPtrFinalizerIO
+    addForeignPtrFinalizerIO, plusForeignPtr
   ) where
 
 import ForeignPrims
@@ -92,3 +92,8 @@ mallocForeignPtrArray n = mallocArray n >>= newForeignPtr finalizerFree
 
 mallocForeignPtrArray0 :: Storable a => Int -> IO (ForeignPtr a)
 mallocForeignPtrArray0 n = mallocArray0 n >>= newForeignPtr finalizerFree
+
+-- | The address N bytes on, kept alive with (and finalized as) the
+-- original (base's GHC.ForeignPtr).
+plusForeignPtr :: ForeignPtr a -> Int -> ForeignPtr b
+plusForeignPtr (ForeignPtr p st) n = ForeignPtr (p `plusPtr` n) st

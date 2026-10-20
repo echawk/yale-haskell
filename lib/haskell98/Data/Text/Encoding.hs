@@ -11,7 +11,7 @@ import Control.Exception (evaluate, try)
 import Data.Bits ((.&.), (.|.), shiftL, shiftR)
 import Data.Char (chr, ord)
 import qualified Data.ByteString as B
-import Data.ByteString.Internal (unBS, bsFromString)
+import Data.ByteString.Rep (unBS, bsFromString)
 import qualified Data.Text as T
 import Data.Text.Encoding.Error
 import System.IO.Unsafe (unsafePerformIO)

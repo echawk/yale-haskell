@@ -8,7 +8,7 @@ import Prelude hiding (length, take, drop, splitAt, lines)
 import qualified Prelude as P
 import Data.Char (chr, ord)
 import Data.Bits ((.&.), (.|.), shiftL, shiftR)
-import Data.ByteString.Internal (ByteString, unBS, bsFromString)
+import Data.ByteString.Rep (ByteString, unBS, bsFromString)
 
 fromString :: String -> ByteString
 fromString s = bsFromString (concatMap encodeChar s)

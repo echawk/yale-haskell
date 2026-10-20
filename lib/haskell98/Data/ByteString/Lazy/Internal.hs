@@ -5,7 +5,7 @@
 -- (tools/gen/lazy-bytestring.py).
 module Data.ByteString.Lazy.Internal (ByteString(LBS)) where
 
-import qualified Data.ByteString.Internal as S
+import qualified Data.ByteString.Rep as S
 import PreludeModern (Semigroup((<>)), Monoid(mempty))
 import Data.String (IsString(fromString))
 

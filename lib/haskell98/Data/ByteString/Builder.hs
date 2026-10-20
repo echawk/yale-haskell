@@ -8,7 +8,7 @@ module Data.ByteString.Builder (
   ) where
 
 import PreludeModern (Semigroup((<>)), Monoid(mempty))
-import Data.ByteString.Internal
+import Data.ByteString.Rep
 import qualified Data.ByteString.Lazy.Internal as L
 import Data.Word
 import Data.Int

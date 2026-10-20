@@ -9,11 +9,11 @@ module GHC.ForeignPtr (
     unsafeForeignPtrToPtr, castForeignPtr, newForeignPtr_, mallocForeignPtrBytes,
     unsafeWithForeignPtr, withForeignPtr, touchForeignPtr,
     mallocPlainForeignPtrBytes, mallocPlainForeignPtrAlignedBytes,
-    mallocForeignPtrAlignedBytes
+    mallocForeignPtrAlignedBytes, plusForeignPtr
   ) where
 
 import GHC.PrimOps (Addr#, MutableByteArray#, RealWorld)
-import Foreign.ForeignPtr (ForeignPtr, newForeignPtr_, castForeignPtr,
+import Foreign.ForeignPtr (ForeignPtr, newForeignPtr_, castForeignPtr, plusForeignPtr,
                            mallocForeignPtrBytes, withForeignPtr, touchForeignPtr,
                            unsafeForeignPtrToPtr)
 import Foreign.Ptr (Ptr)

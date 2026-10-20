@@ -23,7 +23,7 @@ import Control.Applicative (Applicative(pure, (<*>)), Alternative(empty, (<|>)))
 import Control.Monad (MonadPlus(mzero, mplus))
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
-import Data.ByteString.Internal (unBS, bsFromString)
+import Data.ByteString.Rep (unBS, bsFromString)
 import qualified Data.ByteString.Lazy.Internal as LI
 import Data.Int
 import Data.Word

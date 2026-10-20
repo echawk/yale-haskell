@@ -20,7 +20,7 @@ import Data.Binary.Put (Put, PutM, runPut, putWord8, putWord16be, putWord32be,
                         putInt64be, putByteString, putCharUtf8)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
-import Data.ByteString.Internal (unBS, bsFromString)
+import Data.ByteString.Rep (unBS, bsFromString)
 import qualified Data.ByteString.Lazy.Internal as LI
 import Data.Int
 import Data.Word

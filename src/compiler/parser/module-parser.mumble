@@ -627,10 +627,13 @@
     (|type|
      (token-case
       (\( (if (memq *token* '(consym varsym))
+	      ;; (token->symbol advances past the operator)
 	      (let ((name (if (eq? *token* 'varsym)
-			      (string->symbol (string-append "type%" (car *token-args*)))
+			      (let ((n (string->symbol
+					(string-append "type%" (car *token-args*)))))
+				(advance-token)
+				n)
 			      (token->symbol))))
-		(advance-token)
 		(require-token \) (signal-missing-token "`)'" "type operator entity"))
 		(make entity-con (name name)))
 	      (signal-invalid-syntax "an entity")))

@@ -10,7 +10,7 @@ import IOBase (Handle(Handle))
 import System.IO (IOMode(..), hClose)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Exception (bracket)
-import Data.ByteString.Internal (ByteString, unBS, bsFromString)
+import Data.ByteString.Rep (ByteString, unBS, bsFromString)
 
 newtype Knob = Knob KnobObj
 

@@ -1,49 +1,75 @@
--- The ByteString type of Data.ByteString and its friends (bytestring):
--- a packed string of Chars 0..255, one per byte (a Data.Text.Rep Text,
--- so the Text primitives serve both).  Lazy and strict ByteStrings are
--- the same type here (fromStrict and toStrict are id).  Not the real
--- Data.ByteString.Internal, whose pointers do not exist here.
+{-# LANGUAGE PatternSynonyms, ViewPatterns #-}
+-- Data.ByteString.Internal (bytestring 0.11): a ByteString shown as its
+-- bytes in memory, BS fp len.  Here a ByteString is a packed string
+-- (Data.ByteString.Rep), so matching BS copies its bytes to new memory
+-- and building one copies them back: O(n) each, with the same results.
 module Data.ByteString.Internal (
-    ByteString(BS), unBS, bsFromString, packChars, c2w, w2c
+    ByteString(BS), unBS, bsFromString, packChars, c2w, w2c,
+    fromForeignPtr, fromForeignPtr0, toForeignPtr, toForeignPtr0,
+    create, unsafeCreate, createAndTrim, mallocByteString,
+    unsafePackLenBytes, unsafePackLenChars,
+    accursedUnutterablePerformIO, inlinePerformIO, unsafeDupablePerformIO
   ) where
 
-import PreludeModern (Semigroup((<>)), Monoid(mempty))
-import Data.String (IsString(fromString))
+import Data.ByteString.Rep (ByteString, unBS, bsFromString, packChars, c2w, w2c)
 import Data.Word (Word8)
-import qualified Data.Text as T
-import Data.Text.Rep (Text)
+import Foreign.ForeignPtr (ForeignPtr, mallocForeignPtrBytes, withForeignPtr, plusForeignPtr)
+import Foreign.Ptr (Ptr)
+import Foreign.Marshal.Array (peekArray, pokeArray)
+import System.IO.Unsafe (unsafePerformIO, unsafeDupablePerformIO)
 
-newtype ByteString = BS Text
+pattern BS :: ForeignPtr Word8 -> Int -> ByteString
+pattern BS fp len <- (toForeignPtr0 -> (fp, len))
+  where BS fp len = fromForeignPtr0 fp len
 
--- the bytes as Chars
-unBS :: ByteString -> String
-unBS (BS t) = T.unpack t
+-- | The bytes in new memory, and their number.
+toForeignPtr0 :: ByteString -> (ForeignPtr Word8, Int)
+toForeignPtr0 bs = unsafePerformIO $ do
+  let ws = map c2w (unBS bs)
+      n = length ws
+  fp <- mallocForeignPtrBytes (max 1 n)
+  withForeignPtr fp (\p -> pokeArray p ws)
+  return (fp, n)
 
--- Chars already 0..255
-bsFromString :: String -> ByteString
-bsFromString s = BS (T.pack s)
+toForeignPtr :: ByteString -> (ForeignPtr Word8, Int, Int)
+toForeignPtr bs = case toForeignPtr0 bs of (fp, n) -> (fp, 0, n)
 
-instance Eq ByteString where
-  BS a == BS b = a == b
-instance Ord ByteString where
-  compare (BS a) (BS b) = compare a b
-instance Show ByteString where
-  showsPrec p (BS t) = showsPrec p t
-instance Read ByteString where
-  readsPrec p s = [(packChars x, r) | (x, r) <- readsPrec p s]
-instance Semigroup ByteString where
-  BS a <> BS b = BS (T.append a b)
-instance Monoid ByteString where
-  mempty = BS T.empty
-instance IsString ByteString where
-  fromString = packChars
+-- | A ByteString of the LEN bytes at FP (copied).
+fromForeignPtr0 :: ForeignPtr Word8 -> Int -> ByteString
+fromForeignPtr0 fp len = unsafePerformIO $
+  withForeignPtr fp (\p -> fmap (bsFromString . map w2c) (peekArray len p))
 
--- truncated to bytes, as Char8.pack does
-packChars :: String -> ByteString
-packChars s = bsFromString (map (\c -> if c > '\255' then toEnum (fromEnum c `mod` 256) else c) s)
+fromForeignPtr :: ForeignPtr Word8 -> Int -> Int -> ByteString
+fromForeignPtr fp off len = fromForeignPtr0 (plusForeignPtr fp off) len
 
-c2w :: Char -> Word8
-c2w = fromIntegral . fromEnum
+mallocByteString :: Int -> IO (ForeignPtr a)
+mallocByteString n = mallocForeignPtrBytes (max 1 n)
 
-w2c :: Word8 -> Char
-w2c = toEnum . fromIntegral
+-- | A ByteString of N bytes written by F.
+create :: Int -> (Ptr Word8 -> IO ()) -> IO ByteString
+create n f = do
+  fp <- mallocByteString n
+  withForeignPtr fp f
+  return (fromForeignPtr0 fp n)
+
+unsafeCreate :: Int -> (Ptr Word8 -> IO ()) -> ByteString
+unsafeCreate n f = unsafePerformIO (create n f)
+
+-- | At most N bytes; F answers how many it wrote.
+createAndTrim :: Int -> (Ptr Word8 -> IO Int) -> IO ByteString
+createAndTrim n f = do
+  fp <- mallocByteString n
+  m <- withForeignPtr fp f
+  return (fromForeignPtr0 fp m)
+
+unsafePackLenBytes :: Int -> [Word8] -> ByteString
+unsafePackLenBytes _ ws = bsFromString (map w2c ws)
+
+unsafePackLenChars :: Int -> [Char] -> ByteString
+unsafePackLenChars _ cs = packChars cs
+
+accursedUnutterablePerformIO :: IO a -> a
+accursedUnutterablePerformIO = unsafeDupablePerformIO
+
+inlinePerformIO :: IO a -> a
+inlinePerformIO = unsafeDupablePerformIO

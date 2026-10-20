@@ -1,5 +1,5 @@
 -- Data.ByteString.Char8 (bytestring): ByteStrings as Chars (Latin-1),
--- over the packed Text (Data.ByteString.Internal): what Data.Text does
+-- over the packed Text (Data.ByteString.Rep): what Data.Text does
 -- the same way is delegated to it.
 module Data.ByteString.Char8 (
     ByteString, pack, unpack, empty, singleton, cons, snoc, append, head,
@@ -32,7 +32,7 @@ import qualified Data.List as L
 import qualified Data.Char as C
 import qualified System.IO as IO
 import System.IO (Handle)
-import Data.ByteString.Internal
+import Data.ByteString.Rep
 import qualified Data.Text as T
 import Data.Text.Rep (Text(..))
 import TextPrims (primBytesReadFile, primBytesHGetContents, primBytesHPutStr)
