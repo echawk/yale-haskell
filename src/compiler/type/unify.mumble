@@ -433,6 +433,12 @@
 		(same-tycon? (ntycon-tycon type1) (ntycon-tycon type2)))
 	   ;; a data family is injective
 	   (unify-args type1 type2))
+	  ;; a data family is injective: v s a with MVector s b is v =
+	  ;; MVector s, a = b, as with a type constructor
+	  ((and (eq? r1 'stuck) (data-family-app? type1) (ntyapp? type2))
+	   (unify-app-con-1 type2 type1))
+	  ((and (eq? r2 'stuck) (data-family-app? type2) (ntyapp? type1))
+	   (unify-app-con-1 type1 type2))
 	  ((and (eq? r1 'stuck) (data-family-app? type1) (ntycon? r2)
 		(unify-data-family-instance type1 r2))
 	   'OK)

@@ -64,8 +64,8 @@
 ;;; Structural equality of ntypes (tyvars by identity).
 
 (define (mp-type-equal? t1 t2)
-  (let ((t1 (prune t1))
-	(t2 (prune t2)))
+  (let ((t1 (reduce-mp-type t1))
+	(t2 (reduce-mp-type t2)))
     (cond ((eq? t1 t2) '#t)
 	  ((and (ntycon? t1) (ntycon? t2))
 	   (and (eq? (ntycon-tycon t1) (ntycon-tycon t2))
@@ -111,7 +111,17 @@
 
 (define (find-mp-instance class types)
   (let ((positions (mp-determining-positions class)))
-    (find-mp-instance-1 (class-instances class) positions types)))
+    (find-mp-instance-1 (class-instances class) positions
+			(map (function reduce-mp-type) types))))
+
+;;; A synonym or family application reduced where it can be (MVec
+;;; (Mutable Vector) a, from Vector's superclass, is MVec MVector a).
+(define (reduce-mp-type type)
+  (let ((type (prune type)))
+    (if (ntycon? type)
+	(let ((e (prune (expand-ntype-synonym type))))
+	  (if (eq? e type) type (reduce-mp-type e)))
+	type)))
 
 (define (find-mp-instance-1 instances positions types)
   (if (null? instances)

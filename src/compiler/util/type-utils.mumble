@@ -405,6 +405,14 @@
 	  ((tycon? pat)
 	   (let ((type (if (ntycon? type) (expand-ntype-synonym type) type)))
 	     (cond ((ntyvar? type) 'stuck)
+		   ;; a data family is generative, like a data type: Vector
+		   ;; (unapplied, in Mutable Vector) or Vector a matches
+		   ;; Vector and nothing else
+		   ((and (family-app? type)
+			 (data-family-def? (ntycon-tycon type)))
+		    (if (same-tycon? (tycon-def pat) (ntycon-tycon type))
+			(match-family-patterns (tycon-args pat) (ntycon-args type) env)
+			'fail))
 		   ((family-app? type) 'stuck)
 		   ((and (ntycon? type)
 			 (same-tycon? (tycon-def pat) (ntycon-tycon type)))
