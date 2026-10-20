@@ -237,8 +237,9 @@
   (let ((class (if (dict-placeholder? p)
 		   (dict-placeholder-class p)
 		   (method-var-class (method-placeholder-method p)))))
-    (lisp:find-if (lambda (i) (and (instance-ok? i) (eq? (instance-algdata i) family)))
-		  (class-instances class))))
+    (or (typeable-class? class)   ; made when wanted (get-typeable-instance)
+	(lisp:find-if (lambda (i) (and (instance-ok? i) (eq? (instance-algdata i) family)))
+		      (class-instances class)))))
 
 (define (process-instantiated-tyvar tycon p deferred decls)
   (let* ((alg (ntycon-tycon tycon))
