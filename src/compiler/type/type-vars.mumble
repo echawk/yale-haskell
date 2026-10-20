@@ -58,8 +58,10 @@
 	    (return-type (**save-old-exp object new-object) ntype)))
 	 ;; a variable whose type is a polytype (polytypes.mumble)
 	 ((and (gtype? type) (gtype-nested? type))
-	  (mlet (((ntype tyvars) (instantiate-polytype/context type))
-		 (object1 (insert-dict-placeholders object tyvars object)))
+	  (mlet (((ntype tyvars mps) (instantiate-polytype/context type))
+		 (object1 (insert-mp-placeholders
+			   (insert-dict-placeholders object tyvars object)
+			   mps object)))
 	    (return-type (if (eq? object1 object)
 			     object
 			     (**save-old-exp object object1))

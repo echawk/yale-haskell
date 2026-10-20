@@ -422,7 +422,10 @@
   (slots
    (class (type class))
    (types (type (list ntype)))
-   (method (type (maybe method-var)))))
+   (method (type (maybe method-var)))
+   ;; dictionaries a polymorphic argument's context gives where it was
+   ;; made (polytypes.mumble's *local-mp-params*)
+   (local-params (type list) (default '()))))
 
 (define-struct recursive-placeholder
   (include exp)

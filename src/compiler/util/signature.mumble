@@ -58,6 +58,7 @@
 	   (if poly
 	       (make forall-type (tyvars (forall-type-tyvars poly))
 		     (context (forall-type-context poly))
+		     (mcontext (forall-type-mcontext poly))
 		     (type (expand-nested-polytype-synonyms (forall-type-type poly)
 							     (1- depth))))
 	       (begin
@@ -144,6 +145,7 @@
 (define (rename-forall-apart poly)
   (let ((body (forall-type-type poly))
 	(contexts (forall-type-context poly))
+	(mcontexts (forall-type-mcontext poly))
 	(new-vars '()))
     (dolist (v (forall-type-tyvars poly))
       (let ((n (gentyvar (symbol->string v))))
@@ -153,8 +155,17 @@
 			      (if (eq? (context-tyvar c) v)
 				  (**context (context-class c) n)
 				  c))
-			    contexts))))
-    (make forall-type (tyvars (reverse new-vars)) (context contexts) (type body))))
+			    contexts))
+	(setf mcontexts (substitute-tyvar/mcontext mcontexts v (**tyvar n)))))
+    (make forall-type (tyvars (reverse new-vars)) (context contexts)
+	  (mcontext mcontexts) (type body))))
+
+(define (substitute-tyvar/mcontext mcontexts tyvar new)
+  (map (lambda (c)
+	 (**mp-context (mp-context-class c)
+		       (map (lambda (ty) (substitute-tyvar ty tyvar new))
+			    (mp-context-types c))))
+       mcontexts))
 
 ;;; FlexibleContexts (GHC): C t for a one-parameter class C and a type t
 ;;; that is not a type variable (parsed as a multi-parameter constraint
@@ -194,7 +205,27 @@
 ;;; gets their dictionaries too.
 
 (define (add-mp-mp-superclass-contexts signature)
-  (let ((work (signature-mcontext signature))
+  (setf (signature-mcontext signature)
+	(with-mp-mp-superclasses (signature-mcontext signature))))
+
+;;; A forall-type's multi-parameter context, resolved; VARS with the
+;;; variables it mentions.  (Its classes' superclasses join it when it is
+;;; instantiated, type/polytypes.mumble's polytype-mcontext-instance: a
+;;; data type's fields are resolved before the classes' superclasses are
+;;; known.)
+
+(define (resolve-forall-mcontext type vars)
+  (dolist (c (forall-type-mcontext type))
+    (resolve-class (mp-context-class c)))
+  (dolist (c (forall-type-mcontext type))
+    (dolist (ty (mp-context-types c))
+      (dolist (v (resolve-type-1 ty '() '#t))
+	(when (not (memq v vars))
+	  (push v vars)))))
+  vars)
+
+(define (with-mp-mp-superclasses mcontext)
+  (let ((work mcontext)
 	(n 0))
     (do () ((or (null? work) (> n 64)))
       (let* ((c (car work))
@@ -203,18 +234,28 @@
 	(incf n)
 	(when (class? class)
 	  (dolist (s (class-mp-mp-supers class))
-	    (let ((types (map (lambda (p) (list-ref (mp-context-types c) p))
+	    (let ((types (map (lambda (p)
+				(instantiate-mp-super-template p (mp-context-types c)))
 			      (tuple-2-2 s))))
 	      (when (not (lisp:some
 			  (lambda (c2)
 			    (and (eq? (class-ref-class (mp-context-class c2)) (tuple-2-1 s))
 				 (every (function ast-types-equal?)
 					(mp-context-types c2) types)))
-			  (signature-mcontext signature)))
+			  mcontext))
 		(let ((new (**mp-context (**class/def (tuple-2-1 s)) types)))
-		  (setf (signature-mcontext signature)
-			(append (signature-mcontext signature) (list new)))
-		  (setf work (append work (list new))))))))))))
+		  (setf mcontext (append mcontext (list new)))
+		  (setf work (append work (list new))))))))))
+    mcontext))
+
+;;; tdecl/class.mumble's mp-super-template at the context's types.
+
+(define (instantiate-mp-super-template p types)
+  (if (integer? p)
+      (list-ref types p)
+      (**tycon/def (car p)
+		   (map (lambda (a) (instantiate-mp-super-template a types))
+			(cdr p)))))
 
 (define (ast-types-equal? t1 t2)
   (cond ((and (tyvar? t1) (tyvar? t2)) (eq? (tyvar-name t1) (tyvar-name t2)))
@@ -308,7 +349,8 @@
 	 ;; its own type variables are not free; its context constrains
 	 ;; only them
 	 (resolve-signature-aux (forall-type-tyvars type) (forall-type-context type))
-	 (let ((inner (resolve-type-1 (forall-type-type type) '() '#f)))
+	 (let ((inner (resolve-forall-mcontext type
+		        (resolve-type-1 (forall-type-type type) '() '#f))))
 	   (append (lisp:remove-if (lambda (v) (memq v (forall-type-tyvars type)))
 				   inner)
 		   vars)))
@@ -421,6 +463,8 @@
 	     type
 	     (make forall-type (tyvars (forall-type-tyvars type))
 		   (context (forall-type-context type))
+		   (mcontext (substitute-tyvar/mcontext (forall-type-mcontext type)
+							tyvar new))
 		   (type (substitute-tyvar (forall-type-type type) tyvar new)))))
 	(else
 	 (**signature (signature-context type)

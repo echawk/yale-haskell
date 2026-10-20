@@ -345,6 +345,13 @@
 ;;; (class . types).  (A constraint mentioning only an enclosing
 ;;; binding's type variables is passed out to it.)
 
+(define (local-mp-param-matches? p class types)
+  (lisp:some (lambda (param)
+	       (and (eq? (mp-param-class param) class)
+		    (mp-equal-at? (mp-determining-positions class)
+				  (mp-param-types param) types)))
+	     (mp-placeholder-local-params p)))
+
 (define (mp-generalizable-constraints placeholders)
   (let ((res '()))
     (dolist (p placeholders)
@@ -353,6 +360,9 @@
 	(let ((class (mp-placeholder-class p))
 	      (types (mp-placeholder-types p)))
 	  (when (and (some (function mp-type-generic?) types)
+		     ;; a polymorphic argument's context gives it
+		     ;; (process-mp-placeholder)
+		     (not (local-mp-param-matches? p class types))
 		     (eq? (find-mp-instance class types) '#f)
 		     (not (some (lambda (c)
 				  (and (eq? (tuple-2-1 c) class)
@@ -456,10 +466,10 @@
 
 (define (find-mp-param p class types decls)
   (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls)))
-    (if (eq? decl '#f)
-	'#f
-	(or (find-mp-param-1 (valdef-mp-dict-params decl) class types)
-	    (find-only-mp-param (valdef-mp-dict-params decl) class types)))))
+    (or (find-mp-param-1 (mp-placeholder-local-params p) class types)
+	(and (not (eq? decl '#f))
+	     (or (find-mp-param-1 (valdef-mp-dict-params decl) class types)
+		 (find-only-mp-param (valdef-mp-dict-params decl) class types))))))
 
 ;;; A one-parameter class wanted at an application (GEq (f p)), given by
 ;;; the enclosing binding as a subclass at the same type (GOrd (f p),

@@ -35,6 +35,7 @@ module GHC.Exts (
     IsList(fromList, toList, fromListN), Item, IsString(fromString),
     coerce, Coercible,
     module GHC.PrimOps, module GHC.PrimOpsTyped, UnliftedType, UnliftedRep,
+    RuntimeRep(..), Levity(..), TYPE, LiftedRep, SPEC(..),
     Ptr(Ptr), FunPtr(FunPtr), Down(..), sortWith, groupWith, the, realWorld#, runRW#, noDuplicate#, keepAlive#,
     atomicModifyMutVar#, atomicModifyMutVar2#, atomicModifyMutVar_#
   ) where
@@ -241,6 +242,18 @@ the _ = error "GHC.Exts.the: empty list or not all equal"
 -- kinds (not checked): GHC's unlifted types' kinds
 data UnliftedType
 data UnliftedRep
+
+-- Representation kinds (levity polymorphism): kinds are inferred and
+-- every value is boxed, so these only name things in kind signatures.
+data RuntimeRep = BoxedRep Levity | IntRep | WordRep | Int64Rep | Word64Rep
+                | AddrRep | FloatRep | DoubleRep
+data Levity = Lifted | Unlifted
+data TYPE r
+data LiftedRep
+
+-- | SpecConstr's hint (a constructor argument keeps a loop specialised);
+-- an ordinary type here.
+data SPEC = SPEC | SPEC2
 
 shiftL#, shiftRL# :: Word -> Int -> Word
 shiftL# = shiftL

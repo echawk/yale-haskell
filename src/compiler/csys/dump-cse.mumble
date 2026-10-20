@@ -137,7 +137,13 @@
 	 (let ((context (dump-context-list (gtype-context g)))
 	       (type (dump-gtype-1 (gtype-type g))))
 	   (remember-dumped-object
-	    `(nested-gtype ,(cse-ref-code context) ,(cse-ref-code type)))))
+	    (if (null? (gtype-mcontext g))
+		`(nested-gtype ,(cse-ref-code context) ,(cse-ref-code type))
+		`(nested-gtype ,(cse-ref-code context) ,(cse-ref-code type)
+		   (list ,@(map (lambda (c)
+				  `(cons ,(dump-class/n (tuple-2-1 c))
+					 ,(cse-ref-code (dump-gtype-list (tuple-2-2 c)))))
+				(gtype-mcontext g))))))))
 	((ntyvar? g)
 	 (dump-gtype-1 (prune g)))
 	((ntyapp? g)
@@ -189,9 +195,11 @@
 				,(cse-ref-code (dump-gtype-list (tuple-2-2 c)))))
 		       (gtype-mcontext g))))))))
 
-(define (nested-gtype context type)
+(define (nested-gtype context type . mcontext)
   (let ((g (**gtype context type)))
     (setf (gtype-nested? g) '#t)
+    (when (pair? mcontext)
+      (setf (gtype-mcontext g) (car mcontext)))
     g))
 
 (define (gtype-with-mcontext g mcontext)

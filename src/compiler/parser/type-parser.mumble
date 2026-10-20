@@ -4,18 +4,18 @@
   (if (and (haskell98?) (eq-token? 'varid) (string=? (car *token-args*) "forall"))
       ;; RankNTypes: forall a. t, or forall a. C a => t, in an argument
       ;; or field
-      (let* ((tyvars (skip-explicit-forall))
-	     (context (mlet (((single _) (split-contexts (parse-optional-context))))
-			single)))
-	(make forall-type (tyvars tyvars) (context context) (type (parse-type))))
+      (let ((tyvars (skip-explicit-forall)))
+	(mlet (((single mp) (split-contexts (parse-optional-context))))
+	  (make forall-type (tyvars tyvars) (context single) (mcontext mp)
+		(type (parse-type)))))
       (if (and (haskell98?) (has-optional-context?))
 	  ;; C a => t without a forall, in an argument or field (GHC):
 	  ;; gcastWith :: (a :~: b) -> ((a ~ b) => r) -> r
-	  (let ((context (mlet (((single _) (split-contexts (parse-context))))
-			   single)))
-	    (if (null? context)
+	  (mlet (((single mp) (split-contexts (parse-context))))
+	    (if (and (null? single) (null? mp))
 		(parse-type)
-		(make forall-type (tyvars '()) (context context) (type (parse-type)))))
+		(make forall-type (tyvars '()) (context single) (mcontext mp)
+		      (type (parse-type)))))
 	  (parse-type-1))))
 
 (define (parse-type-1)

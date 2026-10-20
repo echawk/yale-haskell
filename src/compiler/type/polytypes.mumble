@@ -125,10 +125,12 @@
 
 (define (constrained-polytype? type)
   (and (polytype? type)
-       (lisp:some (lambda (c) (not (null? c))) (gtype-context type))))
+       (or (lisp:some (lambda (c) (not (null? c))) (gtype-context type))
+	   (not (null? (gtype-mcontext type))))))
 
 ;;; A new instance of the polytype G whose type variables have its
-;;; context.  Returns the type and the type variables.
+;;; context.  Returns the type, the type variables and its multi-parameter
+;;; constraints as (class . ntypes).
 
 (define (instantiate-polytype/context g)
   (let ((tyvars (map (lambda (c)
@@ -136,7 +138,43 @@
 			 (setf (ntyvar-context tv) c)
 			 tv))
 		     (gtype-context g))))
-    (values (copy-polytype-body (gtype-type g) tyvars) tyvars)))
+    (values (copy-polytype-body (gtype-type g) tyvars)
+	    tyvars
+	    (polytype-mcontext-instance g tyvars))))
+
+;;; With the classes' multi-parameter superclasses, transitively (Vector v a
+;;; gives MVector (Mutable v) a; tdecl/class.mumble's mp-super-template).
+(define (polytype-mcontext-instance g tyvars)
+  (let* ((given (map (lambda (c)
+		       (tuple (tuple-2-1 c)
+			      (map (lambda (ty) (copy-polytype-body ty tyvars))
+				   (tuple-2-2 c))))
+		     (gtype-mcontext g)))
+	 (result given)
+	 (work given)
+	 (n 0))
+    (do () ((or (null? work) (> n 64)) result)
+      (let ((c (car work)))
+	(setf work (cdr work))
+	(incf n)
+	(dolist (s (class-mp-mp-supers (tuple-2-1 c)))
+	  (let ((types (map (lambda (p) (instantiate-mp-super-template/ntype
+					 p (tuple-2-2 c)))
+			    (tuple-2-2 s))))
+	    (when (not (lisp:some (lambda (c2)
+				    (and (eq? (tuple-2-1 c2) (tuple-2-1 s))
+					 (mp-types-equal? (tuple-2-2 c2) types)))
+				  result))
+	      (let ((new (tuple (tuple-2-1 s) types)))
+		(setf result (append result (list new)))
+		(setf work (append work (list new)))))))))))
+
+(define (instantiate-mp-super-template/ntype p types)
+  (if (integer? p)
+      (list-ref types p)
+      (**ntycon (car p)
+		(map (lambda (a) (instantiate-mp-super-template/ntype a types))
+		     (cdr p)))))
 
 ;;; FN-TYPE's argument type when it is a function type whose argument is a
 ;;; constrained polytype, else #f.
@@ -170,11 +208,25 @@
 	  (push (tuple (car (dynamic *enclosing-decls*)) (reverse params))
 		(ntyvar-dict-params tv)))
 	(push tv tyvars)))
-    (let ((type (copy-polytype-body (gtype-type poly) (reverse tyvars))))
+    (let* ((type (copy-polytype-body (gtype-type poly) (reverse tyvars)))
+	   ;; then one for each multi-parameter constraint, given to the
+	   ;; placeholders made inside (mp-classes.mumble's
+	   ;; process-mp-placeholder)
+	   (mp-params (map (lambda (c)
+			     (let ((d (create-temp-var
+				       (string-append "d_" (symbol->string
+							    (def-name (tuple-2-1 c)))))))
+			       (setf (var-type d) (**ntyvar))
+			       (setf (var-force-strict? d) '#t)
+			       (push (**var-pat/def d) dict-pats)
+			       (list (tuple-2-1 c) (tuple-2-2 c) d)))
+			   (polytype-mcontext-instance poly (reverse tyvars)))))
       (mlet (((arg1 arg-type)
 	      (dynamic-let ((*polytype-vars*
 			     (append (lambda-polytype-vars arg type)
-				     (dynamic *polytype-vars*))))
+				     (dynamic *polytype-vars*)))
+			    (*local-mp-params*
+			     (append mp-params (dynamic *local-mp-params*))))
 		(dispatch-type-check arg))))
 	(type-unify arg-type type
 	  (type-mismatch arg
@@ -189,9 +241,11 @@
 (define (polytype-function-instance object fn-type)
   (let ((type (prune fn-type)))
     (if (polytype? type)
-	(mlet (((ntype tyvars) (instantiate-polytype/context type)))
+	(mlet (((ntype tyvars mps) (instantiate-polytype/context type)))
 	  (setf (app-fn object)
-		(insert-dict-placeholders (app-fn object) tyvars (app-fn object)))
+		(insert-mp-placeholders
+		 (insert-dict-placeholders (app-fn object) tyvars (app-fn object))
+		 mps (app-fn object)))
 	  ntype)
 	fn-type)))
 

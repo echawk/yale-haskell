@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/GHC/Integer/
+:o= all
+Logarithms.hs

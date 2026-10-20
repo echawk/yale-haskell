@@ -909,6 +909,7 @@
 (define-walker-method dump forall-type (o)
   `(make forall-type (tyvars ',(forall-type-tyvars o))
 	             (context ,(dump-object (forall-type-context o)))
+	             (mcontext ,(dump-object (forall-type-mcontext o)))
 	             (type ,(dump-object (forall-type-type o)))))
 
 (define-walker-method dump tyapp (o)

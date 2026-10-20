@@ -83,6 +83,9 @@
   (slots
    (tyvars (type (list symbol)))
    (context (type (list context)) (default '()))
+   ;; its multi-parameter constraints (and one-parameter ones at types
+   ;; other than a variable): forall m. (PrimMonad m, Vector v a) => ..
+   (mcontext (type (list mp-context)) (default '()))
    (type (type type))))
 
 (define-struct signature

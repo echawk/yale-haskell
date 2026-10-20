@@ -1,0 +1,2 @@
+write 'a'; 3
+write True; 

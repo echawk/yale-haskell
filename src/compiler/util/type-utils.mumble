@@ -90,6 +90,16 @@
       (mlet (((_ env1) (type->gtype/l (mp-context-types (car mcontext)) env)))
 	(mcontext-env (cdr mcontext) env1))))
 
+;;; Also returning the environment, with any tyvars they add.
+(define (mcontext->gmcontext/env mcontext env)
+  (if (null? mcontext)
+      (values '() env)
+      (mlet (((gtypes env1) (type->gtype/l (mp-context-types (car mcontext)) env))
+	     ((rest env2) (mcontext->gmcontext/env (cdr mcontext) env1)))
+	(values (cons (tuple (class-ref-class (mp-context-class (car mcontext))) gtypes)
+		      rest)
+		env2))))
+
 ;;; Multi-parameter constraints as (class . gtypes); ENV has their tyvars.
 (define (mcontext->gmcontext mcontext env)
   (map (lambda (c)
@@ -154,15 +164,17 @@
 	 (let ((inner (let ((i (- (length (dynamic *inner-tyvars*)))))
 			(map (lambda (v) (decf i) (tuple v i))
 			     (forall-type-tyvars type)))))
-	   (mlet (((body env1)
-		   (dynamic-let ((*inner-tyvars* (append inner (dynamic *inner-tyvars*))))
-		     (type->gtype (forall-type-type type) env))))
-	     (let ((g (**gtype (map (lambda (v)
-				      (forall-type-classes type (tuple-2-1 v)))
-				    inner)
-			       body)))
-	       (setf (gtype-nested? g) '#t)
-	       (values g env1)))))
+	   (dynamic-let ((*inner-tyvars* (append inner (dynamic *inner-tyvars*))))
+	     (mlet (((body env1) (type->gtype (forall-type-type type) env))
+		    ((gmcontext env2)
+		     (mcontext->gmcontext/env (forall-type-mcontext type) env1)))
+	       (let ((g (**gtype (map (lambda (v)
+					(forall-type-classes type (tuple-2-1 v)))
+				      inner)
+				 body)))
+		 (setf (gtype-nested? g) '#t)
+		 (setf (gtype-mcontext g) gmcontext)
+		 (values g env2))))))
 	((tyapp? type)
 	 (mlet (((fun env1) (type->gtype (tyapp-fun type) env))
 		((types env2) (type->gtype/l (tyapp-args type) env1)))
@@ -216,10 +228,7 @@
 	       (list-ref tyvars i)
 	       (**gtyvar (+ (gtyvar-varnum g) n)))))
 	((and (gtype? g) (gtype-nested? g))
-	 (let ((g1 (**gtype (gtype-context g)
-			    (copy-polytype-body (gtype-type g) tyvars))))
-	   (setf (gtype-nested? g1) '#t)
-	   g1))
+	 (copy-nested-gtype g (lambda (x) (copy-polytype-body x tyvars))))
 	((ntyapp? g)
 	 (apply-ntype (prune (copy-polytype-body (prune (ntyapp-fun g)) tyvars))
 		      (map (lambda (a) (copy-polytype-body (prune a) tyvars)) (ntyapp-args g))))
@@ -227,6 +236,16 @@
 	 (**ntycon (ntycon-tycon g)
 		   (map (lambda (a) (copy-polytype-body (prune a) tyvars)) (ntycon-args g))))
 	(else g)))
+
+;;; A polytype inside a type, its body and multi-parameter constraints'
+;;; types mapped by FN.
+(define (copy-nested-gtype g fn)
+  (let ((g1 (**gtype (gtype-context g) (funcall fn (gtype-type g)))))
+    (setf (gtype-nested? g1) '#t)
+    (setf (gtype-mcontext g1)
+	  (map (lambda (c) (tuple (tuple-2-1 c) (map fn (tuple-2-2 c))))
+	       (gtype-mcontext g)))
+    g1))
 
 (define (instantiate-gtype g)
  (mlet (((gtype _) (instantiate-gtype/newvars g)))
@@ -257,9 +276,7 @@
 (define (copy-gtype g env)
   (cond ((and (gtype? g) (gtype-nested? g))
 	 ;; the outer type's variables are replaced, its own kept
-	 (let ((g1 (**gtype (gtype-context g) (copy-gtype (gtype-type g) env))))
-	   (setf (gtype-nested? g1) '#t)
-	   g1))
+	 (copy-nested-gtype g (lambda (x) (copy-gtype x env))))
 	((and (gtyvar? g) (< (gtyvar-varnum g) 0))
 	 g)
 	((ntyapp? g)
@@ -429,6 +446,14 @@
 					  env)))
     env)))
 
+;;; A nested polytype's multi-parameter constraints, generalized with it.
+(define (gmcontext->gtype mcontext env)
+  (if (null? mcontext)
+      (values '() env)
+      (mlet (((types env1) (ntype->gtype/l (tuple-2-2 (car mcontext)) env))
+	     ((rest env2) (gmcontext->gtype (cdr mcontext) env1)))
+	(values (cons (tuple (tuple-2-1 (car mcontext)) types) rest) env2))))
+
 (define (ntype->gtype-1 ntype env)
  (let ((ntype (prune ntype)))
   (cond ((ntycon? ntype)
@@ -441,10 +466,12 @@
 	((and (gtype? ntype) (gtype-nested? ntype))
 	 ;; a polytype inside (RankNTypes): the type variables of its body
 	 ;; that are not its own are generalized with the rest
-	 (mlet (((body env1) (ntype->gtype-1 (gtype-type ntype) env)))
+	 (mlet (((body env1) (ntype->gtype-1 (gtype-type ntype) env))
+		((mc env2) (gmcontext->gtype (gtype-mcontext ntype) env1)))
 	   (let ((g (**gtype (gtype-context ntype) body)))
 	     (setf (gtype-nested? g) '#t)
-	     (values g env1))))
+	     (setf (gtype-mcontext g) mc)
+	     (values g env2))))
 	((gtyvar? ntype)   ; a polytype's own
 	 (values ntype env))
 	(else

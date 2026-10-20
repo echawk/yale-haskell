@@ -364,6 +364,10 @@
       (signal-no-context-in-synonym))
     (require-token = (signal-missing-token "`='" "type synonym declaration"))
     (let ((body (parse-type)))
+      ;; KindSignatures (GHC): type Splice = Code :: kind, ignored
+      ;; (kinds are inferred)
+      (when (and (haskell98?) (eq-token? '\:\:))
+	(skip-to-decl-end))
       (make synonym-decl (simple simple) (body body))))))
 
 (define (signal-no-context-in-synonym)
@@ -544,9 +548,12 @@
 (define (parse-type-family-decl . data?)
   (when (at-varid-named? "family") (advance-token))
   (let* ((head (parse-btype))
-	 (extra (if (eq-token? '\:\:)
-		    (begin (advance-token) (parse-kind-arrows))
-		    0)))
+	 (extra (cond ((eq-token? '\:\:)
+		       (advance-token)
+		       (parse-kind-arrows))
+		      ((at-family-result-signature?)
+		       (parse-family-result-signature))
+		      (else 0))))
     (when (not (tycon? head))
       (signal-invalid-syntax "a type family declaration"))
     (let ((i 0))
@@ -566,6 +573,29 @@
     (when (eq-token? '|where|)
       (advance-token)
       (start-layout (function parse-family-equations)))))
+
+;;; TypeFamilyDependencies (GHC): type family F a = r | r -> a, or
+;;; = (r :: kind) | ...  The injectivity is not used; the kind's arrows
+;;; count as more parameters.
+
+(define (at-family-result-signature?)
+  (and (eq-token? '=)
+       (or (and (eq? (peek-1-type) 'varid) (eq? (peek-2-type) '\|))
+	   (and (eq? (peek-1-type) '\() (eq? (peek-2-type) 'varid)
+		(eq? (peek-toks 2 *token-stream*) '\:\:)))))
+
+(define (parse-family-result-signature)
+  (advance-token)
+  (let ((extra (if (eq-token? '\()
+		   (begin (advance-token) (advance-token) (advance-token)
+			  (let ((n (parse-kind-arrows)))
+			    (require-token \) (signal-missing-token "`)'" "a type family result"))
+			    n))
+		   (begin (advance-token) 0))))
+    (require-token \| (signal-missing-token "`|'" "a type family injectivity annotation"))
+    (do () ((memq *token* '(\; \} $\} eof |where|)))
+      (advance-token))
+    extra))
 
 ;;; The arrows of a kind: * -> * -> *, Type -> Type, (k -> Type) -> k.
 (define (parse-kind-arrows)

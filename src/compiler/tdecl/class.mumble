@@ -31,20 +31,18 @@
 			   (tuple (class-ref-class (context-class context))
 				  (locate-in-list (context-tyvar context) class-vars 0)))
 			 super-classes))
-	      ;; multi-parameter superclasses whose types are the class's
-	      ;; type variables
+	      ;; multi-parameter superclasses whose types are made of the
+	      ;; class's type variables: MVector (Mutable v) a of Vector v a
+	      ;; (mp-super-template)
 	      (setf (class-mp-mp-supers def)
 		    (lisp:mapcan
 		     (lambda (mc)
 		       (resolve-class (mp-context-class mc))
 		       (let ((positions
-			      (map (lambda (ty)
-				     (and (tyvar? ty)
-					  (memq (tyvar-name ty) class-vars)
-					  (locate-in-list (tyvar-name ty) class-vars 0)))
+			      (map (lambda (ty) (mp-super-template ty class-vars))
 				   (mp-context-types mc))))
 			 (if (and (class? (class-ref-class (mp-context-class mc)))
-				  (every (lambda (p) (integer? p)) positions))
+				  (every (lambda (p) (not (eq? p '#f))) positions))
 			     (list (tuple (class-ref-class (mp-context-class mc)) positions))
 			     '())))
 		     mp-super-classes))
@@ -84,6 +82,24 @@
   (phase-error 'bad-fundep-var
     "~A in a functional dependency of ~A is not one of the class's type variables."
     v (class-ref-name (class-decl-class decl))))
+
+;;; A superclass argument as a template over the class's type variables:
+;;; a variable's position, or (tycon-def . argument templates) for a type
+;;; constructor or family applied to such (Mutable v); #f otherwise.
+;;; util/signature.mumble's instantiate-mp-super-template undoes it.
+
+(define (mp-super-template ty class-vars)
+  (cond ((tyvar? ty)
+	 (and (memq (tyvar-name ty) class-vars)
+	      (locate-in-list (tyvar-name ty) class-vars 0)))
+	((tycon? ty)
+	 (resolve-type-1 ty '() '#t)
+	 (let ((args (map (lambda (a) (mp-super-template a class-vars))
+			  (tycon-args ty))))
+	   (and (not (eq? (tycon-def ty) *undefined-def*))
+		(every (lambda (a) (not (eq? a '#f))) args)
+		(cons (tycon-def ty) args))))
+	(else '#f)))
 
 (define (signal-mp-superclasses-unsupported class)
   (phase-error 'mp-superclasses
@@ -351,14 +367,25 @@
 	 (let* ((bound  (forall-type-tyvars type))
 		(local  (map (lambda (v) (tuple v v)) bound)))
 	   (mlet (((body env1)
-		   (rename-type-vars (forall-type-type type) (append local env))))
+		   (rename-type-vars (forall-type-type type) (append local env)))
+		  ((mcontext env2)
+		   (rename-mcontext-vars (forall-type-mcontext type) env1)))
 	     (values (make forall-type (tyvars bound)
 			   (context (forall-type-context type))
+			   (mcontext mcontext)
 			   (type body))
-		     (lisp:remove-if (lambda (e) (memq e local)) env1)))))
+		     (lisp:remove-if (lambda (e) (memq e local)) env2)))))
 	(else
 	 (mlet (((new-types env1) (rename-type-vars/l (tycon-args type) env)))
 	   (values (**tycon/def (tycon-def type) new-types) env1)))))
+
+(define (rename-mcontext-vars mcontext env)
+  (if (null? mcontext)
+      (values '() env)
+      (mlet (((types env1) (rename-type-vars/l (mp-context-types (car mcontext)) env))
+	     ((rest env2) (rename-mcontext-vars (cdr mcontext) env1)))
+	(values (cons (**mp-context (mp-context-class (car mcontext)) types) rest)
+		env2))))
 
 (define (rename-type-vars/l types env)
   (if (null? types)

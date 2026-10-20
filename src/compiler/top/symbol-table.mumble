@@ -297,6 +297,13 @@
 		(prelude-import-hides? name))
 	   (setf (table-entry *symbol-table* name) def)
 	   (setf (table-entry *inverted-symbol-table* def) name))
+	  ;; imported from a module defining its own (Data.Stream.Monadic's
+	  ;; enumFromTo): ambiguous only where used unqualified, as GHC
+	  ((and (def-prelude? old-definition)
+		(haskell98?)
+		(not (def-prelude? def))
+		(not (eq? (def-module def) *module-name*)))
+	   (install-clashing-definition name def old-definition '#t))
 	  ((def-prelude? old-definition)
 	   (signal-core-redefinition name))
 	  ((and (module-uses-standard-prelude? *module*)

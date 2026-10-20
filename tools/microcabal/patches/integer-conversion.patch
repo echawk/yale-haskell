@@ -1,0 +1,35 @@
+integer-conversion: Yale's Text has no array/offset/length constructor;
+the size estimate is the character count instead.
+--- a/Data/Integer/Conversion.hs
++++ b/Data/Integer/Conversion.hs
+@@ -25,7 +25,7 @@
+ import Data.ByteString      (ByteString)
+ import Data.Char            (ord)
+ import Data.Primitive.Array (MutableArray, newArray, readArray, writeArray)
+-import Data.Text.Internal   (Text (..))
++import Data.Text            (Text)
+ import Data.Word            (Word8)
+ 
+ import qualified Data.ByteString as BS
+@@ -53,9 +53,9 @@
+ -- 6098556
+ --
+ textToInteger :: Text -> Integer
+-textToInteger t@(Text _arr _off len)
++textToInteger t
+     -- len >= 20000 = algorithmL 10 (T.length t) [ toInteger (ord c - 48) | c <- T.unpack t ]
+-    | len >= 40    = complexTextToInteger t
++    | T.length t >= 40 = complexTextToInteger t
+     | otherwise    = simpleTextToInteger t
+ 
+ simpleTextToInteger :: Text -> Integer
+@@ -68,7 +68,8 @@
+ --   so we just copy the contents of given Text as is first.
+ --
+ complexTextToInteger :: Text -> Integer
+-complexTextToInteger t0@(Text _ _ len) = runST $ do
++complexTextToInteger t0 = runST $ do
++    let len = T.length t0
+     arr <- newArray len integer0 -- we overestimate the size here
+     loop arr t0 0
+   where

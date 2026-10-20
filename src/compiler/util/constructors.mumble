@@ -246,10 +246,15 @@
 	(class class) (exp '#f) (overloaded-var var)
 	(tyvar tyvar) (enclosing-decls edecls)))
 
+;;; Multi-parameter dictionaries a polymorphic argument's context gives
+;;; while it is type checked, as (class types var) (type/polytypes.mumble).
+(define *local-mp-params* '())
+
 (define (**mp-placeholder class types method edecls var)
   (make mp-placeholder
 	(class class) (types types) (method method) (exp '#f)
-	(overloaded-var var) (tyvar (car types)) (enclosing-decls edecls)))
+	(overloaded-var var) (tyvar (car types)) (enclosing-decls edecls)
+	(local-params (dynamic *local-mp-params*))))
 
 (define (**method-placeholder method tyvar edecls var)
   (make method-placeholder
