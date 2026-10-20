@@ -16,6 +16,7 @@ import Data.Int (Int64)
 import PreludeModern (Semigroup((<>)), Monoid(mempty))
 import Data.String (IsString(fromString))
 import Unsafe.Coerce (unsafeCoerce)
+import Control.DeepSeq (NFData(rnf))
 
 newtype Text = Text S.Text
 
@@ -333,3 +334,6 @@ dropAround = unsafeCoerce S.dropAround
 
 filter :: (Char -> Bool) -> Text -> Text
 filter = unsafeCoerce S.filter
+
+instance NFData Text where
+  rnf (Text t) = rnf t

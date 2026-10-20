@@ -173,17 +173,30 @@
    ;; StandaloneDeriving (GHC): deriving instance [ctx =>] C (T a ...)
    ((no-advance satisfies at-standalone-deriving?)
     (advance-token)
+    ;; (a strategy: a newtype's instances are its field type's where the
+    ;; class is not a standard one, as deriving newtype would be)
+    (when (not (eq-token? '|instance|))
+      (advance-token))
     (advance-token)
-    (parse-optional-context)   ; the derived instance's context is inferred
-    (let* ((class (class->ast))
+    (mlet (((single mp) (split-contexts (parse-optional-context)))
+	   (class (class->ast))
 	   (type (parse-atype)))
-      (when (not (tycon? type))
-	(signal-invalid-syntax "a standalone deriving declaration"))
-      ;; the name, or the definition of a built-in type ((), (a, b), [a])
-      (push (tuple class (if (algdata? (tycon-def type))
-			     (tycon-def type)
-			     (tycon-name type)))
-	    *standalone-derivings*))
+     (if (and (haskell98?) (not (memq *token* '(\; \} $\} eof))))
+      ;; a multi-parameter class (deriving instance C i (N f)): an
+      ;; instance whose methods are the newtype's field type's
+      (let ((types (cons type (parse-atype-list))))
+	(push-decl-list (make instance-decl (context single) (class class)
+			      (simple type) (decls '()) (types types)
+			      (mcontext mp) (newtype-derived? '#t))
+			(module-instances mod-ast)))
+      (begin
+	(when (not (tycon? type))
+	  (signal-invalid-syntax "a standalone deriving declaration"))
+	;; the name, or the definition of a built-in type ((), (a, b), [a])
+	(push (tuple class (if (algdata? (tycon-def type))
+			       (tycon-def type)
+			       (tycon-name type)))
+	      *standalone-derivings*))))
     (terminate-topdecl mod-ast in-layout? 'topdecl))
    (|instance| (let ((instance-decl (parse-instance-decl '#f)))
 		 (push-decl-list instance-decl (module-instances mod-ast)))
@@ -362,7 +375,13 @@
    (else (parse-exp))))
 
 (define (at-standalone-deriving?)
-  (and (haskell98?) (eq-token? '|deriving|) (eq? (peek-1-type) '|instance|)))
+  (and (haskell98?) (eq-token? '|deriving|)
+       (or (eq? (peek-1-type) '|instance|)
+	   ;; DerivingStrategies: deriving newtype instance, stock, anyclass
+	   (and (eq? (peek-2-type) '|instance|)
+		(or (eq? (peek-1-type) '|newtype|)
+		    (and (eq? (peek-1-type) 'varid)
+			 (member (peek-1-text) '("stock" "anyclass"))))))))
 
 ;;; A standalone deriving declaration adds the class to the deriving
 ;;; clause of the type's declaration when that is in this module; one for

@@ -31,6 +31,7 @@ import PreludeModern (Semigroup((<>)), Monoid(mempty, mappend))
 import Data.String (IsString(fromString))
 import TextPrims
 import Data.Text.Rep (Text(..))
+import Control.DeepSeq (NFData(rnf))
 import Unsafe.Coerce (unsafeCoerce)
 
 instance Eq Text where
@@ -374,3 +375,7 @@ zipWith f a b = pack (P.zipWith f (unpack a) (unpack b))
 
 copy :: Text -> Text
 copy t = t
+
+-- (a Text is a packed string: evaluated, evaluated in full)
+instance NFData Text where
+  rnf t = t `seq` ()

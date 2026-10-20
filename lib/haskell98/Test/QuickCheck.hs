@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeOperators #-}
 -- Test.QuickCheck (QuickCheck 2), a subset: Gen, Arbitrary (with
 -- shrink), the common generators and combinators, Testable and
 -- quickCheck.  Random numbers come from Haskell 98's Random, so the cases
@@ -13,7 +14,9 @@ module Test.QuickCheck (
     counterexample, label, collect, classify, cover, (.&&.), (.||.),
     conjoin, disjoin, (===), quickCheck, quickCheckWith, verboseCheck,
     Args(Args, maxSuccess, maxSize), stdArgs, Result(..), isSuccess, quickCheckResult, quickCheckWithResult,
-    NonNegative(NonNegative, getNonNegative), Positive(Positive, getPositive)
+    NonNegative(NonNegative, getNonNegative), Positive(Positive, getPositive),
+    chooseInt, Arbitrary1(liftArbitrary, liftShrink), arbitrary1, shrink1,
+    Function(function), functionMap, (:->), Fun(Fun), applyFun
   ) where
 
 import PreludeModern (Applicative(pure, (<*>)))
@@ -389,3 +392,108 @@ quickCheckWithResult args p = newStdGen >>= \r -> let res = go r 0 0 in report r
                Nothing -> go r2 passed (discarded + 1)
                Just (True, _) -> go r2 (passed + 1) discarded
                Just (False, cs) -> Failure passed cs
+
+chooseInt :: (Int, Int) -> Gen Int
+chooseInt = choose
+
+-- QuickCheck 2's lifted classes, for a type constructor
+class Arbitrary1 f where
+  liftArbitrary :: Gen a -> Gen (f a)
+  liftShrink :: (a -> [a]) -> f a -> [f a]
+  liftShrink _ _ = []
+
+arbitrary1 :: (Arbitrary1 f, Arbitrary a) => Gen (f a)
+arbitrary1 = liftArbitrary arbitrary
+
+shrink1 :: (Arbitrary1 f, Arbitrary a) => f a -> [f a]
+shrink1 = liftShrink shrink
+
+instance Arbitrary1 [] where
+  liftArbitrary g = sized (\n -> do { k <- choose (0, n); vectorOf k g })
+  liftShrink shr xs = [ take i xs ++ drop (i + 1) xs | i <- [0 .. length xs - 1] ]
+                      ++ [ take i xs ++ [y] ++ drop (i + 1) xs
+                         | i <- [0 .. length xs - 1], y <- shr (xs !! i) ]
+
+instance Arbitrary1 Maybe where
+  liftArbitrary g = frequency [(1, return Nothing), (3, fmap Just g)]
+  liftShrink shr (Just x) = Nothing : map Just (shr x)
+  liftShrink _ Nothing = []
+
+-- QuickCheck 2's generated functions: here a function and nothing more
+-- (no table to shrink or show)
+infixr 0 :->
+newtype a :-> c = Fn (a -> c)
+
+class Function a where
+  function :: (a -> b) -> (a :-> b)
+  function = Fn
+
+functionMap :: Function b => (a -> b) -> (b -> a) -> (a -> c) -> (a :-> c)
+functionMap _ _ = Fn
+
+data Fun a b = Fun (a :-> b) (a -> b)
+
+applyFun :: Fun a b -> a -> b
+applyFun (Fun _ f) = f
+
+instance (CoArbitrary a, Arbitrary b) => Arbitrary (Fun a b) where
+  arbitrary = do
+    f <- promote (\a -> coarbitrary a arbitrary)
+    return (Fun (Fn f) f)
+
+promote :: (a -> Gen b) -> Gen (a -> b)
+promote f = MkGen (\r n -> \a -> unGen (f a) r n)
+
+instance Show (Fun a b) where
+  show _ = "<fun>"
+
+instance Function ()
+instance Function Bool
+instance Function Char
+instance Function Int
+instance Function Integer
+instance Function Double
+instance Function Word
+instance Function a => Function [a]
+instance Function a => Function (Maybe a)
+instance (Function a, Function b) => Function (Either a b)
+instance (Function a, Function b) => Function (a, b)
+
+instance Arbitrary a => Arbitrary1 ((,) a) where
+  liftArbitrary g = do { a <- arbitrary; b <- g; return (a, b) }
+  liftShrink shr (a, b) = [ (a', b) | a' <- shrink a ] ++ [ (a, b') | b' <- shr b ]
+
+instance Arbitrary1 (Either e) where
+  liftArbitrary g = fmap Right g
+
+instance (CoArbitrary a, CoArbitrary b) => CoArbitrary (a, b) where
+  coarbitrary (a, b) = coarbitrary a . coarbitrary b
+
+instance (CoArbitrary a, CoArbitrary b, CoArbitrary c) => CoArbitrary (a, b, c) where
+  coarbitrary (a, b, c) = coarbitrary a . coarbitrary b . coarbitrary c
+
+instance (CoArbitrary a, CoArbitrary b) => CoArbitrary (Either a b) where
+  coarbitrary (Left a) = variant (0 :: Int) . coarbitrary a
+  coarbitrary (Right b) = variant (1 :: Int) . coarbitrary b
+
+instance CoArbitrary () where
+  coarbitrary _ = id
+
+instance (Function a, Function b, Function c) => Function (a, b, c)
+
+instance CoArbitrary a => CoArbitrary (Maybe a) where
+  coarbitrary Nothing = variant (0 :: Int)
+  coarbitrary (Just a) = variant (1 :: Int) . coarbitrary a
+instance CoArbitrary Double where
+  coarbitrary x = coarbitrary (decodeFloat x)
+instance CoArbitrary Float where
+  coarbitrary x = coarbitrary (decodeFloat x)
+instance CoArbitrary Word where coarbitrary = variant
+instance CoArbitrary Word8 where coarbitrary = variant
+instance CoArbitrary Word16 where coarbitrary = variant
+instance CoArbitrary Word32 where coarbitrary = variant
+instance CoArbitrary Word64 where coarbitrary = variant
+instance CoArbitrary Int8 where coarbitrary = variant
+instance CoArbitrary Int16 where coarbitrary = variant
+instance CoArbitrary Int32 where coarbitrary = variant
+instance CoArbitrary Int64 where coarbitrary = variant

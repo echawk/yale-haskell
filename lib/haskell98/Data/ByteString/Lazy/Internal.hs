@@ -8,6 +8,7 @@ module Data.ByteString.Lazy.Internal (ByteString(LBS)) where
 import qualified Data.ByteString.Rep as S
 import PreludeModern (Semigroup((<>)), Monoid(mempty))
 import Data.String (IsString(fromString))
+import Control.DeepSeq (NFData(rnf))
 
 newtype ByteString = LBS S.ByteString
 
@@ -25,3 +26,6 @@ instance Monoid ByteString where
   mempty = LBS mempty
 instance IsString ByteString where
   fromString s = LBS (fromString s)
+
+instance NFData ByteString where
+  rnf (LBS b) = rnf b

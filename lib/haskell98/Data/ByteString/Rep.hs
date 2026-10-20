@@ -13,6 +13,7 @@ import Data.String (IsString(fromString))
 import Data.Word (Word8)
 import qualified Data.Text as T
 import Data.Text.Rep (Text)
+import Control.DeepSeq (NFData(rnf))
 
 newtype ByteString = BS Text
 
@@ -48,3 +49,6 @@ c2w = fromIntegral . fromEnum
 
 w2c :: Word8 -> Char
 w2c = toEnum . fromIntegral
+
+instance NFData ByteString where
+  rnf b = b `seq` ()

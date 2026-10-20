@@ -80,3 +80,9 @@ liftCatch catchE m h = WriterT $ runWriterT m `catchE` \e -> runWriterT (h e)
 -- transformers' (the transformed monad contravariant)
 instance Contravariant m => Contravariant (WriterT w m) where
   contramap f = mapWriterT $ contramap $ \ ~(a, w) -> (f a, w)
+
+-- transformers' Foldable and Traversable
+instance Foldable f => Foldable (WriterT w f) where
+  foldMap f = foldMap (f . fst) . runWriterT
+instance Traversable f => Traversable (WriterT w f) where
+  traverse f = fmap WriterT . traverse (\(a, b) -> fmap (\c -> (c, b)) (f a)) . runWriterT

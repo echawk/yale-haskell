@@ -13,6 +13,12 @@
 	    decl (collect-pattern-vars (valdef-lhs decl))))))
   (dolist (fi (module-foreign-imports *module*))
     (create-var-definitions fi (list (foreign-import-var fi))))
+  ;; DataKinds: each constructor's promoted type, 'K (symbol-table.mumble's
+  ;; promoted-tycon-def), an empty data type of the constructor's arity
+  (when (not (eq? (module-type *module*) 'interface))
+    (setf (module-algdatas *module*)
+	  (append (module-algdatas *module*)
+		  (promoted-data-decls (module-algdatas *module*)))))
   (dolist (algdata (module-algdatas *module*))
     (create-alg-definitions algdata))
   (dolist (synonym (module-synonyms *module*))
@@ -32,6 +38,31 @@
        (setf (var-ref-var v) def)
        (push def (module-vars *module*))
        (add-new-group var-name def)))))
+
+;;; data 'K a1 .. an, for each constructor K of n fields of DECLS.
+(define (promoted-data-decls decls)
+  (lisp:mapcan
+   (lambda (d)
+     (map (lambda (c)
+	    (let ((name (con-ref-name (constr-constructor c)))
+		  (i 0))
+	      (make data-decl (context '())
+		    (simple (make tycon (name (promoted-type-name name))
+				  (def *undefined-def*)
+				  (args (map (lambda (ty) (declare (ignore ty))
+					       (incf i)
+					       (make tyvar (name (string->symbol
+								  (format '#f "p~A" i)))))
+					     (constr-types c)))))
+		    (constrs '()) (deriving '()) (special-derivings '())
+		    (annotations '()))))
+	  (data-decl-constrs d)))
+   decls))
+
+;;; 'K for the constructor named K (;K).
+(define (promoted-type-name con-name)
+  (let ((s (symbol->string con-name)))
+    (string->symbol (string-append "'" (if (has-con-prefix? s) (remove-con-prefix s) s)))))
 
 ;;; This also creates definitions for the constructors
 

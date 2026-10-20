@@ -121,6 +121,7 @@ import           Text.ParserCombinators.ReadP     ( ReadP )
 import           Data.Text.Lazy.Builder.RealFloat (FPFormat(..))
 
 import Data.Scientific.Utils (maxExpt, roundTo, magnitude)
+import qualified Language.Haskell.TH.Syntax as TH
 
 
 ----------------------------------------------------------------------
@@ -1116,3 +1117,11 @@ normalizePositive !c !e = case quotRemInteger c 10 of
                             (# c', r #)
                                 | r == 0    -> normalizePositive c' (e+1)
                                 | otherwise -> Scientific c e
+
+-- | As scientific's: scientific applied to the coefficient and exponent.
+instance TH.Lift Scientific where
+  liftTyped x = TH.unsafeCodeCoerce (TH.lift x)
+  lift (Scientific c e) = do
+    c' <- TH.lift c
+    e' <- TH.lift e
+    return (TH.AppE (TH.AppE (TH.VarE (TH.mkNameG_v "scientific" "Data.Scientific" "scientific")) c') e')

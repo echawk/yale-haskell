@@ -228,6 +228,10 @@ import Data.Int
 import Data.Ratio (Ratio)
 import Data.Void (Void)
 import Data.Array.Byte (ByteArray)
+import qualified Data.Text as Text
+import qualified Data.Text.Lazy as LText
+import qualified Data.ByteString.Char8 as BS8
+import qualified Data.ByteString.Lazy.Char8 as LBS8
 import GHC.IsList (IsList(toList))
 import Numeric.Natural (Natural)
 import Foreign.ForeignPtr
@@ -2789,6 +2793,27 @@ instance Lift Char where
 -- the given memory address.
 --
 -- @since template-haskell-2.16.0.0
+-- text's and bytestring's: pack applied to the string
+liftPacked :: Quote m => String -> String -> String -> m Exp
+liftPacked pkg md str =
+  return (AppE (VarE (mkNameG_v pkg md "pack")) (LitE (StringL str)))
+
+instance Lift Text.Text where
+  liftTyped x = unsafeCodeCoerce (lift x)
+  lift t = liftPacked "text" "Data.Text" (Text.unpack t)
+
+instance Lift LText.Text where
+  liftTyped x = unsafeCodeCoerce (lift x)
+  lift t = liftPacked "text" "Data.Text.Lazy" (LText.unpack t)
+
+instance Lift BS8.ByteString where
+  liftTyped x = unsafeCodeCoerce (lift x)
+  lift b = liftPacked "bytestring" "Data.ByteString.Char8" (BS8.unpack b)
+
+instance Lift LBS8.ByteString where
+  liftTyped x = unsafeCodeCoerce (lift x)
+  lift b = liftPacked "bytestring" "Data.ByteString.Lazy.Char8" (LBS8.unpack b)
+
 -- GHC lifts the bytes as an Addr# literal; a list of Word8 via
 -- IsList's fromList builds the same array.
 instance Lift ByteArray where

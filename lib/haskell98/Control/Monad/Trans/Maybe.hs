@@ -75,3 +75,9 @@ liftPass pass = mapMaybeT $ \m -> pass $ do
 -- transformers' (the transformed monad contravariant)
 instance Contravariant m => Contravariant (MaybeT m) where
   contramap f = MaybeT . contramap (fmap f) . runMaybeT
+
+-- transformers' Foldable and Traversable
+instance Foldable f => Foldable (MaybeT f) where
+  foldMap f (MaybeT a) = foldMap (foldMap f) a
+instance Traversable f => Traversable (MaybeT f) where
+  traverse f (MaybeT a) = fmap MaybeT (traverse (traverse f) a)

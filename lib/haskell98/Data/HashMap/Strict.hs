@@ -2,7 +2,7 @@
 -- whose functions here evaluate each value they store.
 module Data.HashMap.Strict (
     HashMap, empty, singleton, null, size, member, lookup, (!?), (!), findWithDefault,
-    lookupDefault, insert, insertWith, delete, adjust, update, alter, union,
+    lookupDefault, insert, insertWith, delete, adjust, update, alter, alterF, union,
     unionWith, unionWithKey, unions, map, mapWithKey, traverseWithKey,
     mapMaybe, mapMaybeWithKey, filter, filterWithKey, foldr, foldr', foldl',
     foldrWithKey, foldlWithKey', foldMapWithKey, difference, differenceWith,

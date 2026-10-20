@@ -204,6 +204,10 @@
    ;; and multi-parameter constraints in its context
    (types (type (list type)) (default '()))
    (mcontext (type (list mp-context)) (default '()))
+   ;; StandaloneDeriving of a multi-parameter class at a newtype (deriving
+   ;; instance C i (N f)): its methods are the field type's, coerced
+   ;; (tdecl/instance.mumble's mp-newtype-method-decls)
+   (newtype-derived? (type bool) (default '#f))
    ))
 
 

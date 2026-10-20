@@ -202,3 +202,10 @@ instance (NFData k, NFData v) => NFData (HashMap k v) where
 
 instance (Hashable k, Hashable v) => Hashable (HashMap k v) where
   hashWithSalt s m = hashWithSalt s (IM.toList (buckets m))
+
+-- | The value at K changed by an action (Nothing: absent).
+alterF :: (Functor f, Eq k, Hashable k)
+       => (Maybe v -> f (Maybe v)) -> k -> HashMap k v -> f (HashMap k v)
+alterF f k m = fmap (\r -> case r of
+                             Nothing -> delete k m
+                             Just v -> insert k v m) (f (lookup k m))

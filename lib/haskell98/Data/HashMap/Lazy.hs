@@ -1,7 +1,7 @@
 -- Data.HashMap.Lazy (unordered-containers): Data.HashMap.Base's HashMap.
 module Data.HashMap.Lazy (
     HashMap, empty, singleton, null, size, member, lookup, (!?), (!), findWithDefault,
-    lookupDefault, insert, insertWith, delete, adjust, update, alter, union,
+    lookupDefault, insert, insertWith, delete, adjust, update, alter, alterF, union,
     unionWith, unionWithKey, unions, map, mapWithKey, traverseWithKey,
     mapMaybe, mapMaybeWithKey, filter, filterWithKey, foldr, foldr', foldl',
     foldrWithKey, foldlWithKey', foldMapWithKey, difference, differenceWith,

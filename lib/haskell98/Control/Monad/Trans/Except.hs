@@ -116,3 +116,10 @@ liftPass pass = mapExceptT $ \m -> pass $ do
 -- transformers' (the transformed monad contravariant)
 instance Contravariant m => Contravariant (ExceptT e m) where
   contramap f = ExceptT . contramap (fmap f) . runExceptT
+
+-- transformers' Foldable and Traversable
+instance Foldable f => Foldable (ExceptT e f) where
+  foldMap f (ExceptT a) = foldMap (either (const mempty) f) a
+instance Traversable f => Traversable (ExceptT e f) where
+  traverse f (ExceptT a) =
+    fmap ExceptT (traverse (either (pure . Left) (fmap Right . f)) a)

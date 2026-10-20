@@ -34,7 +34,7 @@
 (define (mp-instance->def inst-decl)
  (recover-errors '#f
   (remember-context inst-decl
-    (with-slots instance-decl (context class types decls mcontext) inst-decl
+    (with-slots instance-decl (context class types decls mcontext newtype-derived?) inst-decl
       (dolist (ty types)
 	(resolve-type-1 ty '() '#t))
       (resolve-class class)
@@ -53,9 +53,65 @@
 	(let ((inst (new-mp-instance class-def types tyvars)))
 	  (setf (instance-context inst) context)
 	  (setf (instance-mcontext inst) mcontext)
-	  (setf (instance-decls inst) decls)
+	  (setf (instance-decls inst)
+		(if newtype-derived?
+		    (mp-newtype-method-decls class-def types)
+		    decls))
+	  (when newtype-derived?
+	    (setf (instance-scoped-tyvars? inst) '#t))
 	  (setf (instance-ok? inst) '#t)
 	  inst))))))
+
+;;; deriving instance C t1 .. tn-1 (N u1 ..) for a newtype N: each method
+;;; is the one at N's field type (without N's remaining parameters),
+;;; coerced, the class's other types the head's (as GHC's
+;;; GeneralizedNewtypeDeriving, through the last parameter).
+
+(define (mp-newtype-method-decls class types)
+  (let* ((last   (car (lisp:last types)))
+	 (alg    (and (tycon? last) (tycon-def last))))
+    (if (not (and (algdata? alg) (algdata-newtype? alg)))
+	(phase-error 'not-newtype-deriving
+	  "A derived instance of ~A needs a newtype as its last type." class)
+	(let* ((given   (tycon-args last))
+	       (tyvars  (algdata-tyvars alg))
+	       (dropped (list-tail tyvars (length given)))
+	       (field   (car (con-types (car (algdata-constrs alg)))))
+	       (field1  (substitute-tyvars-simultaneously
+			 field (list-head tyvars (length given)) given))
+	       (via     (drop-trailing-type-args field1 dropped))
+	       (ctyvs   (class-tyvars class))
+	       (lastv   (car (lisp:last ctyvs)))
+	       (others  (lisp:butlast ctyvs)))
+	  (map (lambda (m)
+		 (let* ((sig     (method-var-method-signature m))
+			(own     (lisp:set-difference
+				  (ast-type-tyvars (signature-type sig)) ctyvs))
+			(renamed (substitute-tyvars-simultaneously
+				  (signature-type sig) own
+				  (map (lambda (v) (declare (ignore v)) (**tyvar (gentyvar "m"))) own)))
+			(head    (lisp:butlast types))
+			(at-via  (substitute-tyvars-simultaneously
+				  renamed (append others (list lastv)) (append head (list via))))
+			(at-inst (substitute-tyvars-simultaneously
+				  renamed (append others (list lastv)) (append head (list last)))))
+		   (**define (def-name m) '()
+		     (**app (make exp-sign
+				  (exp (**var/def (prelude-prim-def '|primUnsafeCoerce|)))
+				  (signature (**signature '() (**arrow-type at-via at-inst))))
+			    (**var/def m)))))
+	       (class-method-vars class))))))
+
+;;; TYPE with the type variables VARS replaced by TYPES at once (through
+;;; fresh names, so that a replacement mentioning a variable is safe).
+(define (substitute-tyvars-simultaneously type vars types)
+  (let ((fresh (map (lambda (v) (declare (ignore v)) (gentyvar "s")) vars))
+	(b type))
+    (dolist2 (v vars) (f fresh)
+      (setf b (substitute-tyvar b v (**tyvar f))))
+    (dolist2 (f fresh) (ty types)
+      (setf b (substitute-tyvar b f ty)))
+    b))
 
 ;;; The distinct tyvars of the head types, in order.
 (define (mp-instance-tyvars types)

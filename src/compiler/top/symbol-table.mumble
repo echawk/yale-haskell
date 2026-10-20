@@ -652,11 +652,35 @@
 (define (resolve-tycon tycon)
   (when (eq? (tycon-def tycon) *undefined-def*)
     (remember-context tycon
-      (let ((def (fetch-top-def (tycon-name tycon) 'algdata)))
+      (let ((def (or (promoted-tycon-def (tycon-name tycon))
+		     (fetch-top-def (tycon-name tycon) 'algdata))))
 	(when (class? def)
 	  (signal-tycon-name-required (tycon-name tycon)))
 	(setf (tycon-def tycon) def)))))
 
+
+;;; DataKinds: a type named K ('K, or K where no type is named K) that a
+;;; data constructor in scope is named: K's promoted type, 'K of the
+;;; constructor's module (import-export/top-definitions.mumble); else #f.
+(define (promoted-tycon-def name)
+  (and (haskell98?)
+       (eq? (resolve-toplevel-name name) '#f)
+       (let* ((s    (symbol->string name))
+	      (base (if (and (> (string-length s) 1) (char=? (string-ref s 0) #\'))
+			(substring s 1 (string-length s))
+			s))
+	      (con  (resolve-toplevel-name (add-con-prefix/symbol (string->symbol base)))))
+	 (and (con? con)
+	      (let ((pname (string->symbol (string-append "'" base))))
+		(if (eq? (def-module con) *module-name*)
+		    (resolve-toplevel-name pname)
+		    ;; (a core constructor's, True's, is PreludeCore's)
+		    (lisp:some (lambda (mod)
+				 (let ((m (table-entry *modules* mod)))
+				   (and m
+					(let ((d (table-entry (module-symbol-table m) pname)))
+					  (and (algdata? d) d)))))
+			       (list (def-module con) '|PreludeCore|))))))))
 
 ;;; This should be used after the local environment has been searched.
 ;;; Other routines dealing with variable scoping are elsewhere.

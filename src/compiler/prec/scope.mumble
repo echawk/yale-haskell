@@ -244,6 +244,7 @@
 (define *scope-info* '())
 
 (define (add-local-declarations decls env)
+  (lift-binding-views! decls)
   (if (null? decls)
       env
       (let ((contour   '()))
@@ -256,6 +257,28 @@
 	  (when (is-type? 'fixity-decl d)
 	    (attach-local-fixity d contour)))
 	(cons contour env))))
+
+;;; A pattern binding whose pattern (a pattern synonym's) has view
+;;; patterns, let !(SBS arr) = e: each view becomes a variable v, and a
+;;; binding pat = f v follows, as lazy as the first.  DECLS is changed
+;;; in place (the bindings appended), before its variables are collected.
+
+(define (lift-binding-views! decls)
+  (let ((extra '()))
+    (dolist (d decls)
+      (when (and (is-type? 'valdef d)
+		 (not (is-type? 'var-pat (valdef-lhs d)))
+		 (lisp:every (lambda (f) (null? (single-fun-def-args f)))
+			     (valdef-definitions d)))
+	(let ((views (lift-view-pats (list (massage-pattern (valdef-lhs d))))))
+	  (when (pair? (cdr views))
+	    (setf (valdef-lhs d) (car (car views)))
+	    (dolist (v (cdr views))
+	      (push (**valdef/pat (caddr v)
+				  (make app (fn (cadr v)) (arg (generated-var-ref (car v)))))
+		    extra))))))
+    (when (pair? extra)
+      (setf (cdr (lisp:last decls)) (reverse extra)))))
 
 ;;; A fixity declaration in a let, where or class body (H98) applies to
 ;;; names bound in the same declaration list.  The defs are created here,
