@@ -40,6 +40,9 @@ import qualified Data.Functor.Sum as FSum
 import qualified Data.Functor.Product as FProduct
 import Data.Functor.Compose (Compose)
 import Control.Applicative (ZipList)
+import qualified Complex as Cx
+import System (ExitCode)
+import Data.Version (Version)
 
 -- (the fixities of the type operators :+: and :.: are not used here)
 infixr 5 :+:
@@ -478,3 +481,29 @@ deriving instance Generic (Semi.WrappedMonoid m)
 deriving instance Generic1 Semi.WrappedMonoid
 deriving instance Generic (Semi.Arg a b)
 deriving instance Generic1 (Semi.Arg a)
+deriving instance Generic (Cx.Complex a)
+deriving instance Generic1 Cx.Complex
+deriving instance Generic ExitCode
+
+-- and for the representation types themselves
+deriving instance Generic (V1 p)
+deriving instance Generic (U1 p)
+deriving instance Generic (Par1 p)
+deriving instance Generic (Rec1 f p)
+deriving instance Generic (K1 i c p)
+deriving instance Generic (M1 i c f p)
+deriving instance Generic ((f :+: g) p)
+deriving instance Generic ((f :*: g) p)
+deriving instance Generic ((f :.: g) p)
+deriving instance Generic (UAddr p)
+deriving instance Generic (UChar p)
+deriving instance Generic (UDouble p)
+deriving instance Generic (UFloat p)
+deriving instance Generic (UInt p)
+deriving instance Generic (UWord p)
+deriving instance Generic Fixity
+deriving instance Generic Associativity
+deriving instance Generic SourceUnpackedness
+deriving instance Generic SourceStrictness
+deriving instance Generic DecidedStrictness
+deriving instance Generic Version

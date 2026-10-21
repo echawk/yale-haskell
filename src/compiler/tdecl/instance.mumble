@@ -178,21 +178,36 @@
 ;;; could be the same, synonyms expanded (GRead1 v (D1 d f) and
 ;;; GRead1 v (C1 c f), D1 = M1 D and C1 = M1 C, do not overlap).
 ;;; The same heads up to the names of their type variables.
+;;; The same heads up to a renaming of their variables: (K1 i a) a and
+;;; (K1 i a) b are not (generic-deriving's overlapping Uniplate').
 (define (identical-instance-heads? types1 types2)
   (and (eqv? (length types1) (length types2))
-       (every (function identical-head-type?) types1 types2)))
+       (not (eq? (identical-head-types types1 types2 '()) 'no))))
 
-(define (identical-head-type? t1 t2)
-  (cond ((and (tyvar? t1) (tyvar? t2)) '#t)
+;;; The variable pairs ((v1 . v2) ...) of a renaming of T1 to T2, or no.
+(define (identical-head-types l1 l2 pairs)
+  (cond ((eq? pairs 'no) 'no)
+	((null? l1) (if (null? l2) pairs 'no))
+	((null? l2) 'no)
+	(else (identical-head-types (cdr l1) (cdr l2)
+				    (identical-head-type (car l1) (car l2) pairs)))))
+
+(define (identical-head-type t1 t2 pairs)
+  (cond ((and (tyvar? t1) (tyvar? t2))
+	 (let ((p1 (assq (tyvar-name t1) pairs))
+	       (p2 (lisp:rassoc (tyvar-name t2) pairs)))
+	   (cond ((and (not p1) (not p2))
+		  (cons (cons (tyvar-name t1) (tyvar-name t2)) pairs))
+		 ((and p1 (eq? (cdr p1) (tyvar-name t2))) pairs)
+		 (else 'no))))
 	((and (tycon? t1) (tycon? t2))
-	 (and (eq? (tycon-def t1) (tycon-def t2))
-	      (eqv? (length (tycon-args t1)) (length (tycon-args t2)))
-	      (every (function identical-head-type?) (tycon-args t1) (tycon-args t2))))
+	 (if (eq? (tycon-def t1) (tycon-def t2))
+	     (identical-head-types (tycon-args t1) (tycon-args t2) pairs)
+	     'no))
 	((and (tyapp? t1) (tyapp? t2))
-	 (and (identical-head-type? (tyapp-fun t1) (tyapp-fun t2))
-	      (eqv? (length (tyapp-args t1)) (length (tyapp-args t2)))
-	      (every (function identical-head-type?) (tyapp-args t1) (tyapp-args t2))))
-	(else '#f)))
+	 (identical-head-types (tyapp-args t1) (tyapp-args t2)
+			       (identical-head-type (tyapp-fun t1) (tyapp-fun t2) pairs)))
+	(else 'no)))
 
 (define (same-instance-heads? types1 types2)
   (every (lambda (t1 t2) (instance-types-may-overlap? t1 t2 8))

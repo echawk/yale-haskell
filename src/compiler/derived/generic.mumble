@@ -176,6 +176,7 @@
   (case (generic1-field-kind ty a)
     (rec0 (**tycon/def (generic-def '|K1|)
 			(list (**tycon/def (generic-def '|R|) '()) ty)))
+    (urec (**tycon/def (generic-def (generic-unlifted-con ty)) '()))
     (par1 (**tycon/def (generic-def '|Par1|) '()))
     (rec1 (**tycon/def (generic-def '|Rec1|) (list (generic1-fun ty))))
     (comp (**tycon/def (generic-def '|:.:|)
@@ -183,11 +184,24 @@
 		  (generic-field-rep (generic1-last ty) a))))))
 
 (define (generic1-field-kind ty a)
-  (cond ((or (not a) (not (mentions-tyvar? ty a))) 'rec0)
+  (cond ((generic-unlifted-con ty) 'urec)
+	((or (not a) (not (mentions-tyvar? ty a))) 'rec0)
 	((tyvar? (functor-expand ty)) 'par1)
 	(else
 	 (let ((u (functor-last-arg ty a (generic-def '|Generic1|))))
 	   (if (tyvar? (functor-expand u)) 'rec1 'comp)))))
+
+;;; A field of an unlifted type, Int# ..., is GHC's URec instance for it
+;;; (UInt ..., GHC.Generics), not Rec0: the name of that type and its
+;;; constructor, or #f.
+(define (generic-unlifted-con ty)
+  (and (tycon? ty)
+       (null? (tycon-args ty))
+       (let ((e (assq (tycon-name ty)
+		      '((|Addr#| . |UAddr|) (|Char#| . |UChar|)
+			(|Double#| . |UDouble|) (|Float#| . |UFloat|)
+			(|Int#| . |UInt|) (|Word#| . |UWord|)))))
+	 (and e (cdr e)))))
 
 (define (generic1-last ty)
   (let ((ty (functor-expand ty)))
@@ -306,6 +320,7 @@
 (define (generic-wrap ty a x)
   (case (generic1-field-kind ty a)
     (rec0 (**app (**con/def (generic-con '|K1|)) x))
+    (urec (**app (**con/def (generic-con (generic-unlifted-con ty))) x))
     (par1 (**app (**con/def (generic-con '|Par1|)) x))
     (rec1 (**app (**con/def (generic-con '|Rec1|)) x))
     (comp (let ((y (functor-temp "y%")))
@@ -318,6 +333,7 @@
   (let ((y (functor-temp "y%")))
     (case (generic1-field-kind ty a)
       (rec0 (generic-unwrap-con '|K1| x y (**var y)))
+      (urec (generic-unwrap-con (generic-unlifted-con ty) x y (**var y)))
       (par1 (generic-unwrap-con '|Par1| x y (**var y)))
       (rec1 (generic-unwrap-con '|Rec1| x y (**var y)))
       (comp (let ((z (functor-temp "z%")))

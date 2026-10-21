@@ -94,25 +94,44 @@
 
 ;;; hiding (T): a bare type or class name hides T, and a constructor named
 ;;; T, but not T's constructors, fields or methods (H98 5.3.1).  T(..)
-;;; hides them all.
+;;; hides them all, T(C, f) T and those members only.
 
 (define (hides-head-only? group all)
   (and (not (null? (cdr group)))
        (lisp:some (lambda (e)
 		    ;; (a bare name is an entity-con; T(..) is abbreviated)
-		    (and (entity-con? e)
-			 (eq? (entity-name e) (group-name group))))
+		    (and (eq? (entity-name e) (group-name group))
+			 (or (entity-con? e)
+			     (and (entity-datatype? e)
+				  (not (memq '|..| (entity-datatype-constructors e))))
+			     (entity-class? e))))
 		  all)))
+
+;;; The members a hiding list's T(C, f) names.
+(define (hidden-group-members group all)
+  (let ((names '()))
+    (dolist (e all)
+      (when (eq? (entity-name e) (group-name group))
+	(cond ((entity-datatype? e)
+	       (setf names (append (entity-datatype-constructors e) names)))
+	      ((entity-class? e)
+	       (setf names (append (entity-class-methods e) names))))))
+    names))
 
 ;;; The group's members, less those the hiding list names, imported on
 ;;; their own.
 
 (define (import-group-members group all renamings module)
-  (let ((members (lisp:remove-if
-		  (lambda (n-d)
-		    (lisp:find (tuple-2-1 n-d) all
-			       :test (function hidden-name-matches?)))
-		  (cdr group))))
+  (let* ((listed  (hidden-group-members group all))
+	 (members (lisp:remove-if
+		   (lambda (n-d)
+		     (or (lisp:find (tuple-2-1 n-d) all
+				    :test (function hidden-name-matches?))
+			 (lisp:some (lambda (m)
+				      (or (eq? (tuple-2-1 n-d) m)
+					  (eq? (tuple-2-1 n-d) (add-con-prefix/symbol m))))
+				    listed)))
+		   (cdr group))))
     (dolist (n-d members)
       (import-group (rename-group (list n-d) renamings) module))))
 

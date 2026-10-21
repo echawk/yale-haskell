@@ -96,6 +96,18 @@ instance Alternative f => Monoid (Alt f a) where
 instance Functor f => Functor (Alt f) where
   fmap f (Alt x) = Alt (fmap f x)
 
+instance Eq (f a) => Eq (Alt f a) where
+  Alt x == Alt y = x == y
+
+instance Ord (f a) => Ord (Alt f a) where
+  compare (Alt x) (Alt y) = compare x y
+
+instance Eq (f a) => Eq (Ap f a) where
+  Ap x == Ap y = x == y
+
+instance Ord (f a) => Ord (Ap f a) where
+  compare (Ap x) (Ap y) = compare x y
+
 -- an applicative's results combined: liftA2 (<>)
 newtype Ap f a = Ap { getAp :: f a }
 
