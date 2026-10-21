@@ -127,6 +127,9 @@
 	       ((typeable-class? class))
 	       ((constructor-class-derivable? class)
 		(setf insts (add-constructor-class-instance insts alg class)))
+	       ;; Generic, Generic1 (generic.mumble)
+	       ((generic-class? class)
+		(setf insts (add-generic-instance insts alg class)))
 	       ;; Lift (lift.mumble)
 	       ((lift-class? class)
 		(setf insts (add-derivable-instance insts alg class '#f)))
@@ -134,7 +137,7 @@
 	       ((and (data-class? class) (data-derivable? alg class))
 		(setf insts (add-derivable-instance insts alg class '#f)))
 	       ;; DeriveAnyClass (GHC): an empty instance, as GHC prefers
-	       ;; it to newtype deriving when both are on.  Generic, NFData,
+	       ;; it to newtype deriving when both are on.  NFData,
 	       ;; Typeable and Lift too (GHC.Generics has only the class).
 	       ((or (module-extension? "DeriveAnyClass")
 		    (memq (def-name class) '(|Generic| |Generic1| |NFData| |Data|
@@ -417,7 +420,8 @@
 (define (propagate-di-context inst)
   ;; (a derived Functor, Foldable or Traversable has its context already)
   (when (and (instance-ok? inst)
-	     (not (constructor-class-derivable? (instance-class inst))))
+	     (not (constructor-class-derivable? (instance-class inst)))
+	     (not (generic-class? (instance-class inst))))
     (propagate-constructor-contexts inst
 			   (algdata-constrs (instance-algdata inst)))))
 
@@ -590,7 +594,9 @@
 	  ((data-class? class)
 	   (add-instance inst (data-fns alg inst)))
 	  ((lift-class? class)
-	   (add-instance inst (lift-fns alg))))))
+	   (add-instance inst (lift-fns alg)))
+	  ((generic-class? class)
+	   (add-instance inst (generic-fns alg (eq? (def-name class) '|Generic1|)))))))
 
 (define (add-instance inst decls)
   (setf (instance-decls inst) decls))

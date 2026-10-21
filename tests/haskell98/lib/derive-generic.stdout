@@ -1,0 +1,6 @@
+([0,0,0],2,1)
+(["Blue"],["P","px","py"],["Q",""])
+Color/Main
+(P {px = "a", py = 2},Green)
+P {px = 'b', py = 5}
+Just [2,3]

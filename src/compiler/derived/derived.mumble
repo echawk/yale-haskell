@@ -22,6 +22,8 @@
     (source-filename "data"))
   (unit lift
     (source-filename "lift"))
+  (unit generic
+    (source-filename "generic"))
   )
 
 

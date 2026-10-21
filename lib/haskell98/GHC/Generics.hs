@@ -1,10 +1,8 @@
-{-# LANGUAGE TypeOperators, TypeFamilies, KindSignatures, MagicHash #-}
+{-# LANGUAGE TypeOperators, TypeFamilies, KindSignatures, MagicHash, DataKinds, FlexibleInstances #-}
 -- GHC.Generics (base): the classes, with their associated Rep types, and
--- the representation types.  Deriving Generic gives an instance with no
--- Rep and no from or to (derived/derived-instances.mumble): programs and
--- libraries that derive it, or define instances over the representation
--- types (distributive's Distributive U1, ...), compile, but generic
--- programming over a derived instance does not run.
+-- the representation types.  Deriving Generic and Generic1 gives Rep and
+-- from/to as GHC does (derived/generic.mumble), its metadata the promoted
+-- Meta types, whose Datatype, Constructor and Selector instances are here.
 module GHC.Generics (
     Generic(..), Rep, Generic1(..), Rep1,
     V1, U1(U1), Par1(Par1, unPar1), Rec1(Rec1, unRec1), K1(K1, unK1),
@@ -17,7 +15,7 @@ module GHC.Generics (
     Constructor(conName, conFixity, conIsRecord),
     Selector(selName, selSourceUnpackedness, selSourceStrictness,
              selDecidedStrictness),
-    Fixity(Prefix, Infix), FixityI, Associativity(LeftAssociative,
+    Fixity(Prefix, Infix), FixityI(PrefixI, InfixI), Associativity(LeftAssociative,
     RightAssociative, NotAssociative), prec,
     SourceUnpackedness(NoSourceUnpackedness, SourceNoUnpack, SourceUnpack),
     SourceStrictness(NoSourceStrictness, SourceLazy, SourceStrict),
@@ -31,8 +29,11 @@ import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
 import Data.Kind (Type)
 import GHC.Exts (Addr#, Char#, Double#, Float#, Int#, Word#)
+import Data.Proxy (Proxy(Proxy))
+import GHC.TypeLits (KnownSymbol, KnownNat, symbolVal, natVal)
 
 -- (the fixities of the type operators :+: and :.: are not used here)
+infixr 5 :+:
 infixr 6 :*:
 
 class Generic a where
@@ -227,9 +228,7 @@ type family URec a :: Type -> Type where
   URec Int = UInt
   URec Word = UWord
 
--- Metadata of a datatype, a constructor and a field (GHC gives instances
--- for its type-level descriptions; deriving Generic does not make them
--- here)
+-- Metadata of a datatype, a constructor and a field
 class Datatype d where
   datatypeName :: t d f a -> [Char]
   moduleName :: t d f a -> [Char]
@@ -286,3 +285,115 @@ newtype Generically1 f a = Generically1 (f a)
 data Meta = MetaData String String String Bool
           | MetaCons String FixityI Bool
           | MetaSel (Maybe String) SourceUnpackedness SourceStrictness DecidedStrictness
+
+-- The metadata's instances, at the promoted Meta types a derived Rep uses
+-- ('MetaData "T" "Module" "main" 'False, ...)
+class KnownBoolG b where
+  boolValG :: Proxy b -> Bool
+instance KnownBoolG 'True where
+  boolValG _ = True
+instance KnownBoolG 'False where
+  boolValG _ = False
+
+class KnownMaybeSymbol m where
+  maybeSymbolVal :: Proxy m -> [Char]
+instance KnownMaybeSymbol 'Nothing where
+  maybeSymbolVal _ = ""
+instance KnownSymbol s => KnownMaybeSymbol ('Just s) where
+  maybeSymbolVal p = symbolVal (unJustP p)
+
+unJustP :: Proxy ('Just s) -> Proxy s
+unJustP _ = Proxy
+
+class KnownAssociativity a where
+  associativityVal :: Proxy a -> Associativity
+instance KnownAssociativity 'LeftAssociative where
+  associativityVal _ = LeftAssociative
+instance KnownAssociativity 'RightAssociative where
+  associativityVal _ = RightAssociative
+instance KnownAssociativity 'NotAssociative where
+  associativityVal _ = NotAssociative
+
+class KnownFixityI f where
+  fixityVal :: Proxy f -> Fixity
+instance KnownFixityI 'PrefixI where
+  fixityVal _ = Prefix
+instance (KnownAssociativity a, KnownNat n) => KnownFixityI ('InfixI a n) where
+  fixityVal p = Infix (associativityVal (infixAssoc p)) (fromInteger (natVal (infixPrec p)))
+
+infixAssoc :: Proxy ('InfixI a n) -> Proxy a
+infixAssoc _ = Proxy
+infixPrec :: Proxy ('InfixI a n) -> Proxy n
+infixPrec _ = Proxy
+
+class KnownUnpackedness u where
+  unpackednessVal :: Proxy u -> SourceUnpackedness
+instance KnownUnpackedness 'NoSourceUnpackedness where
+  unpackednessVal _ = NoSourceUnpackedness
+instance KnownUnpackedness 'SourceNoUnpack where
+  unpackednessVal _ = SourceNoUnpack
+instance KnownUnpackedness 'SourceUnpack where
+  unpackednessVal _ = SourceUnpack
+
+class KnownSourceStrictness s where
+  sourceStrictnessVal :: Proxy s -> SourceStrictness
+instance KnownSourceStrictness 'NoSourceStrictness where
+  sourceStrictnessVal _ = NoSourceStrictness
+instance KnownSourceStrictness 'SourceLazy where
+  sourceStrictnessVal _ = SourceLazy
+instance KnownSourceStrictness 'SourceStrict where
+  sourceStrictnessVal _ = SourceStrict
+
+class KnownDecidedStrictness d where
+  decidedStrictnessVal :: Proxy d -> DecidedStrictness
+instance KnownDecidedStrictness 'DecidedLazy where
+  decidedStrictnessVal _ = DecidedLazy
+instance KnownDecidedStrictness 'DecidedStrict where
+  decidedStrictnessVal _ = DecidedStrict
+instance KnownDecidedStrictness 'DecidedUnpack where
+  decidedStrictnessVal _ = DecidedUnpack
+
+mdName :: t ('MetaData n m p nt) f a -> Proxy n
+mdName _ = Proxy
+mdModule :: t ('MetaData n m p nt) f a -> Proxy m
+mdModule _ = Proxy
+mdPackage :: t ('MetaData n m p nt) f a -> Proxy p
+mdPackage _ = Proxy
+mdNewtype :: t ('MetaData n m p nt) f a -> Proxy nt
+mdNewtype _ = Proxy
+
+instance (KnownSymbol n, KnownSymbol m, KnownSymbol p, KnownBoolG nt)
+    => Datatype ('MetaData n m p nt) where
+  datatypeName x = symbolVal (mdName x)
+  moduleName x = symbolVal (mdModule x)
+  packageName x = symbolVal (mdPackage x)
+  isNewtype x = boolValG (mdNewtype x)
+
+mcName :: t ('MetaCons n f r) g a -> Proxy n
+mcName _ = Proxy
+mcFixity :: t ('MetaCons n f r) g a -> Proxy f
+mcFixity _ = Proxy
+mcRecord :: t ('MetaCons n f r) g a -> Proxy r
+mcRecord _ = Proxy
+
+instance (KnownSymbol n, KnownFixityI f, KnownBoolG r)
+    => Constructor ('MetaCons n f r) where
+  conName x = symbolVal (mcName x)
+  conFixity x = fixityVal (mcFixity x)
+  conIsRecord x = boolValG (mcRecord x)
+
+msName :: t ('MetaSel n u s d) f a -> Proxy n
+msName _ = Proxy
+msUnpack :: t ('MetaSel n u s d) f a -> Proxy u
+msUnpack _ = Proxy
+msStrict :: t ('MetaSel n u s d) f a -> Proxy s
+msStrict _ = Proxy
+msDecided :: t ('MetaSel n u s d) f a -> Proxy d
+msDecided _ = Proxy
+
+instance (KnownMaybeSymbol n, KnownUnpackedness u, KnownSourceStrictness s,
+          KnownDecidedStrictness d) => Selector ('MetaSel n u s d) where
+  selName x = maybeSymbolVal (msName x)
+  selSourceUnpackedness x = unpackednessVal (msUnpack x)
+  selSourceStrictness x = sourceStrictnessVal (msStrict x)
+  selDecidedStrictness x = decidedStrictnessVal (msDecided x)

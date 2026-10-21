@@ -21,6 +21,14 @@
 		  (promoted-data-decls (module-algdatas *module*)))))
   (dolist (algdata (module-algdatas *module*))
     (create-alg-definitions algdata))
+  ;; DataKinds' unticked promoted K (parser/module-parser.mumble's
+  ;; add-promoted-constructors) is 'K too: another module's 'K is this one
+  (when (not (eq? (module-type *module*) 'interface))
+    (dolist (alg (module-algdatas *module*))
+      (let ((name (tycon-name (data-decl-simple alg))))
+	(when (and (null? (data-decl-constrs alg)) (promoted-unticked? alg))
+	  (setf (table-entry *symbol-table* (promoted-type-name name))
+		(tycon-def (data-decl-simple alg)))))))
   (dolist (synonym (module-synonyms *module*))
     (create-syn-definitions synonym))
   (dolist (class (module-classes *module*))
@@ -39,7 +47,17 @@
        (push def (module-vars *module*))
        (add-new-group var-name def)))))
 
-;;; data 'K a1 .. an, for each constructor K of n fields of DECLS.
+;;; Whether ALG, a data declaration without constructors, is the parser's
+;;; promoted constructor K: the module has a constructor K.
+(define (promoted-unticked? alg)
+  (let ((name (add-con-prefix/symbol (tycon-name (data-decl-simple alg)))))
+    (lisp:some (lambda (d)
+		 (lisp:some (lambda (c) (eq? (con-ref-name (constr-constructor c)) name))
+			    (data-decl-constrs d)))
+	       (module-algdatas *module*))))
+
+;;; data 'K a1 .. an, for each constructor K of n fields of DECLS (but a K
+;;; the parser has promoted already: promoted-unticked?).
 (define (promoted-data-decls decls)
   (lisp:mapcan
    (lambda (d)
@@ -56,7 +74,13 @@
 					     (constr-types c)))))
 		    (constrs '()) (deriving '()) (special-derivings '())
 		    (annotations '()))))
-	  (data-decl-constrs d)))
+	  (lisp:remove-if
+	   (lambda (c)
+	     (let ((base (remove-con-prefix/symbol (con-ref-name (constr-constructor c)))))
+	       (lisp:some (lambda (d2) (and (null? (data-decl-constrs d2))
+					    (eq? (tycon-name (data-decl-simple d2)) base)))
+			  decls)))
+	   (data-decl-constrs d))))
    decls))
 
 ;;; 'K for the constructor named K (;K).

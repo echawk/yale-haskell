@@ -923,8 +923,63 @@
 	     ,(dump-object (ntyapp-args o))))
 
 (define-walker-method dump tycon (o)
-  `(**tycon/def ,(dump-object (tycon-def o))
-		,(dump-object (tycon-args o))))
+  (let ((s (ast-type-symbol-string o)))
+    (if s
+	`(type-symbol-ast ,s)
+	`(**tycon/def ,(dump-object (tycon-def o))
+		      ,(dump-object (tycon-args o))))))
+
+;;; A type-level string literal (parser/type-parser.mumble), nine type
+;;; nodes a character, is dumped as its string (a derived Generic's Rep
+;;; has one per name: derived/generic.mumble).
+(define (type-symbol-ast s)
+  (**tycon/def (core-symbol "TypeSymbol")
+	       (list (promoted-list (map (function type-literal-char)
+					 (string->list s))))))
+
+(define (ast-type-symbol-string o)
+  (and (eq? (tycon-def o) (core-symbol "TypeSymbol"))
+       (eqv? (length (tycon-args o)) 1)
+       (let ((chars (ast-promoted-list-chars (car (tycon-args o)))))
+	 (and chars (list->string chars)))))
+
+;;; The characters of a promoted list of TypeChar literals, or #f (an
+;;; empty list is '(), so "" is not compacted).
+(define (ast-promoted-list-chars ty)
+  (and (tycon? ty)
+       (cond ((and (eq? (tycon-def ty) (core-symbol "PromotedCons"))
+		   (eqv? (length (tycon-args ty)) 2))
+	      (let ((c    (ast-type-char (car (tycon-args ty))))
+		    (rest (ast-promoted-list-rest (cadr (tycon-args ty)))))
+		(and c (not (eq? rest 'bad)) (cons c rest))))
+	     (else '#f))))
+
+(define (ast-promoted-list-rest ty)
+  (if (and (tycon? ty) (eq? (tycon-def ty) (core-symbol "PromotedNil")))
+      '()
+      (or (ast-promoted-list-chars ty) 'bad)))
+
+(define (ast-type-char ty)
+  (and (tycon? ty)
+       (eq? (tycon-def ty) (core-symbol "TypeChar"))
+       (eqv? (length (tycon-args ty)) 1)
+       (let ((n (ast-type-bits (car (tycon-args ty)))))
+	 (and n (integer->char n)))))
+
+;;; The number of a promoted list of TypeB0/TypeB1, least significant first.
+(define (ast-type-bits ty)
+  (cond ((not (tycon? ty)) '#f)
+	((eq? (tycon-def ty) (core-symbol "PromotedNil")) 0)
+	((and (eq? (tycon-def ty) (core-symbol "PromotedCons"))
+	      (eqv? (length (tycon-args ty)) 2)
+	      (tycon? (car (tycon-args ty))))
+	 (let ((b    (tycon-def (car (tycon-args ty))))
+	       (rest (ast-type-bits (cadr (tycon-args ty)))))
+	   (and rest
+		(cond ((eq? b (core-symbol "TypeB0")) (* 2 rest))
+		      ((eq? b (core-symbol "TypeB1")) (+ 1 (* 2 rest)))
+		      (else '#f)))))
+	(else '#f)))
 
 (define-walker-method dump default-decl (o)
   `(make default-decl (types ,(dump-object (default-decl-types o)))))

@@ -1,0 +1,333 @@
+;;; generic.mumble -- derived Generic and Generic1 instances (GHC's
+;;; DeriveGeneric)
+;;;
+;;; For data T a1 ... an = C1 t11 ... | ... the instance is GHC's:
+;;;   type Rep (T a1 .. an) = D1 ('MetaData "T" "Module" "main" 'False)
+;;;     (C1 ('MetaCons "C1" 'PrefixI 'False) (S1 ('MetaSel ...) (Rec0 t11)
+;;;                                           :*: ...)
+;;;      :+: ...)
+;;; the sums and products balanced (a list split in half), a constructor
+;;; without fields U1 and a type without constructors V1.  from and to
+;;; convert by case.  Generic1 is over the last type variable a: a field
+;;; a is Par1, f a Rec1 f, f u (u otherwise mentioning a) f :.: u's, and
+;;; a field without a Rec0 (K1).  The metadata's instances are GHC.Generics'.
+;;; A constructor with existentials or a GADT's, and a data instance, get
+;;; an instance without Rep (as DeriveAnyClass's).
+
+(define (generic-class? class)
+  (and (memq (def-name class) '(|Generic| |Generic1|))
+       (eq? (def-module class) '|GHC.Generics|)))
+
+(define (generic-def name)
+  (let ((m (table-entry *modules* '|GHC.Generics|)))
+    (or (table-entry (module-symbol-table m) name)
+	(error "GHC.Generics has no ~A" name))))
+
+(define (generic-con name)
+  (generic-def (add-con-prefix/symbol name)))
+
+;;; The type 'K, promoted from constructor def CON (top/symbol-table.mumble's
+;;; promoted-tycon-def).
+(define (generic-promoted con)
+  (let* ((s     (symbol->string (def-name con)))
+	 (pname (string->symbol
+		 (string-append "'" (if (has-con-prefix? s) (remove-con-prefix s) s)))))
+    (or (lisp:some (lambda (mod)
+		     (let ((m (table-entry *modules* mod)))
+		       (and m
+			    (let ((d (table-entry (module-symbol-table m) pname)))
+			      (and (algdata? d) d)))))
+		   (list (def-module con) '|PreludeCore|))
+	(error "No promoted type for ~A" pname))))
+
+(define (generic-promoted-type con args)
+  (**tycon/def (generic-promoted con) args))
+
+(define (generic-symbol-type s)
+  (**tycon/def (core-symbol "TypeSymbol")
+	       (list (promoted-list (map (function type-literal-char)
+					 (string->list s))))))
+
+(define (generic-bool-type b)
+  (generic-promoted-type (if b (core-symbol "True") (core-symbol "False")) '()))
+
+(define (generic-derivable? alg)
+  (and (not (algdata-data-family alg))
+       (lisp:every (lambda (con)
+		(and (null? (con-existential con))
+		     (not (con-gadt? con))))
+	      (algdata-constrs alg))))
+
+;;; The instance, its Rep equation added (find-derivable-instances).
+
+(define (add-generic-instance insts alg class)
+  (cond ((lookup-instance alg class)
+	 (signal-instance-exists alg class)
+	 insts)
+	((not (generic-derivable? alg))
+	 (add-special-derived-instance alg class 'anyclass)
+	 insts)
+	((and (eq? (def-name class) '|Generic1|) (null? (algdata-tyvars alg)))
+	 (phase-error 'cannot-derive-instance
+	   "Instance Generic1(~A) cannot be derived: ~A has no type parameter."
+	   alg alg)
+	 insts)
+	(else
+	 (let* ((one?   (eq? (def-name class) '|Generic1|))
+		(a      (and one? (car (lisp:last (algdata-tyvars alg)))))
+		(tyvars (if one? (lisp:butlast (algdata-tyvars alg)) (algdata-tyvars alg)))
+		(inst   (new-instance class alg tyvars))
+		(fam    (generic-def (if one? '|Rep1| '|Rep|)))
+		(head   (**tycon/def alg (map (function **tyvar) tyvars)))
+		(rhs    (generic-rep alg a)))
+	   (add-family-equation fam (list head) rhs)
+	   (setf (module-type-equations *module*)
+		 (append (module-type-equations *module*)
+			 (list (tuple fam (tuple (list head) rhs)))))
+	   ;; f :.: u needs Functor f, f a variable
+	   (setf (instance-context inst)
+		 (if one?
+		     (map (lambda (v) (**context (**class/def (core-symbol "Functor")) v))
+			  (generic1-functor-tyvars alg a))
+		     '()))
+	   (setf (instance-decls inst) '())
+	   (setf (instance-ok? inst) '#t)
+	   (setf (instance-suppress-readers? inst) '#f)
+	   (cons inst insts)))))
+
+;;; Balanced nesting of ITEMS by BIN (a list split in half, as GHC's).
+(define (generic-balance items empty bin)
+  (cond ((null? items) empty)
+	((null? (cdr items)) (car items))
+	(else
+	 (let ((n (quotient (length items) 2)))
+	   (funcall bin (generic-balance (list-head items n) empty bin)
+		    (generic-balance (list-tail-g items n) empty bin))))))
+
+(define (generic-rep alg a)
+  (let ((m1 (generic-def '|M1|)))
+    (**tycon/def m1
+      (list (**tycon/def (generic-def '|D|) '())
+	    (generic-promoted-type (generic-con '|MetaData|)
+	      (list (generic-symbol-type (symbol->string (def-name alg)))
+		    (generic-symbol-type (symbol->string (def-module alg)))
+		    (generic-symbol-type "main")
+		    (generic-bool-type (algdata-newtype? alg))))
+	    (generic-balance
+	     (map (lambda (con) (generic-con-rep con m1 a)) (algdata-constrs alg))
+	     (**tycon/def (generic-def '|V1|) '())
+	     (lambda (l r) (**tycon/def (generic-def '|:+:|) (list l r))))))))
+
+(define (generic-con-name con)
+  (remove-con-prefix (symbol->string (def-name con))))
+
+(define (generic-con-rep con m1 a)
+  (let ((fixity (con-fixity con))
+	(labels (con-field-labels con)))
+    (**tycon/def m1
+      (list (**tycon/def (generic-def '|C|) '())
+	    (generic-promoted-type (generic-con '|MetaCons|)
+	      (list (generic-symbol-type (generic-con-name con))
+		    (if (con-infix? con)
+			(generic-promoted-type (generic-con '|InfixI|)
+			  (list (generic-promoted-type
+				 (generic-con
+				  (case (if fixity (fixity-associativity fixity) 'l)
+				    (l '|LeftAssociative|)
+				    (r '|RightAssociative|)
+				    (else '|NotAssociative|)))
+				 '())
+				(**tycon/def (core-symbol "TypeNat")
+				  (list (type-literal-bits
+					 (if fixity (fixity-precedence fixity) 9))))))
+			(generic-promoted-type (generic-con '|PrefixI|) '()))
+		    (generic-bool-type (not (null? labels)))))
+	    (generic-balance
+	     (map (lambda (ty strict? label)
+		    (generic-sel-rep ty strict? label m1 a))
+		  (con-types con)
+		  (generic-strictness con)
+		  (if (null? labels) (map (lambda (ty) ty '#f) (con-types con)) labels))
+	     (**tycon/def (generic-def '|U1|) '())
+	     (lambda (l r) (**tycon/def (generic-def '|:*:|) (list l r))))))))
+
+(define (generic-strictness con)
+  (let ((s (con-slot-strict? con)))
+    (if (null? s) (map (lambda (ty) ty '#f) (con-types con)) s)))
+
+(define (generic-sel-rep ty strict? label m1 a)
+  (**tycon/def m1
+    (list (**tycon/def (generic-def '|S|) '())
+	  (generic-promoted-type (generic-con '|MetaSel|)
+	    (list (if label
+		      (generic-promoted-type (data-module-def '|PreludeCore| '|Just|)
+			(list (generic-symbol-type (symbol->string (def-name label)))))
+		      (generic-promoted-type (data-module-def '|PreludeCore| '|Nothing|) '()))
+		  (generic-promoted-type (generic-con '|NoSourceUnpackedness|) '())
+		  (generic-promoted-type
+		   (generic-con (if strict? '|SourceStrict| '|NoSourceStrictness|)) '())
+		  (generic-promoted-type
+		   (generic-con (if strict? '|DecidedStrict| '|DecidedLazy|)) '())))
+	  (generic-field-rep ty a))))
+
+;;; A field's representation: Rec0 t, or for Generic1 Par1, Rec1 f or
+;;; f :.: u's.
+(define (generic-field-rep ty a)
+  (case (generic1-field-kind ty a)
+    (rec0 (**tycon/def (generic-def '|K1|)
+			(list (**tycon/def (generic-def '|R|) '()) ty)))
+    (par1 (**tycon/def (generic-def '|Par1|) '()))
+    (rec1 (**tycon/def (generic-def '|Rec1|) (list (generic1-fun ty))))
+    (comp (**tycon/def (generic-def '|:.:|)
+	    (list (generic1-fun ty)
+		  (generic-field-rep (generic1-last ty) a))))))
+
+(define (generic1-field-kind ty a)
+  (cond ((or (not a) (not (mentions-tyvar? ty a))) 'rec0)
+	((tyvar? (functor-expand ty)) 'par1)
+	(else
+	 (let ((u (functor-last-arg ty a (generic-def '|Generic1|))))
+	   (if (tyvar? (functor-expand u)) 'rec1 'comp)))))
+
+(define (generic1-last ty)
+  (let ((ty (functor-expand ty)))
+    (car (lisp:last (if (tyapp? ty) (tyapp-args ty) (tycon-args ty))))))
+
+;;; F t1 .. tn-1 of F t1 .. tn.
+(define (generic1-fun ty)
+  (let ((ty (functor-expand ty)))
+    (if (tyapp? ty)
+	(apply-ast-type (tyapp-fun ty) (lisp:butlast (tyapp-args ty)))
+	(**tycon/def (tycon-def ty) (lisp:butlast (tycon-args ty))))))
+
+(define (generic1-functor-tyvars alg a)
+  (let ((vars '()))
+    (dolist (con (algdata-constrs alg))
+      (dolist (ty (con-types con))
+	(setf vars (generic1-functor-tyvars-1 ty a vars))))
+    (reverse vars)))
+
+(define (generic1-functor-tyvars-1 ty a vars)
+  (if (eq? (generic1-field-kind ty a) 'comp)
+      (let ((f (functor-expand (generic1-fun ty))))
+	(generic1-functor-tyvars-1
+	 (generic1-last ty) a
+	 (if (and (tyvar? f) (not (memq (tyvar-name f) vars)))
+	     (cons (tyvar-name f) vars)
+	     vars)))
+      vars))
+
+;;; from x = M1 (case x of Ci x1 .. xn -> inj_i (M1 (K1 x1) :*: ..))
+;;; to (M1 r) = case r of inj_i (M1 (K1 x1) :*: ..) -> Ci x1 .. xn
+
+(define (generic-fns alg one?)
+  (let* ((a     (and one? (car (lisp:last (algdata-tyvars alg)))))
+	 (m1    (generic-con '|M1|))
+	 (cons  (algdata-constrs alg))
+	 (n     (length cons))
+	 (paths (generic-sum-paths n)))
+    (list
+     (**define (if one? '|from1| '|from|) '(|x%|)
+       (**app (**con/def m1)
+	 (if (null? cons)
+	     (**app (**var/def (core-symbol "error"))
+		    (**string "Generic: from of an empty type"))
+	     (**case/con alg (**var '|x%|)
+	       (lambda (con vars)
+		 (generic-inject (list-ref paths (position-of con cons))
+		   (**app (**con/def m1)
+		     (generic-balance
+		      (map (lambda (v ty) (**app (**con/def m1) (generic-wrap ty a (**var v))))
+			   vars (con-types con))
+		      (**con/def (generic-con '|U1|))
+		      (lambda (l r) (**app (**con/def (generic-con '|:*:|)) l r))))))))))
+     (**define (if one? '|to1| '|to|) '(|r%|)
+       (**case (**var '|r%|)
+	 (list
+	  (**alt/simple
+	   (**pat (list m1 '|y%|))
+	   (if (null? cons)
+	       (**app (**var/def (core-symbol "error"))
+		      (**string "Generic: to of an empty type"))
+	       (generic-to-tree cons (**var '|y%|) m1 a)))))))))
+
+(define (position-of x l)
+  (if (eq? (car l) x) 0 (1+ (position-of x (cdr l)))))
+
+;;; to's case on a balanced sum of CONS: L1 and R1 split as generic-balance
+;;; does (one case per level, the nested patterns not tried in turn).
+(define (generic-to-tree cons exp m1 a)
+  (if (null? (cdr cons))
+      (let* ((con  (car cons))
+	     (vars (temp-vars "x" (con-arity con))))
+	(**case exp
+	  (list
+	   (**alt/simple
+	    (**pcon/def m1
+	      (list
+	       (generic-balance
+		(map (lambda (v) (**pcon/def m1 (list (**pat v)))) vars)
+		(**pcon/def (generic-con '|U1|) '())
+		(lambda (l r) (**pcon/def (generic-con '|:*:|) (list l r))))))
+	    (**app/l (**con/def con)
+		     (map (lambda (v ty) (generic-unwrap ty a (**var v)))
+			  vars (con-types con)))))))
+      (let ((n (quotient (length cons) 2))
+	    (l (functor-temp "l%"))
+	    (r (functor-temp "r%")))
+	(**case exp
+	  (list
+	   (**alt/simple (**pcon/def (generic-con '|L1|) (list (**pat l)))
+			 (generic-to-tree (list-head cons n) (**var l) m1 a))
+	   (**alt/simple (**pcon/def (generic-con '|R1|) (list (**pat r)))
+			 (generic-to-tree (list-tail-g cons n) (**var r) m1 a)))))))
+
+;;; For each of N constructors, its injection into the balanced sum: a
+;;; list of L1 and R1, outermost first.
+(define (generic-sum-paths n)
+  (cond ((eqv? n 0) '())
+	((eqv? n 1) '(()))
+	(else
+	 (let ((h (quotient n 2)))
+	   (append (map (lambda (p) (cons '|L1| p)) (generic-sum-paths h))
+		   (map (lambda (p) (cons '|R1| p)) (generic-sum-paths (- n h))))))))
+
+(define (generic-inject path exp)
+  (if (null? path)
+      exp
+      (**app (**con/def (generic-con (car path))) (generic-inject (cdr path) exp))))
+
+(define (generic-inject-pat path pat)
+  (if (null? path)
+      pat
+      (**pcon/def (generic-con (car path)) (list (generic-inject-pat (cdr path) pat)))))
+
+;;; A field's value as its representation, and back.
+(define (generic-wrap ty a x)
+  (case (generic1-field-kind ty a)
+    (rec0 (**app (**con/def (generic-con '|K1|)) x))
+    (par1 (**app (**con/def (generic-con '|Par1|)) x))
+    (rec1 (**app (**con/def (generic-con '|Rec1|)) x))
+    (comp (let ((y (functor-temp "y%")))
+	    (**app (**con/def (generic-con '|Comp1|))
+		   (**app (**var/def (core-symbol "fmap"))
+			  (**lambda (list y) (generic-wrap (generic1-last ty) a (**var y)))
+			  x))))))
+
+(define (generic-unwrap ty a x)
+  (let ((y (functor-temp "y%")))
+    (case (generic1-field-kind ty a)
+      (rec0 (generic-unwrap-con '|K1| x y (**var y)))
+      (par1 (generic-unwrap-con '|Par1| x y (**var y)))
+      (rec1 (generic-unwrap-con '|Rec1| x y (**var y)))
+      (comp (let ((z (functor-temp "z%")))
+	      (generic-unwrap-con '|Comp1| x y
+		(**app (**var/def (core-symbol "fmap"))
+		       (**lambda (list z) (generic-unwrap (generic1-last ty) a (**var z)))
+		       (**var y))))))))
+
+(define (generic-unwrap-con name x y body)
+  (**case x (list (**alt/simple (**pcon/def (generic-con name) (list (**pat y))) body))))
+
+(define (list-tail-g l n)
+  (if (eqv? n 0) l (list-tail-g (cdr l) (- n 1))))
