@@ -461,12 +461,22 @@
   (parser-error 'no-context-in-synonym
 		"Context is not permitted in type synonym declaration."))
 
+;;; A class's context; its equalities (item ~ Item full) are kept in
+;;; *class-context-equalities* (tdecl/class.mumble's class-equalities).
+(define *class-context-equalities* '())
+
+(define (parse-class-context)
+  (let ((contexts (parse-optional-context)))
+    (setf *class-context-equalities*
+	  (lisp:remove-if-not (function equality-assertion?) contexts))
+    contexts))
+
 (define (parse-class-decl)
  (save-parser-context
   ;; a multi-parameter superclass (class HasSetter t b => HasUpdate t a b)
   ;; is kept apart: signatures with the class get it too
   ;; (util/signature.mumble's add-mp-superclass-contexts)
-  (mlet (((supers mp-supers) (split-contexts (parse-optional-context))))
+  (mlet (((supers mp-supers) (split-contexts (parse-class-context))))
     (token-case
      (tycon
       (let* ((class (class->ast))
@@ -499,7 +509,8 @@
 					     '()
 					     (cons class-var more-vars)))
 			     (fundeps fundeps)
-			     (mp-super-classes mp-supers))))
+			     (mp-super-classes mp-supers)
+			     (equalities *class-context-equalities*))))
 	 (else
 	  (signal-missing-token "<tyvar>" "class declaration")))))
      (else (signal-missing-token "<tycon>" "class declaration"))))))

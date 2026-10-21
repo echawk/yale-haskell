@@ -53,6 +53,8 @@
 			     (list (tuple (class-ref-class (mp-context-class mc)) positions))
 			     '())))
 		     mp-super-classes))
+	      (setf (class-equalities def)
+		    (class-equalities-templates (class-decl-equalities c) class-vars))
 	      (setf super-classes '()))
 	    ;; a one-parameter class's multi-parameter superclasses
 	    ;; (class (G.Vector Vector a, M.MVector MVector a) => Unbox a):
@@ -110,6 +112,25 @@
 ;;; a variable's position, or (tycon-def . argument templates) for a type
 ;;; constructor or family applied to such (Mutable v); #f otherwise.
 ;;; util/signature.mumble's instantiate-mp-super-template undoes it.
+
+;;; A multi-parameter class's equality superclasses, v ~ t with v one of
+;;; its variables and t a type of them without v (item ~ Item full of
+;;; ListLike full item): (position of v . t's template).  Others are
+;;; dropped.
+(define (class-equalities-templates equalities class-vars)
+  (lisp:mapcan
+   (lambda (e)
+     (let ((left (cadr e)) (right (caddr e)))
+       (mlet (((v ty) (if (tyvar? left) (values left right) (values right left))))
+	 (if (and (tyvar? v) (memq (tyvar-name v) class-vars)
+		  (not (tyvar? ty))
+		  (not (memq (tyvar-name v) (ast-tyvar-names ty))))
+	     (let ((template (mp-super-template ty class-vars)))
+	       (if template
+		   (list (cons (locate-in-list (tyvar-name v) class-vars 0) template))
+		   '()))
+	     '()))))
+   equalities))
 
 (define (mp-super-template ty class-vars)
   (cond ((tyvar? ty)

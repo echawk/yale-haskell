@@ -226,6 +226,11 @@
    (mp-mp-supers (type (list (tuple class list))) (default '()))
    ;; its associated type families (exported and imported with C(..))
    (families (type (list def)) (default '()))
+   ;; equality superclasses of a multi-parameter class, (position of the
+   ;; variable . its type as a template), as item ~ Item full in ListLike
+   ;; full item: (1 . (Item 0)) (util/signature.mumble's
+   ;; apply-class-equalities)
+   (equalities (type list) (default '()))
    ))
 
 ;;; Since instances are not named there is no need to include def.  

@@ -174,7 +174,9 @@
    ;; (class (MonadReader r m, MonadState s m) => MonadRWS r w s m)
    (mp-super-classes (type (list mp-context)) (default '()))
    ;; the names of its associated type families (in its body)
-   (families (type (list symbol)) (default '()))))
+   (families (type (list symbol)) (default '()))
+   ;; its equality superclasses, (equality left right) (item ~ Item full)
+   (equalities (type list) (default '()))))
 
 
 ;;; <instance-decl> -> instance [<context> =>] <tycls> <inst>
