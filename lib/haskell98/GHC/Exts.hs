@@ -5,7 +5,7 @@
 -- and the primops are the ordinary operations.  A comparison primop
 -- returns 1 or 0, as GHC's do, for isTrue#.
 module GHC.Exts (
-    Int, Word, Char, Double, Float,
+    Int, Word, Char, Double, Float, Constraint, reallyUnsafePtrEquality#,
     Int#, Word#, Double#, Float#, Char#, Addr#, Int8#, Int16#, Int32#,
     Int64#, Word8#, Word16#, Word32#, Word64#,
     addrLit#, indexInt8OffAddr#, indexInt16OffAddr#, indexInt32OffAddr#,
@@ -42,6 +42,8 @@ module GHC.Exts (
 
 import GHC.IsList (IsList(..), Item)
 import Data.Coerce (coerce, Coercible)
+import Data.Kind (Constraint)
+import BasePrims (primPtrEq)
 import GHC.PrimOps
 import GHC.PrimOpsTyped
 import Foreign.Ptr (Ptr, FunPtr)
@@ -358,3 +360,7 @@ build g = g (:) []
 
 augment :: ((a -> [a] -> [a]) -> [a] -> [a]) -> [a] -> [a]
 augment g xs = g (:) xs
+
+-- 1 when the arguments are the same object (after evaluating them)
+reallyUnsafePtrEquality# :: a -> a -> Int#
+reallyUnsafePtrEquality# x y = if primPtrEq x y then 1 else 0

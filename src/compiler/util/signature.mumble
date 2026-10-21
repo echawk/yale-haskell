@@ -49,6 +49,16 @@
 ;;; context join the signature's, at the top (microlens).
 
 (define (float-synonym-foralls signature)
+  ;; C a => D a => t (Agda's killRangeN :: IsBase t ~ b => All KillRange
+  ;; (Domains t) => t -> t) is (C a, D a) => t
+  (do ((n 0 (1+ n)))
+      ((or (> n 8) (not (forall-type? (signature-type signature)))))
+    (let ((poly (signature-type signature)))
+      (setf (signature-context signature)
+	    (append (signature-context signature) (forall-type-context poly)))
+      (setf (signature-mcontext signature)
+	    (append (signature-mcontext signature) (forall-type-mcontext poly)))
+      (setf (signature-type signature) (forall-type-type poly))))
   (mlet (((type contexts) (float-foralls (signature-type signature) 8)))
     (when (not (null? contexts))
       (setf (signature-type signature) type)
@@ -644,6 +654,11 @@
 	       ((and (null? (mp-context-types c))
 		     (trivial-constraint? (class-ref-name (mp-context-class c)) 10))
 		(setf changed '#t))
+	       ;; a type family of constraints (Agda's All KillRange
+	       ;; (Domains t)): not evaluated, as a constraint synonym's
+	       ;; (tdecl/alg-syn.mumble's constraint-synonym-body)
+	       ((constraint-family-context? (mp-context-class c))
+		(setf changed '#t))
 	       (else
 	      (if syn
 		  (begin
@@ -654,6 +669,12 @@
 		  (setf multi2 (append multi2 (list c))))))))
 	  (setf (signature-context signature) single)
 	  (setf (signature-mcontext signature) multi2))))))
+
+(define (constraint-family-context? class-ref)
+  (let ((def (if (eq? (class-ref-class class-ref) *undefined-def*)
+		 (resolve-toplevel-name (class-ref-name class-ref))
+		 (class-ref-class class-ref))))
+    (and def (synonym? def) (synonym-family? def))))
 
 ;;; A nullary synonym of the unit type, directly or through others:
 ;;; GHC.Stack's HasCallStack, safe's  type Partial = HasCallStack.  As a

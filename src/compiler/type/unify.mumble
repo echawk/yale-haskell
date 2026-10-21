@@ -54,6 +54,16 @@
 	     (dolist (p (reverse pending))
 	       (unify-1 (tuple-2-1 p) (tuple-2-2 p)))
 	     'OK))
+	  ;; a synonym application the variable occurs in may expand to
+	  ;; something it does not occur in (Agda's Arrows '[] b, a synonym
+	  ;; for Foldr (->) b '[], is b): its expansion
+	  ((and (ntyvar? type1)
+		(ntycon? type2)
+		(synonym? (ntycon-tycon type2))
+		(not (synonym-family? (ntycon-tycon type2)))
+		(occurs-in-type type1 type2)
+		(not (eq? (expand-ntype-synonym type2) type2)))
+	   (unify-1 type1 (prune (expand-ntype-synonym type2))))
 	  ((ntyvar? type1)
 	   (cond ((occurs-in-type type1 type2)
 		  (type-error "Circular type: cannot unify ~A with ~A"

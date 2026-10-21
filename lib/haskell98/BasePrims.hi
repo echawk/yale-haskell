@@ -19,6 +19,8 @@ primNewRef         :: a -> IO (Ref a)
 primReadRef        :: Ref a -> IO a
 primWriteRef       :: Ref a -> a -> IO ()
 primRefEq          :: Ref a -> Ref a -> Bool
+-- the same object (GHC.Exts' reallyUnsafePtrEquality#), both evaluated
+primPtrEq          :: a -> a -> Bool
 
 -- a mutable array (Data.Array.Base): a Lisp simple vector; elements are
 -- stored unevaluated
@@ -130,6 +132,7 @@ primNewRef         :: LispName("prim.new-ref"), Strictness("N,S")
 primReadRef        :: LispName("prim.read-ref")
 primWriteRef       :: LispName("prim.write-ref"), Strictness("S,N,S")
 primRefEq          :: LispName("prim.ref-eq")
+primPtrEq          :: LispName("prim.ref-eq"), Strictness("S,S")
 primNewMutArr      :: LispName("prim.new-mut-arr"), Strictness("S,N,S")
 primNewUMutArr     :: LispName("prim.new-unboxed-mut-arr"), Strictness("S,S,S")
 primReadMutArr     :: LispName("prim.read-mut-arr")
