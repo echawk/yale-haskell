@@ -341,6 +341,18 @@
       (when (class? class)
 	(dolist (s (class-mp-supers class))
 	  (let ((ty (list-ref (mp-context-types c) (tuple-2-2 s))))
+	    ;; at another type (profunctors' Sieve p (Rep p) gives Functor
+	    ;; (Rep p)): a flexible constraint
+	    (when (and (not (tyvar? ty))
+		       (not (lisp:some
+			     (lambda (c2)
+			       (and (eq? (class-ref-class (mp-context-class c2)) (tuple-2-1 s))
+				    (null? (cdr (mp-context-types c2)))
+				    (ast-types-equal? (car (mp-context-types c2)) ty)))
+			     (signature-mcontext signature))))
+	      (setf (signature-mcontext signature)
+		    (append (signature-mcontext signature)
+			    (list (**mp-context (**class/def (tuple-2-1 s)) (list ty))))))
 	    (when (and (tyvar? ty)
 		       (not (lisp:some
 			     (lambda (ctx)

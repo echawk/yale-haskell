@@ -125,10 +125,35 @@
       ;; plain variable there): gadt-pattern-vars
       (push (tuple (refined-index-positions type) scrutinee)
 	    (dynamic *gadt-refinements*))
+      ;; an index the result has as a plain variable is the scrutinee's
+      ;; (profunctors' Prep :: x -> p x a -> Prep p a: p and a)
+      (link-unrefined-indices type scrutinee)
       (values (**arrow/l-2 (arrow-argument-types type) scrutinee)
 	      hidden))))
 
 (define *gadt-refinements* '())
+
+(define (link-unrefined-indices con-type scrutinee)
+  (let ((res (prune con-type)))
+    (do () ((not (and (ntycon? res) (eq? (ntycon-tycon res) (core-symbol "Arrow")))))
+      (setf res (prune (cadr (ntycon-args res)))))
+    (when (and (ntycon? res)
+	       (eqv? (length (ntycon-args res)) (length (ntycon-args scrutinee))))
+      (let* ((args (map (function prune) (ntycon-args res)))
+	     ;; a variable that is one index only (not Refl :: a :~: a's a,
+	     ;; nor Equal f (f b) b's f and b)
+	     (once (lisp:remove-if-not
+		    (lambda (a)
+		      (and (ntyvar? a)
+			   (eqv? (lisp:count a args) 1)
+			   (not (lisp:some (lambda (other)
+					     (and (not (ntyvar? other))
+						  (occurs-in-type a other)))
+					   args))))
+		    args)))
+	(dolist2 (a args) (b (ntycon-args scrutinee))
+	  (when (memq a once)
+	    (type-unify a b '#f)))))))
 
 ;;; The positions of a constructor type's result's arguments that are not
 ;;; a plain type variable (Refl :: Equal f (f b) b: 1).

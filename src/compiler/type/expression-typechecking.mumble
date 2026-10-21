@@ -87,14 +87,20 @@
 (define-type-checker var-pat
   (let* ((var (var-ref-var (var-pat-var object)))
 	 (poly (assq var (dynamic *polytype-vars*))))
-    (if poly
+    (cond
+      ((and poly (not (polytype? (tuple-2-2 poly))))
+       ;; an argument whose type has a polytype in it: that type
+       (setf (var-type var) (tuple-2-2 poly))
+       (return-type object (tuple-2-2 poly)))
+      (poly
 	;; a polymorphic argument (polytypes.mumble)
 	(begin
 	  (setf (var-type var) (tuple-2-2 poly))
-	  (return-type object (instantiate-polytype (tuple-2-2 poly))))
+	  (return-type object (instantiate-polytype (tuple-2-2 poly)))))
+      (else
 	(fresh-type var-type
 	  (setf (var-type var) var-type)
-	  (return-type object var-type)))))
+	  (return-type object var-type))))))
 
 (define-type-checker wildcard-pat
  (fresh-type pat-type

@@ -1,0 +1,31 @@
+monad-control: defaultLiftWith2 left out (Yale Haskell does not yet check
+a constrained polytype argument whose context is on an application,
+Monad (n' m), against the signature's given one).
+--- a/Control/Monad/Trans/Control.hs
++++ b/Control/Monad/Trans/Control.hs
+@@ -71,7 +71,7 @@
+     , RunDefault, defaultLiftWith, defaultRestoreT
+       -- *** Defaults for a stack of two
+       -- $MonadTransControlDefaults2
+-    , RunDefault2, defaultLiftWith2, defaultRestoreT2
++    , RunDefault2, defaultRestoreT2
+ 
+       -- * MonadBaseControl
+     , MonadBaseControl (..), RunInBase
+@@ -384,13 +384,9 @@
+ type RunDefault2 t n n' = forall m b. (Monad m, Monad (n' m)) => t m b -> m (StT n' (StT n b))
+ 
+ -- | Default definition for the 'liftWith' method.
+-defaultLiftWith2 :: (Monad m, Monad (n' m), MonadTransControl n, MonadTransControl n')
+-                 => (forall b.   n (n' m) b -> t m b)     -- ^ Monad constructor
+-                 -> (forall o b. t o b -> n (n' o) b)     -- ^ Monad deconstructor
+-                 -> (RunDefault2 t n n' -> m a)
+-                 -> t m a
+-defaultLiftWith2 t unT = \f -> t $ liftWith $ \run -> liftWith $ \run' -> f $ run' . run . unT
+-{-# INLINABLE defaultLiftWith2 #-}
++-- (Yale Haskell: defaultLiftWith2 is left out; its argument's
++-- polytype's context Monad (n' m) is not checked against the
++-- signature's yet)
+ 
+ -- | Default definition for the 'restoreT' method for double 'MonadTransControl'.
+ defaultRestoreT2 :: (Monad m, Monad (n' m), MonadTransControl n, MonadTransControl n')

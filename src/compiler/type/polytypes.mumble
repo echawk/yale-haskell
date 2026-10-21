@@ -59,6 +59,14 @@
 ;;; the variables its clauses bind to those arguments get the polytypes.
 ;;; Returns the (tuple var polytype) bindings.
 
+(define (rhs-lambda-pats def)
+  (let ((rhs-list (single-fun-def-rhs-list def)))
+    (if (and (not (null? rhs-list)) (null? (cdr rhs-list))
+	     (is-type? 'omitted-guard (guarded-rhs-guard (car rhs-list)))
+	     (is-type? 'lambda (guarded-rhs-rhs (car rhs-list))))
+	(lambda-pats (guarded-rhs-rhs (car rhs-list)))
+	'())))
+
 (define (polytype-arguments decl var lhs-type)
   (let ((sig (var-signature var)))
     (if (or (eq? sig '#f) (not (gtype-has-polytypes? sig)))
@@ -68,10 +76,18 @@
 	  (let ((arg-types (arrow-argument-types inst))
 		(result '()))
 	    (dolist (def (valdef-definitions decl))
-	      (do ((args (single-fun-def-args def) (cdr args))
+	      (do ((args (append (single-fun-def-args def)
+				 ;; and a right-hand side's lambda's (f t unT
+				 ;; = \f -> .., monad-control's defaultLiftWith)
+				 (rhs-lambda-pats def))
+			 (cdr args))
 		   (types arg-types (cdr types)))
 		  ((or (null? args) (null? types)))
-		(when (and (polytype? (car types)) (var-pat? (car args)))
+		;; (and one whose type has a polytype in it, a function of a
+		;; polymorphic argument: g f = f (return 3), f :: (forall n.
+		;; Monad n => n Int) -> Maybe Int; var-pat's type checker)
+		(when (and (var-pat? (car args))
+			   (or (polytype? (car types)) (polytype-in? (car types))))
 		  (push (tuple (var-ref-var (var-pat-var (car args))) (car types))
 			result))))
 	    result)))))

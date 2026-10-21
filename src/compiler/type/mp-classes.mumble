@@ -460,12 +460,31 @@
 	     (types (mp-placeholder-types p))
 	     (param (find-mp-param p class types decls))
 	     (sub (if (eq? param '#f) (find-subclass-mp-param p class types decls) '#f))
-	     (found (if (and (eq? param '#f) (eq? sub '#f))
+	     ;; Functor or Applicative at an application given Monad there
+	     ;; (profunctors' Monad (Rep p) => .. pure): through WrappedMonad
+	     (implied (if (and (eq? param '#f) (eq? sub '#f)
+			       (null? (cdr types))
+			       (monad-implied-class? class))
+			  (find-implying-mp-param p class types decls)
+			  '#f))
+	     (found (if (and (eq? param '#f) (eq? sub '#f) (eq? implied '#f))
 			(find-mp-instance class types)
 			'#f)))
 	(cond ((not (eq? param '#f))
 	       (setf (placeholder-exp p)
 		     (mp-dict-use p (**var/def (mp-param-var param))))
+	       deferred)
+	      ((not (eq? implied '#f))
+	       (setf (placeholder-exp p)
+		     (mp-dict-use p (**app (dict-ref-code
+					    (lookup-instance (prelude-modern-def '|WrappedMonad|)
+							     class))
+					   (let ((d (**var/def (mp-param-var implied)))
+						 (implying (implying-class class)))
+					     (if (eq? (mp-param-class implied) implying)
+						 d
+						 (**dsel/dict (mp-param-class implied)
+							      implying d))))))
 	       deferred)
 	      ((not (eq? sub '#f))
 	       ;; given a subclass at the type (GOrd (f p) gives GEq (f p)):
@@ -519,6 +538,20 @@
 ;;; A one-parameter class wanted at an application (GEq (f p)), given by
 ;;; the enclosing binding as a subclass at the same type (GOrd (f p),
 ;;; class GEq a => GOrd a): that parameter, or #f.
+
+;;; The enclosing binding's Monad (or MonadPlus, for Alternative) at the
+;;; same type, for a monad-implied CLASS: that parameter, or #f.
+(define (find-implying-mp-param p class types decls)
+  (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls))
+	(implying (implying-class class)))
+    (and decl
+	 (lisp:find-if
+	  (lambda (param)
+	    (and (null? (cdr (mp-param-types param)))
+		 (or (eq? (mp-param-class param) implying)
+		     (memq implying (class-super* (mp-param-class param))))
+		 (mp-type-equal? (car (mp-param-types param)) (car types))))
+	  (valdef-mp-dict-params decl)))))
 
 (define (find-subclass-mp-param p class types decls)
   (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls)))
