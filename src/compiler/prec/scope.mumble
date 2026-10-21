@@ -672,10 +672,12 @@
   (if (and (eq? (con-ref-con object) *undefined-def*)
 	   (or (assq (con-ref-name object) (module-pattern-synonyms *module*))
 	       (imported-pattern-synonym (con-ref-name object))))
-      ;; PatternSynonyms: the builder function (parser/pattern-parser.mumble)
-      (scope-ast-1 (generated-var-ref
-		    (qualified-pattern-builder-name (con-ref-name object)))
-		   env)
+      ;; PatternSynonyms: the builder function (parser/pattern-parser.mumble),
+      ;; infix if the constructor was ((:<|| ys), a section)
+      (let ((ref (generated-var-ref
+		  (qualified-pattern-builder-name (con-ref-name object)))))
+	(setf (var-ref-infix? ref) (con-ref-infix? object))
+	(scope-ast-1 ref env))
       (begin
 	(when (eq? (con-ref-con object) *undefined-def*)
 	  (setf (con-ref-con object)
@@ -1062,9 +1064,13 @@
 	((string-starts? "(," text)
 	 (tuple-tycon (- (string-length text) 1)))
 	(else
-	 (let ((def (or (resolve-toplevel-name (add-con-prefix/symbol (string->symbol text)))
-			(resolve-toplevel-name (string->symbol text)))))
-	   (if (and def (or (algdata? def) (synonym? def) (class? def)))
+	 ;; (the type or class: a constructor of the same name is not it,
+	 ;; invariant's ''Invariant beside data InvariantClass = Invariant)
+	 (let ((def (lisp:find-if
+		     (lambda (d) (and d (or (algdata? d) (synonym? d) (class? d))))
+		     (list (resolve-toplevel-name (string->symbol text))
+			   (resolve-toplevel-name (add-con-prefix/symbol (string->symbol text)))))))
+	   (if def
 	       def
 	       (begin (signal-undefined-symbol (string->symbol text))
 		      *undefined-def*))))))

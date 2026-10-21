@@ -177,8 +177,13 @@ accumArrayIvs f b v ivs =
 
 -- again, be smart and bypass full array indexing on array mapping
 
-amap f a@(MkArray b@(bmin, bmax) v) =
-  let size = rangeSize b
+amap = mapArray
+
+-- (the vector's length rather than the bounds' rangeSize: no Ix, so that
+-- Functor (Array i) needs none, as base's; invariant's Invariant (Array i))
+mapArray :: (b -> c) -> Array a b -> Array a c
+mapArray f a@(MkArray b v) =
+  let size = primVectorLength v
       v' = primMakeVector size uninitializedArrayError
       g j = if (j == size)
               then v'
@@ -186,7 +191,7 @@ amap f a@(MkArray b@(bmin, bmax) v) =
 	           in strict1 (primVectorUpdate v' j (MkBox (f (unBox y))))
 	                      (g (j + 1))
   in (MkArray b (g 0))
-{-# amap :: Inline #-}
+{-# mapArray :: Inline #-}
 
 
 -- can't bypass the index computation here since f needs it as an argument
@@ -204,8 +209,8 @@ instance  (Ix a, Ord b) => Ord (Array a b)  where
     a <=  a'  	    	=  assocs a <=  assocs a'
 
 -- The Report's (chapter 16)
-instance  (Ix a) => Functor (Array a)  where
-    fmap = amap
+instance  Functor (Array a)  where
+    fmap = mapArray
 
 -- Show and Read instances as in the H98 Report's Array module (arrPrec = 10).
 instance  (Ix a, Show a, Show b) => Show (Array a b)  where

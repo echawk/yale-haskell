@@ -283,6 +283,13 @@
 	(when (ntycon? ntype)
 	  (setf ntype (prune (expand-ntype-synonym ntype))))
 	(cond
+	 ((family-app? ntype)
+	  ;; a type family application not decided (Functor (Corep p) of
+	  ;; Compose's instance, profunctors): as any placeholder at it,
+	  ;; given by the enclosing binding or left for later
+	  (let ((p (**dict-placeholder class ntype edecls var)))
+	    (setf deferred (process-placeholder p deferred decls))
+	    (setf dict (**app dict p))))
 	 ((ntycon? ntype)
 	  (mlet ((alg (ntycon-tycon ntype))
 		 (instance (lookup-instance/type alg class ntype))

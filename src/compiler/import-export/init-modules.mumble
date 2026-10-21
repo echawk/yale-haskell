@@ -68,6 +68,8 @@
 	       (not (module-prelude? *module*))
 	       (not (eq? *module-name* '|PreludeModern|)))
       (let ((modern  (locate-module '|PreludeModern|)))
+	(when modern
+	  (hide-modern-class-methods modern (module-imports *module*)))
 	(if (eq? modern '#f)
 	    (signal-undefined-module-import '|PreludeModern|)
 	    ;; only what GHC's Prelude exports: Alternative and the other
@@ -89,6 +91,32 @@
 	  (filter-complete-module-exports (module-exports *module*))))
     )
 
+
+;;; import Prelude hiding (Foldable (..)): PreludeModern's class with its
+;;; methods, which the Haskell 98 Prelude has as functions (foldr1 of
+;;; lists), so they are hidden from it too (nonempty-containers).
+(define (hide-modern-class-methods modern imports)
+  (dolist (i imports)
+    (when (and (eq? (import-decl-module-name i) '|Prelude|)
+	       (eq? (import-decl-mode i) 'all)
+	       (not (import-decl-qualified? i)))
+      ;; base's Prelude has no Ix (index, range: Data.Ix's), the Haskell
+      ;; 98 one here has (nonempty-containers' index)
+      (when (not (lisp:some (lambda (e) (eq? (entity-name e) '|Ix|))
+			    (import-decl-specs i)))
+	(setf (import-decl-specs i)
+	      (append (import-decl-specs i)
+		      (list (make entity-abbreviated (name '|Ix|))))))
+      (dolist (e (import-decl-specs i))
+	(when (or (is-type? 'entity-abbreviated e) (is-type? 'entity-class e))
+	  (let ((group (table-entry (module-export-table modern) (entity-name e))))
+	    (when (and group (class? (group-definition group)))
+	      (dolist (n-d (cdr group))
+		(when (not (lisp:some (lambda (e2) (eq? (entity-name e2) (tuple-2-1 n-d)))
+				      (import-decl-specs i)))
+		  (setf (import-decl-specs i)
+			(append (import-decl-specs i)
+				(list (make entity-var (name (tuple-2-1 n-d)))))))))))))))
 
 ;;; The names a module imports from the Prelude when every unqualified
 ;;; import of it has an import list (import Prelude (map, (<>))): the

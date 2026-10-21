@@ -1,0 +1,13 @@
+nonempty-containers: Data.Set.Internal's merge of two disjoint sets is
+link2 in the containers here (whose merge is the generic one).
+--- a/Data/Set/NonEmpty/Internal.hs
++++ b/Data/Set/NonEmpty/Internal.hs
+@@ -468,7 +468,7 @@
+ -- | Unsafely merge two disjoint sets.  Only legal if all items in the
+ -- first set are less than all items in the second set
+ merge :: NESet a -> NESet a -> NESet a
+-merge (NESet x1 s1) n2 = NESet x1 $ s1 `S.merge` toSet n2
++merge (NESet x1 s1) n2 = NESet x1 $ s1 `S.link2` toSet n2
+ 
+ -- | /O(n)/. Test if the internal set structure is valid.
+ valid :: Ord a => NESet a -> Bool

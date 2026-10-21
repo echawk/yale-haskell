@@ -175,8 +175,12 @@
 
 (define (add-rhs pat args infix? start-line)
   (let* ((views (take-view-patterns))
-	 (rhs (add-view-pattern-guards views (parse-rhs)))
-	 (decls (parse-where-decls))
+	 (rhs0 (parse-rhs))
+	 (decls0 (parse-where-decls))
+	 ;; the where's bindings go after the views, which they may use
+	 ;; (nonempty-containers: f (toMap -> m1) = .. where .. m1 ..)
+	 (rhs (add-view-pattern-guards views rhs0 decls0))
+	 (decls (if (null? views) decls0 '()))
 	 (single (make single-fun-def
 		       (args args)
 		       (rhs-list rhs)

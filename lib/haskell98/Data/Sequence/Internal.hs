@@ -212,9 +212,10 @@ import Data.Traversable
 import Text.Read (Lexeme(Ident), lexP, parens, prec,
     readPrec, readListPrec, readListPrecDefault)
 #endif
+-- (Yale Haskell: Data.Data and Seq's Data instance, as Map's and Set's)
+import Data.Data
 #ifdef __GLASGOW_HASKELL__
 import GHC.Exts (build)
-import Data.Data
 import Data.String (IsString(..))
 #  if __GLASGOW_HASKELL__ >= 914
 import qualified Language.Haskell.TH.Lift as TH
@@ -1018,7 +1019,6 @@ instance Semigroup.Semigroup (Seq a) where
     (<>)    = (><)
     stimes = cycleNTimes . fromIntegral
 
-#if __GLASGOW_HASKELL__
 instance Data a => Data (Seq a) where
     gfoldl f z s    = case viewl s of
         EmptyL  -> z empty
@@ -1043,7 +1043,6 @@ consConstr  = mkConstr seqDataType "<|" [] Infix
 
 seqDataType :: DataType
 seqDataType = mkDataType "Data.Sequence.Seq" [emptyConstr, consConstr]
-#endif
 
 -- Finger trees
 

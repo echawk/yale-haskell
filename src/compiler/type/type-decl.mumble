@@ -98,6 +98,13 @@
 	 (dolist (d decls+tyvars)
 	   (let ((vs (map (function var-ref-var)
 			  (collect-pattern-vars (valdef-lhs (tuple-2-1 d))))))
+	     ;; a pattern binding's variables each by its own type
+	     ;; (nonempty-containers' p0 :: NESet (Set a); p0@(NESet _ p0s) = ..)
+	     (when (not (null? (cdr vs)))
+	       (setf scoped (append (scoped-signatures
+				     vs (map (lambda (v) (remove-recursive-type (var-type v)))
+					     vs))
+				    scoped)))
 	     (when (null? (cdr vs))
 	       (setf scoped (append (scoped-signatures
 				     vs (list (remove-recursive-type
@@ -236,7 +243,11 @@
       ;; ScopedTypeVariables (scoped-tyvars.mumble)
       (let ((scoped (if (null? (cdr all-vars))
 			(scoped-signatures all-vars (list lhs-type))
-			'()))
+			;; a pattern binding's variables each by its own type
+			(scoped-signatures
+			 all-vars
+			 (map (lambda (v) (remove-recursive-type (var-type v)))
+			      all-vars))))
 	    ;; RankNTypes (polytypes.mumble)
 	    (polys (if (and (null? (cdr all-vars)) (var-pat? (valdef-lhs decl)))
 		       (polytype-arguments decl (car all-vars) lhs-type)
@@ -355,8 +366,12 @@
     (type-check/list single-fun-def args arg-types
       (unify-list tyvars arg-types)
       ;; a GADT constructor matched (existentials.mumble)
+      ;; the arguments' types are the signature's before the body is
+      ;; checked (existentials.mumble's gadt-link-signature), so that a
+      ;; local signature's scoped variables and a GADT's refinement see
+      ;; them (nonempty-containers' p0 :: NESet (Set a) in powerSet)
+      (gadt-link-signature arg-types)
       (when (dynamic *gadt-match*)
-	(gadt-link-signature arg-types)
 	(gadt-coerce-rhs-list (single-fun-def-rhs-list object)))
       (dynamic-let ((*gadt-soft-vars*
 		     (if (dynamic *gadt-match*)
