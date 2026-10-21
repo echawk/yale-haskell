@@ -746,10 +746,12 @@
 	0)))
 
 (define (version>=? have want)
-  (cond ((null? want) '#t)
-	((> (car have) (car want)) '#t)
-	((< (car have) (car want)) '#f)
-	(else (version>=? (cdr have) (cdr want)))))
+  ;; (a missing component is 0: dlist-1.0 against MIN_VERSION_dlist(1,0,0))
+  (let ((h (if (null? have) 0 (car have))))
+    (cond ((null? want) '#t)
+	  ((> h (car want)) '#t)
+	  ((< h (car want)) '#f)
+	  (else (version>=? (if (null? have) '() (cdr have)) (cdr want))))))
 
 ;;; Numbers, names (0, and a call of one is 0 but MIN_VERSION_pkg's) and
 ;;; operators.

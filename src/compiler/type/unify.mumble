@@ -307,6 +307,15 @@
 	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
 	   (type-error "Type ~A is not in class ~A: the instance is for ~A"
 		       type class (make-instance-type instance)))
+	  ((and (eq? instance '#f)
+		;; given by the signature being checked (a flexible given,
+		;; StringLike Text in ListLike's class)
+		(lisp:some (lambda (g)
+			     (and (eq? (tuple-2-1 g) class)
+				  (null? (cdr (tuple-2-2 g)))
+				  (mp-type-equal? (car (tuple-2-2 g)) type)))
+			   (dynamic *given-mp-constraints*)))
+	   'OK)
 	  ((eq? instance '#f)
 	   ;; This remove the instantiation which caused the type
 	   ;; error - perhaps stop error propagation & make

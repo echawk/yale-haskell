@@ -242,6 +242,30 @@
 		      (class-instances class)))))
 
 (define (process-instantiated-tyvar tycon p deferred decls)
+  (let ((given (and (not (instance-for-placeholder? tycon p))
+		    (given-app-dict-params p tycon decls))))
+    (if (not (null? given))
+	;; no instance at the type, but the enclosing binding's signature
+	;; gives it (a flexible given, StringLike Text in ListLike's
+	;; class, its instance in a later module)
+	(begin
+	  (setf (placeholder-exp p)
+		(if (dict-placeholder? p)
+		    (dict-reference-code (dict-placeholder-class p) given)
+		    (let ((m (method-placeholder-method p)))
+		      (method-reference-code m (method-var-class m) given))))
+	  deferred)
+	(process-instantiated-tyvar-1 tycon p deferred decls))))
+
+(define (instance-for-placeholder? tycon p)
+  (let ((class (if (dict-placeholder? p)
+		   (dict-placeholder-class p)
+		   (method-var-class (method-placeholder-method p)))))
+    (and (algdata? (ntycon-tycon tycon))
+	 (lookup-instance (ntycon-tycon tycon) class)
+	 '#t)))
+
+(define (process-instantiated-tyvar-1 tycon p deferred decls)
   (let* ((alg (ntycon-tycon tycon))
 	 (edecls (placeholder-enclosing-decls p))
 	 (var (placeholder-overloaded-var p))

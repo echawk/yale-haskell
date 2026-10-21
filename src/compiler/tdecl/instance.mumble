@@ -789,16 +789,34 @@
 			      '())
 			  (map (function tuple-2-2) renaming)))
 		(context (if keep-method-context?
-			     (append class-context (signature-context signature))
+			     (append class-context
+				     (lisp:remove-if (lambda (c) (class-tyvar-context? c inst))
+						     (signature-context signature)))
 			     class-context))
 		(type type)
 		(mcontext (if keep-method-context?
 			      (append (instance-mcontext inst)
+				      ;; ConstrainedClassMethods: a method's
+				      ;; constraint on a class's variable (Ord
+				      ;; item) at the instance's type (Ord Int)
+				      (map (lambda (c)
+					     (**mp-context (context-class c)
+							   (list (substitute-class-tyvars
+								  (**tyvar (context-tyvar c)) inst))))
+					   (lisp:remove-if-not
+					    (lambda (c) (class-tyvar-context? c inst))
+					    (signature-context signature)))
 				      (signature-mcontext signature))
 			      (instance-mcontext inst))))))
     (dolist (r renaming)
       (setf sig (rename-signature-tyvar sig (tuple-2-1 r) (tuple-2-2 r))))
     sig))
+
+(define (class-tyvar-context? c inst)
+  (let ((class (instance-class inst)))
+    (and (mp-class? class)
+	 (memq (context-tyvar c) (class-tyvars class))
+	 '#t)))
 
 (define (rename-signature-tyvar sig old new)
   (make signature

@@ -7,6 +7,8 @@
 ;;; Other errors may be present; these are detected at a higher level.
 ;;; The list of variables used in the signature is returned.
 
+(define *class-sig-tyvars* '())   ; a class's variables, its methods' signatures
+
 (define (resolve-signature signature)
   (float-synonym-foralls signature)
   (expand-constraint-synonyms signature)
@@ -26,6 +28,12 @@
       ;; AllowAmbiguousTypes: a context's variable the type does not
       ;; mention (sizeOfType :: forall a. Prim a => Int), chosen by a type
       ;; application at each use
+      ;; (or a class's variable in its method's own constraint:
+      ;; ConstrainedClassMethods, *class-sig-tyvars*)
+      (dolist (c context)
+	(when (and (memq (context-tyvar c) (dynamic *class-sig-tyvars*))
+		   (not (memq (context-tyvar c) tyvars)))
+	  (setf tyvars (append tyvars (list (context-tyvar c))))))
       (when (module-extension? "AllowAmbiguousTypes")
 	(dolist (c context)
 	  (when (not (memq (context-tyvar c) tyvars))
@@ -381,9 +389,11 @@
 	((not (tycon? type)) '#f)
 	((algdata? (tycon-def type))
 	 ;; (as reduce-context-type: the instance's context at the arguments)
+	 ;; (no instance yet, StringLike Text in ListLike's class before
+	 ;; its instance's module: kept, as GHC keeps it)
 	 (let ((inst (lookup-instance (tycon-def type) class)))
-	   (or (eq? inst '#f)
-	       (null? (instance-tyvars inst))
+	   (and inst
+	    (or (null? (instance-tyvars inst))
 	       (not (eqv? (length (instance-tyvars inst)) (length (tycon-args type))))
 	       (every (lambda (ic)
 			(let ((cl (class-ref-class (context-class ic))))
@@ -394,7 +404,7 @@
 				 (context-tyvar ic) (instance-tyvars inst)
 				 (tycon-args type))
 				(1- depth)))))
-		      (instance-context inst)))))
+		      (instance-context inst))))))
 	((and (synonym? (tycon-def type))
 	      (not (synonym-family? (tycon-def type)))
 	      (synonym-body (tycon-def type))

@@ -142,15 +142,22 @@
      (lambda (key group)
        ;; kept when it, or one of its members (pure of Applicative), is
        ;; listed
-       (when (not (or (memq key names)
-		      (lisp:some (lambda (n-d) (memq (tuple-2-1 n-d) names))
-				 group)))
-	 ;; (a type or class with its members: T(..), as a bare T hides
-	 ;; only T)
-	 (push (if (var? (group-definition group))
-		   (make entity-var (name key))
-		   (make entity-abbreviated (name key)))
-	       res)))
+       (cond ((not (or (memq key names)
+		       (lisp:some (lambda (n-d) (memq (tuple-2-1 n-d) names))
+				  group)))
+	      ;; (a type or class with its members: T(..), as a bare T hides
+	      ;; only T)
+	      (push (if (var? (group-definition group))
+			(make entity-var (name key))
+			(make entity-abbreviated (name key)))
+		    res))
+	     ((not (memq key names))
+	      ;; kept for a listed member (sequenceA of Traversable): its
+	      ;; other members hidden (ListLike's own mapM and sequence)
+	      (dolist (n-d (cdr group))
+		(when (and (not (memq (tuple-2-1 n-d) names))
+			   (var? (tuple-2-2 n-d)))
+		  (push (make entity-var (name (tuple-2-1 n-d))) res))))))
      (module-export-table modern))
     res))
 

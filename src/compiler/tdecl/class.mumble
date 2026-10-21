@@ -221,7 +221,8 @@
 	   '#f)
 	  ((is-type? 'signdecl decl)
 	   (let* ((signature (signdecl-signature decl))
-		  (vars (resolve-signature signature)))
+		  (vars (dynamic-let ((*class-sig-tyvars* class-tyvars))
+			  (resolve-signature signature))))
 	     ;; AllowAmbiguousTypes (GHC): a method may mention none of the
 	     ;; class's variables (name :: String in class Name a b); its
 	     ;; type has them in its context, and a type application picks
@@ -230,9 +231,13 @@
 			(not (module-extension? "AllowAmbiguousTypes")))
 	       (signal-class-sig-ignores-type signature))
 	     ;; Note: signature does not include defined class yet
-	     (dolist (context (signature-context signature))
-               (when (memq (context-tyvar context) class-tyvars)
-		 (signal-method-constrains-class-tyvar context)))
+	     ;; ConstrainedClassMethods (GHC): a method's own constraint on a
+	     ;; multi-parameter class's variable (ListLike's Ord item) is
+	     ;; one of the method's; on a one-parameter class's, an error
+	     (when (not (mp-class? class))
+	       (dolist (context (signature-context signature))
+		 (when (memq (context-tyvar context) class-tyvars)
+		   (signal-method-constrains-class-tyvar context))))
 	     (setf signature (rename-class-sig-vars signature class-tyvars))
 	     (let ((gtype (ast->gtype (append class-context
 					      (signature-context signature))

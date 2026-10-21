@@ -26,7 +26,7 @@ module Data.List (
     scanl', iterate', (!?)
   ) where
 
-import List
+import List hiding (genericLength)
 
 infixl 9 !?
 
@@ -105,3 +105,10 @@ stripPrefix _ _ = Nothing
 
 isInfixOf :: Eq a => [a] -> [a] -> Bool
 isInfixOf needle haystack = any (isPrefixOf needle) (tails haystack)
+
+-- | The length as any number (Haskell 2010's Num, not Haskell 98's
+-- Integral: ListLike's genericLength = L.genericLength).
+genericLength :: Num i => [a] -> i
+genericLength = go 0
+  where go n [] = n
+        go n (_ : xs) = let n' = n + 1 in n' `seq` go n' xs
