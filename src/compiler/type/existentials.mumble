@@ -71,6 +71,35 @@
 
 (define *gadt-match* '#f)
 
+;;; The pattern variables of a clause or alternative that matched a GADT
+;;; constructor, while its right-hand sides are checked: a use's type is
+;;; fresh, unified with the variable's part by part (gadt-soft-unify), so
+;;; that the GADT's refinement (Refl :: Equal f (f b) b gives a ~ f b in
+;;; gtraverse_ Refl (Rec1 x) = ... sequenceA x, generic-data) is not
+;;; needed by the variable's type.
+(define *gadt-soft-vars* '())
+
+;;; (those of a pattern with a GADT constructor in it are exactly typed by
+;;; the constructor: eval (Add a b) = eval a + eval b)
+(define (gadt-pattern-vars pats)
+  (lisp:mapcan (lambda (p)
+		 (if (pattern-has-gadt-con? p)
+		     '()
+		     (map (function var-ref-var) (collect-pattern-vars p))))
+	       pats))
+
+(define (pattern-has-gadt-con? p)
+  (cond ((is-type? 'pcon p)
+	 (or (con-gadt? (pcon-con p))
+	     (lisp:some (function pattern-has-gadt-con?) (pcon-pats p))))
+	((is-type? 'as-pat p) (pattern-has-gadt-con? (as-pat-pattern p)))
+	((is-type? 'irr-pat p) (pattern-has-gadt-con? (irr-pat-pattern p)))
+	((is-type? 'sig-pat p) (pattern-has-gadt-con? (sig-pat-pattern p)))
+	((is-type? 'bang-pat p) (pattern-has-gadt-con? (bang-pat-pattern p)))
+	((is-type? 'view-pat p) (pattern-has-gadt-con? (view-pat-pattern p)))
+	((is-type? 'pp-pat-list p) (lisp:some (function pattern-has-gadt-con?) (pp-pat-list-pats p)))
+	(else '#f)))
+
 ;;; The constructor type for a pattern (result T b1 ... bn) and the
 ;;; patterns of its hidden dictionary fields.
 
@@ -118,10 +147,47 @@
 				(collect-pattern-vars (valdef-lhs decl)))))
 	    (let ((inner (caddr entry))
 		  (outer (cadddr entry)))
-	      (when (could-unify? inner outer 32)
-		(type-unify inner outer '#f)))
+	      (soft-unify-parts inner outer 16))
 	    (push entry keep))))
     (setf (dynamic *gadt-cast-types*) (reverse keep))))
+
+;;; The types unified where they could be, part by part: m (U1 p) and
+;;; ReadPrec a, a the signature's (generic-data's toReadPrec U1Leaf = pure
+;;; U1), unify m with ReadPrec, so that pure's Applicative is not
+;;; ambiguous, and leave U1 p and a (the GADT's refinement) apart.
+(define (soft-unify-parts t1 t2 depth)
+  (let ((t1 (prune t1))
+	(t2 (prune t2)))
+    (cond ((could-unify? t1 t2 32)
+	   (type-unify t1 t2 '#f))
+	  ((<= depth 0) '#f)
+	  ((and (ntycon? t1) (ntycon? t2)
+		(eq? (ntycon-tycon t1) (ntycon-tycon t2))
+		(not (family-app? t1))
+		(eqv? (length (ntycon-args t1)) (length (ntycon-args t2))))
+	   (dolist2 (a (ntycon-args t1)) (b (ntycon-args t2))
+	     (soft-unify-parts a b (1- depth))))
+	  ((and (ntyapp? t1) (ntyapp? t2)
+		(eqv? (length (ntyapp-args t1)) (length (ntyapp-args t2))))
+	   (soft-unify-parts (ntyapp-fun t1) (ntyapp-fun t2) (1- depth))
+	   (dolist2 (a (ntyapp-args t1)) (b (ntyapp-args t2))
+	     (soft-unify-parts a b (1- depth))))
+	  ((and (ntyapp? t1) (ntycon? t2) (not (family-app? t2))
+		(>= (length (ntycon-args t2)) (length (ntyapp-args t1))))
+	   (soft-unify-app-parts t1 t2 depth))
+	  ((and (ntyapp? t2) (ntycon? t1) (not (family-app? t1))
+		(>= (length (ntycon-args t1)) (length (ntyapp-args t2))))
+	   (soft-unify-app-parts t2 t1 depth))
+	  (else '#f))))
+
+;;; f x1 .. xk against T t1 .. tn: f with T t1 .. t(n-k), each x with t.
+(define (soft-unify-app-parts app con depth)
+  (let* ((k (length (ntyapp-args app)))
+	 (n (length (ntycon-args con)))
+	 (head (**ntycon (ntycon-tycon con) (list-head (ntycon-args con) (- n k)))))
+    (soft-unify-parts (ntyapp-fun app) head (1- depth))
+    (dolist2 (a (ntyapp-args app)) (b (list-tail (ntycon-args con) (- n k)))
+      (soft-unify-parts a b (1- depth)))))
 
 ;;; Whether the types unify, binding no read-only (a signature's)
 ;;; variable to anything but a free variable.  No side effects: the

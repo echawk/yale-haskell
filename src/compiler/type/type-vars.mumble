@@ -12,7 +12,15 @@
   (mlet (((exp ntype) (type-check-var-ref object var type)))
     (when (not (null? type-args))
       (apply-type-args var type-args))
-    (return-type exp ntype))))
+    (if (memq var (dynamic *gadt-soft-vars*))
+	;; a variable of a clause that matched a GADT constructor
+	;; (existentials.mumble): its use's type, related to its own part
+	;; by part when the signature is checked
+	(let ((use (**ntyvar)))
+	  (push (list object (car (dynamic *enclosing-decls*)) ntype use)
+		(dynamic *gadt-cast-types*))
+	  (return-type exp use))
+	(return-type exp ntype)))))
 
 ;;; TypeApplications: the type arguments are unified with the new type
 ;;; variables of the instance just made (*instance-tyvars*), in order.

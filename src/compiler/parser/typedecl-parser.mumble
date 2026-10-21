@@ -9,6 +9,16 @@
 	 (constrs '()))
     ;; #t = builtins ([] (,,) ->) not allowed
     (check-simple simple '#t "type declaration")
+    ;; KindSignatures (GHC): data T (a :: k) :: Type -> Type: the kind's
+    ;; arrows are more parameters
+    (when (and (haskell98?) (eq-token? '\:\:))
+      (advance-token)
+      (let ((n (parse-kind-arrows)))
+	(dotimes (i n)
+	  (setf (tycon-args simple)
+		(append (tycon-args simple)
+			(list (make tyvar (name (string->symbol
+						 (format '#f "k%~A" (1+ i)))))))))))
     (let ((annotations (parse-constr-annotations)))
      (setf *special-derivings* '())
      (setf *mp-derivings* '())
@@ -41,6 +51,13 @@
 ;;; newtype, or the via type.
 
 (define *special-derivings* '())
+
+;;; The type families of constraints declared (by name).
+(define *constraint-families* '())
+
+;;; InstanceSigs with a forall: (tuple instance-class-ref (tuple method
+;;; signature)), tdecl/instance.mumble's instance-method-renaming
+(define *instance-method-sigs* '())
 
 (define (parse-optional-deriving)
   (token-case
@@ -569,8 +586,16 @@
 				      (name-qualifier (symbol->string (class-ref-name class)))))
 			 (parse-where-decls)))
 	   ;; InstanceSigs (GHC): a method's signature in the instance is
-	   ;; dropped (GHC checks it against the instance's type)
+	   ;; dropped (GHC checks it against the instance's type), but one
+	   ;; with a forall names the method's own type variables, which
+	   ;; scope over its body (*instance-method-sigs*)
 	   (when (haskell98?)
+	     (dolist (d decls)
+	       (when (and (is-type? 'signdecl d)
+			  (not (null? (signature-foralls (signdecl-signature d)))))
+		 (dolist (v (signdecl-vars d))
+		   (push (tuple class (tuple (var-ref-name v) (signdecl-signature d)))
+			 *instance-method-sigs*))))
 	     (setf decls (lisp:remove-if (lambda (d) (is-type? 'signdecl d))
 					 decls)))
 	   (when (some (lambda (d) (is-type? 'fixity-decl d)) decls)
@@ -617,10 +642,15 @@
 
 (define (parse-type-family-decl . data?)
   (when (at-varid-named? "family") (advance-token))
-  (let* ((head (parse-btype))
+  (let* ((head (parse-infix-family-lhs (parse-btype)))
 	 (extra (cond ((eq-token? '\:\:)
 		       (advance-token)
-		       (parse-kind-arrows))
+		       (let ((n (parse-kind-arrows)))
+			 ;; a family of constraints (NewtypeErr a b ::
+			 ;; Constraint): tdecl/alg-syn.mumble's family-name?
+			 (when *kind-result-constraint?*
+			   (push (tycon-name head) *constraint-families*))
+			 n))
 		      ((at-family-result-signature?)
 		       (parse-family-result-signature))
 		      (else 0))))
@@ -643,6 +673,15 @@
     (when (eq-token? '|where|)
       (advance-token)
       (start-layout (function parse-family-equations)))))
+
+;;; An infix family head or equation's left side, a || b (Data.Type.Bool):
+;;; the operator applied to the two.
+(define (parse-infix-family-lhs left)
+  (if (type-operator-here?)
+      (let* ((name (type-operator-name))
+	     (right (parse-btype)))
+	(make tycon (name name) (def *undefined-def*) (args (list left right))))
+      left))
 
 ;;; TypeFamilyDependencies (GHC): type family F a = r | r -> a, or
 ;;; = (r :: kind) | ...  The injectivity is not used; the kind's arrows
@@ -668,14 +707,22 @@
     extra))
 
 ;;; The arrows of a kind: * -> * -> *, Type -> Type, (k -> Type) -> k.
+;;; (*kind-result-constraint?*: whether the kind's result is Constraint)
+(define *kind-result-constraint?* '#f)
+
 (define (parse-kind-arrows)
-  (let ((n 0) (depth 0))
+  (let ((n 0) (depth 0) (last '#f))
     (do () ((or (memq *token* '(\; \} $\} eof |where| =))
 		(and (eqv? depth 0) (eq-token? '\))))
+	    (setf *kind-result-constraint?* (equal? last "Constraint"))
 	    n)
       (cond ((eq-token? '\() (incf depth))
 	    ((eq-token? '\)) (decf depth))
 	    ((and (eqv? depth 0) (eq-token? '->)) (incf n)))
+      (setf last (and (eq-token? 'conid)
+		      (let* ((s (car *token-args*))
+			     (i (lisp:position #\. s :from-end '#t)))
+			(if i (substring s (1+ i) (string-length s)) s))))
       (advance-token))))
 
 (define (parse-family-equations in-layout?)
@@ -691,7 +738,7 @@
 
 ;;; type instance F t1 ... tn = t, or in an instance body type F ... = t
 (define (parse-type-equation)
-  (let ((lhs (parse-btype)))
+  (let ((lhs (parse-infix-family-lhs (parse-btype))))
     (require-token = (signal-missing-token "`='" "type family equation"))
     (let ((rhs (parse-type)))
       (when (not (tycon? lhs))

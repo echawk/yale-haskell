@@ -40,6 +40,15 @@
       (parse-type-operators-1 left)))
 
 (define (parse-type-operators-1 left)
+  (cond ((and (haskell98?) (tilde-here?) (language-extension? "TypeOperators"))
+	 ;; an equality as a type, in a constraint synonym's body (type C a
+	 ;; = (F a ~ '())): %equality, which constraint-synonym-body drops
+	 (advance-token)
+	 (make tycon (name '|%equality|) (def *undefined-def*)
+	       (args (list left (parse-btype)))))
+	(else (parse-type-operators-2 left))))
+
+(define (parse-type-operators-2 left)
   (if (type-operator-here?)
       ;; the operands and operators, associated by the operators'
       ;; fixities once they are known (a %type-op-chain, symbol-table's
@@ -182,8 +191,44 @@
     (promoted-tick
      (require-token \[ (signal-missing-token "`['" "type-level list"))
      (promoted-list (parse-promoted-list-elements)))
+    ;; DataKinds' type-level literals ("text", 3, 'c'): type-literal
+    ((no-advance integer)
+     (let ((n (car *token-args*)))
+       (advance-token)
+       (**tycon/def (core-symbol "TypeNat") (list (type-literal-bits n)))))
+    ((no-advance string)
+     (let ((s (car *token-args*)))
+       (advance-token)
+       (**tycon/def (core-symbol "TypeSymbol")
+		    (list (promoted-list
+			   (map (function type-literal-char)
+				(string->list s)))))))
+    ((no-advance char)
+     (let ((c (car *token-args*)))
+       (advance-token)
+       (type-literal-char c)))
     (else
      (signal-invalid-syntax "an atype"))))
+
+;;; A type-level literal is a type of PreludeCore's empty types, so equal
+;;; literals are equal types without definitions of their own: a natural
+;;; number is TypeNat of its binary digits, least significant first, a
+;;; promoted list of TypeB0 and TypeB1 (0: the empty list); a character
+;;; is TypeChar of its code's; a string is TypeSymbol of a promoted list
+;;; of its characters.  GHC.TypeLits' KnownNat, KnownSymbol and KnownChar
+;;; have instances for them.
+
+(define (type-literal-bits n)
+  (if (<= n 0)
+      (**tycon/def (core-symbol "PromotedNil") '())
+      (**tycon/def (core-symbol "PromotedCons")
+		   (list (**tycon/def (if (= (remainder n 2) 1) (core-symbol "TypeB1") (core-symbol "TypeB0"))
+				      '())
+			 (type-literal-bits (quotient n 2))))))
+
+(define (type-literal-char c)
+  (**tycon/def (core-symbol "TypeChar")
+	       (list (type-literal-bits (char->integer c)))))
 
 ;;; The rest of a parenthesised kind signature, through its `)': a kind
 ;;; (*, Type, k -> k, Constraint, ...) is not checked.

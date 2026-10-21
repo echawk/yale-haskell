@@ -120,12 +120,17 @@
 			(and b (eq? *module-name* (def-module b)))))
 		 (setf (table-entry *fixity-table* op) fixity))
 		((and (eq? def '#f)
-		      ;; a type operator's (infix 4 :~:): types' fixities are
-		      ;; not used (parser/type-parser.mumble)
-		      (let ((tdef (resolve-toplevel-name (remove-con-prefix/symbol op))))
-			(and tdef (or (algdata? tdef) (synonym? tdef) (class? tdef))
-			     (eq? *module-name* (def-module tdef)))))
-		 '#f)
+		      ;; a type operator's (infix 4 :~:), kept for
+		      ;; symbol-table's type-operator-fixity
+		      (local-type-operator? (remove-con-prefix/symbol op)))
+		 (set-type-operator-fixity (remove-con-prefix/symbol op) fixity))
+		;; a type operator named as a value is (infixr 2 || with a
+		;; type family ||, Data.Type.Bool): type%||
+		((local-type-operator? (type-operator-symbol op))
+		 (set-type-operator-fixity (type-operator-symbol op) fixity)
+		 (when (and def (eq? *module-name* (def-module def)) (var? def))
+		   (setf (var-fixity def) fixity)
+		   (setf (table-entry *fixity-table* op) fixity)))
 		((or (eq? def '#f) (not (eq? *module-name* (def-module def))))
 		 ;;; ***This is WRONG!  Inner fixities may be found.
 		 (signal-non-local-fixity op))
@@ -137,3 +142,20 @@
 		 (setf (table-entry *fixity-table* op) fixity))
 		(else (signal-fixity-not-var/con op))))))))
 
+
+(define (local-type-operator? name)
+  (let ((tdef (resolve-toplevel-name name)))
+    (and tdef (or (algdata? tdef) (synonym? tdef) (class? tdef))
+	 (eq? *module-name* (def-module tdef)))))
+
+;;; The type a varsym operator names (parser/type-parser.mumble's
+;;; type-operator-name).
+(define (type-operator-symbol op)
+  (string->symbol (string-append "type%" (symbol->string op))))
+
+;;; on the type's definition, so that importers have it too
+(define (set-type-operator-fixity name fixity)
+  (let ((tdef (resolve-toplevel-name name)))
+    (when (or (algdata? tdef) (synonym? tdef))
+      (setf (tycon-def-fixity tdef) fixity))
+    (setf (table-entry *fixity-table* name) fixity)))

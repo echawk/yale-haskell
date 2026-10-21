@@ -189,8 +189,11 @@
 		 ;; Monad (m s): kept, a given whose dictionary is a
 		 ;; parameter, as a multi-parameter constraint's is
 		 (not (tyvar-application? (car (mp-context-types c))))
-		 ;; GDefault (Rep a), on a type family application: kept too
-		 (not (family-application-ast? (car (mp-context-types c)))))
+		 ;; GDefault (Rep a), on a type family application: kept too,
+		 ;; also through synonyms (generic-data's Show (ConIdNamed' n t),
+		 ;; a synonym of a family's)
+		 (not (family-application-ast? (car (mp-context-types c))))
+		 (reducible-context-type? class (car (mp-context-types c)) 20))
 	    (setf added (append (reduce-context-type class (car (mp-context-types c)))
 				added))
 	    (push c keep))))
@@ -241,7 +244,15 @@
 				       (instantiate-mp-super-template
 					p (list (**tyvar (context-tyvar c)))))
 				     (tuple-2-2 s))))
-		(class-mp-mp-supers class))
+		;; and those of its one-parameter superclasses, at the same
+		;; variable (generic-data's GTraversable t => GTraversable_ t
+		;; => GTraverse Kleisli t)
+		(append (class-mp-mp-supers class)
+			(lisp:mapcan (lambda (super)
+				       (if (class? super)
+					   (lisp:copy-list (class-mp-mp-supers super))
+					   '()))
+				     (class-super* class))))
 	   '())))
    context))
 
@@ -270,7 +281,19 @@
 	(setf work (cdr work))
 	(incf n)
 	(when (class? class)
-	  (dolist (s (class-mp-mp-supers class))
+	  (dolist (s (append (class-mp-mp-supers class)
+			     ;; a one-parameter class at a type that is not a
+			     ;; variable (GTraversable (Rep1 f)): its
+			     ;; one-parameter superclasses there, whose own
+			     ;; multi-parameter ones follow
+			     (if (mp-class? class)
+				 '()
+				 (map (lambda (super) (tuple super (list 0)))
+				      (lisp:remove-if-not
+				       (lambda (super)
+					 (and (class? super)
+					      (not (null? (class-mp-mp-supers super)))))
+				       (class-super* class))))))
 	    (let ((types (map (lambda (p)
 				(instantiate-mp-super-template p (mp-context-types c)))
 			      (tuple-2-2 s))))
@@ -335,6 +358,47 @@
        (begin (resolve-type-1 type '() '#t) '#t)
        (let ((def (tycon-def type)))
 	 (and (synonym? def) (synonym-family? def)))))
+
+;;; Whether reduce-context-type can take TYPE apart: through synonyms
+;;; applied to all their parameters, to a variable or a data type
+;;; (generic-data's Show (ConIdNamed' n t) is a family's, kept).
+(define (reducible-context-type? class type depth)
+  (resolve-type type)
+  (cond ((<= depth 0) '#f)
+	((tyvar? type) '#t)
+	((not (tycon? type)) '#f)
+	((algdata? (tycon-def type))
+	 ;; (as reduce-context-type: the instance's context at the arguments)
+	 (let ((inst (lookup-instance (tycon-def type) class)))
+	   (or (eq? inst '#f)
+	       (null? (instance-tyvars inst))
+	       (not (eqv? (length (instance-tyvars inst)) (length (tycon-args type))))
+	       (every (lambda (ic)
+			(let ((cl (class-ref-class (context-class ic))))
+			  (and (class? cl)
+			       (reducible-context-type?
+				cl
+				(find-corresponding-tyvar
+				 (context-tyvar ic) (instance-tyvars inst)
+				 (tycon-args type))
+				(1- depth)))))
+		      (instance-context inst)))))
+	((and (synonym? (tycon-def type))
+	      (not (synonym-family? (tycon-def type)))
+	      (synonym-body (tycon-def type))
+	      (eqv? (length (tycon-args type)) (length (synonym-args (tycon-def type)))))
+	 (reducible-context-type? class (expand-synonym type) (1- depth)))
+	(else '#f)))
+
+;;; TYPE with the synonyms (not families) at its head expanded.
+(define (expand-plain-synonyms type depth)
+  (resolve-type type)
+  (if (and (> depth 0) (tycon? type) (synonym? (tycon-def type))
+	   (not (synonym-family? (tycon-def type)))
+	   (synonym-body (tycon-def type))
+	   (eqv? (length (tycon-args type)) (length (synonym-args (tycon-def type)))))
+      (expand-plain-synonyms (expand-synonym type) (1- depth))
+      type))
 
 (define (reduce-context-type class type)
   (resolve-type type)
@@ -592,11 +656,16 @@
 ;;; The synonym's constraints with its parameters replaced by TYPES:
 ;;; returns the one-parameter contexts (on type variables) and the others.
 (define (instantiate-constraint-synonym syn types)
-  (let ((env (map (lambda (v ty) (tuple v ty)) (synonym-args syn) types))
-	(single '())
-	(multi '()))
-    (dolist (c (synonym-constraints syn))
-      (let ((args (map (lambda (a) (copy-synonym-body a env)) (cdr c))))
+  (let* ((n (length (synonym-args syn)))
+	 (env (map (lambda (v ty) (tuple v ty)) (synonym-args syn) (list-head types (min n (length types)))))
+	 ;; an eta-reduced synonym's further arguments (type GShow0 =
+	 ;; GShow Proxy, at GShow0 (Rep a)) are its constraint's last
+	 (extra (list-tail types (min n (length types))))
+	 (single '())
+	 (multi '()))
+    (dolist (c (lisp:remove '|%true| (synonym-constraints syn) :key (function car)))
+      (let ((args (append (map (lambda (a) (copy-synonym-body a env)) (cdr c))
+			  extra)))
 	(if (and (pair? args) (null? (cdr args)) (tyvar? (car args)))
 	    (push (make context (class (make class-ref (name (car c))
 					      (class *undefined-def*)))

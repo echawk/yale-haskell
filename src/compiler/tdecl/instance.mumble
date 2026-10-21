@@ -24,9 +24,62 @@
 ;;; Needs work for interface files.
 
 (define (instance->def inst-decl)
- (if (not (null? (instance-decl-types inst-decl)))
-     (mp-instance->def inst-decl)
-     (instance->def-1 inst-decl)))
+ ;; ConstraintKinds: constraint synonyms in the context (generic-data's
+ ;; GShow0 (Rep a), GShow0 = GShow Proxy)
+ (let ((sig (**signature (instance-decl-context inst-decl) (**tyvar '|a|))))
+   (setf (signature-mcontext sig) (instance-decl-mcontext inst-decl))
+   (expand-constraint-synonyms sig)
+   (setf (instance-decl-context inst-decl) (signature-context sig))
+   (setf (instance-decl-mcontext inst-decl) (signature-mcontext sig)))
+ (let ((inst (if (not (null? (instance-decl-types inst-decl)))
+		 (mp-instance->def inst-decl)
+		 (instance->def-1 inst-decl)))
+       (sigs '()))
+   (dolist (e *instance-method-sigs*)
+     (when (eq? (tuple-2-1 e) (instance-decl-class inst-decl))
+       (push (tuple-2-2 e) sigs)))
+   (when (and inst (not (null? sigs)))
+     (push (tuple inst sigs) *instance-sigs*))
+   inst))
+
+;;; InstanceSigs with a forall (parser/typedecl-parser.mumble): for each
+;;; instance, (tuple method-name signature).  The method's own type
+;;; variables are given the signature's names, and scope over its body
+;;; (instance D Tree where mk :: forall b. [b] -> Tree b; mk ys = r where
+;;; r :: Tree b ...): generate-method-signature.
+(define *instance-sigs* '())
+
+;;; (tuple old-name new-name) for the method's type's variables, found by
+;;; walking the method's type at the instance and the instance's
+;;; signature's type together.
+(define (instance-method-renaming inst method-var type)
+  (let ((e (assq inst *instance-sigs*)))
+    (if (not e)
+	'()
+	(let ((s (assq (def-name method-var) (tuple-2-2 e))))
+	  (if (not s)
+	      '()
+	      (let ((env '()))
+		(match-type-tyvars type (signature-type (tuple-2-2 s))
+		  (lambda (old new)
+		    (when (and (not (memq old (instance-tyvars inst)))
+			       (not (assq old env)))
+		      (push (tuple old new) env))))
+		env))))))
+
+(define (match-type-tyvars t1 t2 found)
+  (cond ((and (tyvar? t1) (tyvar? t2))
+	 (funcall found (tyvar-name t1) (tyvar-name t2)))
+	((and (tycon? t1) (tycon? t2)
+	      (eqv? (length (tycon-args t1)) (length (tycon-args t2))))
+	 (dolist2 (a (tycon-args t1)) (b (tycon-args t2))
+	   (match-type-tyvars a b found)))
+	((and (tyapp? t1) (tyapp? t2)
+	      (eqv? (length (tyapp-args t1)) (length (tyapp-args t2))))
+	 (match-type-tyvars (tyapp-fun t1) (tyapp-fun t2) found)
+	 (dolist2 (a (tyapp-args t1)) (b (tyapp-args t2))
+	   (match-type-tyvars a b found)))
+	(else '#f)))
 
 ;;; An instance of a multi-parameter class: C t1 ... tn, each ti a tyvar
 ;;; or a type constructor applied to distinct tyvars.
@@ -526,11 +579,14 @@
 					(tuple-2-1 m-v)	(tuple-2-2 m-v)	inst))
 				     new-instance-vars)
 				(map (lambda (c)
-				       (if (num-stub-superclass? inst c)
-					   (**abort (format '#f
+				       (cond ((instance-catch-all? inst)
+					      (catch-all-super-dict c))
+					     ((num-stub-superclass? inst c)
+					      (**abort (format '#f
      "Num ~A has no ~A instance here (base's Num has no superclasses)."
-						     algdata c))
-					   (get-class-dict algdata c)))
+						     algdata c)))
+					     (else
+					      (get-class-dict algdata c))))
 				     super*)))))
 	  (let ((dict-sig (generate-dictionary-signature inst)))
 	    (add-new-module-signature dictionary dict-sig))
@@ -541,11 +597,80 @@
   ;; parameters: the instance's dictionaries alone are applied
   (if (and (null? (signature-context (method-var-method-signature method-var)))
 	   (null? (signature-mcontext (method-var-method-signature method-var))))
-      (**var/def inst-var)
+      (if (ambiguous-instance-method? inst method-var)
+	  (instance-method-type-app inst method-var inst-var)
+	  (**var/def inst-var))
       (let ((sig (generate-method-signature inst method-var '#f)))
 	(make overloaded-var-ref
 	      (sig (signature->gtype sig))
 	      (var inst-var)))))
+
+;;; AllowAmbiguousTypes: a method whose type leaves out a variable the
+;;; instance's context constrains (generic-data's gCardinality :: Int in
+;;; instance (Bounded c, Enum c) => GEnum FiniteEnum (K1 i c)).  The
+;;; dictionary names the instance's variables (scoped: its signature's
+;;; foralls) and applies the method to them, m @c, in the order of the
+;;; method's type's variables; another of its variables is a fresh one.
+
+(define (ambiguous-instance-method? inst method-var)
+  (let ((in-type (ast-tyvar-names
+		  (substitute-class-tyvars
+		   (signature-type (method-var-method-signature method-var)) inst))))
+    (lisp:some (lambda (v) (not (memq v in-type)))
+	       (instance-context-tyvars inst))))
+
+(define (instance-context-tyvars inst)
+  (append (map (function context-tyvar) (instance-context inst))
+	  (lisp:mapcan (lambda (c)
+			 (lisp:mapcan (function ast-tyvar-names)
+				      (mp-context-types c)))
+		       (instance-mcontext inst))))
+
+(define (instance-method-type-app inst method-var inst-var)
+  (let* ((g (signature->gtype (generate-method-signature inst method-var '#t)))
+	 (exp (**var/def inst-var))
+	 (n 0))
+    (dolist (name (gtype-tyvar-names g))
+      (setf exp (make type-app (exp exp)
+		      (type (**tyvar (if (memq name (instance-tyvars inst))
+					 name
+					 (begin
+					   (incf n)
+					   (string->symbol
+					    (format '#f "fresh-~A" n)))))))))
+    exp))
+
+(define (instance-has-ambiguous-method? inst)
+  (lisp:some (lambda (m)
+	       (and (null? (signature-context (method-var-method-signature m)))
+		    (null? (signature-mcontext (method-var-method-signature m)))
+		    (ambiguous-instance-method? inst m)))
+	     (class-method-vars (instance-class inst))))
+
+;;; A catch-all instance's (instance GFoldable_ t => GFoldable t,
+;;; generic-data) superclass dictionary at its variable: from its context,
+;;; as the type checker finds it.  primUnsafeCoerce, the identity, is
+;;; given the type S a => <S's dictionary at a>, so that the dictionary
+;;; placeholder for S a is its argument.
+(define (catch-all-super-dict super)
+  (let ((sig (**signature (list (**context (**class/def super) '|a|))
+			  (class-dictionary-type super (**tyvar '|a|)))))
+    (make overloaded-var-ref
+	  (sig (signature->gtype sig))
+	  (var (prelude-prim-def '|primUnsafeCoerce|)))))
+
+;;; The type of CLASS's dictionary at SIMPLE, from the class alone: its
+;;; methods' types, then its superclasses' dictionaries.
+(define (class-dictionary-type class simple)
+  (if (empty-dictionary-class? class)
+      (**tycon/def (core-symbol "List") (list simple))
+      (**tuple-type/l
+       (append (map (lambda (m)
+		      (substitute-tyvar (signature-type (method-var-method-signature m))
+					(class-tyvar class) simple))
+		    (class-method-vars class))
+	       (map (lambda (s) (class-dictionary-type s simple))
+		    (class-super* class))))))
 
 (define (get-class-dict algdata class)
   (let ((inst (lookup-instance algdata class)))
@@ -649,23 +774,47 @@
 
 (define (generate-method-signature inst method-var keep-method-context?)
   (let* ((class-context (instance-context inst))
-	 (signature (method-var-method-signature method-var)))
-    (make signature
-	  ;; ScopedTypeVariables: the instance's type variables scope over
-	  ;; the method's body (only those kept by name, expand-instance-
-	  ;; decls-1)
-	  (foralls (if (or (module-extension? "ScopedTypeVariables")
-			   (instance-scoped-tyvars? inst))
-		       (instance-tyvars inst)
-		       '()))
-	  (context (if keep-method-context?
-		       (append class-context (signature-context signature))
-		       class-context))
-	  (type (substitute-class-tyvars (signature-type signature) inst))
-	  (mcontext (if keep-method-context?
-			(append (instance-mcontext inst)
-				(signature-mcontext signature))
-			(instance-mcontext inst))))))
+	 (signature (method-var-method-signature method-var))
+	 (type (substitute-class-tyvars (signature-type signature) inst))
+	 (renaming (instance-method-renaming inst method-var type))
+	 (sig
+	  (make signature
+		;; ScopedTypeVariables: the instance's type variables scope over
+		;; the method's body (only those kept by name, expand-instance-
+		;; decls-1), and an instance signature's forall's
+		(foralls (append
+			  (if (or (module-extension? "ScopedTypeVariables")
+				  (instance-scoped-tyvars? inst))
+			      (instance-tyvars inst)
+			      '())
+			  (map (function tuple-2-2) renaming)))
+		(context (if keep-method-context?
+			     (append class-context (signature-context signature))
+			     class-context))
+		(type type)
+		(mcontext (if keep-method-context?
+			      (append (instance-mcontext inst)
+				      (signature-mcontext signature))
+			      (instance-mcontext inst))))))
+    (dolist (r renaming)
+      (setf sig (rename-signature-tyvar sig (tuple-2-1 r) (tuple-2-2 r))))
+    sig))
+
+(define (rename-signature-tyvar sig old new)
+  (make signature
+	(foralls (signature-foralls sig))
+	(context (map (lambda (c)
+			(if (eq? (context-tyvar c) old)
+			    (**context (context-class c) new)
+			    c))
+		      (signature-context sig)))
+	(type (substitute-tyvar (signature-type sig) old (**tyvar new)))
+	(mcontext (map (lambda (c)
+			 (**mp-context (mp-context-class c)
+				       (map (lambda (ty)
+					      (substitute-tyvar ty old (**tyvar new)))
+					    (mp-context-types c))))
+		       (signature-mcontext sig)))))
 
 (define (make-instance-type inst)
   (if (instance-catch-all? inst)
@@ -685,6 +834,8 @@
 			      (generate-dictionary-type inst (make-instance-type inst))
 			      (generate-mp-dictionary-type inst)))))
     (setf (signature-mcontext sig) (instance-mcontext inst))
+    (when (instance-has-ambiguous-method? inst)
+      (setf (signature-foralls sig) (instance-tyvars inst)))
     sig))
 
 ;;; The tuple of a multi-parameter instance's method types.  A class
@@ -745,11 +896,16 @@
 						       simple)))
 				 (class-method-vars class))
 			    (map (lambda (super-class)
-				   (let ((super (lookup-instance algdata super-class)))
-				     (if (eq? super '#f)
-					 (signal-missing-superclass-instance
-					  super-class algdata class)
-					 (generate-dictionary-type super simple))))
+				   (let ((super (and algdata
+						     (lookup-instance algdata super-class))))
+				     (cond ((not algdata)
+					    ;; a catch-all instance's
+					    (class-dictionary-type super-class simple))
+					   ((eq? super '#f)
+					    (signal-missing-superclass-instance
+					     super-class algdata class))
+					   (else
+					    (generate-dictionary-type super simple)))))
 				 (class-super* class))))))
 
 (define (signal-missing-superclass-instance super algdata class)

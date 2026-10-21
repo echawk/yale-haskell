@@ -672,7 +672,8 @@
 
 (define (instance-mp-dict-args instance type dict deferred decls edecls var)
   (let ((bindings (list (tuple '|%none| '|%none|))))
-    (dolist2 (tv (instance-tyvars instance)) (ty (ntycon-args type))
+    ;; (a catch-all instance's variable is the whole type: instance-arg-types)
+    (dolist2 (tv (instance-tyvars instance)) (ty (instance-arg-types instance type))
       (push (tuple tv ty) bindings))
     (dolist (c (instance-mcontext instance))
       (mlet (((types b1) (ast->ntype/bindings/l (mp-context-types c) bindings))

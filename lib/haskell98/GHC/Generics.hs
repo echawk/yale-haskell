@@ -6,7 +6,7 @@
 -- types (distributive's Distributive U1, ...), compile, but generic
 -- programming over a derived instance does not run.
 module GHC.Generics (
-    Generic(from, to), Rep, Generic1(from1, to1), Rep1,
+    Generic(..), Rep, Generic1(..), Rep1,
     V1, U1(U1), Par1(Par1, unPar1), Rec1(Rec1, unRec1), K1(K1, unK1),
     M1(M1, unM1), (:+:)(L1, R1), (:*:)((:*:)), (:.:)(Comp1, unComp1),
     R, D, C, S, Rec0, D1, C1, S1,

@@ -11,6 +11,13 @@
      (lambda ()       
       (dolist (c (module-classes *module*))
        (remember-context c
+	;; ConstraintKinds: constraint synonyms among the superclasses
+	;; (generic-data's class NonEmptyType_ fname a => NonEmptyType ...)
+	(let ((sig (**signature (class-decl-super-classes c) (**tyvar '|a|))))
+	  (setf (signature-mcontext sig) (class-decl-mp-super-classes c))
+	  (expand-constraint-synonyms sig)
+	  (setf (class-decl-super-classes c) (signature-context sig))
+	  (setf (class-decl-mp-super-classes c) (signature-mcontext sig)))
 	(with-slots class-decl (super-classes class class-var class-vars fundeps
 				   mp-super-classes) c
 	  (let* ((def (class-ref-class class))

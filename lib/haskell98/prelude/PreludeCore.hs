@@ -31,7 +31,9 @@ module PreludeCore (
     mapM, mapM_, sequence, sequence_, (=<<),
     Char, Int, Integer, Float, Double,
     Ratio, Complex((:+)), Assoc((:=)), Array,
-    String(..), Rational(..) )  where
+    String(..), Rational(..),
+    -- type-level lists and literals, for GHC.TypeLits (not the Prelude's)
+    PromotedNil, PromotedCons, TypeNat, TypeSymbol, TypeChar, TypeB0, TypeB1 )  where
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
@@ -69,6 +71,12 @@ data UnitType = UnitConstructor deriving (Eq, Ord, Ix)
 -- DataKinds' type-level lists (parser/type-parser.mumble); never values
 data PromotedNil = PromotedNilC
 data PromotedCons a b = PromotedConsC a b
+-- type-level literals (parser/type-parser.mumble's type-literal-bits)
+data TypeNat bits = TypeNatC bits
+data TypeSymbol chars = TypeSymbolC chars
+data TypeChar bits = TypeCharC bits
+data TypeB0 = TypeB0C
+data TypeB1 = TypeB1C
 
 -- Equality and Ordered classes
 

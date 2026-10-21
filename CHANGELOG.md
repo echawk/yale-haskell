@@ -19,8 +19,22 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
-## Unreleased
+## 3.1.0.0 (2026-10-21)
 
+- Toward Agda's dependency chain (aeson, async, blaze-*, generic-data,
+  STMonadTrans, equivalence, filelock, filemanip, unix-compat ...):
+  type-level literals ("text", 3, 'c') with KnownSymbol, KnownNat,
+  KnownChar and type-level (+); classes as type arguments; GADT type
+  refinement for pattern variables and pattern guards; multi-parameter
+  classes in deriving clauses, newtype deriving through transformers'
+  contexts; DefaultSignatures with t n ~ m; InstanceSigs' foralls;
+  catch-all instances with superclasses and multi-parameter contexts;
+  constraint synonyms (eta-reduced, with equalities and constraint
+  families) in instance and class contexts; type-operator fixities across
+  modules; Data.Type.Bool; unix's System.Posix (Files, Process, Temp,
+  Time, Unistd); System.Directory's canonicalizePath and the XDG
+  directories; bytestring's Builder.Extra and Builder.Prim.Internal;
+  MicroCabal reads CPP-only .hsc sources.
 - GHC primops for packages written against GHC.Exts (primitive, vector):
   arrays, byte arrays (malloc'd memory), Addr#, MutVar#, MVar#, stable
   pointers, threaded by the State# token (GHC.PrimOps,

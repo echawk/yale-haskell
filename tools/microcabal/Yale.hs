@@ -66,6 +66,8 @@ builtinPackages =
     -- depended on for code compiled only by GHC; there is no Template
     -- Haskell, so a module that imports Language.Haskell.TH fails
     "template-haskell",
+    -- of GHC's boot packages, GHC.Lexeme (generic-data's)
+    "ghc-boot-th",
     -- compatibility packages whose modules base has
     "fail", "semigroups", "void", "nats", "tagged-compat" ]
 
@@ -110,7 +112,9 @@ stagePackage env db name vers flds = do
       incDirs = getFieldStrings flds []    "include-dirs"
       defExts = getFieldStrings flds []    "default-extensions"
       exts    = getFieldStrings flds defExts "extensions"
-      lang    = maybeToList (getFieldStringM flds "default-language")
+      -- none given: Haskell98, as Cabal assumes (filemanip's data Ix a
+      -- => SRange a, a datatype context)
+      lang    = [fromMaybe "Haskell98" (getFieldStringM flds "default-language")]
       cppOpts = getFieldStrings flds []    "cpp-options"
   -- $YALE_CPP_OPTIONS: more for every package (-D__GLASGOW_HASKELL__=906
   -- for code that only GHC is expected to compile)

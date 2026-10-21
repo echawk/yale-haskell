@@ -56,6 +56,11 @@ data UnitType = UnitConstructor deriving (Eq, Ord, Ix, Enum, Binary)
 -- DataKinds' type-level lists (parser/type-parser.mumble); never values
 data PromotedNil = PromotedNilC
 data PromotedCons a b = PromotedConsC a b
+data TypeNat bits = TypeNatC bits
+data TypeSymbol chars = TypeSymbolC chars
+data TypeChar bits = TypeCharC bits
+data TypeB0 = TypeB0C
+data TypeB1 = TypeB1C
 
 -- Equality and Ordered classes
 

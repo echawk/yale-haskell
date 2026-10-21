@@ -157,7 +157,17 @@
       (let ((c (car work)))
 	(setf work (cdr work))
 	(incf n)
-	(dolist (s (class-mp-mp-supers (tuple-2-1 c)))
+	(dolist (s (append (class-mp-mp-supers (tuple-2-1 c))
+			   ;; a one-parameter class's one-parameter superclasses
+			   ;; (util/signature.mumble's with-mp-mp-superclasses)
+			   (if (mp-class? (tuple-2-1 c))
+			       '()
+			       (map (lambda (super) (tuple super (list 0)))
+				    (lisp:remove-if-not
+				     (lambda (super)
+				       (and (class? super)
+					    (not (null? (class-mp-mp-supers super)))))
+				     (class-super* (tuple-2-1 c)))))))
 	  (let ((types (map (lambda (p) (instantiate-mp-super-template/ntype
 					 p (tuple-2-2 c)))
 			    (tuple-2-2 s))))

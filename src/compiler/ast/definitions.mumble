@@ -136,7 +136,10 @@
 (define-struct tycon-def
   (include def)
   (slots
-   (arity (type integer) (default -1))))
+   (arity (type integer) (default -1))
+   ;; a type operator's (infixr 2 ||, :~:): top/symbol-table.mumble's
+   ;; type-operator-fixity
+   (fixity (type (maybe fixity)) (default '#f))))
 
 (define-struct synonym
   (include tycon-def)

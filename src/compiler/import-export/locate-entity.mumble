@@ -92,6 +92,9 @@
 		       ((and (algdata? def) (feature? 'records))
 			(match-constituents group (entity-class-methods entity)
 					    entity "constructor or field"))
+		       ;; T() of a synonym (generic-data's DCat())
+		       ((and (synonym? def) (null? (entity-class-methods entity)))
+			group)
 		       (else
 			(signal-wrong-definition "class" name (module-name mod)))))
 		((is-type? 'entity-datatype entity)

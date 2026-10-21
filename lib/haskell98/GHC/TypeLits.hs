@@ -1,16 +1,19 @@
--- GHC.TypeLits (base), the names and classes only: Yale Haskell does
--- not check kinds, so Symbol and Nat are usable as kinds, and it has no
--- type-level literals ("foo", 3 in types), so KnownSymbol, KnownNat and
--- KnownChar have no instances for them; programs can define instances
--- for their own types.
+-- GHC.TypeLits (base): Yale Haskell does not check kinds, so Symbol and
+-- Nat are usable as kinds.  Type-level literals ("foo", 3, 'c') are
+-- PreludeCore's TypeSymbol, TypeNat and TypeChar over binary digits
+-- (parser/type-parser.mumble), with KnownSymbol, KnownNat and KnownChar
+-- instances.
+{-# LANGUAGE FlexibleInstances, ExistentialQuantification, TypeFamilies, TypeOperators, DataKinds, PolyKinds #-}
 module GHC.TypeLits (
     Symbol, Nat, Natural, KnownNat(natSing), natVal, SNat, fromSNat,
     KnownSymbol(symbolSing), symbolVal, SSymbol, fromSSymbol,
-    KnownChar(charSing), charVal, SChar, fromSChar
+    KnownChar(charSing), charVal, SChar, fromSChar,
+    ErrorMessage(..), TypeError, type (+), Div, Mod, CmpNat
   ) where
 
 import Numeric.Natural (Natural)
-import GHC.TypeNats (Nat, KnownNat(natSing), SNat, fromSNat)
+import GHC.TypeNats (Nat, KnownNat(natSing), SNat, fromSNat, KnownBits(bitsValue), BitsValue(..), type (+), Div, Mod, CmpNat)
+import PreludeCore (TypeSymbol, TypeChar, PromotedNil, PromotedCons)
 
 data Symbol
 
@@ -44,3 +47,43 @@ charVal :: KnownChar n => proxy n -> Char
 charVal p = fromSChar (sing p)
   where sing :: KnownChar n => proxy n -> SChar n
         sing _ = charSing
+
+-- the characters of a TypeSymbol, each TypeChar of its code's digits
+newtype CharsValue cs = CharsValue String
+
+class KnownChars cs where
+  charsValue :: CharsValue cs
+
+instance KnownChars PromotedNil where
+  charsValue = CharsValue ""
+instance (KnownChar c, KnownChars cs) => KnownChars (PromotedCons c cs) where
+  charsValue = consChar charSing charsValue
+
+consChar :: SChar c -> CharsValue cs -> CharsValue (PromotedCons c cs)
+consChar (UnsafeSChar c) (CharsValue s) = CharsValue (c : s)
+
+instance KnownChars cs => KnownSymbol (TypeSymbol cs) where
+  symbolSing = symbolOf charsValue
+
+symbolOf :: CharsValue cs -> SSymbol (TypeSymbol cs)
+symbolOf (CharsValue s) = UnsafeSSymbol s
+
+instance KnownBits bs => KnownChar (TypeChar bs) where
+  charSing = charOf bitsValue
+
+charOf :: BitsValue bs -> SChar (TypeChar bs)
+charOf (BitsValue n) = UnsafeSChar (toEnum (fromInteger n))
+
+-- Custom type errors: the messages, used promoted ('Text "..."); a
+-- TypeError has no equations, so the type stays as it is (the program is
+-- rejected for it only when it does not type check otherwise).
+infixl 6 :<>:
+infixl 5 :$$:
+
+data ErrorMessage
+  = Text Symbol
+  | forall t. ShowType t
+  | ErrorMessage :<>: ErrorMessage
+  | ErrorMessage :$$: ErrorMessage
+
+type family TypeError (msg :: ErrorMessage) :: k

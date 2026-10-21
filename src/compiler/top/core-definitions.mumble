@@ -136,7 +136,12 @@
      "UnitType"
      "TupleDicts"
      "PromotedNil"
-     "PromotedCons")
+     "PromotedCons"
+     "TypeNat"
+     "TypeSymbol"
+     "TypeChar"
+     "TypeB0"
+     "TypeB1")
   (constructors 
      "MkFloat"
      "MkDouble"

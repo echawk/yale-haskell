@@ -343,13 +343,28 @@
 
 ;;; ConstraintKinds: type C a = (Show a, Num a), or = Show a: a synonym
 ;;; for constraints (its body's heads are classes).
+;;; Whether NAME is a family of constraints (:: Constraint, recorded by
+;;; parser/typedecl-parser.mumble), this module's or another's.
+(define (family-name? name)
+  (let ((def (resolve-toplevel-name name)))
+    (and def
+	 (memq (def-name def) *constraint-families*)
+	 '#t)))
+
 (define (constraint-synonym-body body)
-  (let ((parts (if (and (tycon? body)
-			(not (eq? (tycon-def body) *undefined-def*))
-			(algdata? (tycon-def body))
-			(is-tuple-tycon? (tycon-def body)))
-		   (tycon-args body)
-		   (list body))))
+  (let ((parts (lisp:remove-if
+		;; an equality (~): not kept, as outside a signature; nor a
+		;; constraint-valued family (generic-data's NewtypeErr a b, a
+		;; TypeError's or ()), which is not evaluated
+		(lambda (p) (and (tycon? p)
+				 (or (eq? (tycon-name p) '|%equality|)
+				     (family-name? (tycon-name p)))))
+		(if (and (tycon? body)
+			 (not (eq? (tycon-def body) *undefined-def*))
+			 (algdata? (tycon-def body))
+			 (is-tuple-tycon? (tycon-def body)))
+		    (tycon-args body)
+		    (list body)))))
     (and (every (lambda (p)
 		  (and (tycon? p)
 		       ;; the function type's tycon is named Arrow, as
@@ -360,7 +375,27 @@
 			     (and (synonym? def)
 				  (not (null? (synonym-constraints def))))))))
 		parts)
-	 (map (lambda (p) (cons (tycon-name p) (tycon-args p))) parts))))
+	 (map (lambda (p)
+		(if (eq? p '|%true|)
+		    (list '|%true|)
+		    (begin
+		      ;; (resolved: an argument's type constructor is dumped
+		      ;; in an interface, type GShow0 = GShow Proxy)
+		      (dolist (a (tycon-args p))
+			(resolve-type-1 a '() '#t))
+		      (cons (tycon-name p) (tycon-args p)))))
+	      (if (null? parts)
+		  ;; nothing but equalities: the true constraint
+		  (if (and (tycon? body)
+			   (or (eq? (tycon-name body) '|%equality|)
+			       (family-name? (tycon-name body))
+			       (lisp:some (lambda (p) (and (tycon? p)
+							   (or (eq? (tycon-name p) '|%equality|)
+							       (family-name? (tycon-name p)))))
+					  (tycon-args body))))
+		      (list '|%true|)
+		      '())
+		  parts)))))
 
 (define (synonym->def-1 synonym-decl)
  (let ((constraints (constraint-synonym-body (synonym-decl-body synonym-decl))))

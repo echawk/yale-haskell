@@ -7,8 +7,9 @@
 (define-type-checker guarded-rhs
   (if (is-type? 'pattern-guard (guarded-rhs-guard object))
       (with-new-tyvars
-       (type-check-guard-quals
-	 (pattern-guard-quals (guarded-rhs-guard object)) object))
+       (dynamic-let ((*gadt-match* '#f))
+	 (type-check-guard-quals
+	  (pattern-guard-quals (guarded-rhs-guard object)) object)))
       (type-check guarded-rhs rhs rhs-type
 	(type-check guarded-rhs guard guard-type
 	  (type-unify guard-type *bool-type*
@@ -23,6 +24,11 @@
 (define (type-check-guard-quals quals rhs-object)
   (if (null? quals)
       (let ((object  rhs-object))
+	;; a GADT constructor matched by a guard's pattern (| Branch k1 k2
+	;; <- fields, generic-data): its rhs is coerced, as a clause's is
+	;; (existentials.mumble)
+	(when (dynamic *gadt-match*)
+	  (gadt-coerce-rhs-list (list object)))
 	(type-check guarded-rhs rhs rhs-type
 	  (return-type object rhs-type)))
       (let ((object  (car quals)))
@@ -204,6 +210,11 @@
 	     ;; a GADT constructor matched (existentials.mumble)
 	     (when (dynamic *gadt-match*)
 	       (gadt-coerce-rhs-list (alt-rhs-list object)))
+	     (dynamic-let ((*gadt-soft-vars*
+			    (if (dynamic *gadt-match*)
+				(append (gadt-pattern-vars (list (alt-pat object)))
+					(dynamic *gadt-soft-vars*))
+				(dynamic *gadt-soft-vars*))))
 	     (type-check/decls alt where-decls
 	       (type-check/unify-list alt rhs-list rhs-type
                  (type-mismatch/list case-exp
@@ -211,7 +222,7 @@
 		 (type-unify rhs-type res-type
 			      (type-mismatch case-exp
 		   "Case expression alternatives must have the same type"
-		                 rhs-type res-type))))))))
+		                 rhs-type res-type)))))))))
 	(return-type case-exp res-type)))))))
 
 ;;; Expressions with signatures are transformed into let expressions

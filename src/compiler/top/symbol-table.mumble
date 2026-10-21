@@ -656,9 +656,20 @@
     (remember-context tycon
       (let ((def (or (promoted-tycon-def (tycon-name tycon))
 		     (fetch-top-def (tycon-name tycon) 'algdata))))
-	(when (class? def)
-	  (signal-tycon-name-required (tycon-name tycon)))
-	(setf (tycon-def tycon) def)))))
+	(cond ((and (class? def) (haskell98?) (null? (tycon-args tycon)))
+	       ;; ConstraintKinds: a class as a type argument (generic-data's
+	       ;; AssertNoSum Semigroup a): a type-level literal of its name
+	       ;; (parser/type-parser.mumble's type-literal-char), so that a
+	       ;; class is one type wherever it is named
+	       (let ((name (format '#f "%class:~A.~A" (def-module def) (def-name def))))
+		 (setf (tycon-def tycon) (core-symbol "TypeSymbol"))
+		 (setf (tycon-args tycon)
+		       (list (promoted-list (map (function type-literal-char)
+						 (string->list name)))))))
+	      ((class? def)
+	       (signal-tycon-name-required (tycon-name tycon)))
+	      (else
+	       (setf (tycon-def tycon) def)))))))
 
 
 ;;; TypeOperators: a chain t0 op1 t1 op2 t2 .. (parser/type-parser.mumble)
@@ -701,7 +712,10 @@
 
 (define (type-operator-fixity name)
   (let* ((con-name (add-con-prefix/symbol name))
-	 (local (get-local-fixity con-name))
+	 (tdef (resolve-toplevel-name name))
+	 (local (or (get-local-fixity name)
+		    (and (or (algdata? tdef) (synonym? tdef)) (tycon-def-fixity tdef))
+		    (get-local-fixity con-name)))
 	 (con (and (not local) (resolve-toplevel-name con-name))))
     (or local
 	(and (con? con) (con-fixity con))

@@ -23,7 +23,8 @@ module Prelude (
 import PreludePrims(error)
 import PreludeBltinArray(primSeq)
 
-import PreludeCore
+import PreludeCore hiding (PromotedNil, PromotedCons, TypeNat, TypeSymbol,
+                           TypeChar, TypeB0, TypeB1)
 import PreludeList(
     map, (++), filter, concat, concatMap,
     head, last, tail, init, null, length, (!!),
