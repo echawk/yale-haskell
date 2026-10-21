@@ -14,7 +14,6 @@
   (expand-constraint-synonyms signature)
   (reduce-flexible-contexts signature)
   (add-mp-superclass-contexts signature)
-  (apply-class-equalities signature)
   (with-slots signature (context type mcontext) signature
     (let ((tyvars (resolve-type type)))
       ;; a multi-parameter constraint may mention tyvars the type does
@@ -342,33 +341,6 @@
 ;;; wherever it does: MonadReader r m adds Monad m to the context, so
 ;;; that the function gets the superclass's dictionary too (rather than
 ;;; selecting it from the class's).
-
-;;; A constraint whose class (or a superclass of it, all in the
-;;; multi-parameter context by now) has an equality superclass, v ~ t,
-;;; with a variable a at v's position: a is t at the constraint's types,
-;;; substituted into the signature as the parser does a signature's own
-;;; equalities (parser/type-parser.mumble's apply-equalities).  ListLike
-;;; text char, with item ~ Item full, makes char Item text, so that
-;;; Dot (Item text), wanted by IsList's fromList, is the given Dot char
-;;; (process-extras' dotifyChunk).
-(define (apply-class-equalities signature)
-  (let ((n 0)
-	(again? '#t))
-    (do () ((or (not again?) (> n 16)))
-      (setf again? '#f)
-      (incf n)
-      (dolist (c (signature-mcontext signature))
-	(let ((class (class-ref-class (mp-context-class c))))
-	  (when (and (not again?) (class? class))
-	    (dolist (e (class-equalities class))
-	      (let ((arg (list-ref (mp-context-types c) (car e))))
-		;; (not a class's own variable in its methods' signatures)
-		(when (and (not again?) (tyvar? arg)
-			   (not (memq (tyvar-name arg) (dynamic *class-sig-tyvars*))))
-		  (let ((ty (instantiate-mp-super-template (cdr e) (mp-context-types c))))
-		    (when (not (memq (tyvar-name arg) (ast-tyvar-names ty)))
-		      (substitute-signature signature (tyvar-name arg) ty)
-		      (setf again? '#t))))))))))))
 
 (define (add-mp-superclass-contexts signature)
   (add-mp-mp-superclass-contexts signature)

@@ -52,9 +52,7 @@
   ;; a one-parameter class at an application (Show (f a)): its type
   ;; (else every given Show (...) would match, and be unified with it)
   '(0)
-  (let ((determined '()))
-    (dolist (fd (class-fundeps class))
-      (setf determined (append (tuple-2-2 fd) determined)))
+  (let ((determined (mp-fundep-determined class 8)))
     (let ((res '()))
       (dotimes (i (length (class-tyvars class)))
 	(when (not (memv i determined))
@@ -64,6 +62,23 @@
       (if (null? res)
 	  (gtype-index-list (length (class-tyvars class)))
 	  (nreverse res))))))
+
+;;; The positions CLASS's functional dependencies decide, and those its
+;;; multi-parameter superclasses' decide at its own variables
+;;; (ListLikeProcessIO text char, class ListLikeIO text char =>, with
+;;; ListLikeIO full item | full -> item: char).
+(define (mp-fundep-determined class depth)
+  (let ((determined '()))
+    (dolist (fd (class-fundeps class))
+      (setf determined (append (tuple-2-2 fd) determined)))
+    (when (> depth 0)
+      (dolist (s (class-mp-mp-supers class))
+	(let ((templates (tuple-2-2 s)))
+	  (when (and (class? (tuple-2-1 s)) (every (function integer?) templates))
+	    (dolist (i (mp-fundep-determined (tuple-2-1 s) (1- depth)))
+	      (when (< i (length templates))
+		(push (list-ref templates i) determined)))))))
+    determined))
 
 ;;; Structural equality of ntypes (tyvars by identity).
 
@@ -315,6 +330,36 @@
 ;;; (type-decl.mumble's check-var-signature).
 (define *given-mp-constraints* '())
 
+;;; A family application stuck on a signature's variables that a given
+;;; constraint's equality superclass decides, as GHC's given equalities:
+;;; with ListLike text char given (item ~ Item full), Item text is char.
+;;; The type it reduces to, or 'stuck (util/type-utils.mumble's
+;;; reduce-family-app).
+(define (given-family-reduction type)
+  (or (lisp:some
+       (lambda (g)
+	 (let ((class (car g))
+	       (types (cdr g)))
+	   (and (class? class)
+		(lisp:some (lambda (e)
+			     (and (given-template-matches? (cdr e) types type)
+				  (list-ref types (car e))))
+			   (class-equalities class)))))
+       (dynamic *given-mp-constraints*))
+      'stuck))
+
+;;; Whether TYPE is the class equality's template at a given's types
+;;; (structurally, type variables by identity, nothing reduced).
+(define (given-template-matches? template types type)
+  (let ((type (prune type)))
+    (if (integer? template)
+	(eq? (prune (list-ref types template)) type)
+	(and (ntycon? type)
+	     (eq? (ntycon-tycon type) (car template))
+	     (eqv? (length (ntycon-args type)) (length (cdr template)))
+	     (every (lambda (p a) (given-template-matches? p types a))
+		    (cdr template) (ntycon-args type))))))
+
 ;;; Fundep improvement against the signature's own constraints: a
 ;;; placeholder that agrees with a given one at the determining positions
 ;;; gets its other types.  Before defaulting, so that put 100 under
@@ -323,16 +368,79 @@
 (define (improve-mp-placeholders/given placeholders givens)
   (when (not (null? givens))
     (dolist (p placeholders)
-      (when (and (mp-placeholder? p)
-		 (not (null? (class-fundeps (mp-placeholder-class p)))))
-	(let ((class (mp-placeholder-class p))
-	      (types (mp-placeholder-types p)))
-	  (dolist (g givens)
-	    (when (and (eq? (tuple-2-1 g) class)
-		       (mp-equal-at? (mp-determining-positions class)
-				     (tuple-2-2 g) types))
-	      (dolist2 (t1 (tuple-2-2 g)) (t2 types)
-		(type-unify t1 t2 '#f)))))))))
+      (when (mp-placeholder? p)
+	;; by the class's functional dependencies, or a superclass's
+	;; (ListLikeProcessIO text char, without one of its own, has
+	;; ListLikeIO full item | full -> item)
+	(dolist (c (mp-constraint-closure (mp-placeholder-class p)
+					  (mp-placeholder-types p)))
+	  (let ((class (car c))
+		(types (cdr c)))
+	    (when (not (null? (class-fundeps class)))
+	      (dolist (g givens)
+		(when (and (eq? (tuple-2-1 g) class)
+			   (mp-equal-at? (mp-determining-positions class)
+					 (tuple-2-2 g) types))
+		  (dolist2 (t1 (tuple-2-2 g)) (t2 types)
+		    (type-unify t1 t2 '#f)))))))))))
+
+;;; Whether TYVAR is at a position a functional dependency decides, in
+;;; one of the deferred multi-parameter placeholders (or a superclass of
+;;; one), from types the enclosing bindings have (non-generic).
+(define (fundep-determined-by-non-generic? tyvar deferred)
+  (lisp:some
+   (lambda (q)
+     (and (mp-placeholder? q)
+	  (lisp:some
+	   (lambda (c)
+	     (let ((class (car c))
+		   (types (cdr c)))
+	       (lisp:some
+		(lambda (fd)
+		  (and (every (lambda (i) (mp-type-non-generic? (list-ref types i)))
+			      (tuple-2-1 fd))
+		       (lisp:some (lambda (i) (ntype-mentions-tyvar? (list-ref types i) tyvar))
+				  (tuple-2-2 fd))))
+		(if (class? class) (class-fundeps class) '()))))
+	   (mp-constraint-closure (mp-placeholder-class q) (mp-placeholder-types q)))))
+   deferred))
+
+(define (ntype-mentions-tyvar? type tyvar)
+  (let ((type (prune type)))
+    (cond ((eq? type tyvar) '#t)
+	  ((ntycon? type)
+	   (lisp:some (lambda (a) (ntype-mentions-tyvar? a tyvar)) (ntycon-args type)))
+	  ((ntyapp? type)
+	   (or (ntype-mentions-tyvar? (ntyapp-fun type) tyvar)
+	       (lisp:some (lambda (a) (ntype-mentions-tyvar? a tyvar)) (ntyapp-args type))))
+	  (else '#f))))
+
+;;; A multi-parameter constraint and its multi-parameter superclasses at
+;;; its types, transitively: ((class . ntypes) ...).
+(define (mp-constraint-closure class types)
+  (let ((result (list (cons class types)))
+	(work (list (cons class types)))
+	(n 0))
+    (do () ((or (null? work) (> n 32)))
+      (let ((c (car work)))
+	(setf work (cdr work))
+	(incf n)
+	(when (class? (car c))
+	  (dolist (s (class-mp-mp-supers (car c)))
+	    (let ((new (cons (tuple-2-1 s)
+			     (map (lambda (p) (instantiate-mp-template/ntype p (cdr c)))
+				  (tuple-2-2 s)))))
+	      (when (not (assq (car new) result))
+		(push new result)
+		(setf work (append work (list new)))))))))
+    result))
+
+;;; tdecl/class.mumble's mp-super-template at ntypes.
+(define (instantiate-mp-template/ntype p types)
+  (if (integer? p)
+      (list-ref types p)
+      (**ntycon (car p) (map (lambda (a) (instantiate-mp-template/ntype a types))
+			     (cdr p)))))
 
 (define (improve-mp-placeholders placeholders)
   (let ((mps '()))
@@ -504,7 +612,10 @@
 	 (null? (cdr (class-tyvars class)))
 	 (let ((type (prune (car types))))
 	   (and (ntycon? type)
-		(not (eq? (reduce-mp-type type) type)))))))
+		(let ((reduced (prune (reduce-mp-type type))))
+		  ;; (a stuck application may come back as a copy)
+		  (and (not (eq? reduced type))
+		       (not (and (ntycon? reduced) (family-app? reduced))))))))))
 
 (define (process-mp-placeholder-1 p deferred decls)
   (if (not (eq? (mp-placeholder-exp p) '#f))
@@ -644,7 +755,7 @@
 
 (define (find-mp-param-1/unify param class types)
   (dolist2 (t1 (mp-param-types param)) (t2 types)
-    (type-unify t1 t2
+    (type-unify t2 t1
       (type-error "The constraint ~A does not match the given ~A."
 		  (**mp-context (**class/def class) types)
 		  (**mp-context (**class/def class) (mp-param-types param)))))
@@ -660,8 +771,10 @@
 	((and (eq? (mp-param-class (car params)) class)
 	      (mp-equal-at? (mp-determining-positions class)
 			    (mp-param-types (car params)) types))
+	 ;; (the wanted type bound to the given's: a given's variable only
+	 ;; its context mentions keeps its own dictionaries)
 	 (dolist2 (t1 (mp-param-types (car params))) (t2 types)
-	   (type-unify t1 t2
+	   (type-unify t2 t1
 	     (type-error "The constraint ~A does not match the given ~A."
 			 (**mp-context (**class/def class) types)
 			 (**mp-context (**class/def class)

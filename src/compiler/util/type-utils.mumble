@@ -365,12 +365,17 @@
        (> (length (ntycon-args type)) (family-arity (ntycon-tycon type)))
        (eq? (reduce-family-app type) 'stuck)))
 
+(predefine (given-family-reduction type))  ; in type/mp-classes.mumble
+
 (define (reduce-family-app type)
   (let* ((family (ntycon-tycon type))
 	 (args (ntycon-args type))
 	 (eqs (synonym-equations family))
 	 (arity (family-arity family))
-	 (res (reduce-family-app-1 eqs args)))
+	 (res (let ((r (reduce-family-app-1 eqs args)))
+		;; stuck: perhaps a given constraint's equality superclass
+		;; decides it (ListLike text char: Item text is char)
+		(if (eq? r 'stuck) (given-family-reduction type) r))))
     ;; a family whose result is a type constructor, applied to more
     ;; arguments than it has (Rep1 f a): the result applied to the rest
     (if (or (eq? res 'stuck) (<= (length args) arity))

@@ -139,6 +139,12 @@
 	       (placeholder->dict-param p (ntyvar-dict-params type) decls)
 	       (placeholder->method p (ntyvar-dict-params type) decls))
 	   deferred)
+	  ((fundep-determined-by-non-generic? type deferred)
+	   ;; decided by a deferred multi-parameter constraint's functional
+	   ;; dependency (or a superclass's) from the enclosing binding's
+	   ;; types: Dot char of ListLikeProcessIO text char, text the
+	   ;; enclosing signature's (process-extras' doOutput)
+	   (cons p deferred))
 	  (else
 	   ;; Since default types are monotypes, no new vars will
 	   ;; be added to old-placeholders
