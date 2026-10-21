@@ -304,10 +304,16 @@
     (cond ((eq? env 'fail) 'fail)
 	  ((<= depth 0) 'fail)
 	  ((eq? t1 t2) env)
+	  ;; (as unify: a monomorphic variable is not bound to a signature's:
+	  ;; bifunctors' smash's go (One x) (One _) = p x)
 	  ((and (ntyvar? t1) (not (ntyvar-read-only? t1)))
-	   (if (occurs-in-type t1 t2) 'fail (cons (cons t1 t2) env)))
+	   (if (or (occurs-in-type t1 t2) (monomorphic-to-signature? t1 t2))
+	       'fail
+	       (cons (cons t1 t2) env)))
 	  ((and (ntyvar? t2) (not (ntyvar-read-only? t2)))
-	   (if (occurs-in-type t2 t1) 'fail (cons (cons t2 t1) env)))
+	   (if (or (occurs-in-type t2 t1) (monomorphic-to-signature? t2 t1))
+	       'fail
+	       (cons (cons t2 t1) env)))
 	  ((or (ntyvar? t1) (ntyvar? t2)) 'fail)
 	  ((and (ntycon? t1) (ntycon? t2))
 	   (if (and (eq? (ntycon-tycon t1) (ntycon-tycon t2))
@@ -320,6 +326,10 @@
 	   (could-unify-list (cons (ntyapp-fun t1) (ntyapp-args t1))
 			     (cons (ntyapp-fun t2) (ntyapp-args t2)) depth env))
 	  (else 'fail))))
+
+(define (monomorphic-to-signature? var type)
+  (and (ntyvar? type) (ntyvar-read-only? type) (not (ntyvar-existential? type))
+       (non-generic? var)))
 
 (define (could-unify-list l1 l2 depth env)
   (if (or (null? l1) (eq? env 'fail))
