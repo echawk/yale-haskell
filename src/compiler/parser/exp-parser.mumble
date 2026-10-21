@@ -499,7 +499,9 @@
     ((no-advance \} $\})
      (close-layout in-layout?)
      '())
-    ((no-advance |where| |in| |of| |then| |else| \) \] \, eof)
+    ;; (and a guard's | there: the do block was the previous guard's
+    ;; right-hand side, vector-hashtables' go !last !i | ... = do ...)
+    ((no-advance |where| |in| |of| |then| |else| \) \] \, \| eof)
      (close-layout in-layout?)
      '())
     ;; an infix operator in the statements' column: `catch` after a do

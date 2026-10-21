@@ -1,4 +1,4 @@
-{-# LANGUAGE MagicHash, PatternSynonyms, ViewPatterns #-}
+{-# LANGUAGE MagicHash, PatternSynonyms, ViewPatterns, UnboxedTuples #-}
 -- GHC.Exts (base) for MagicHash programs.  Yale Haskell has no unboxed
 -- types: Int# is Int, Double# is Double, and so on; the boxing
 -- constructors I#, D#, ... are the identity (parser/exp-parser.mumble),
@@ -25,7 +25,7 @@ module GHC.Exts (
     (+##), (-##), (*##), (/##), (**##), (==##), (/=##), (<##), (<=##),
     (>##), (>=##), negateDouble#, sqrtDouble#, expDouble#, logDouble#,
     sinDouble#, cosDouble#, int2Double#, double2Int#,
-    plusWord#, minusWord#, timesWord#, and#, or#, xor#, not#, shiftL#,
+    plusWord#, minusWord#, timesWord#, timesWord2#, plusWord2#, and#, or#, xor#, not#, shiftL#,
     shiftRL#, int2Word#, word2Int#, eqWord#, neWord#, ltWord#, leWord#,
     gtWord#, geWord#,
     chr#, ord#, eqChar#, neChar#, ltChar#, leChar#, gtChar#, geChar#,
@@ -191,6 +191,13 @@ timesWord# = (*)
 and# = (.&.)
 or# = (.|.)
 xor# = xor
+
+-- the high and low words of the product, and of the sum (its carry)
+timesWord2#, plusWord2# :: Word -> Word -> (# Word, Word #)
+timesWord2# x y = let p = toInteger x * toInteger y
+                  in (# fromInteger (p `div` 18446744073709551616), fromInteger p #)
+plusWord2# x y = let p = toInteger x + toInteger y
+                 in (# fromInteger (p `div` 18446744073709551616), fromInteger p #)
 
 not# :: Word -> Word
 not# = complement
