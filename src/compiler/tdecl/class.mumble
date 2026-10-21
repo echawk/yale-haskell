@@ -113,6 +113,23 @@
 ;;; constructor or family applied to such (Mutable v); #f otherwise.
 ;;; util/signature.mumble's instantiate-mp-super-template undoes it.
 
+;;; A method signature's equalities on the class's variables whose types
+;;; mention only class variables: ((tuple name type) ..).
+(define (class-variable-equalities signature class-tyvars)
+  (let ((e (assq signature *signature-equalities*)))
+    (if e
+	(let ((eqs (lisp:remove-if-not
+		    (lambda (q)
+		      (and (memq (tuple-2-1 q) class-tyvars)
+			   (every (lambda (v) (memq v class-tyvars))
+				  (ast-tyvar-names (tuple-2-2 q)))))
+		    (cadr e))))
+	  ;; (the parser's types, not yet resolved)
+	  (dolist (q eqs)
+	    (resolve-type-1 (tuple-2-2 q) '() '#t))
+	  eqs)
+	'())))
+
 ;;; A multi-parameter class's equality superclasses, v ~ t with v one of
 ;;; its variables and t a type of them without v (item ~ Item full of
 ;;; ListLike full item): (position of v . t's template).  Others are
@@ -259,6 +276,22 @@
 	       (dolist (context (signature-context signature))
 		 (when (memq (context-tyvar context) class-tyvars)
 		   (signal-method-constrains-class-tyvar context))))
+	     (let* ((eqs (class-variable-equalities signature class-tyvars))
+		    ;; an equality on a class variable (IsBase t ~ b): the
+		    ;; class's constraint at it, BUMP t (IsBase t), so that a
+		    ;; use decides the instance
+		    (class-mcontext
+		     (if (null? eqs)
+			 class-mcontext
+			 (map (lambda (c)
+				(**mp-context (mp-context-class c)
+					      (map (lambda (ty)
+						     (let ((ty2 ty))
+						       (dolist (e eqs)
+							 (setf ty2 (substitute-tyvar ty2 (tuple-2-1 e) (tuple-2-2 e))))
+						       ty2))
+						   (mp-context-types c))))
+			      class-mcontext))))
 	     (setf signature (rename-class-sig-vars signature class-tyvars))
 	     (let ((gtype (ast->gtype (append class-context
 					      (signature-context signature))
@@ -270,7 +303,7 @@
  	       (dolist (var-ref (signdecl-vars decl))
 	         (let ((var (var-ref-var var-ref)))
 		   (setf (var-type var) gtype)
-		   (setf (method-var-method-signature var) signature))))))
+		   (setf (method-var-method-signature var) signature)))))))
 	  (else  ; decl must be a default definition
 	   (let ((vars (collect-pattern-vars (valdef-lhs decl))))
 	     (dolist (var-ref vars)

@@ -98,7 +98,10 @@
 	  (signal-mp-instance-arity class-def (length types)))
 	(resolve-signature-aux tyvars context)
 	(dolist (c mcontext)
-	  (resolve-class (mp-context-class c)))
+	  (resolve-class (mp-context-class c))
+	  ;; (its types too: BUMP t (IsBase t), a family application)
+	  (dolist (ty (mp-context-types c))
+	    (resolve-type-1 ty '() '#t)))
 	(dolist (old (class-instances class-def))
 	  (when (and (instance-ok? old)
 		     ;; (overlapping heads are allowed, the most specific

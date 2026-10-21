@@ -484,6 +484,17 @@
 ;;; Each default signature's substitutions: (tuple signature substitutions)
 (define *default-sig-equalities* '())
 
+;;; Every signature's substitutions: (tuple signature ((tuple name type)
+;;; ..)), for a class method's equality on a class variable (IsBase t ~ b
+;;; of Agda's killRangeN: tdecl/class.mumble).
+(define *signature-equalities* '())
+
+(define (record-signature-equality sig name type)
+  (let ((e (assq sig *signature-equalities*)))
+    (if e
+	(setf (cdr e) (list (cons (tuple name type) (cadr e))))
+	(push (list sig (list (tuple name type))) *signature-equalities*))))
+
 (define (apply-equalities equalities sig)
   (dolist (e equalities)
     (let ((left (cadr e)) (right (caddr e)))
@@ -494,9 +505,11 @@
 	     '#f)
 	    ((tyvar? left)
 	     (record-equality (tyvar-name left) right)
+	     (record-signature-equality sig (tyvar-name left) right)
 	     (substitute-signature sig (tyvar-name left) right))
 	    ((tyvar? right)
 	     (record-equality (tyvar-name right) left)
+	     (record-signature-equality sig (tyvar-name right) left)
 	     (substitute-signature sig (tyvar-name right) left)))))
 
 (define (record-equality name type)

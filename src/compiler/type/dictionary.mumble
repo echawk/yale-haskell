@@ -124,6 +124,19 @@
 		   (else
 		    (signal-unresolved-app-constraint type p)
 		    deferred))))
+	  ;; a class out of a constraint family's given constraint (All Show
+	  ;; '[a] gives Show a: mp-classes.mumble's cfam-given-component)
+	  ((and (ntyvar? type)
+		(not (dict-params-give? (placeholder-class p) (ntyvar-dict-params type)))
+		(cfam-given-component p (placeholder-class p) (list type) decls))
+	   (let ((d (cfam-given-component p (placeholder-class p) (list type) decls)))
+	     (setf (placeholder-exp p)
+		   (if (dict-placeholder? p)
+		       d
+		       (let ((m (method-placeholder-method p)))
+			 (**app (**var/def (tuple-2-2 (assq m (class-selectors (placeholder-class p)))))
+				d)))))
+	   deferred)
 	  ;; an existential pattern's type variable has its dictionaries,
 	  ;; though it is non-generic inside a lambda (existentials.mumble)
 	  ((and (not (null? (ntyvar-dict-params type))) (ntyvar-read-only? type)
@@ -154,6 +167,22 @@
 	      (process-placeholder p deferred decls))
 	   deferred))))
 	       
+;;; The class of a dictionary or method placeholder.
+(define (placeholder-class p)
+  (if (dict-placeholder? p)
+      (dict-placeholder-class p)
+      (method-var-class (method-placeholder-method p))))
+
+;;; Whether dictionary parameters (ntyvar-dict-params) give CLASS, or a
+;;; subclass of it.
+(define (dict-params-give? class params)
+  (lisp:some (lambda (decl-params)
+	       (lisp:some (lambda (cv)
+			    (or (eq? (tuple-2-1 cv) class)
+				(memq class (class-super* (tuple-2-1 cv)))))
+			  (tuple-2-2 decl-params)))
+	     params))
+
 ;;; The type variable is associated with a dictionary parameter.  The only
 ;;; complication here is that the class needed may not be directly available -
 ;;; it may need to be obtained from the super classes of the parameter

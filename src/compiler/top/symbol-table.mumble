@@ -657,10 +657,40 @@
 (define (resolve-class class-ref)
   (when (eq? (class-ref-class class-ref) *undefined-def*)
     (remember-context class-ref
-      (let ((def (fetch-top-def (class-ref-name class-ref) 'class)))
+      (let* ((def0 (fetch-top-def (class-ref-name class-ref) 'class))
+	     ;; a constraint family names its class (import-export/
+	     ;; top-definitions.mumble's create-constraint-family-class)
+	     (def (or (and (synonym? def0) (constraint-family-class def0)) def0)))
 	(when (not (class? def))
 	  (signal-class-name-required def (class-ref-name class-ref)))
 	(setf (class-ref-class class-ref) def)))))
+
+(define (constraint-family-class-name name)
+  (string->symbol (string-append "%cfam:" (symbol->string name))))
+
+;;; The classes named by %class:M.C literals in types, by the name.
+(define *class-literals* (make-table))
+
+;;; The class of constraint family FAM, or #f.
+(define (constraint-family-class fam)
+  (and (synonym-family? fam)
+       (let* ((cname (constraint-family-class-name (def-name fam)))
+	      (m (table-entry *modules* (def-module fam)))
+	      (c (if (eq? (def-module fam) *module-name*)
+		     (table-entry *symbol-table* cname)
+		     (and m (table-entry (module-symbol-table m) cname)))))
+	 (and (class? c) c))))
+
+;;; The family of a constraint family's class, or #f.
+(define (class-constraint-family class)
+  (let ((s (symbol->string (def-name class))))
+    (and (string-starts? "%cfam:" s)
+	 (let* ((name (string->symbol (substring s 6 (string-length s))))
+		(m (table-entry *modules* (def-module class)))
+		(f (if (eq? (def-module class) *module-name*)
+		       (table-entry *symbol-table* name)
+		       (and m (table-entry (module-symbol-table m) name)))))
+	   (and (synonym? f) f)))))
 
 
 (define (resolve-tycon tycon)
@@ -676,6 +706,9 @@
 	       ;; (parser/type-parser.mumble's type-literal-char), so that a
 	       ;; class is one type wherever it is named
 	       (let ((name (format '#f "%class:~A.~A" (def-module def) (def-name def))))
+		 ;; (the class it names: type/mp-classes.mumble's
+		 ;; class-literal-class)
+		 (setf (table-entry *class-literals* (string->symbol name)) def)
 		 (setf (tycon-def tycon) (core-symbol "TypeSymbol"))
 		 (setf (tycon-args tycon)
 		       (list (promoted-list (map (function type-literal-char)

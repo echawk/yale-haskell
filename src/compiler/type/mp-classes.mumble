@@ -592,6 +592,8 @@
 (define (process-mp-placeholder p deferred decls)
   (cond ((not (eq? (mp-placeholder-exp p) '#f))
 	 deferred)
+	((class-constraint-family (mp-placeholder-class p))
+	 (process-cfam-placeholder p deferred decls))
 	((reducible-one-parameter-mp? p)
 	 ;; a one-parameter class at a synonym or family application that
 	 ;; reduces (Eq (Item [a]), from a signature's Eq (Item full):
@@ -605,6 +607,212 @@
 	   (process-placeholder dp deferred decls)))
 	(else
 	 (process-mp-placeholder-1 p deferred decls))))
+
+;;; A constraint family's constraint (Agda's All KillRange (Domains t)):
+;;; the enclosing binding's, or the family application reduced, its
+;;; dictionary that of the constraints it reduces to: () the unit, a tuple
+;;; (c1, .., cn) the tuple of theirs, a class's its own (a class in a
+;;; type is the literal %class:M.C: top/symbol-table.mumble's
+;;; resolve-tycon), another family's as this one.  Stuck on the
+;;; enclosing bindings' types: left for them.
+(define (process-cfam-placeholder p deferred decls)
+  (let* ((class (mp-placeholder-class p))
+	 (types (mp-placeholder-types p))
+	 (param (find-mp-param p class types decls)))
+    (cond
+     (param
+      (setf (placeholder-exp p) (mp-dict-use p (**var/def (mp-param-var param))))
+      deferred)
+     ((cfam-given-component p class types decls)
+      ;; part of a given one (All Show (a ': as) gives All Show as)
+      (setf (placeholder-exp p) (mp-dict-use p (cfam-given-component p class types decls)))
+      deferred)
+     (else
+	(let ((reduced (prune (expand-ntype-synonym
+			       (**ntycon (class-constraint-family class) types)))))
+	  (cond ((and (ntycon? reduced) (family-app? reduced))
+		 (if (some (function mp-type-non-generic?) types)
+		     (cons p deferred)
+		     (begin (signal-unresolved-mp-constraint p) deferred)))
+		(else
+		 (let ((d (list deferred)))
+		   (setf (placeholder-exp p)
+			 (mp-dict-use p (cfam-dict-exp reduced p d decls)))
+		   (car d)))))))))
+
+;;; The one-parameter classes at type variable TYVAR that the signatures'
+;;; constraint family constraints being checked give.
+(define (cfam-given-classes tyvar)
+  (let ((classes '()))
+    (dolist (g (dynamic *given-mp-constraints*))
+      (let ((fam (and (class? (car g)) (class-constraint-family (car g)))))
+	(when fam
+	  (setf classes
+		(cfam-component-classes
+		 (prune (expand-ntype-synonym (**ntycon fam (cdr g)))) tyvar classes 8)))))
+    classes))
+
+(define (cfam-component-classes ty tyvar classes depth)
+  (let ((ty (prune (if (ntycon? ty) (expand-ntype-synonym ty) ty))))
+    (mlet (((c args) (constraint-type-class ty)))
+      (cond ((and c (class? c) (not (class-constraint-family c))
+		  (eqv? (length args) 1) (eq? (prune (car args)) tyvar))
+	     (cons c classes))
+	    ((and c (> depth 0) (class-constraint-family c))
+	     (let ((r (prune (expand-ntype-synonym (**ntycon (class-constraint-family c) args)))))
+	       (if (and (ntycon? r) (family-app? r))
+		   classes
+		   (cfam-component-classes r tyvar classes (1- depth)))))
+	    ((and (ntycon? ty) (is-tuple-tycon? (ntycon-tycon ty)) (> depth 0))
+	     (let ((cs classes))
+	       (dolist (a (ntycon-args ty))
+		 (setf cs (cfam-component-classes a tyvar cs (1- depth))))
+	       cs))
+	    (else classes)))))
+
+;;; CLASS at TYPES out of a constraint family's constraint the enclosing
+;;; binding is given (All Show (a ': as) gives Show a and All Show as):
+;;; the expression selecting its dictionary there, or #f.
+(define (cfam-given-component p class types decls)
+  (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls)))
+    (and decl
+	 (lisp:some
+	  (lambda (param)
+	    (let ((fam (class-constraint-family (mp-param-class param))))
+	      (and fam
+		   (let ((reduced (prune (expand-ntype-synonym
+					  (**ntycon fam (mp-param-types param))))))
+		     (cfam-find-component reduced class types
+					  (**var/def (mp-param-var param)) 8)))))
+	  (valdef-mp-dict-params decl)))))
+
+(define (cfam-find-component ty class types exp depth)
+  (let ((ty (prune (if (ntycon? ty) (expand-ntype-synonym ty) ty))))
+    (mlet (((c args) (constraint-type-class ty)))
+      (cond ((and c (eq? c class) (eqv? (length args) (length types))
+		  (every (function mp-type-equal?) args types))
+	     exp)
+	    ((and c (class? c) (eq? (length types) 1) (eqv? (length args) 1)
+		  (null? (cdr (class-tyvars class)))
+		  (memq class (class-super* c))
+		  (mp-type-equal? (car args) (car types)))
+	     ;; a subclass's dictionary (Ord a gives Eq a)
+	     (**dsel/dict c class exp))
+	    ((and c (> depth 0) (class-constraint-family c))
+	     ;; a constraint family's, reduced
+	     (let ((r (prune (expand-ntype-synonym (**ntycon (class-constraint-family c) args)))))
+	       (and (not (and (ntycon? r) (family-app? r)))
+		    (cfam-find-component r class types exp (1- depth)))))
+	    ((and (ntycon? ty) (is-tuple-tycon? (ntycon-tycon ty)) (> depth 0))
+	     (let ((n (length (ntycon-args ty)))
+		   (i 0))
+	       (lisp:some (lambda (a)
+			    (let ((k i))
+			      (incf i)
+			      (cfam-find-component a class types (tuple-select-exp exp n k)
+						   (1- depth))))
+			  (ntycon-args ty))))
+	    (else '#f)))))
+
+;;; Component K of the N-tuple EXP.
+(define (tuple-select-exp exp n k)
+  (let ((vars (let ((l '())) (dotimes (i n) (push (create-temp-var "TS") l)) l)))
+    (**case exp
+	    (list (**alt/simple (**pcon/def (tuple-constructor n)
+					    (map (function **var-pat/def) vars))
+				(**var/def (list-ref vars k)))))))
+
+;;; The dictionary for constraint type TY; D, a one-element list, collects
+;;; the placeholders left.
+(define (cfam-dict-exp ty p d decls)
+  (let ((ty (prune (if (ntycon? ty) (expand-ntype-synonym ty) ty))))
+    (mlet (((class args) (constraint-type-class ty)))
+      (cond ((and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "UnitType")))
+	     (**con/def (core-symbol "UnitConstructor")))
+	    ((and (ntycon? ty) (is-tuple-tycon? (ntycon-tycon ty)))
+	     (**tuple/l (map (lambda (a) (cfam-dict-exp a p d decls)) (ntycon-args ty))))
+	    ((and class (null? (cdr (class-tyvars class))) (not (null? args)) (null? (cdr args)))
+	     ;; a one-parameter class
+	     (let ((q (**dict-placeholder class (car args)
+					  (placeholder-enclosing-decls p)
+					  (placeholder-overloaded-var p))))
+	       (setf (car d) (process-placeholder q (car d) decls))
+	       q))
+	    (class
+	     (let ((q (**mp-placeholder class args '#f
+					(placeholder-enclosing-decls p)
+					(placeholder-overloaded-var p))))
+	       (setf (car d) (process-placeholder q (car d) decls))
+	       q))
+	    (else
+	     (phase-error 'unresolved-mp-constraint
+	       "The constraint ~A, from ~A, is not a class's."
+	       ty (**mp-context (**class/def (mp-placeholder-class p)) (mp-placeholder-types p)))
+	     (**con/def (core-symbol "UnitConstructor")))))))
+
+;;; The class of a constraint type and its arguments: C t1 .. tn with C a
+;;; class literal (%class:M.C, applied), or a constraint family's
+;;; application; else #f.
+(define (constraint-type-class ty)
+  (let ((ty (prune ty)))
+    (cond ((and (ntycon? ty) (family-app? ty) (constraint-family-class (ntycon-tycon ty)))
+	   (values (constraint-family-class (ntycon-tycon ty)) (ntycon-args ty)))
+	  ((and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "TypeSymbol"))
+		(not (null? (ntycon-args ty))))
+	   (values (class-literal-class (car (ntycon-args ty))) (cdr (ntycon-args ty))))
+	  ((ntyapp? ty)
+	   (mlet (((c args) (constraint-type-class (ntyapp-fun ty))))
+	     (values c (append args (ntyapp-args ty)))))
+	  (else (values '#f '())))))
+
+;;; The class a %class:M.C literal (a promoted list of characters) names.
+(define (class-literal-class lit)
+  (let ((s (ntype-promoted-string lit)))
+    (and s (string-starts? "%class:" s)
+	 (or (let ((c (table-entry *class-literals* (string->symbol s)))) (and (class? c) c))
+	 (let* ((qual (substring s 7 (string-length s)))
+		(i (lisp:position #\. qual :from-end '#t))
+		(mod (and i (string->symbol (substring qual 0 i))))
+		(name (and i (string->symbol (substring qual (1+ i) (string-length qual)))))
+		(m (and mod (table-entry *modules* mod)))
+		(c (and m (table-entry (module-symbol-table m) name))))
+	   (and (class? c) c))))))
+
+;;; The characters of a promoted list of TypeChar literals, or #f.
+(define (ntype-promoted-string ty)
+  (let ((chars (ntype-promoted-chars ty)))
+    (and (not (eq? chars 'bad)) (list->string chars))))
+
+(define (ntype-promoted-chars ty)
+  (let ((ty (prune ty)))
+    (cond ((and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "PromotedNil"))) '())
+	  ((and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "PromotedCons"))
+		(eqv? (length (ntycon-args ty)) 2))
+	   (let ((c (ntype-type-char (car (ntycon-args ty))))
+		 (rest (ntype-promoted-chars (cadr (ntycon-args ty)))))
+	     (if (or (not c) (eq? rest 'bad)) 'bad (cons c rest))))
+	  (else 'bad))))
+
+(define (ntype-type-char ty)
+  (let ((ty (prune ty)))
+    (and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "TypeChar"))
+	 (eqv? (length (ntycon-args ty)) 1)
+	 (let ((n (ntype-bits (car (ntycon-args ty)))))
+	   (and n (integer->char n))))))
+
+(define (ntype-bits ty)
+  (let ((ty (prune ty)))
+    (cond ((not (ntycon? ty)) '#f)
+	  ((eq? (ntycon-tycon ty) (core-symbol "PromotedNil")) 0)
+	  ((and (eq? (ntycon-tycon ty) (core-symbol "PromotedCons"))
+		(eqv? (length (ntycon-args ty)) 2))
+	   (let ((b (prune (car (ntycon-args ty))))
+		 (rest (ntype-bits (cadr (ntycon-args ty)))))
+	     (and rest (ntycon? b)
+		  (cond ((eq? (ntycon-tycon b) (core-symbol "TypeB0")) (* 2 rest))
+			((eq? (ntycon-tycon b) (core-symbol "TypeB1")) (+ 1 (* 2 rest)))
+			(else '#f)))))
+	  (else '#f))))
 
 (define (reducible-one-parameter-mp? p)
   (let ((types (mp-placeholder-types p))

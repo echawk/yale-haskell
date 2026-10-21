@@ -674,7 +674,10 @@
   (let ((def (if (eq? (class-ref-class class-ref) *undefined-def*)
 		 (resolve-toplevel-name (class-ref-name class-ref))
 		 (class-ref-class class-ref))))
-    (and def (synonym? def) (synonym-family? def))))
+    ;; (one with its class is kept: a dictionary, type/mp-classes.mumble's
+    ;; process-cfam-placeholder)
+    (and def (synonym? def) (synonym-family? def)
+	 (not (constraint-family-class def)))))
 
 ;;; A nullary synonym of the unit type, directly or through others:
 ;;; GHC.Stack's HasCallStack, safe's  type Partial = HasCallStack.  As a

@@ -182,7 +182,35 @@
 	   (def (create-top-definition syn-name 'synonym)))
       (setf (tycon-def simple) def)
       (setf (tycon-def-arity def) (length (tycon-args simple)))
+      (when (memq syn-name *constraint-families*)
+	(create-constraint-family-class syn-name (tycon-args simple)))
       (add-new-group syn-name def))))
+
+;;; A type family of constraints (type family All (p :: k -> Constraint)
+;;; (as :: [k]) :: Constraint) is also the class %cfam:All, without
+;;; methods or instances, whose constraint's dictionary is what the
+;;; family's application reduces to: a tuple of its constraints'
+;;; dictionaries (type/mp-classes.mumble's process-cfam-placeholder).
+(define (create-constraint-family-class name args)
+  (let ((class (create-top-definition (constraint-family-class-name name) 'class)))
+    (setf (class-method-vars class) '())
+    (setf (class-super class) '())
+    (setf (class-super* class) '())
+    (setf (class-tyvar class) (if (and (pair? args) (tyvar? (car args)))
+				  (tyvar-name (car args))
+				  '|a|))
+    (setf (class-tyvars class)
+	  (let ((i 0))
+	    (map (lambda (a)
+		   (incf i)
+		   (if (tyvar? a) (tyvar-name a) (string->symbol (format '#f "a~A" i))))
+		 args)))
+    (setf (class-instances class) '())
+    (setf (class-kind class) 'other)
+    (setf (class-n-methods class) 0)
+    (setf (class-dict-size class) 0)
+    (setf (class-selectors class) '())
+    class))
 
 (define (add-new-group name def . others)
   (when (memq *module* (module-exported-modules *module*))

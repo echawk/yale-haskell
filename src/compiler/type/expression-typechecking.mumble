@@ -557,7 +557,10 @@
     (when (recursive-type? ovar-type)
 	 (error
 	  "Implementation error: overloaded method found a recursive type"))
-    (mlet (((ntype new-vars) (instantiate-gtype/newvars gtype))
-	   (object1 (insert-dict-placeholders
-		     (**var/def var) new-vars object)))
+    ;; (and the multi-parameter context's: an instance of a class whose
+    ;; method has its own constraints, under the instance's Step t u)
+    (mlet (((ntype new-vars mps) (instantiate-gtype/mp gtype))
+	   (object1 (insert-mp-placeholders
+		     (insert-dict-placeholders (**var/def var) new-vars object)
+		     mps object)))
 	  (return-type object1 ntype))))
