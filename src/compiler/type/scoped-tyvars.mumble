@@ -137,16 +137,18 @@
 ;;; r the enclosing binding's, generalizes over a, so a recursive use of
 ;;; go is polymorphic (passed to gmapQ, a rank-2 argument; SYB's
 ;;; everything).  Its gtype has the scoped names' types in place and its
-;;; own variables generic.  '#f when a scoped name has a context or the
-;;; signature has multi-parameter constraints (then it is an annotation,
-;;; above), or when it has no variables of its own.
+;;; own variables generic, and so are its multi-parameter constraints
+;;; (aeson's pairsOf :: RecordToPairs enc pairs arity f => f p -> pairs,
+;;; enc, pairs, arity and p the instance's).  '#f when a scoped name has a
+;;; context (then it is an annotation, above), or when it has no variables
+;;; of its own.
 
 (define (partial-scoped-signature g)
   (let ((env '())
 	(names '())
 	(contexts '())
 	(n 0)
-	(ok? (null? (gtype-mcontext g))))
+	(ok? '#t))
     (dolist2 (name (gtype-tyvar-names g)) (ctx (gtype-context g))
       (let ((b (assq name (dynamic *scoped-tyvars*))))
 	(if (and b (not (memq name (gtype-scoped g))))
@@ -165,4 +167,10 @@
 			    (copy-gtype (gtype-type g) (reverse env)))))
 	   (setf (gtype-tyvar-names g1) (reverse names))
 	   (setf (gtype-scoped g1) (gtype-scoped g))
+	   (setf (gtype-mcontext g1)
+		 (map (lambda (c)
+			(tuple (tuple-2-1 c)
+			       (map (lambda (ty) (copy-gtype ty (reverse env)))
+				    (tuple-2-2 c))))
+		      (gtype-mcontext g)))
 	   g1))))

@@ -195,7 +195,8 @@
 			    (list (**mp-context (**class/def class)
 						(map (function **tyvar) class-tyvars)))
 			    '())))
-  (let ((default-sigs '()))   ; (tuple method-name signature)
+  (let ((default-sigs '())   ; (tuple method-name signature)
+	(default-equalities '()))   ; (tuple method-name ((tuple tyvar type) ..))
   ;; DefaultSignatures (GHC): the default method has this type
   (dolist (decl decls)
     (when (and (is-type? 'signdecl decl) (signdecl-default? decl))
@@ -203,7 +204,10 @@
       (dolist (v (signdecl-vars decl))
 	(push (tuple (var-ref-name v)
 		     (rename-class-sig-vars (signdecl-signature decl) class-tyvars))
-	      default-sigs))))
+	      default-sigs)
+	(let ((eqs (assq (signdecl-signature decl) *default-sig-equalities*)))
+	  (when (and eqs (not (null? (tuple-2-2 eqs))))
+	    (push (tuple (var-ref-name v) (tuple-2-2 eqs)) default-equalities))))))
   (dolist (decl decls)
    (remember-context decl
     (cond ((and (is-type? 'signdecl decl) (signdecl-default? decl))
@@ -257,12 +261,21 @@
 			    (sig (if dsig
 				     (tuple-2-2 dsig)
 				     (method-var-method-signature method-var)))
-			    (context (append class-context
+			    (eqs (assq (def-name method-var) default-equalities))
+			    ;; a default signature's t n ~ m, m the class's
+			    ;; variable: the class's context at t n
+			    (class-contexts
+			     (if eqs
+				 (substitute-class-contexts
+				  class-context class-mcontext (tuple-2-2 eqs))
+				 (tuple class-context class-mcontext)))
+			    (context (append (tuple-2-1 class-contexts)
 					     (signature-context sig)))
 			    (new-sig (**signature context
 						  (signature-type sig))))
 		       (setf (signature-mcontext new-sig)
-			     (append class-mcontext (signature-mcontext sig)))
+			     (append (tuple-2-2 class-contexts)
+				     (signature-mcontext sig)))
 		       ;; ScopedTypeVariables: the class's variables scope
 		       ;; over the default's body ((dummy :: a)), as in GHC
 		       (when (module-extension? "ScopedTypeVariables")
@@ -270,6 +283,23 @@
 		       (add-new-module-signature default-var new-sig)))
 		   (signal-default-not-in-class method-var class)))))
 	     (add-new-module-decl decl)))))))))
+
+;;; The class's own contexts (single, multi) for a default whose
+;;; signature's equalities rebind the class's variables (t n ~ m: a
+;;; default lifting through a transformer, equivalence's MonadEquiv):
+;;; those mentioning a rebound variable are left out.  At t n the class
+;;; is the instance being defined, which the lifted body does not use and
+;;; whose dictionary would then be its own method's argument (a loop).
+;;; (tuple single multi)
+(define (substitute-class-contexts single multi eqs)
+  (let ((names (map (function tuple-2-1) eqs)))
+    (tuple (lisp:remove-if (lambda (c) (memq (context-tyvar c) names)) single)
+	   (lisp:remove-if (lambda (c)
+			     (lisp:some (lambda (ty)
+					  (lisp:intersection
+					   names (ast-type-tyvars ty)))
+					(mp-context-types c)))
+			   multi))))
 
 (define (signal-class-sig-ignores-type signature)
   (phase-error 'class-sig-ignores-type

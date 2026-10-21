@@ -22,6 +22,7 @@
 -- package of their own so that its extensions and cpp-options apply.
 module MicroCabal.Backend.Yale(yaleBackend) where
 import Control.Monad
+import Data.Char (isAlphaNum)
 import Data.List
 import Data.Maybe
 import Data.Version
@@ -165,7 +166,12 @@ stagePackage env db name vers flds = do
 -- A module whose source is a happy grammar (.y, .ly) or an alex lexer
 -- (.x) is generated, as Cabal does, with the flags Cabal passes (happy
 -- -agc, alex -g); the tools are MicroCabal's (instDir/bin, where they are
--- installed with mcabal install happy alex) or on the PATH.
+-- installed with mcabal install happy alex) or on the PATH.  An hsc2hs
+-- source (.hsc) using none of hsc2hs's own constructs (#{const ..},
+-- #size, #peek, ...) is a Haskell module with CPP directives, which Yale
+-- Haskell's preprocessor reads: it is copied (unix-compat's).  hsc2hs
+-- itself would evaluate #if MIN_VERSION_pkg(..) with the C preprocessor,
+-- which has no such macros; a module that needs it has a patch.
 preprocessModules :: Env -> FilePath -> [String] -> IO ()
 preprocessModules env src mdls =
   forM_ (nub mdls) $ \ m -> do
@@ -174,6 +180,7 @@ preprocessModules env src mdls =
     unless hs $ do
       let tools = [(".y", "happy", "-agc"), (".ly", "happy", "-agc"), (".x", "alex", "-g")]
       found <- filterM (\ (ext, _, _) -> doesFileExist (base ++ ext)) tools
+      hsc <- doesFileExist (base ++ ".hsc")
       case found of
         (ext, tool, flags) : _ -> do
           let local = instDir env </> "bin" </> tool
@@ -181,7 +188,29 @@ preprocessModules env src mdls =
           let exe = if b then local else tool
           message env 0 $ "Preprocessing " ++ m ++ " with " ++ tool
           cmd env $ exe ++ " " ++ flags ++ " " ++ base ++ ext ++ " -o " ++ base ++ ".hs"
-        [] -> return ()
+        [] | hsc -> do
+          text <- readFile (base ++ ".hsc")
+          if any hscConstruct (lines text)
+            then message env 0 $ "Not preprocessed (hsc2hs constructs): " ++ m
+            else do
+              -- (__YALE_HSC__: its #included headers give macros, not
+              -- text, as for hsc2hs's C program; Yale Haskell's cpp)
+              message env 0 $ "Preprocessing " ++ m ++ " (.hsc, CPP only)"
+              length text `seq` writeFile (base ++ ".hs")
+                ("{-# LANGUAGE CPP #-}\n#define __YALE_HSC__ 1\n" ++ text)
+        _ -> return ()
+
+-- A line using one of hsc2hs's constructs: #{...}, or #const, #size,
+-- #peek and the rest (as words: #define is CPP's).
+hscConstruct :: String -> Bool
+hscConstruct l = "#{" `isInfixOf` l || any key (tails l)
+  where
+    key ('#' : r) = any (\ k -> k `isPrefixOf` r && boundary (drop (length k) r)) keys
+    key _ = False
+    boundary (c : _) = not (isAlphaNum c || c == '_')
+    boundary [] = True
+    keys = ["const", "const_str", "size", "peek", "poke", "ptr", "offset",
+            "type", "enum", "alignment", "let", "def"]
 
 -- $YALE_MCABAL_PATCHES/NAME.patch (tools/microcabal/patches, which the
 -- mcabal script names), if there is one: a patch to the package's staged

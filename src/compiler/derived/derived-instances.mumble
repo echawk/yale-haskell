@@ -93,8 +93,12 @@
 			     '#t)))
 	       ;; GeneralizedNewtypeDeriving: Enum of a newtype comes through
 	       ;; its field type, as GHC derives it (bifunctors' Biap); stock
-	       ;; Bounded and Ix of a one-constructor type agree with it
-	       ((and (eq? class (core-symbol "Enum"))
+	       ;; Bounded and Ix of a one-constructor type agree with it.
+	       ;; So do Functor, Foldable and Traversable, whose stock
+	       ;; deriving would need the field type's context (newtype AppT
+	       ;; m a = AppT (StateT S m a): Functor m)
+	       ((and (or (eq? class (core-symbol "Enum"))
+			 (constructor-class-derivable? class))
 		     (haskell98?)
 		     (algdata-newtype? alg)
 		     (or (module-extension? "GeneralizedNewtypeDeriving")
@@ -175,6 +179,9 @@
 	       (setf (instance-context inst) '())
 	       (setf (instance-mcontext inst)
 		     (list (**mp-context (**class/def class) (list via)))))
+	      ((and via (via-instance-context via class (algdata-tyvars alg)))
+	       (setf (instance-context inst)
+		     (car (via-instance-context via class (algdata-tyvars alg)))))
 	      (else
 	       (setf (instance-context inst)
 		     (if via
@@ -188,6 +195,44 @@
 		  '()))
 	(setf (instance-scoped-tyvars? inst) '#t)
 	(push inst (module-instance-defs *module*)))))
+
+;;; The context a via type's own instance needs, at the via type's
+;;; arguments, as GHC infers it: newtype AppT m a = AppT (StateT S m a)
+;;; deriving Applicative has StateT's (Functor m, Monad m); through an
+;;; argument that is itself T t1 .. tn, that one's instance's (ReaderT r
+;;; (STT s m): STT's Functor m).  A context at another type is taken to
+;;; hold.  A list of it, or '#f when the via type is not T t1 .. tn with
+;;; an instance from another module having only a simple context.
+
+(define (via-instance-context via class tyvars)
+  (let ((ctx (via-instance-context-1 via class tyvars '() 0)))
+    (and (not (eq? ctx 'fail)) (list ctx))))
+
+(define (via-instance-context-1 via class tyvars ctx depth)
+  (let* ((type (and (tycon? via) (< depth 8) (newtype-underlying-type via)))
+	 (under (and type (lookup-instance (tycon-def type) class))))
+    (if (not (and under
+		  (instance-ok? under)
+		  (null? (instance-head-args under))
+		  (null? (instance-mcontext under))
+		  (not (eq? (def-module (tycon-def type)) *module-name*))
+		  (= (length (instance-tyvars under)) (length (tycon-args type)))))
+	'fail
+	(begin
+	  (dolist (c (instance-context under))
+	    (let ((arg (find-corresponding-tyvar
+			(context-tyvar c) (instance-tyvars under)
+			(tycon-args type)))
+		  (cl (class-ref-class (context-class c))))
+	      (cond ((eq? ctx 'fail))
+		    ((tyvar? arg)
+		     (when (memq (tyvar-name arg) tyvars)
+		       (setf ctx (augment-context ctx cl (tyvar-name arg)))))
+		    ((and (tycon? arg)
+			  (lisp:intersection tyvars (ast-type-tyvars arg)))
+		     (setf ctx (via-instance-context-1 arg cl tyvars ctx
+						       (1+ depth)))))))
+	  ctx))))
 
 ;;; How many arguments the class's type variable takes in its methods'
 ;;; signatures (Bifunctor's p in p a c: 2), or its superclasses'; 0 for a

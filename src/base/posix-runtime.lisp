@@ -18,7 +18,8 @@
   (cl:unless (cl:find-package "SB-POSIX")
     (cl:make-package "SB-POSIX" :use '()))
   (cl:export (cl:mapcar (cl:lambda (n) (cl:intern n "SB-POSIX"))
-			'("CHMOD" "CLOSE" "DUP" "DUP2" "F-GETFD" "F-GETFL" "F-SETFD" "F-SETFL" "FCNTL" "FSTAT" "GETPID" "KILL" "LINK" "LSTAT" "O-APPEND" "O-CREAT" "O-EXCL" "O-NOCTTY" "O-NONBLOCK" "O-RDONLY" "O-RDWR" "O-SYNC" "O-TRUNC" "O-WRONLY" "OPEN" "S-IFDIR" "S-IFIFO" "S-IFLNK" "S-IFMT" "S-IFREG" "STAT" "STAT-ATIME" "STAT-MODE" "STAT-MTIME" "STAT-SIZE" "SYMLINK" "SYSCALL-ERRNO" "SYSCALL-ERROR" "UTIMES"))
+			'("CHMOD" "CLOSE" "DUP" "DUP2" "F-GETFD" "F-GETFL" "F-SETFD" "F-SETFL" "FCNTL" "FSTAT" "GETPID" "KILL" "LINK" "LSTAT" "O-APPEND" "O-CREAT" "O-EXCL" "O-NOCTTY" "O-NONBLOCK" "O-RDONLY" "O-RDWR" "O-SYNC" "O-TRUNC" "O-WRONLY" "OPEN" "S-IFDIR" "S-IFIFO" "S-IFLNK" "S-IFMT" "S-IFREG" "STAT" "STAT-ATIME" "STAT-MODE" "STAT-MTIME" "STAT-SIZE" "SYMLINK" "SYSCALL-ERRNO" "SYSCALL-ERROR" "UTIMES"
+			  "STAT-DEV" "STAT-INO" "STAT-NLINK" "STAT-UID" "STAT-GID" "STAT-RDEV" "STAT-CTIME" "S-IFBLK" "S-IFCHR" "S-IFSOCK" "READLINK" "RENAME" "UNLINK" "MKFIFO" "CHOWN" "LCHOWN" "FCHOWN" "FCHMOD" "TRUNCATE" "FTRUNCATE" "UMASK" "ACCESS" "R-OK" "W-OK" "X-OK" "MKSTEMP" "TIME"))
 	     "SB-POSIX"))
 
 (cl:defmacro with-posix-errors ((location cl:&optional path) cl:&body body)
@@ -46,8 +47,22 @@
 (cl:defun prim.stat-mtime (st) #+sbcl (sb-posix:stat-mtime st) #-sbcl 0)
 (cl:defun prim.stat-atime (st) #+sbcl (sb-posix:stat-atime st) #-sbcl 0)
 
+;;; The other fields: 0 device, 1 inode, 2 link count, 3 owner, 4 group,
+;;; 5 special device, 6 status change time.
+(cl:defun prim.stat-field (st i)
+  #+sbcl
+  (cl:case i
+    (0 (sb-posix:stat-dev st))
+    (1 (sb-posix:stat-ino st))
+    (2 (sb-posix:stat-nlink st))
+    (3 (sb-posix:stat-uid st))
+    (4 (sb-posix:stat-gid st))
+    (5 (sb-posix:stat-rdev st))
+    (cl:t (sb-posix:stat-ctime st)))
+  #-sbcl 0)
+
 ;;; The file type of a mode: 0 regular, 1 directory, 2 symbolic link,
-;;; 3 named pipe, 4 other.
+;;; 3 named pipe, 4 other, 5 block device, 6 character device, 7 socket.
 (cl:defun prim.mode-file-type (mode)
   #+sbcl
   (cl:let ((ty (cl:logand mode sb-posix:s-ifmt)))
@@ -55,6 +70,9 @@
 	     ((cl:= ty sb-posix:s-ifdir) 1)
 	     ((cl:= ty sb-posix:s-iflnk) 2)
 	     ((cl:= ty sb-posix:s-ififo) 3)
+	     ((cl:= ty sb-posix:s-ifblk) 5)
+	     ((cl:= ty sb-posix:s-ifchr) 6)
+	     ((cl:= ty sb-posix:s-ifsock) 7)
 	     (cl:t 4)))
   #-sbcl 4)
 
@@ -69,6 +87,118 @@
 
 (cl:defun prim.posix-symlink (old new)
   (with-posix-errors ("createSymbolicLink" new) (sb-posix:symlink old new)) 0)
+
+(cl:defun prim.posix-readlink (path)
+  (with-posix-errors ("readSymbolicLink" path) (sb-posix:readlink path)))
+
+(cl:defun prim.posix-rename (old new)
+  (with-posix-errors ("rename" old) (sb-posix:rename old new)) 0)
+
+(cl:defun prim.posix-unlink (path)
+  (with-posix-errors ("removeLink" path) (sb-posix:unlink path)) 0)
+
+(cl:defun prim.posix-mkfifo (path mode)
+  (with-posix-errors ("createNamedPipe" path) (sb-posix:mkfifo path mode)) 0)
+
+;;; (sb-posix has no mknod)
+(cl:defun prim.posix-mknod (path mode dev)
+  #+sbcl
+  (cl:when (cl:= (sb-alien:alien-funcall
+		  (sb-alien:extern-alien "mknod"
+					 (cl:function sb-alien:int sb-alien:c-string
+						      sb-alien:unsigned-int sb-alien:int))
+		  path mode dev)
+		 -1)
+    (raise-errno-error (sb-alien:get-errno) "createDevice" path))
+  #-sbcl (raise-io-error 'other "createDevice" "not supported on this Lisp" path)
+  0)
+
+;;; chown, or lchown when not FOLLOW? (a symbolic link's own owner)
+(cl:defun prim.posix-chown (path uid gid follow?)
+  (with-posix-errors ("setOwnerAndGroup" path)
+    (cl:if follow? (sb-posix:chown path uid gid) (sb-posix:lchown path uid gid)))
+  0)
+
+(cl:defun prim.posix-fchown (fd uid gid)
+  (with-posix-errors ("setFdOwnerAndGroup") (sb-posix:fchown fd uid gid)) 0)
+
+(cl:defun prim.posix-fchmod (fd mode)
+  (with-posix-errors ("setFdMode") (sb-posix:fchmod fd mode)) 0)
+
+(cl:defun prim.posix-truncate (path size)
+  (with-posix-errors ("setFileSize" path) (sb-posix:truncate path size)) 0)
+
+(cl:defun prim.posix-ftruncate (fd size)
+  (with-posix-errors ("setFdSize") (sb-posix:ftruncate fd size)) 0)
+
+(cl:defun prim.posix-umask (mask)
+  #+sbcl (sb-posix:umask mask) #-sbcl 0)
+
+;;; access(2): whether the file allows the access asked for (R, W, X).
+(cl:defun prim.posix-access (path r? w? x?)
+  #+sbcl
+  (cl:handler-case
+      (cl:progn
+	(sb-posix:access path (cl:logior (cl:if r? sb-posix:r-ok 0)
+					 (cl:if w? sb-posix:w-ok 0)
+					 (cl:if x? sb-posix:x-ok 0)))
+	cl:t)
+    (sb-posix:syscall-error () cl:nil))
+  #-sbcl cl:nil)
+
+;;; pathconf(2) and fpathconf: the POSIX variables 0 LINK_MAX, 1 MAX_CANON,
+;;; 2 MAX_INPUT, 3 NAME_MAX, 4 PATH_MAX, 5 PIPE_BUF, 6 CHOWN_RESTRICTED,
+;;; 7 NO_TRUNC, 8 VDISABLE (_PC_ numbers are these on Linux, one more on
+;;; macOS and the BSDs).
+(cl:defun pathconf-name (var)
+  #+linux var #-linux (cl:1+ var))
+
+(cl:defun prim.posix-pathconf (path var)
+  #+sbcl
+  (cl:let ((r (sb-alien:alien-funcall
+	       (sb-alien:extern-alien "pathconf"
+				      (cl:function sb-alien:long sb-alien:c-string sb-alien:int))
+	       path (pathconf-name var))))
+    (cl:if (cl:= r -1)
+	   (raise-errno-error (sb-alien:get-errno) "getPathVar" path)
+	   r))
+  #-sbcl (raise-io-error 'other "getPathVar" "not supported on this Lisp" path))
+
+(cl:defun prim.posix-fpathconf (fd var)
+  #+sbcl
+  (cl:let ((r (sb-alien:alien-funcall
+	       (sb-alien:extern-alien "fpathconf"
+				      (cl:function sb-alien:long sb-alien:int sb-alien:int))
+	       fd (pathconf-name var))))
+    (cl:if (cl:= r -1)
+	   (raise-errno-error (sb-alien:get-errno) "getFdPathVar" "")
+	   r))
+  #-sbcl (raise-io-error 'other "getFdPathVar" "not supported on this Lisp" ""))
+
+;;; mkstemp(3): the descriptor and the file's name, a cons read by the
+;;; two accessors.
+(cl:defun prim.posix-mkstemp (template)
+  (with-posix-errors ("mkstemp" template)
+    (cl:multiple-value-bind (fd name) (sb-posix:mkstemp (cl:concatenate 'cl:string template "XXXXXX"))
+      (cl:cons fd name))))
+
+(cl:defun prim.mkstemp-fd (r) (cl:car r))
+(cl:defun prim.mkstemp-name (r) (cl:cdr r))
+
+;;; time(2): the seconds since the epoch.
+(cl:defun prim.posix-time ()
+  #+sbcl (sb-posix:time) #-sbcl (cl:- (cl:get-universal-time) 2208988800))
+
+;;; uname(2)'s fields, from the Lisp's own: 0 the system ("Darwin"), 1 the
+;;; node, 2 the release, 3 the version, 4 the machine ("arm64", "x86_64").
+(cl:defun prim.posix-uname (i)
+  (cl:case i
+    (0 (cl:software-type))
+    (1 (cl:or (cl:machine-instance) ""))
+    ((2 3) (cl:or (cl:software-version) ""))
+    (cl:t (cl:let ((m (cl:string-downcase (cl:machine-type))))
+	    (cl:cond ((cl:string= m "x86-64") "x86_64")
+		     (cl:t m))))))
 
 (cl:defun prim.posix-sleep (seconds)
   (cl:sleep seconds)

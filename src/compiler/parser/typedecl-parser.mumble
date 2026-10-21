@@ -11,6 +11,7 @@
     (check-simple simple '#t "type declaration")
     (let ((annotations (parse-constr-annotations)))
      (setf *special-derivings* '())
+     (setf *mp-derivings* '())
      (token-case
       (= (setf constrs (parse-constrs))
 	 (setf deriving (parse-optional-deriving)))
@@ -340,12 +341,81 @@
 
 (define (parse-class-list)
   (token-case
-   (tycon (let ((class (class->ast)))
-	     (token-case
-	      (\, (cons class (parse-class-list)))
-	      (\) (list class))
-	      (else (signal-missing-token "`)' or `,'" "deriving clause")))))
+   (tycon (let* ((class (class->ast))
+		 ;; a multi-parameter class, its other arguments first:
+		 ;; deriving (MonadState S) (*mp-derivings*)
+		 (args (if (haskell98?) (parse-atype-list) '()))
+		 (classes (if (null? args) (list class) '())))
+	    (when (not (null? args))
+	      (push (tuple class args) *mp-derivings*))
+	    (token-case
+	     (\, (append classes (parse-class-list)))
+	     (\) classes)
+	     (else (signal-missing-token "`)' or `,'" "deriving clause")))))
    (else (signal-missing-token "<tycon>" "deriving clause"))))
+
+;;; A newtype's derived multi-parameter classes (deriving (MonadState S),
+;;; GHC's GeneralizedNewtypeDeriving): an instance like a standalone
+;;; deriving's, C args (N a1 .. ak), its context C args at the field type,
+;;; both without the last type variable when the field type also ends
+;;; with it (newtype App a = App (StateT S IO a) gives MonadState S App
+;;; from MonadState S (StateT S IO)).  Kinds are not known here: one
+;;; variable, for the class of monads (* -> *) these mostly are.
+
+(define *mp-derivings* '())
+
+(define (mp-deriving-instances data-decl)
+  (let ((derivings (reverse *mp-derivings*)))
+    (setf *mp-derivings* '())
+    (if (or (null? derivings)
+	    (not (data-decl-newtype? data-decl)))
+	'()
+	(let* ((simple (data-decl-simple data-decl))
+	       (field (tuple-2-1 (car (constr-types
+				       (car (data-decl-constrs data-decl))))))
+	       (vars (reverse (tycon-args simple))))
+	  (when (eta-reducible? vars field)
+	    (setf field (type-without-last-arg field))
+	    (setf vars (cdr vars)))
+	  (map (lambda (d)
+		 (let ((class (tuple-2-1 d))
+		       (args (tuple-2-2 d)))
+		   (make instance-decl (context '())
+			 (class class) (simple simple) (decls '())
+			 (types (append args
+					(list (make tycon (name (tycon-name simple))
+						    (def (tycon-def simple))
+						    (args (reverse vars))))))
+			 (mcontext (list (make mp-context
+					       (class (make class-ref
+							    (name (class-ref-name class))
+							    (class *undefined-def*)))
+					       (types (append args (list field))))))
+			 (newtype-derived? '#t))))
+	       derivings)))))
+
+(define (eta-reducible? vars field)
+  (and (not (null? vars))
+       (let ((args (cond ((tycon? field) (tycon-args field))
+			 ((tyapp? field) (tyapp-args field))
+			 (else '()))))
+	 (and (not (null? args))
+	      (let ((last (list-ref args (1- (length args))))
+		    (v (tyvar-name (car vars))))
+		(and (tyvar? last)
+		     (eq? (tyvar-name last) v)
+		     (not (memq v (ast-tyvar-names (type-without-last-arg field))))
+		     (not (memq v (lisp:mapcan (function ast-tyvar-names)
+					       (cdr vars))))))))))
+
+(define (type-without-last-arg type)
+  (if (tycon? type)
+      (make tycon (name (tycon-name type)) (def (tycon-def type))
+	    (args (butlast (tycon-args type))))
+      (let ((args (butlast (tyapp-args type))))
+	(if (null? args)
+	    (tyapp-fun type)
+	    (make tyapp (fun (tyapp-fun type)) (args args))))))
 
 (define (parse-constr-annotations)
   (token-case

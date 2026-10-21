@@ -568,9 +568,14 @@
   (and (pair? (cdr word))
        (or (pragma-word-1? word)
 	   ;; GHC's pragma names are not case-sensitive ({-# Language CPP #-})
+	   ;; (filelock's {-# UNPACk #-})
 	   (mem-string (lisp:string-upcase (list->string word))
 		       '("LANGUAGE" "OPTIONS" "OPTIONS_GHC" "OPTIONS_HADDOCK"
-			 "INCLUDE")))))
+			 "INCLUDE" "NOINLINE" "INLINABLE" "INLINEABLE"
+			 "SPECIALIZE" "SPECIALISE" "RULES" "COMPLETE" "SCC"
+			 "ANN" "OPAQUE" "MINIMAL" "OVERLAPPING" "OVERLAPPABLE"
+			 "OVERLAPS" "INCOHERENT" "UNPACK" "NOUNPACK"
+			 "DEPRECATED" "WARNING")))))
 
 (define (pragma-word-1? word)
   (or (null? word)

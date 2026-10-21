@@ -431,13 +431,28 @@
   (values (lisp:remove-if (function equality-assertion?) contexts)
 	  (lisp:remove-if-not (function equality-assertion?) contexts)))
 
+;;; The substitutions made, (tuple name type), while recording (a
+;;; class's default signature, tdecl/class.mumble's init-methods).
+(define *recording-equalities?* '#f)
+(define *recorded-equalities* '())
+
+;;; Each default signature's substitutions: (tuple signature substitutions)
+(define *default-sig-equalities* '())
+
 (define (apply-equalities equalities sig)
   (dolist (e equalities)
     (let ((left (cadr e)) (right (caddr e)))
       (cond ((tyvar? left)
+	     (record-equality (tyvar-name left) right)
 	     (substitute-signature sig (tyvar-name left) right))
 	    ((tyvar? right)
+	     (record-equality (tyvar-name right) left)
 	     (substitute-signature sig (tyvar-name right) left)))))
+
+(define (record-equality name type)
+  (when (dynamic *recording-equalities?*)
+    (setf (dynamic *recorded-equalities*)
+	  (cons (tuple name type) (dynamic *recorded-equalities*)))))
   sig)
 
 ;;; The same for an instance (instance ann ~ Void => Pretty (Doc ann) is

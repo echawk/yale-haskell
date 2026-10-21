@@ -418,19 +418,44 @@
 			 (when (file-exists? f)
 			   (return-from search f))))
 		     '#f)))
-      (when (not found)
-	(cpp-error "cannot find #include file ~A" name))
-      (push found (dynamic *cpp-includes*))
+      (cond ((and (not found) (not quote?) (c-system-header? name))
+	     ;; <sys/types.h> and the like (unix-compat's HsUnixCompat.h):
+	     ;; C declarations, nothing a Haskell module uses
+	     '#f)
+	    ((not found)
+	     (cpp-error "cannot find #include file ~A" name))
+	    (else
+	     (cpp-include-file found out depth))))))
+
+(define (c-system-header? name)
+  (or (and (> (string-length name) 4) (string=? (substring name 0 4) "sys/"))
+      (mem-string name '("stdint.h" "stddef.h" "stdlib.h" "stdio.h" "string.h"
+			 "unistd.h" "errno.h" "fcntl.h" "limits.h" "time.h"
+			 "signal.h" "dirent.h" "termios.h" "pwd.h" "grp.h"
+			 "utime.h" "math.h" "float.h" "inttypes.h" "wchar.h"
+			 "locale.h" "dlfcn.h" "poll.h" "windows.h"))))
+
+(define (cpp-include-file found out depth)
+  (begin
+    (push found (dynamic *cpp-includes*))
       (let ((line  (dynamic *cpp-line*))
 	    (file  (dynamic *cpp-file*)))
-	(lisp:format out "{-# LINE 1 ~S #-}~%" found)
-	(cpp-process found
-		     (if (string=? (filename-type found) ".h")
-			 ;; a C header (MachDeps.h, ...): its C comments go
-			 (strip-c-comments (read-file-text found))
-			 (read-file-text found))
-		     out (1+ depth))
-	(lisp:format out "{-# LINE ~A ~S #-}~%" (1+ line) file)))))
+	(if (and (string=? (filename-type found) ".h")
+		 (lisp:nth-value 1 (lisp:gethash "__YALE_HSC__" (dynamic *cpp-macros*))))
+	    ;; in a module from an hsc2hs source (MicroCabal defines
+	    ;; __YALE_HSC__), a header is for hsc2hs's C program: its macros
+	    ;; count, its text (unix-compat's C declarations) does not
+	    (cpp-process found (strip-c-comments (read-file-text found))
+			 (lisp:make-broadcast-stream) (1+ depth))
+	    (begin
+	      (lisp:format out "{-# LINE 1 ~S #-}~%" found)
+	      (cpp-process found
+			   (if (string=? (filename-type found) ".h")
+			       ;; a C header (MachDeps.h, ...): its C comments go
+			       (strip-c-comments (read-file-text found))
+			       (read-file-text found))
+			   out (1+ depth))
+	      (lisp:format out "{-# LINE ~A ~S #-}~%" (1+ line) file))))))
 
 (define (cpp-directory-name dir)
   (if (and (> (string-length dir) 0)

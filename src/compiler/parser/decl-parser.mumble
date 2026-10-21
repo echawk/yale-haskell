@@ -261,7 +261,14 @@
      (\; (parse-decl-list-1 in-layout?))
      (else (close-layout in-layout?) '())))
    ;; DefaultSignatures (GHC), in a class: default m :: sig
-   (|default| (let ((decl (parse-signdecl)))
+   (|default| (let ((decl (dynamic-let ((*recording-equalities?* '#t)
+					  (*recorded-equalities* '()))
+			    (let ((d (parse-signdecl)))
+			      ;; t n ~ m, m the class's: init-methods
+			      (push (tuple (signdecl-signature d)
+					   (dynamic *recorded-equalities*))
+				    *default-sig-equalities*)
+			      d))))
 		(setf (signdecl-default? decl) '#t)
 		(parse-decl-list-2 decl in-layout?)))
    (|infix| (parse-decl-list-2 (parse-fixity-decl 'n) in-layout?))
