@@ -78,15 +78,25 @@
 ;;; gtraverse_ Refl (Rec1 x) = ... sequenceA x, generic-data) is not
 ;;; needed by the variable's type.
 (define *gadt-soft-vars* '())
+(define *gadt-soft-decl* '#f)   ; the declaration of the clause
 
 ;;; (those of a pattern with a GADT constructor in it are exactly typed by
 ;;; the constructor: eval (Add a b) = eval a + eval b)
 (define (gadt-pattern-vars pats)
-  (lisp:mapcan (lambda (p)
-		 (if (pattern-has-gadt-con? p)
-		     '()
-		     (map (function var-ref-var) (collect-pattern-vars p))))
-	       pats))
+  (let ((refined (gadt-refined-tyvars)))
+    (lisp:remove-if-not
+     ;; only those whose type has a variable the match refines (aeson's
+     ;; m1 beside targs@(To1Args ..) keeps its type)
+     (lambda (v)
+       (let ((ty (var-type v)))
+	 (and (not (gtype? ty))
+	      (lisp:some (lambda (tv) (memq tv refined))
+			 (ntype-free-tyvars ty)))))
+     (lisp:mapcan (lambda (p)
+		    (if (pattern-has-gadt-con? p)
+			'()
+			(map (function var-ref-var) (collect-pattern-vars p))))
+		  pats))))
 
 (define (pattern-has-gadt-con? p)
   (cond ((is-type? 'pcon p)
@@ -108,12 +118,67 @@
 			    (values (instantiate-gtype (con-signature con)) '())
 			    (existential-pcon con))))
     (setf (dynamic *gadt-match*) '#t)
-    (let ((alg  (con-alg con)))
-      (values (**arrow/l-2
-	       (arrow-argument-types type)
-	       (**ntycon alg (map (lambda (v) (declare (ignore v)) (**ntyvar))
-				  (algdata-tyvars alg))))
+    (let* ((alg  (con-alg con))
+	   (scrutinee (**ntycon alg (map (lambda (v) (declare (ignore v)) (**ntyvar))
+					 (algdata-tyvars alg)))))
+      ;; the scrutinee's indices the constructor's result refines (not a
+      ;; plain variable there): gadt-pattern-vars
+      (push (tuple (refined-index-positions type) scrutinee)
+	    (dynamic *gadt-refinements*))
+      (values (**arrow/l-2 (arrow-argument-types type) scrutinee)
 	      hidden))))
+
+(define *gadt-refinements* '())
+
+;;; The positions of a constructor type's result's arguments that are not
+;;; a plain type variable (Refl :: Equal f (f b) b: 1).
+(define (refined-index-positions con-type)
+  (let ((res (prune con-type)))
+    (do () ((not (and (ntycon? res) (eq? (ntycon-tycon res) (core-symbol "Arrow")))))
+      (setf res (prune (cadr (ntycon-args res)))))
+    (let ((i 0) (positions '()))
+      (when (ntycon? res)
+	(dolist (a (ntycon-args res))
+	  (when (not (ntyvar? (prune a)))
+	    (push i positions))
+	  (incf i)))
+      positions)))
+
+;;; The type variables at the refined positions of the scrutinees matched.
+(define (gadt-refined-tyvars)
+  (let ((vars '()))
+    (dolist (r (dynamic *gadt-refinements*))
+      (let ((scrutinee (prune (tuple-2-2 r))))
+	(when (ntycon? scrutinee)
+	  (dolist (i (tuple-2-1 r))
+	    (setf vars (append (ntype-free-tyvars (list-ref (ntycon-args scrutinee) i))
+			       vars))))))
+    vars))
+
+(define (ntype-free-tyvars type)
+  (let ((type (prune type)))
+    (cond ((ntyvar? type) (list type))
+	  ((ntycon? type) (lisp:mapcan (function ntype-free-tyvars) (ntycon-args type)))
+	  ((ntyapp? type)
+	   (append (ntype-free-tyvars (ntyapp-fun type))
+		   (lisp:mapcan (function ntype-free-tyvars) (ntyapp-args type))))
+	  (else '()))))
+
+;;; A clause's argument types unified with its declaration's signature's,
+;;; before its right-hand sides (as GHC checks against a signature), so
+;;; that gadt-pattern-vars sees which variables the match refines.
+(define (gadt-link-signature arg-types)
+  (let* ((decl (car (dynamic *enclosing-decls*)))
+	 (var (and (valdef? decl)
+		   (let ((vs (collect-pattern-vars (valdef-lhs decl))))
+		     (and (not (null? vs)) (var-ref-var (car vs))))))
+	 (sig (and var (var-signature var))))
+    (when (and sig (gtype? sig) (not (gtype-nested? sig)))
+      (let ((sig-args (arrow-argument-types (instantiate-gtype sig))))
+	(dolist2 (a arg-types) (b (list-head sig-args (min (length sig-args)
+							    (length arg-types))))
+	  (when (could-unify? a b 32)
+	    (type-unify a b '#f)))))))
 
 (define (gadt-coerce-rhs-list rhs-list)
   (dolist (g rhs-list)

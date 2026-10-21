@@ -348,6 +348,7 @@
 
 (define-type-checker single-fun-def
  (dynamic-let ((*gadt-match* '#f)
+	       (*gadt-refinements* '())
 	       ;; pattern signatures bind type variables for this clause
 	       (*scoped-tyvars* (dynamic *scoped-tyvars*)))
   (fresh-monomorphic-types (length (single-fun-def-args object)) tyvars
@@ -355,12 +356,18 @@
       (unify-list tyvars arg-types)
       ;; a GADT constructor matched (existentials.mumble)
       (when (dynamic *gadt-match*)
+	(gadt-link-signature arg-types)
 	(gadt-coerce-rhs-list (single-fun-def-rhs-list object)))
       (dynamic-let ((*gadt-soft-vars*
 		     (if (dynamic *gadt-match*)
 			 (append (gadt-pattern-vars (single-fun-def-args object))
 				 (dynamic *gadt-soft-vars*))
-			 (dynamic *gadt-soft-vars*))))
+			 (dynamic *gadt-soft-vars*)))
+		    (*gadt-soft-uses* (dynamic *gadt-soft-uses*))
+		    (*gadt-soft-decl*
+		     (if (dynamic *gadt-match*)
+			 (car (dynamic *enclosing-decls*))
+			 (dynamic *gadt-soft-decl*))))
       (type-check/decls single-fun-def where-decls
         (type-check/unify-list single-fun-def rhs-list rhs-type
            (type-mismatch/list object

@@ -16,6 +16,9 @@
 
 (define *placeholders* '())
 (define *non-generic-tyvars* '())
+;;; The types of a GADT clause's soft-typed variable uses, not generalized
+;;; by a let in the clause (type/existentials.mumble)
+(define *gadt-soft-uses* '())
 (define *enclosing-decls* '())
 
 ;;; Used by the defaulting mechanism

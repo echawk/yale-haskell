@@ -274,7 +274,8 @@
 			    (class-contexts
 			     (if eqs
 				 (substitute-class-contexts
-				  class-context class-mcontext (tuple-2-2 eqs))
+				  class-context class-mcontext (tuple-2-2 eqs)
+				  class-tyvars)
 				 (tuple class-context class-mcontext)))
 			    (context (append (tuple-2-1 class-contexts)
 					     (signature-context sig)))
@@ -292,21 +293,40 @@
 	     (add-new-module-decl decl)))))))))
 
 ;;; The class's own contexts (single, multi) for a default whose
-;;; signature's equalities rebind the class's variables (t n ~ m: a
-;;; default lifting through a transformer, equivalence's MonadEquiv):
-;;; those mentioning a rebound variable are left out.  At t n the class
-;;; is the instance being defined, which the lifted body does not use and
-;;; whose dictionary would then be its own method's argument (a loop).
-;;; (tuple single multi)
-(define (substitute-class-contexts single multi eqs)
-  (let ((names (map (function tuple-2-1) eqs)))
-    (tuple (lisp:remove-if (lambda (c) (memq (context-tyvar c) names)) single)
-	   (lisp:remove-if (lambda (c)
-			     (lisp:some (lambda (ty)
-					  (lisp:intersection
-					   names (ast-type-tyvars ty)))
-					(mp-context-types c)))
-			   multi))))
+;;; signature's equalities rebind the class's variables.  Where the new
+;;; type brings variables of its own (t n ~ m: a default lifting through a
+;;; transformer, equivalence's MonadEquiv), those contexts are left out: at
+;;; t n the class is the instance being defined, which the lifted body
+;;; does not use and whose dictionary would then be its own method's
+;;; argument (a loop).  Otherwise (i ~ Int, indexed-traversable's
+;;; itraverse) the type replaces the variable in them.  (tuple single
+;;; multi)
+(define (substitute-class-contexts single multi eqs class-tyvars)
+  (let* ((new-vars? (lambda (e)
+		      (lisp:some (lambda (v) (not (memq v class-tyvars)))
+				 (ast-type-tyvars (tuple-2-2 e)))))
+	 (dropped (map (function tuple-2-1) (lisp:remove-if-not new-vars? eqs)))
+	 (substituted (lisp:remove-if new-vars? eqs))
+	 (new-single '())
+	 (new-multi '()))
+    (dolist (c multi)
+      (when (not (lisp:some (lambda (ty)
+			      (lisp:intersection dropped (ast-type-tyvars ty)))
+			    (mp-context-types c)))
+	(push (**mp-context
+	       (mp-context-class c)
+	       (map (lambda (ty)
+		      (dolist (e substituted)
+			(setf ty (substitute-tyvar ty (tuple-2-1 e) (tuple-2-2 e))))
+		      ty)
+		    (mp-context-types c)))
+	      new-multi)))
+    (dolist (c single)
+      (let ((e (assq (context-tyvar c) substituted)))
+	(cond ((memq (context-tyvar c) dropped))
+	      (e (push (**mp-context (context-class c) (list (tuple-2-2 e))) new-multi))
+	      (else (push c new-single)))))
+    (tuple (reverse new-single) (reverse new-multi))))
 
 (define (signal-class-sig-ignores-type signature)
   (phase-error 'class-sig-ignores-type

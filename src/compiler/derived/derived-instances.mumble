@@ -103,7 +103,12 @@
 		     (algdata-newtype? alg)
 		     (or (module-extension? "GeneralizedNewtypeDeriving")
 			 (module-extension? "GeneralisedNewtypeDeriving")))
-		(add-newtype-derived-instance alg class))
+		(if (eq? class (core-symbol "Enum"))
+		    (add-newtype-derived-instance alg class)
+		    ;; (a dictionary of its own, its methods coerced: shared
+		    ;; with the field type's, Foldable (Strict.Vector) would
+		    ;; have V.Vector's type, vector's Data.Vector.Strict)
+		    (add-special-derived-instance alg class 'newtype)))
 	       ((eq? class (core-symbol "Ix"))
 		(if (or (algdata-enum? alg)
 			(algdata-tuple? alg))

@@ -68,6 +68,8 @@ builtinPackages =
     "template-haskell",
     -- of GHC's boot packages, GHC.Lexeme (generic-data's)
     "ghc-boot-th",
+    -- GHC.Compact, its regions the values themselves (Agda's Serialise)
+    "ghc-compact",
     -- compatibility packages whose modules base has
     "fail", "semigroups", "void", "nats", "tagged-compat" ]
 

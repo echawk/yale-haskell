@@ -17,8 +17,11 @@
 	;; (existentials.mumble): its use's type, related to its own part
 	;; by part when the signature is checked
 	(let ((use (**ntyvar)))
-	  (push (list object (car (dynamic *enclosing-decls*)) ntype use)
+	  ;; (the clause's declaration, whose signature relates them, and
+	  ;; not generalized by a let inside it: aeson's key = .. selName m1)
+	  (push (list object (dynamic *gadt-soft-decl*) ntype use)
 		(dynamic *gadt-cast-types*))
+	  (push use (dynamic *gadt-soft-uses*))
 	  (return-type exp use))
 	(return-type exp ntype)))))
 

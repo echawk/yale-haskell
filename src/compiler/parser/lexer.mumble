@@ -820,6 +820,23 @@
 	  (else
 	   (emit-token/string 'consym sym)))))
 
+;;; UnicodeSyntax (GHC): a symbol that is one of its characters is the
+;;; ASCII one's (transformers-base's ⇒).
+(define (unicode-syntax-symbol sym)
+  (if (and (pair? sym) (null? (cdr sym))
+	   (language-extension? "UnicodeSyntax"))
+      (let ((c (char->integer (car sym))))
+	(cond ((= c #x21D2) (string->list "=>"))     ; ⇒
+	      ((= c #x2192) (string->list "->"))     ; →
+	      ((= c #x2190) (string->list "<-"))     ; ←
+	      ((= c #x2237) (string->list "::"))     ; ∷
+	      ((= c #x2200) (string->list "forall")) ; ∀
+	      ((= c #x2605) (string->list "*"))      ; ★
+	      ((= c #x2919) (string->list "-<"))     ; ⤙
+	      ((= c #x291A) (string->list ">-"))     ; ⤚
+	      (else sym)))
+      sym))
+
 (define (lex-varsym)
   (if (feature? 'h98-lexing)
       (lex-varsym-98)
@@ -856,8 +873,13 @@
   (scan-list-of (symbol presymbol #\:)))
 
 (define (lex-varsym-98)
-  (let ((sym (scan-symbol-98)))
-    (cond ((all-dashes? sym)
+  (let ((sym (unicode-syntax-symbol (scan-symbol-98))))
+    (cond ((string=/list? sym "forall")
+	   ;; UnicodeSyntax's quantifier
+	   (emit-token/string 'varid sym))
+	  ((string=/list? sym "::")
+	   (emit-token '\:\:))
+	  ((all-dashes? sym)
 	   (if (null? (cdr sym))
 	       (if (char=? *char* #\})
 		   (begin

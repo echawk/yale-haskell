@@ -201,7 +201,8 @@
       (fresh-type res-type
 	(dolist (object (case-alts object))
 	  (recover-type-error ;;; %%% Needs work
-	   (dynamic-let ((*gadt-match* '#f))
+	   (dynamic-let ((*gadt-match* '#f)
+			 (*gadt-refinements* '()))
 	   (type-check alt pat pat-type
 	     (type-unify pat-type arg-type
                  (type-mismatch case-exp
@@ -214,7 +215,12 @@
 			    (if (dynamic *gadt-match*)
 				(append (gadt-pattern-vars (list (alt-pat object)))
 					(dynamic *gadt-soft-vars*))
-				(dynamic *gadt-soft-vars*))))
+				(dynamic *gadt-soft-vars*)))
+			   (*gadt-soft-uses* (dynamic *gadt-soft-uses*))
+			   (*gadt-soft-decl*
+			    (if (dynamic *gadt-match*)
+				(car (dynamic *enclosing-decls*))
+				(dynamic *gadt-soft-decl*))))
 	     (type-check/decls alt where-decls
 	       (type-check/unify-list alt rhs-list rhs-type
                  (type-mismatch/list case-exp

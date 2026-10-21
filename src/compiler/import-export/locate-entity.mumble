@@ -203,6 +203,9 @@
 		   (require-complete-algdata (gather-algdata-group name def))
 		   (entity-class-methods entity)
 		   entity "constructor or field"))
+		 ;; T() of a synonym (generic-data's DCat())
+		 ((and (synonym? def) (null? (entity-class-methods entity)))
+		  (make-group name def))
 		 (else
 		  (signal-wrong-definition "class" name *module-name*))))
 	  ((and (is-type? 'entity-datatype entity) (data-family? def))

@@ -666,7 +666,10 @@
 	  (occurs-in-type/l tyvar (cdr types)))))
 
 (define-integrable (non-generic? tyvar)
-  (occurs-in-type/l tyvar (dynamic *non-generic-tyvars*)))
+  (or (occurs-in-type/l tyvar (dynamic *non-generic-tyvars*))
+      ;; a GADT clause's soft-typed variable uses (type/existentials.mumble)
+      (and (not (null? (dynamic *gadt-soft-uses*)))
+	   (occurs-in-type/l tyvar (dynamic *gadt-soft-uses*)))))
 
 (define (collect-tyvars ntype)
   (collect-tyvars-1 ntype '()))
