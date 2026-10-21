@@ -44,12 +44,21 @@
 ;;; to be processed at the next level are returned.
 
 (define (process-placeholders placeholders deferred decls)
+  ;; multi-parameter ones first: their fundep improvement may decide a
+  ;; one-parameter one's type (ListLike's map FM.toList, toList's
+  ;; Foldable t from ListLike full (FMList Char))
+  (process-placeholders-1
+   (append (lisp:remove-if-not (function mp-placeholder?) placeholders)
+	   (lisp:remove-if (function mp-placeholder?) placeholders))
+   deferred decls))
+
+(define (process-placeholders-1 placeholders deferred decls)
   (when (not (null? *deferred-family-equalities*))
     (retry-family-equalities))
   (if (null? placeholders)
       deferred
       (let ((d1 (process-placeholder (car placeholders) deferred decls)))
-	(process-placeholders (cdr placeholders) d1 decls))))
+	(process-placeholders-1 (cdr placeholders) d1 decls))))
 
 ;;; This processes a placeholder.  The following cases arise:
 ;;;  a) the variable has already been processed (no placeholders remain) -

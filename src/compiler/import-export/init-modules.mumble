@@ -76,12 +76,40 @@
 	    ;; Control.Applicative names are imported from there.  What an
 	    ;; import Prelude hiding (...) hides is hidden here too.
 	    (let ((listed (explicit-prelude-import-names (module-imports *module*))))
+	      ;; import [qualified] Prelude as P: PreludeModern's names as P.x
+	      ;; too (ListLike's P.traverse)
+	      (dolist (i (module-imports *module*))
+		(when (and (eq? (import-decl-module-name i) '|Prelude|)
+			   (or (import-decl-qualified? i) (import-decl-as-name i)))
+		  (setf (module-imports *module*)
+			(cons (make import-decl
+				    (module-name '|PreludeModern|)
+				    (module modern)
+				    (mode 'all)
+				    (specs (if (eq? (import-decl-mode i) 'all)
+					       (append (import-decl-specs i) *not-in-ghc-prelude*)
+					       (modern-names-hidden-except
+						modern
+						(cons '|*none*|
+						      (map (function entity-name)
+							   (import-decl-specs i))))))
+				    (renamings '())
+				    (qualified? (import-decl-qualified? i))
+				    (as-name (or (import-decl-as-name i) '|Prelude|)))
+			      (module-imports *module*)))))
+	      ;; (not when every import of Prelude is qualified: ListLike's
+	      ;; import qualified Prelude, which defines its own null)
+	      (when (or (not (lisp:some (lambda (i) (eq? (import-decl-module-name i) '|Prelude|))
+				       (module-imports *module*)))
+			(lisp:some (lambda (i) (and (eq? (import-decl-module-name i) '|Prelude|)
+						    (not (import-decl-qualified? i))))
+				   (module-imports *module*)))
 	      (add-imported-module modern
 		(if listed
 		    ;; import Prelude (a, b): only those of PreludeModern too
 		    (modern-names-hidden-except modern listed)
 		    (append (prelude-hiding-specs (module-imports *module*))
-			    *not-in-ghc-prelude*)))))))
+			    *not-in-ghc-prelude*))))))))
     (let ((prelude-core (locate-module '|PreludeCore|)))
        (if (eq? prelude-core '#f)
 	   (signal-missing-prelude-core)

@@ -4,7 +4,7 @@
 -- the strict one underneath: each function is Data.ByteString's.
 module Data.ByteString.Lazy (
     ByteString, fromStrict, toStrict, fromChunks, toChunks,
-    pack, unpack, empty, singleton, cons, snoc, append, head, last, tail, init, uncons, unsnoc, null, length, map, reverse, intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr1, concat, concatMap, any, all, maximum, minimum, replicate, unfoldr, take, takeEnd, drop, dropEnd, splitAt, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, span, spanEnd, break, breakEnd, breakSubstring, group, groupBy, inits, tails, split, splitWith, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, elem, notElem, find, filter, partition, index, indexMaybe, (!?), elemIndex, elemIndices, findIndex, findIndices, count, zip, zipWith, unzip, copy, putStr, getLine, getContents, interact, readFile, writeFile, appendFile, hPutStr, hPut, hGetLine, hGetContents, hGet
+    pack, unpack, empty, singleton, cons, snoc, append, head, last, tail, init, uncons, unsnoc, null, length, map, reverse, intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr', sort, foldr1, concat, concatMap, any, all, maximum, minimum, replicate, unfoldr, take, takeEnd, drop, dropEnd, splitAt, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, span, spanEnd, break, breakEnd, breakSubstring, group, groupBy, inits, tails, split, splitWith, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, elem, notElem, find, filter, partition, index, indexMaybe, (!?), elemIndex, elemIndices, findIndex, findIndices, count, zip, zipWith, unzip, copy, putStr, getLine, getContents, interact, readFile, writeFile, appendFile, hPutStr, hPut, hGetLine, hGetContents, hGet, hGetSome, hGetNonBlocking
   ) where
 
 import Prelude ()
@@ -100,6 +100,12 @@ foldl1 = unsafeCoerce S.foldl1
 
 foldr :: (Word8 -> a -> a) -> a -> ByteString -> a
 foldr = unsafeCoerce S.foldr
+
+foldr' :: (Word8 -> a -> a) -> a -> ByteString -> a
+foldr' = unsafeCoerce S.foldr'
+
+sort :: ByteString -> ByteString
+sort = unsafeCoerce S.sort
 
 foldr1 :: (Word8 -> Word8 -> Word8) -> ByteString -> Word8
 foldr1 = unsafeCoerce S.foldr1
@@ -289,3 +295,9 @@ hGetContents = unsafeCoerce S.hGetContents
 
 hGet :: Handle -> Int -> IO ByteString
 hGet = unsafeCoerce S.hGet
+
+hGetSome :: Handle -> Int -> IO ByteString
+hGetSome = unsafeCoerce S.hGetSome
+
+hGetNonBlocking :: Handle -> Int -> IO ByteString
+hGetNonBlocking = unsafeCoerce S.hGetNonBlocking

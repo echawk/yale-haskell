@@ -3,7 +3,8 @@
 module Data.ByteString (
     ByteString, pack, unpack, empty, singleton, cons, snoc, append, head,
     last, tail, init, uncons, unsnoc, null, length, map, reverse,
-    intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr,
+    intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr',
+    sort,
     foldr1, concat, concatMap, any, all, maximum, minimum, replicate,
     unfoldr, take, takeEnd, drop, dropEnd, splitAt, takeWhile,
     takeWhileEnd, dropWhile, dropWhileEnd, span, spanEnd, break, breakEnd,
@@ -13,7 +14,8 @@ module Data.ByteString (
     elemIndices, findIndex, findIndices, count, zip, zipWith, unzip, copy,
     fromStrict, toStrict, fromChunks, toChunks,
     putStr, getLine, getContents, interact, readFile, writeFile,
-    appendFile, hPutStr, hPut, hGetLine, hGetContents, hGet
+    appendFile, hPutStr, hPut, hGetLine, hGetContents, hGet, hGetSome,
+    hGetNonBlocking
       , packCString, packCStringLen, useAsCString, useAsCStringLen
   ) where
 
@@ -25,6 +27,7 @@ import Prelude hiding (head, last, tail, init, null, length, map, reverse,
                        getLine, getContents, interact, readFile, writeFile,
                        appendFile)
 import qualified Prelude as P
+import qualified Data.List as L
 import qualified Data.ByteString.Char8 as C
 import Data.ByteString.Char8 (empty, append, tail, init, null, length,
          reverse, intercalate, transpose, concat, take, takeEnd, drop,
@@ -32,7 +35,7 @@ import Data.ByteString.Char8 (empty, append, tail, init, null, length,
          isSuffixOf, isInfixOf, stripPrefix, stripSuffix, copy, fromStrict,
          toStrict, fromChunks, toChunks, putStr, getLine, getContents,
          interact, readFile, writeFile, appendFile, hPutStr, hPut,
-         hGetLine, hGetContents, hGet)
+         hGetLine, hGetContents, hGet, hGetSome, hGetNonBlocking)
 import Data.ByteString.Rep
 import Data.Word (Word8)
 import Foreign.C.String (CString, CStringLen)
@@ -81,8 +84,13 @@ foldl, foldl' :: (a -> Word8 -> a) -> a -> ByteString -> a
 foldl f = C.foldl (\a c -> f a (c2w c))
 foldl' f = C.foldl' (\a c -> f a (c2w c))
 
-foldr :: (Word8 -> a -> a) -> a -> ByteString -> a
+foldr, foldr' :: (Word8 -> a -> a) -> a -> ByteString -> a
 foldr f = C.foldr (onW f)
+foldr' f = C.foldr' (onW f)
+
+-- | The bytes in order.
+sort :: ByteString -> ByteString
+sort = pack . L.sort . unpack
 
 foldl1, foldr1 :: (Word8 -> Word8 -> Word8) -> ByteString -> Word8
 foldl1 f b = P.foldl1 f (unpack b)

@@ -579,7 +579,13 @@
 					(tuple-2-1 m-v)	(tuple-2-2 m-v)	inst))
 				     new-instance-vars)
 				(map (lambda (c)
-				       (cond ((instance-catch-all? inst)
+				       (cond ((or (instance-catch-all? inst)
+						  ;; a flexible instance (S (UTF8
+						  ;; B.ByteString)): S at its head,
+						  ;; as the type checker finds it among
+						  ;; S's instances for the constructor
+						  (and (not (null? (instance-head-args inst)))
+						       (several-instances? algdata c)))
 					      (catch-all-super-dict c))
 					     ((num-stub-superclass? inst c)
 					      (**abort (format '#f
@@ -652,6 +658,11 @@
 ;;; as the type checker finds it.  primUnsafeCoerce, the identity, is
 ;;; given the type S a => <S's dictionary at a>, so that the dictionary
 ;;; placeholder for S a is its argument.
+(define (several-instances? algdata class)
+  (> (lisp:count-if (lambda (i) (eq? (instance-algdata i) algdata))
+		    (class-instances class))
+     1))
+
 (define (catch-all-super-dict super)
   (let ((sig (**signature (list (**context (**class/def super) '|a|))
 			  (class-dictionary-type super (**tyvar '|a|)))))
@@ -806,7 +817,14 @@
 					   (lisp:remove-if-not
 					    (lambda (c) (class-tyvar-context? c inst))
 					    (signature-context signature)))
-				      (signature-mcontext signature))
+				      ;; (the method's own constraints at the
+				      ;; instance's types: ListLike's unlines ::
+				      ;; ListLike full s => .. at s = FMList Char)
+				      (map (lambda (c)
+					     (**mp-context (mp-context-class c)
+							   (map (lambda (ty) (substitute-class-tyvars ty inst))
+								(mp-context-types c))))
+					   (signature-mcontext signature)))
 			      (instance-mcontext inst))))))
     (dolist (r renaming)
       (setf sig (rename-signature-tyvar sig (tuple-2-1 r) (tuple-2-2 r))))

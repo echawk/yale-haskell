@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Data/String/
+:o= all
+UTF8.hs

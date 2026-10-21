@@ -214,9 +214,9 @@ import Text.Read (Lexeme(Ident), lexP, parens, prec,
 #endif
 -- (Yale Haskell: Data.Data and Seq's Data instance, as Map's and Set's)
 import Data.Data
+import Data.String (IsString(..))
 #ifdef __GLASGOW_HASKELL__
 import GHC.Exts (build)
-import Data.String (IsString(..))
 #  if __GLASGOW_HASKELL__ >= 914
 import qualified Language.Haskell.TH.Lift as TH
 #  else
@@ -4540,11 +4540,9 @@ instance GHC.Exts.IsList (Seq a) where
     toList = toList
 #endif
 
-#ifdef __GLASGOW_HASKELL__
 -- | @since 0.5.7
 instance a ~ Char => IsString (Seq a) where
     fromString = fromList
-#endif
 
 ------------------------------------------------------------------------
 -- Reverse

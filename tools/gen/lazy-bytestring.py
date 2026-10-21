@@ -24,6 +24,8 @@ INT64 = {'length', 'take', 'takeEnd', 'drop', 'dropEnd', 'splitAt', 'index',
          'findIndex', 'findIndices', 'count', 'replicate'}
 # written by hand below
 HAND = {'ByteString', 'fromStrict', 'toStrict', 'fromChunks', 'toChunks'}
+# the strict API's only (bytestring's lazy one has no C strings)
+STRICT_ONLY = {'packCString', 'packCStringLen', 'useAsCString', 'useAsCStringLen'}
 
 
 def exports(module):
@@ -102,7 +104,7 @@ toChunks (LBS b) = if S.null b then [] else [b]
 
 
 def generate(strict, module):
-    names = [n for n in exports(strict) if n not in HAND]
+    names = [n for n in exports(strict) if n not in HAND and n not in STRICT_ONLY]
     tys = types(strict, names)
     shown = [('(%s)' % n) if not n[0].isalpha() else n for n in names]
     lines = [HEADER % {'module': module, 'strict': strict,

@@ -5,7 +5,7 @@ module Data.ByteString.Char8 (
     ByteString, pack, unpack, empty, singleton, cons, snoc, append, head,
     last, tail, init, uncons, unsnoc, null, length, map, reverse,
     intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr,
-    foldr', foldr1, concat, concatMap, any, all, maximum, minimum, scanl,
+    foldr', foldr1, concat, concatMap, any, all, maximum, minimum, scanl, sort,
     replicate, unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, splitAt,
     takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, dropSpace, strip,
     span, spanEnd, break, breakEnd, breakSubstring, group, groupBy,
@@ -16,7 +16,7 @@ module Data.ByteString.Char8 (
     zipWith, unzip, readInt, readInteger, copy,
     fromStrict, toStrict, fromChunks, toChunks,
     putStr, putStrLn, getLine, getContents, interact, readFile, writeFile,
-    appendFile, hPutStr, hPutStrLn, hPut, hGetLine, hGetContents, hGet
+    appendFile, hPutStr, hPutStrLn, hPut, hGetLine, hGetContents, hGet, hGetSome, hGetNonBlocking
   ) where
 
 import Prelude hiding (head, last, tail, init, null, length, map, reverse,
@@ -341,6 +341,11 @@ hGetLine, hGetContents :: Handle -> IO ByteString
 hGetLine h = fmap pack (IO.hGetLine h)
 hGetContents (Handle h) = primBytesHGetContents h >>= return . BS . Text
 
+-- | At most n bytes (here, as hGet, waiting for them).
+hGetSome, hGetNonBlocking :: Handle -> Int -> IO ByteString
+hGetSome = hGet
+hGetNonBlocking = hGet
+
 hGet :: Handle -> Int -> IO ByteString
 hGet h n = fmap pack (go n)
   where go 0 = return []
@@ -350,3 +355,7 @@ hGet h n = fmap pack (go n)
             c <- IO.hGetChar h
             cs <- go (k - 1)
             return (c : cs)
+
+-- | The characters in order.
+sort :: ByteString -> ByteString
+sort = pack . L.sort . unpack

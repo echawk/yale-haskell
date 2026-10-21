@@ -4,7 +4,7 @@
 -- the strict one underneath: each function is Data.ByteString.Char8's.
 module Data.ByteString.Lazy.Char8 (
     ByteString, fromStrict, toStrict, fromChunks, toChunks,
-    pack, unpack, empty, singleton, cons, snoc, append, head, last, tail, init, uncons, unsnoc, null, length, map, reverse, intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr', foldr1, concat, concatMap, any, all, maximum, minimum, scanl, replicate, unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, splitAt, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, dropSpace, strip, span, spanEnd, break, breakEnd, breakSubstring, group, groupBy, inits, tails, split, splitWith, lines, words, unlines, unwords, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, elem, notElem, find, filter, partition, index, indexMaybe, (!?), elemIndex, elemIndices, elemIndexEnd, findIndex, findIndices, count, zip, zipWith, unzip, readInt, readInteger, copy, putStr, putStrLn, getLine, getContents, interact, readFile, writeFile, appendFile, hPutStr, hPutStrLn, hPut, hGetLine, hGetContents, hGet
+    pack, unpack, empty, singleton, cons, snoc, append, head, last, tail, init, uncons, unsnoc, null, length, map, reverse, intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr', foldr1, concat, concatMap, any, all, maximum, minimum, scanl, sort, replicate, unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, splitAt, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, dropSpace, strip, span, spanEnd, break, breakEnd, breakSubstring, group, groupBy, inits, tails, split, splitWith, lines, words, unlines, unwords, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, elem, notElem, find, filter, partition, index, indexMaybe, (!?), elemIndex, elemIndices, elemIndexEnd, findIndex, findIndices, count, zip, zipWith, unzip, readInt, readInteger, copy, putStr, putStrLn, getLine, getContents, interact, readFile, writeFile, appendFile, hPutStr, hPutStrLn, hPut, hGetLine, hGetContents, hGet, hGetSome, hGetNonBlocking
   ) where
 
 import Prelude ()
@@ -127,6 +127,9 @@ minimum = unsafeCoerce S.minimum
 
 scanl :: (Char -> Char -> Char) -> Char -> ByteString -> ByteString
 scanl = unsafeCoerce S.scanl
+
+sort :: ByteString -> ByteString
+sort = unsafeCoerce S.sort
 
 replicate :: Int64 -> Char -> ByteString
 replicate = unsafeCoerce S.replicate
@@ -331,3 +334,9 @@ hGetContents = unsafeCoerce S.hGetContents
 
 hGet :: Handle -> Int -> IO ByteString
 hGet = unsafeCoerce S.hGet
+
+hGetSome :: Handle -> Int -> IO ByteString
+hGetSome = unsafeCoerce S.hGetSome
+
+hGetNonBlocking :: Handle -> Int -> IO ByteString
+hGetNonBlocking = unsafeCoerce S.hGetNonBlocking
