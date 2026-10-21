@@ -98,6 +98,38 @@
 			(map (function var-ref-var) (collect-pattern-vars p))))
 		  pats))))
 
+;;; Whether a clause's guards (a view pattern's, a pattern synonym's)
+;;; match a GADT constructor, and its declaration has a signature.
+(define (gadt-guarded-clause? def)
+  (and (gadt-signed-decl?)
+       (lisp:some (lambda (grhs)
+		    (let ((g (guarded-rhs-guard grhs)))
+		      (and (is-type? 'pattern-guard g)
+			   (lisp:some (lambda (q)
+					(and (is-type? 'qual-generator q)
+					     (pattern-has-gadt-con? (qual-generator-pat q))))
+				      (pattern-guard-quals g)))))
+		  (single-fun-def-rhs-list def))))
+
+(define (gadt-signed-decl?)
+  (let ((decl (car (dynamic *enclosing-decls*))))
+    (and (valdef? decl)
+	 (let ((vs (collect-pattern-vars (valdef-lhs decl))))
+	   (and (not (null? vs)) (null? (cdr vs))
+		(var-signature (var-ref-var (car vs))))))))
+
+;;; The argument types, a constructor pattern's a fresh type related to
+;;; the pattern's part by part when the signature is checked.
+(define (soft-pattern-types pats types)
+  (map (lambda (p ty)
+	 (if (is-type? 'pcon p)
+	     (let ((slot (**ntyvar)))
+	       (push (list p (car (dynamic *enclosing-decls*)) ty slot)
+		     (dynamic *gadt-cast-types*))
+	       slot)
+	     ty))
+       pats types))
+
 (define (pattern-has-gadt-con? p)
   (cond ((is-type? 'pcon p)
 	 (or (con-gadt? (pcon-con p))
@@ -249,9 +281,73 @@
 				(collect-pattern-vars (valdef-lhs decl)))))
 	    (let ((inner (caddr entry))
 		  (outer (cadddr entry)))
-	      (soft-unify-parts inner outer 16))
+	      (if (eq? (car entry) 'coerce)
+		  (coercible-unify inner outer 16)
+		  (soft-unify-parts inner outer 16)))
 	    (push entry keep))))
     (setf (dynamic *gadt-cast-types*) (reverse keep))))
+
+;;; Coercible (Data.Coerce's coerce): its type a -> b, a and b related up
+;;; to newtypes once the declaration's signature is checked, so that the
+;;; argument's type is known (pqueue's coerce Q.mapEitherWithKey, from
+;;; MinPQueue (Down k) to MaxPQueue k).
+
+(define (coerce-var? var)
+  (and (eq? (def-name var) '|coerce|)
+       (memq (def-module var) '(|Data.Coerce| |GHC.Exts| |GHC.Prim|))
+       '#t))
+
+(define (record-coercion object type)
+  (let ((type (prune type)))
+    (when (and (ntycon? type) (eq? (ntycon-tycon type) (core-symbol "Arrow"))
+	       (not (null? (dynamic *enclosing-decls*))))
+      (push (list 'coerce (car (dynamic *enclosing-decls*))
+		  (car (ntycon-args type)) (cadr (ntycon-args type)))
+	    (dynamic *gadt-cast-types*)))))
+
+;;; Unifies the parts that agree, through a newtype (on either side) whose
+;;; head is not the other's: its field type at its arguments.
+(define (coercible-unify t1 t2 depth)
+  (let ((t1 (prune t1))
+	(t2 (prune t2)))
+    (cond ((<= depth 0) '#f)
+	  ((could-unify? t1 t2 32)
+	   (type-unify t1 t2 '#f))
+	  ((and (ntycon? t1) (ntycon? t2)
+		(eq? (ntycon-tycon t1) (ntycon-tycon t2))
+		(eqv? (length (ntycon-args t1)) (length (ntycon-args t2))))
+	   (if (eq? (ntycon-tycon t1) (core-symbol "Arrow"))
+	       (dolist2 (a (ntycon-args t1)) (b (ntycon-args t2))
+		 (coercible-unify a b (1- depth)))
+	       ;; (a newtype's parameters may be phantom: only those that
+	       ;; could be equal)
+	       (dolist2 (a (ntycon-args t1)) (b (ntycon-args t2))
+		 (coercible-unify a b (1- depth)))))
+	  ((newtype-rep-ntype t1)
+	   (coercible-unify (newtype-rep-ntype t1) t2 (1- depth)))
+	  ((newtype-rep-ntype t2)
+	   (coercible-unify t1 (newtype-rep-ntype t2) (1- depth)))
+	  (else '#f))))
+
+;;; A newtype application's field type at its arguments, or #f.
+(define (newtype-rep-ntype type)
+  (and (ntycon? type)
+       (algdata? (ntycon-tycon type))
+       (algdata-newtype? (ntycon-tycon type))
+       (let ((alg (ntycon-tycon type)))
+	 (and (not (null? (algdata-constrs alg)))
+	      (eqv? (length (algdata-tyvars alg)) (length (ntycon-args type)))
+	      (let* ((con (car (algdata-constrs alg)))
+		     (ctype (instantiate-gtype (con-signature con)))
+		     (args (arrow-argument-types ctype)))
+		(and (null? (con-existential con))
+		     (not (null? args))
+		     (null? (cdr args))
+		     (let ((res (prune ctype)))
+		       (do () ((not (and (ntycon? res) (eq? (ntycon-tycon res) (core-symbol "Arrow")))))
+			 (setf res (prune (cadr (ntycon-args res)))))
+		       (and (could-unify? res type 32)
+			    (begin (type-unify res type '#f) (car args))))))))))
 
 ;;; The types unified where they could be, part by part: m (U1 p) and
 ;;; ReadPrec a, a the signature's (generic-data's toReadPrec U1Leaf = pure

@@ -352,6 +352,9 @@
   (let* ((saved (save-scanner-state))
 	 (res (begin (when (at-varid-named? "instance") (advance-token))
 		     (parse-btype)
-		     (eq-token? '=))))
+		     ;; (not = r | r -> a: TypeFamilyDependencies' result,
+		     ;; nonempty-containers' type NE s = t | t -> s)
+		     (and (eq-token? '=)
+			  (not (at-family-result-signature?))))))
     (restore-excursion saved)
     res))

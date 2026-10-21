@@ -364,6 +364,12 @@
 	       (*scoped-tyvars* (dynamic *scoped-tyvars*)))
   (fresh-monomorphic-types (length (single-fun-def-args object)) tyvars
     (type-check/list single-fun-def args arg-types
+      ;; a clause whose guards match a GADT constructor (a pattern
+      ;; synonym's provided equality, pqueue's Zeroy): its constructor
+      ;; patterns may be at the refined type, so each is typed apart and
+      ;; related to its argument part by part (existentials.mumble)
+      (when (gadt-guarded-clause? object)
+	(setf arg-types (soft-pattern-types (single-fun-def-args object) arg-types)))
       (unify-list tyvars arg-types)
       ;; a GADT constructor matched (existentials.mumble)
       ;; the arguments' types are the signature's before the body is

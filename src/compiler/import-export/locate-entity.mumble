@@ -98,12 +98,20 @@
 		       (else
 			(signal-wrong-definition "class" name (module-name mod)))))
 		((is-type? 'entity-datatype entity)
-		 (if (algdata? def)
-		     (match-constituents group
-					 (entity-datatype-constructors entity)
-					 entity "constructor")
-		     (signal-wrong-definition
-		       "data type" name (module-name mod))))
+		 (cond ((algdata? def)
+			(match-constituents group
+					    (entity-datatype-constructors entity)
+					    entity "constructor"))
+		       ;; C(F): a class's associated type (nonempty-containers'
+		       ;; import GHC.Exts (IsList (Item)))
+		       ((class? def)
+			(match-constituents group
+					    (group-member-names
+					     group (entity-datatype-constructors entity))
+					    entity "associated type"))
+		       (else
+			(signal-wrong-definition
+			  "data type" name (module-name mod)))))
 		(else
 		 (error "Bad entity ~s." entity))
 		)))))
@@ -219,7 +227,19 @@
 	   (match-group-names (gather-data-family-group name def)
 			      (entity-class-methods entity) entity
 			      "constructor or field"))
+	  ((and (is-type? 'entity-datatype entity) (class? def))
+	   ;; C(F) of a class's associated type
+	   (let ((group (gather-class-group name def)))
+	     (match-group-names group
+				(group-member-names
+				 group (entity-datatype-constructors entity))
+				entity "associated type")))
 	  ((is-type? 'entity-datatype entity)
+	   ;; T (M.P, ..) with M this module (pqueue's MinPQueue
+	   ;; (Data.PQueue.Prio.Min.Empty, (:<))): P
+	   (setf (entity-datatype-constructors entity)
+		 (map (function strip-own-qualifier)
+		      (entity-datatype-constructors entity)))
 	   (if (algdata? def)
 	       (bundle-pattern-synonyms
 		entity
@@ -322,3 +342,27 @@
       (match-constituents group names entity what)))
 
 
+
+;;; NAMES as GROUP has them: an associated type under its own name (the
+;;; parser gives ;Item for Item, as for a constructor), methods as they are.
+(define (group-member-names group names)
+  (map (lambda (n)
+	 (cond ((assq n (cdr group)) n)
+	       ;; (the parser reads a capitalized one as a constructor's)
+	       ((assq (remove-con-prefix/symbol n) (cdr group)) (remove-con-prefix/symbol n))
+	       ((assq (add-con-prefix/symbol n) (cdr group)) (add-con-prefix/symbol n))
+	       (else n)))
+       names))
+
+;;; A name qualified by this module's name, without it (keeping a
+;;; constructor's prefix): ;M.C is ;C.
+(define (strip-own-qualifier name)
+  (let* ((s (symbol->string name))
+	 (prefixed? (and (> (string-length s) 0) (char=? (string-ref s 0) #\;)))
+	 (body (if prefixed? (substring s 1 (string-length s)) s))
+	 (q (string-append (symbol->string *module-name*) ".")))
+    (if (and (> (string-length body) (string-length q))
+	     (string=? (substring body 0 (string-length q)) q))
+	(string->symbol (string-append (if prefixed? ";" "")
+				       (substring body (string-length q) (string-length body))))
+	name)))

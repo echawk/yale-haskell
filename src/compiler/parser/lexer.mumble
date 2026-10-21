@@ -361,7 +361,10 @@
   (char-case *char*
     (large
      (let ((word (scan-var-con)))
-       (cond ((string=/list? word "INLINE")
+       (cond ((and (string=/list? word "INLINE") (inline-of-constructor?))
+	      ;; of a pattern synonym ({-# INLINE Zeroy #-}): not Yale's
+	      (skip-pragma *current-line*))
+	     ((string=/list? word "INLINE")
 	      (emit-token 'begin-annotation)
 	      (emit-token/string 'conid word))
 	     ((string=/list? word "LINE")
@@ -384,6 +387,8 @@
        (cond ((char=? *char* #\:)
 	      (emit-token 'begin-annotation)
 	      (emit-token/string 'varid word))
+	     ((and (string-ci=? (list->string word) "inline") (inline-of-constructor?))
+	      (skip-pragma *current-line*))
 	     ((string-ci=? (list->string word) "inline")
 	      (emit-token 'begin-annotation)
 	      (emit-token/string 'conid (string->list "INLINE")))
@@ -405,6 +410,13 @@
 	      (emit-token/string 'varid word)))))
     (else
      (emit-token 'begin-annotation))))
+
+;;; After INLINE (blanks skipped): a capitalized name or a constructor
+;;; operator, a pattern synonym's.
+(define (inline-of-constructor?)
+  (skip-blanks-on-line)
+  (or (char-upper-case? *char*)
+      (and (char=? *char* #\() (char=? *peek-char* #\:))))
 
 (define (mem-string-ci s strings)
   (lisp:member s strings :test (function string-ci=?)))

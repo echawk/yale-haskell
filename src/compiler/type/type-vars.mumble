@@ -12,6 +12,10 @@
   (mlet (((exp ntype) (type-check-var-ref object var type)))
     (when (not (null? type-args))
       (apply-type-args var type-args))
+    ;; Data.Coerce's coerce: its argument and result related up to
+    ;; newtypes when the signature is checked (existentials.mumble)
+    (when (coerce-var? var)
+      (record-coercion object ntype))
     (if (memq var (dynamic *gadt-soft-vars*))
 	;; a variable of a clause that matched a GADT constructor
 	;; (existentials.mumble): its use's type, related to its own part
