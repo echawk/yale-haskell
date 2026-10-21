@@ -370,7 +370,7 @@
       ;; checked (existentials.mumble's gadt-link-signature), so that a
       ;; local signature's scoped variables and a GADT's refinement see
       ;; them (nonempty-containers' p0 :: NESet (Set a) in powerSet)
-      (gadt-link-signature arg-types)
+      (gadt-link-signature arg-types (dynamic *gadt-match*))
       (when (dynamic *gadt-match*)
 	(gadt-coerce-rhs-list (single-fun-def-rhs-list object)))
       (dynamic-let ((*gadt-soft-vars*

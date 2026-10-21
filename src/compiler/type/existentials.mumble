@@ -192,7 +192,11 @@
 ;;; A clause's argument types unified with its declaration's signature's,
 ;;; before its right-hand sides (as GHC checks against a signature), so
 ;;; that gadt-pattern-vars sees which variables the match refines.
-(define (gadt-link-signature arg-types)
+;;; (FRESH-OK?: a GADT match, where an instance of the signature is used
+;;; when the declaration's type is not yet the signature's; elsewhere a
+;;; fresh instance's family applications, Mutable v, would not be tied to
+;;; the signature's when it is checked: vector's freeze)
+(define (gadt-link-signature arg-types fresh-ok?)
   (let* ((decl (car (dynamic *enclosing-decls*)))
 	 (var (and (valdef? decl)
 		   (let ((vs (collect-pattern-vars (valdef-lhs decl))))
@@ -205,7 +209,7 @@
 		  (arrow-argument-types (remove-recursive-type (var-type var)))
 		  '()))
 	 (sig-args (cond ((>= (length own) (length arg-types)) own)
-			 ((and sig (gtype? sig) (not (gtype-nested? sig)))
+			 ((and fresh-ok? sig (gtype? sig) (not (gtype-nested? sig)))
 			  (arrow-argument-types (instantiate-gtype sig)))
 			 (else '())))
 	 (n (min (length sig-args) (length arg-types))))
