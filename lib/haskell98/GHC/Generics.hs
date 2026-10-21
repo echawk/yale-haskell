@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeOperators, TypeFamilies, KindSignatures, MagicHash, DataKinds, FlexibleInstances #-}
+{-# LANGUAGE TypeOperators, TypeFamilies, KindSignatures, MagicHash, DataKinds, FlexibleInstances, StandaloneDeriving, DeriveGeneric #-}
 -- GHC.Generics (base): the classes, with their associated Rep types, and
 -- the representation types.  Deriving Generic and Generic1 gives Rep and
 -- from/to as GHC does (derived/generic.mumble), its metadata the promoted
@@ -31,6 +31,15 @@ import Data.Kind (Type)
 import GHC.Exts (Addr#, Char#, Double#, Float#, Int#, Word#)
 import Data.Proxy (Proxy(Proxy))
 import GHC.TypeLits (KnownSymbol, KnownNat, symbolVal, natVal)
+import qualified Data.Monoid as Mon
+import qualified Data.Semigroup as Semi
+import Data.Ord (Down)
+import Data.Functor.Identity (Identity)
+import Data.Functor.Const (Const)
+import qualified Data.Functor.Sum as FSum
+import qualified Data.Functor.Product as FProduct
+import Data.Functor.Compose (Compose)
+import Control.Applicative (ZipList)
 
 -- (the fixities of the type operators :+: and :.: are not used here)
 infixr 5 :+:
@@ -397,3 +406,75 @@ instance (KnownMaybeSymbol n, KnownUnpackedness u, KnownSourceStrictness s,
   selSourceUnpackedness x = unpackednessVal (msUnpack x)
   selSourceStrictness x = sourceStrictnessVal (msStrict x)
   selDecidedStrictness x = decidedStrictnessVal (msDecided x)
+
+-- base's instances for its own types
+deriving instance Generic [a]
+deriving instance Generic1 []
+deriving instance Generic (Maybe a)
+deriving instance Generic1 Maybe
+deriving instance Generic (Either a b)
+deriving instance Generic1 (Either a)
+deriving instance Generic Bool
+deriving instance Generic Ordering
+deriving instance Generic ()
+deriving instance Generic (a, b)
+deriving instance Generic1 ((,) a)
+deriving instance Generic (a, b, c)
+deriving instance Generic1 ((,,) a b)
+deriving instance Generic (a, b, c, d)
+deriving instance Generic1 ((,,,) a b c)
+deriving instance Generic (a, b, c, d, e)
+deriving instance Generic1 ((,,,,) a b c d)
+deriving instance Generic (a, b, c, d, e, f)
+deriving instance Generic1 ((,,,,,) a b c d e)
+deriving instance Generic (a, b, c, d, e, f, g)
+deriving instance Generic1 ((,,,,,,) a b c d e f)
+deriving instance Generic (NonEmpty a)
+deriving instance Generic1 NonEmpty
+deriving instance Generic (WrappedMonad m a)
+deriving instance Generic1 (WrappedMonad m)
+deriving instance Generic (Proxy t)
+deriving instance Generic1 Proxy
+deriving instance Generic (Down a)
+deriving instance Generic1 Down
+deriving instance Generic (Identity a)
+deriving instance Generic1 Identity
+deriving instance Generic (Const a b)
+deriving instance Generic1 (Const a)
+deriving instance Generic (FSum.Sum f g a)
+deriving instance Generic1 (FSum.Sum f g)
+deriving instance Generic (FProduct.Product f g a)
+deriving instance Generic1 (FProduct.Product f g)
+deriving instance Generic (Compose f g a)
+deriving instance Functor f => Generic1 (Compose f g)
+deriving instance Generic (ZipList a)
+deriving instance Generic1 ZipList
+deriving instance Generic (Mon.Dual a)
+deriving instance Generic1 Mon.Dual
+deriving instance Generic (Mon.Endo a)
+deriving instance Generic Mon.All
+deriving instance Generic Mon.Any
+deriving instance Generic (Mon.Sum a)
+deriving instance Generic1 Mon.Sum
+deriving instance Generic (Mon.Product a)
+deriving instance Generic1 Mon.Product
+deriving instance Generic (Mon.First a)
+deriving instance Generic1 Mon.First
+deriving instance Generic (Mon.Last a)
+deriving instance Generic1 Mon.Last
+deriving instance Generic (Mon.Alt f a)
+deriving instance Generic1 (Mon.Alt f)
+deriving instance Generic (Mon.Ap f a)
+deriving instance Generic1 (Mon.Ap f)
+deriving instance Generic (Semi.Min a)
+deriving instance Generic1 Semi.Min
+deriving instance Generic (Semi.Max a)
+deriving instance Generic1 Semi.Max
+deriving instance Generic (Semi.First a)
+deriving instance Generic1 Semi.First
+deriving instance Generic (Semi.Last a)
+deriving instance Generic1 Semi.Last
+deriving instance Generic (Semi.WrappedMonoid m)
+deriving instance Generic1 Semi.WrappedMonoid
+deriving instance Generic (Semi.Arg a b)
+deriving instance Generic1 (Semi.Arg a)
