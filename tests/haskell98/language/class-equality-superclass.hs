@@ -25,4 +25,10 @@ dots :: (LL text char, D char) => text -> text
 dots t = fromL (map (const dot) (toL t))
 
 main :: IO ()
-main = putStrLn (dots "abc")
+main = putStrLn (dots "abc") >> print (allSame "aaa", allSame [1, 2 :: Int])
+
+-- Eq item is Eq (Item full), reduced at a use (Eq (Item [Char]))
+allSame :: (LL full item, Eq item) => full -> Bool
+allSame xs = case toL xs of
+  [] -> True
+  (y : ys) -> all (== y) ys

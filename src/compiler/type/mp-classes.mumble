@@ -481,6 +481,32 @@
 ;;; dictionary.mumble); returns the placeholders still to be resolved.
 
 (define (process-mp-placeholder p deferred decls)
+  (cond ((not (eq? (mp-placeholder-exp p) '#f))
+	 deferred)
+	((reducible-one-parameter-mp? p)
+	 ;; a one-parameter class at a synonym or family application that
+	 ;; reduces (Eq (Item [a]), from a signature's Eq (Item full):
+	 ;; util/signature.mumble's apply-class-equalities): an ordinary
+	 ;; placeholder at the reduced type
+	 (let ((dp (**dict-placeholder (mp-placeholder-class p)
+				       (reduce-mp-type (car (mp-placeholder-types p)))
+				       (placeholder-enclosing-decls p)
+				       (placeholder-overloaded-var p))))
+	   (setf (placeholder-exp p) (mp-dict-use p dp))
+	   (process-placeholder dp deferred decls)))
+	(else
+	 (process-mp-placeholder-1 p deferred decls))))
+
+(define (reducible-one-parameter-mp? p)
+  (let ((types (mp-placeholder-types p))
+	(class (mp-placeholder-class p)))
+    (and (null? (cdr types))
+	 (null? (cdr (class-tyvars class)))
+	 (let ((type (prune (car types))))
+	   (and (ntycon? type)
+		(not (eq? (reduce-mp-type type) type)))))))
+
+(define (process-mp-placeholder-1 p deferred decls)
   (if (not (eq? (mp-placeholder-exp p) '#f))
       deferred
       (let* ((class (mp-placeholder-class p))
