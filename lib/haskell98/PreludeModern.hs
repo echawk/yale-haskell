@@ -252,6 +252,25 @@ instance (Semigroup a, Semigroup b) => Semigroup (a, b) where
 instance (Monoid a, Monoid b) => Monoid (a, b) where
   mempty = (mempty, mempty)
 
+instance (Semigroup a, Semigroup b, Semigroup c) => Semigroup (a, b, c) where
+  (a, b, c) <> (a', b', c') = (a <> a', b <> b', c <> c')
+
+instance (Monoid a, Monoid b, Monoid c) => Monoid (a, b, c) where
+  mempty = (mempty, mempty, mempty)
+
+instance (Semigroup a, Semigroup b, Semigroup c, Semigroup d) => Semigroup (a, b, c, d) where
+  (a, b, c, d) <> (a', b', c', d') = (a <> a', b <> b', c <> c', d <> d')
+
+instance (Monoid a, Monoid b, Monoid c, Monoid d) => Monoid (a, b, c, d) where
+  mempty = (mempty, mempty, mempty, mempty)
+
+instance (Semigroup a, Semigroup b, Semigroup c, Semigroup d, Semigroup e)
+    => Semigroup (a, b, c, d, e) where
+  (a, b, c, d, e) <> (a', b', c', d', e') = (a <> a', b <> b', c <> c', d <> d', e <> e')
+
+instance (Monoid a, Monoid b, Monoid c, Monoid d, Monoid e) => Monoid (a, b, c, d, e) where
+  mempty = (mempty, mempty, mempty, mempty, mempty)
+
 instance Functor ((,) a) where
   fmap f (x, y) = (x, f y)
 

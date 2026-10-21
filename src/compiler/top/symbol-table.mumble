@@ -339,6 +339,8 @@
       (setf (table-entry *symbol-table* name) keep)
       (when (eq? (local-name keep) '#f)
 	(setf (table-entry *inverted-symbol-table* keep) name)))
+    (let ((lost (if (eq? keep def) old def)))
+      (push (cons lost name) (table-entry *clash-losers* *module-name*)))
     (note-name-clash name
       (lisp:format lisp:nil "~A.~A or ~A.~A"
 		   (if from-prelude? '|Prelude| (def-module old))
@@ -483,6 +485,18 @@
 ;;; use as ambiguous (name-clash).
 
 (define *name-clashes* (make-table))
+
+;;; The definitions a clash left out of the symbol table, by module name:
+;;; an alist of the definition and its name.  They are still in scope
+;;; (qualified), so a class or type exported with (..) keeps them
+;;; (import-export/ie-utils.mumble's gather-group: ListLike's
+;;; ListLikeIO(..) with putStr, which clashes with the Prelude's).
+
+(define *clash-losers* (make-table))
+
+(define (clash-loser-name def)
+  (let ((e (assq def (table-entry *clash-losers* *module-name*))))
+    (and e (cdr e))))
 
 (define (note-name-clash name description)
   (when (not (assq name (table-entry *name-clashes* *module-name*)))

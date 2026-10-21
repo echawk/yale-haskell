@@ -1,0 +1,11 @@
+--- a/System/Process/Common.hs
++++ b/System/Process/Common.hs
+@@ -27,7 +27,7 @@
+ import Data.Monoid ((<>))
+ import Data.String (IsString)
+ import Generics.Deriving.Instances ()
+-import GHC.IO.Exception (IOErrorType(ResourceVanished), IOException(ioe_type))
++import GHC.IO.Exception (IOErrorType(ResourceVanished), ioe_type)
+ import Prelude hiding (null)
+ import System.Exit (ExitCode(..))
+ import System.IO (Handle, hClose, hFlush, BufferMode, hSetBuffering)

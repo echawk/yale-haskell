@@ -11,7 +11,9 @@ module System.IO.Error (
     alreadyInUseErrorType, fullErrorType, eofErrorType,
     illegalOperationErrorType, permissionErrorType, userErrorType,
     ioeGetErrorType,
-    ioError, catch, try, catchIOError, tryIOError
+    ioError, catch, try, catchIOError, tryIOError,
+    -- (Yale's: an IOErrorType by kind number, for GHC.IO.Exception)
+    mkIOErrorType
   ) where
 
 import IO
@@ -30,7 +32,16 @@ instance Show IOErrorType where
   showsPrec _ (IOErrorType k) = showString (kindNames !! k)
     where kindNames = ["failed", "already exists", "does not exist",
                        "resource busy", "resource exhausted", "end of file",
-                       "illegal operation", "permission denied", "user error"]
+                       "illegal operation", "permission denied", "user error",
+                       -- GHC.IO.Exception's kinds the runtime does not raise
+                       "resource vanished", "interrupted", "invalid argument",
+                       "inappropriate type", "hardware fault",
+                       "unsupported operation", "timeout",
+                       "unsatisfied constraints", "system error",
+                       "protocol error"]
+
+mkIOErrorType :: Int -> IOErrorType
+mkIOErrorType = IOErrorType
 
 alreadyExistsErrorType, doesNotExistErrorType, alreadyInUseErrorType,
   fullErrorType, eofErrorType, illegalOperationErrorType,

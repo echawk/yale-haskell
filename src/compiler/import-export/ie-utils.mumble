@@ -80,12 +80,15 @@
   ;; the members in scope here (a class imported with some of its methods,
   ;; Foldable(foldMap, length), re-exported as Foldable(..)); the others
   ;; are skipped
+  ;; are skipped (but not one an unqualified name clash left out of the
+  ;; symbol table: top/symbol-table.mumble's clash-loser-name)
   (cond ((null? defs) '())
-	((eq? (local-name (car defs)) '#f)
-	 (gather-group (cdr defs)))
+	((or (local-name (car defs)) (clash-loser-name (car defs)))
+	 (cons (tuple (or (local-name (car defs)) (clash-loser-name (car defs)))
+		      (car defs))
+	       (gather-group (cdr defs))))
 	(else
-	 (cons (tuple (local-name (car defs)) (car defs))
-	       (gather-group (cdr defs))))))
+	 (gather-group (cdr defs)))))
 
 ;;; These deal with `hiding' lists.
 
