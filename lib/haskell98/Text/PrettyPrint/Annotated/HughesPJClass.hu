@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Text/PrettyPrint/Annotated/
+:o= all
+HughesPJClass.hs

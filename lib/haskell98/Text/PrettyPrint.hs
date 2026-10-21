@@ -1,24 +1,77 @@
--- Text.PrettyPrint from nhc98's pretty package (BSD license: LICENSE.pretty), imported
--- by tools/gen/import-nhc98-libs.py.  Edit the script, not this file.
-
+{-# LANGUAGE CPP #-}
+-- Text.PrettyPrint from the pretty package, version 1.1.3.6 (BSD license:
+-- LICENSE.pretty), https://hackage.haskell.org/package/pretty-1.1.3.6,
+-- unchanged but for __GLASGOW_HASKELL__, which selects base's newer API
+-- (8.2: the Prelude has no (<>) to hide), and PreludeModern's Monoid.
+#define __GLASGOW_HASKELL__ 802
+#if __GLASGOW_HASKELL__ >= 701
+{-# LANGUAGE Safe #-}
+#endif
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Text.PrettyPrint
 -- Copyright   :  (c) The University of Glasgow 2001
--- License     :  BSD-style (see the file libraries/base/LICENSE)
+-- License     :  BSD-style (see the file LICENSE)
 -- 
--- Maintainer  :  libraries@haskell.org
--- Stability   :  experimental
+-- Maintainer  :  David Terei <code@davidterei.com>
+-- Stability   :  stable
 -- Portability :  portable
 --
--- Re-export of "Text.PrettyPrint.HughesPJ" to provide a default
--- pretty-printing library.  Marked experimental at the moment; the 
--- default library might change at a later date.
+-- Provides a collection of pretty printer combinators, a set of API's
+-- that provides a way to easily print out text in a consistent format
+-- of your choosing.
+--
+-- This module should be used as opposed to the 'Text.PrettyPrint.HughesPJ'
+-- module. Both are equivalent though as this module simply re-exports the
+-- other.
 --
 -----------------------------------------------------------------------------
 
 module Text.PrettyPrint ( 
- 	module Text.PrettyPrint.HughesPJ
- ) where
 
-import Text.PrettyPrint.HughesPJ
+        -- * The document type
+        Doc,
+
+        -- * Constructing documents
+
+        -- ** Converting values into documents
+        char, text, ptext, sizedText, zeroWidthText,
+        int, integer, float, double, rational,
+
+        -- ** Simple derived documents
+        semi, comma, colon, space, equals,
+        lparen, rparen, lbrack, rbrack, lbrace, rbrace,
+
+        -- ** Wrapping documents in delimiters
+        parens, brackets, braces, quotes, doubleQuotes,
+
+        -- ** Combining documents
+        empty,
+        (X.<>), (<+>), hcat, hsep,
+        ($$), ($+$), vcat,
+        sep, cat,
+        fsep, fcat,
+        nest,
+        hang, punctuate,
+
+        -- * Predicates on documents
+        isEmpty,
+
+        -- * Rendering documents
+
+        -- ** Default rendering
+        render,
+
+        -- ** Rendering with a particular style
+        Style(..),
+        style,
+        renderStyle,
+
+        -- ** General rendering
+        fullRender,
+        Mode(..), TextDetails(..)
+
+    ) where
+
+import Text.PrettyPrint.HughesPJ as X
+

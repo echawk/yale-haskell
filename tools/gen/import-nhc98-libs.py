@@ -7,8 +7,8 @@ lib/haskell98/.
 NHC98_LIBRARIES_DIR is nhc98's src/libraries, by default
 ~/hs/nhc98/src/libraries.  The modules (MODULES below):
   * containers 0.3.0.0: Data.Map, Set, IntMap, IntSet, Sequence, Tree;
-  * base: Text.Printf;
-  * pretty: Text.PrettyPrint, Text.PrettyPrint.HughesPJ.
+  * base: Text.Printf.
+(pretty's modules are pretty 1.1.3.6's now, not nhc98's.)
 Each package's LICENSE (all BSD) is copied beside its modules.
 
 The containers modules are patched for Yale Haskell, and a note at the top
@@ -40,8 +40,6 @@ OUT = os.path.join(ROOT, 'lib', 'haskell98')
 MODULES = [('containers', 'Data.' + m)
            for m in ['Map', 'Set', 'IntMap', 'IntSet', 'Sequence', 'Tree']] + [
     ('base', 'Text.Printf'),
-    ('pretty', 'Text.PrettyPrint'),
-    ('pretty', 'Text.PrettyPrint.HughesPJ'),
 ]
 
 CONTAINERS_NOTE = """{-# LANGUAGE CPP #-}
