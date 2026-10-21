@@ -302,14 +302,15 @@
 ;;; The instance's head types at the non-determining positions, unified
 ;;; with TYPES (fundep improvement).  Returns the bindings.
 
-(define (improve-from-instance inst bindings types . matched)
-  ;; (MATCHED: the positions the instance was found by, a fundep's `from')
-  (let ((positions (if (pair? matched)
-		       (car matched)
-		       (mp-determining-positions (instance-class inst))))
+(define (improve-from-instance inst bindings types . unified)
+  ;; (UNIFIED: the positions to unify, a fundep's `to' when the instance
+  ;; was found by its `from'; else those not determining it)
+  (let ((determining (mp-determining-positions (instance-class inst)))
 	(heads (instance-mp-types inst)))
     (dotimes (i (length types))
-      (when (not (memv i positions))
+      (when (if (pair? unified)
+		(memv i (car unified))
+		(not (memv i determining)))
 	(mlet (((head-type b) (ast->ntype/bindings (list-ref heads i) bindings)))
 	  (setf bindings b)
 	  (type-unify head-type (list-ref types i)
@@ -467,7 +468,7 @@
 					   (map (function reduce-mp-type) types))))
 	    (when found
 	      (improve-through-instance (tuple-2-1 found) (tuple-2-2 found) types 8
-					(tuple-2-1 fd)))))
+					(tuple-2-2 fd)))))
 	(dolist (q mps)
 	  (when (and (not (eq? p q))
 		     (eq? (mp-placeholder-class q) class))

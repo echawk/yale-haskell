@@ -2,9 +2,10 @@
 -- Array (and UArray, which is Array here) as its instance; the functions
 -- not in the class are defined over it, as the array package does.
 module Data.Array.IArray (
-    IArray(bounds, (!), array, listArray, elems), Array, UArray, Ix,
+    IArray(bounds, (!), array, listArray, elems), Array, UArray,
+    Ix(range, index, inRange, rangeSize),
     indices, assocs, (//), accum, accumArray, amap, ixmap, numElements,
-    (!?), range, index, inRange, rangeSize
+    (!?)
   ) where
 
 import qualified Data.Array as A
