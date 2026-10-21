@@ -84,12 +84,15 @@
 	   (setf (module-type-equations *module*)
 		 (append (module-type-equations *module*)
 			 (list (tuple fam (tuple (list head) rhs)))))
-	   ;; f :.: u needs Functor f, f a variable
-	   (setf (instance-context inst)
-		 (if one?
-		     (map (lambda (v) (**context (**class/def (core-symbol "Functor")) v))
-			  (generic1-functor-tyvars alg a))
-		     '()))
+	   ;; f :.: u needs Functor f, f a variable, or a flexible Functor
+	   ;; (p (f a)) at an application of one (bifunctors' Biff)
+	   (let ((needs (if one? (generic1-functor-tyvars alg a) '())))
+	     (setf (instance-context inst)
+		   (map (lambda (v) (**context (**class/def (core-symbol "Functor")) v))
+			(lisp:remove-if-not (function symbol?) needs)))
+	     (setf (instance-mcontext inst)
+		   (map (lambda (ty) (**mp-context (**class/def (core-symbol "Functor")) (list ty)))
+			(lisp:remove-if (function symbol?) needs))))
 	   (setf (instance-decls inst) '())
 	   (setf (instance-ok? inst) '#t)
 	   (setf (instance-suppress-readers? inst) '#f)
@@ -226,9 +229,13 @@
       (let ((f (functor-expand (generic1-fun ty))))
 	(generic1-functor-tyvars-1
 	 (generic1-last ty) a
-	 (if (and (tyvar? f) (not (memq (tyvar-name f) vars)))
-	     (cons (tyvar-name f) vars)
-	     vars)))
+	 (cond ((and (tyvar? f) (not (memq (tyvar-name f) vars)))
+		(cons (tyvar-name f) vars))
+	       ((and (tyapp? f) (tyvar? (tyapp-fun f))
+		     (not (lisp:some (lambda (v) (and (not (symbol? v)) (ast-types-equal? v f)))
+				     vars)))
+		(cons f vars))
+	       (else vars))))
       vars))
 
 ;;; from x = M1 (case x of Ci x1 .. xn -> inj_i (M1 (K1 x1) :*: ..))

@@ -368,7 +368,11 @@
 	   ;; Already loaded earlier in this compile.
 	   cunit)
 	  ((eq? (ucache-status cunit) 'loading)
-	   (signal-circular-unit filename))
+	   ;; mutually recursive modules (GHC's .hs-boot files, Agda's):
+	   ;; the units of the cycle become one (merge-unit-cycle)
+	   (if (mergeable-unit-cycle? filename)
+	       (lisp:throw cunit (cycle-units filename))
+	       (signal-circular-unit filename)))
 	  (else
 	   (load-compilation-unit-aux cunit cflags))
 	  )))
@@ -380,6 +384,48 @@
 (define *units-being-loaded* '())
 
 (define (load-compilation-unit-aux c cflags)
+  (let ((cycle (lisp:catch c (load-compilation-unit-aux-1 c cflags) '#f)))
+    (if cycle
+	(begin
+	  (merge-unit-cycle c cycle)
+	  (load-compilation-unit-aux c cflags))
+	c)))
+
+;;; A cycle of units each one Haskell source file: C, the first loaded,
+;;; takes the others' source files, and they are C (compiled together,
+;;; the modules may import each other, as Yale Haskell's units always
+;;; allowed; a module's .hs-boot file is not read).
+(define (merge-unit-cycle c cycle)
+  (dolist (u cycle)
+    (when (not (string=? u (ucache-ufile c)))
+      (let ((other (lookup-compilation-unit u)))
+	(when other
+	  (dolist (f (ucache-source-files other))
+	    (when (not (mem-string f (ucache-source-files c)))
+	      (setf (ucache-source-files c)
+		    (append (ucache-source-files c) (list f)))))))
+      (install-compilation-unit u c)))
+  (setf (ucache-status c) 'available))
+
+;;; The units from FILENAME (being loaded) to the innermost one.
+(define (cycle-units filename)
+  (let ((units '()))
+    (block done
+      (dolist (u (dynamic *units-being-loaded*))
+	(push u units)
+	(when (string=? u filename)
+	  (return-from done '#f))))
+    units))
+
+(define (mergeable-unit-cycle? filename)
+  (lisp:every (lambda (u)
+		(let ((c (lookup-compilation-unit u)))
+		  (and c (source-extension? (filename-type u))
+		       (lisp:every (lambda (f) (source-extension? (filename-type f)))
+				   (ucache-source-files c)))))
+	      (cycle-units filename)))
+
+(define (load-compilation-unit-aux-1 c cflags)
   (setf (ucache-status c) 'loading)
   (dynamic-let ((*units-being-loaded*
 		 (cons (ucache-ufile c) (dynamic *units-being-loaded*))))

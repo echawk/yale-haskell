@@ -167,9 +167,13 @@
 	(skip-semicolon-before '|else|)
 	(require-token |else| (signal-missing-token "`else'" "if expression"))
 	(let ((else-exp (parse-exp)))
-	  (make if (test-exp test-exp)
-		   (then-exp then-exp)
-		   (else-exp else-exp))))))))
+	  (if (language-extension? "RebindableSyntax")
+	      ;; RebindableSyntax (GHC): the ifThenElse in scope (Agda's
+	      ;; Agda.Utils.Function, over its IsBool class)
+	      (**app (**var '|ifThenElse|) test-exp then-exp else-exp)
+	      (make if (test-exp test-exp)
+		       (then-exp then-exp)
+		       (else-exp else-exp)))))))))
 
 (define (parse-case)
   (trace-parser case

@@ -460,7 +460,19 @@
   (type-check list-comp exp exp-type
      (return-type object (**list-of exp-type)))))
 
+;;; A section of a variable, (op v) or (v op), is \x -> op x v (or
+;;; op v x): an application, so that a polytype argument (RankNTypes:
+;;; Agda's (^. l), l a lens) is checked as one (polytypes.mumble).
+;;; (v is a variable: nothing is evaluated twice.)
+
+(define (section-var-lambda op left right)
+  (let ((x (create-temp-var "SEC")))
+    (**lambda/pat (list (**var-pat/def x))
+		  (**app op (if left left (**var/def x)) (if right right (**var/def x))))))
+
 (define-type-checker section-l
+ (if (var-ref? (section-l-exp object))
+  (type-rewrite (section-var-lambda (section-l-op object) '#f (section-l-exp object)))
   (type-check section-l op op-type
     (type-check section-l exp exp-type
       (fresh-type a-type
@@ -472,9 +484,11 @@
 	    (type-unify b-type exp-type
                   (type-mismatch object
 		      "Argument type mismatch" b-type exp-type))
-	    (return-type object (**arrow a-type c-type))))))))
+	    (return-type object (**arrow a-type c-type)))))))))
 
 (define-type-checker section-r
+ (if (var-ref? (section-r-exp object))
+  (type-rewrite (section-var-lambda (section-r-op object) (section-r-exp object) '#f))
   (type-check section-r op op-type
     (type-check section-r exp exp-type
       (fresh-type a-type
@@ -486,7 +500,7 @@
 	    (type-unify exp-type a-type
                     (type-mismatch object
 			 "Argument type mismatch" a-type exp-type))
-	    (return-type object (**arrow b-type c-type))))))))
+	    (return-type object (**arrow b-type c-type)))))))))
 
 (define-type-checker omitted-guard
   (return-type object *bool-type*))

@@ -6,7 +6,8 @@ module Data.List.NonEmpty (
     group1, filter, partition, takeWhile, dropWhile, span, break, take,
     drop, splitAt, iterate, repeat, cycle, insert, scanl, scanr, scanl1,
     scanr1, transpose, xor, unfoldr, some1, (!!), uncons, singleton,
-    appendList, prependList
+    appendList, prependList, groupBy1, groupWith1, groupAllWith1, inits1,
+    tails1, permutations, permutations1
   ) where
 
 import Prelude hiding (map, head, tail, last, init, length, reverse, zip,
@@ -115,6 +116,27 @@ groupAllWith f = groupWith f . L.sortBy (comparing f)
 
 group1 :: Eq a => NonEmpty a -> NonEmpty (NonEmpty a)
 group1 = fromList . group . toList
+
+groupBy1 :: (a -> a -> Bool) -> NonEmpty a -> NonEmpty (NonEmpty a)
+groupBy1 eq = fromList . groupBy eq . toList
+
+groupWith1 :: Eq b => (a -> b) -> NonEmpty a -> NonEmpty (NonEmpty a)
+groupWith1 f = groupBy1 (\x y -> f x == f y)
+
+groupAllWith1 :: Ord b => (a -> b) -> NonEmpty a -> NonEmpty (NonEmpty a)
+groupAllWith1 f = groupWith1 f . fromList . L.sortBy (comparing f) . toList
+
+inits1 :: NonEmpty a -> NonEmpty (NonEmpty a)
+inits1 = fromList . P.map fromList . P.drop 1 . L.inits . toList
+
+tails1 :: NonEmpty a -> NonEmpty (NonEmpty a)
+tails1 = fromList . P.map fromList . P.init . L.tails . toList
+
+permutations :: [a] -> NonEmpty [a]
+permutations = fromList . L.permutations
+
+permutations1 :: NonEmpty a -> NonEmpty (NonEmpty a)
+permutations1 = fromList . P.map fromList . L.permutations . toList
 
 filter :: (a -> Bool) -> NonEmpty a -> [a]
 filter p = P.filter p . toList
