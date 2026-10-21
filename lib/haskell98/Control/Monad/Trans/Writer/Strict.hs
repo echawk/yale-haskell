@@ -6,6 +6,7 @@ module Control.Monad.Trans.Writer.Strict (
     liftCallCC, liftCatch
   ) where
 
+import Control.Monad.Fix (MonadFix(mfix))
 import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
@@ -87,3 +88,6 @@ instance Foldable f => Foldable (WriterT w f) where
   foldMap f = foldMap (f . fst) . runWriterT
 instance Traversable f => Traversable (WriterT w f) where
   traverse f = fmap WriterT . traverse (\(a, b) -> fmap (\c -> (c, b)) (f a)) . runWriterT
+
+instance (Monoid w, MonadFix m) => MonadFix (WriterT w m) where
+  mfix m = WriterT (mfix (\ ~(a, _) -> runWriterT (m a)))

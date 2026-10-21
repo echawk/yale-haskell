@@ -6,6 +6,7 @@ module Control.Monad.Trans.State.Lazy (
     liftCallCC, liftCallCC', liftCatch, liftListen, liftPass
   ) where
 
+import Control.Monad.Fix (MonadFix(mfix))
 import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
@@ -135,3 +136,6 @@ liftPass pass m = StateT $ \s -> pass $ do
 instance Contravariant m => Contravariant (StateT s m) where
   contramap f m = StateT $ \s ->
     contramap (\ ~(a, s') -> (f a, s')) $ runStateT m s
+
+instance MonadFix m => MonadFix (StateT s m) where
+  mfix f = StateT (\s -> mfix (\ ~(a, _) -> runStateT (f a) s))

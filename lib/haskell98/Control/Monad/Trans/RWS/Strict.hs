@@ -7,6 +7,7 @@ module Control.Monad.Trans.RWS.Strict (
     liftCallCC, liftCallCC', liftCatch
   ) where
 
+import Control.Monad.Fix (MonadFix(mfix))
 import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
@@ -134,3 +135,6 @@ liftCatch catchE m h = RWST $ \r s -> runRWST m r s `catchE` \e -> runRWST (h e)
 instance Contravariant m => Contravariant (RWST r w s m) where
   contramap f m = RWST $ \r s ->
     contramap (\(a, s', w) -> (f a, s', w)) $ runRWST m r s
+
+instance (Monoid w, MonadFix m) => MonadFix (RWST r w s m) where
+  mfix f = RWST (\r s -> mfix (\ ~(a, _, _) -> runRWST (f a) r s))

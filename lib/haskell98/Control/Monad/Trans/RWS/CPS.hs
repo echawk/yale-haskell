@@ -7,6 +7,7 @@ module Control.Monad.Trans.RWS.CPS (
     state, get, put, modify, gets
   ) where
 
+import Control.Monad.Fix (MonadFix(mfix))
 import PreludeModern
 import Control.Applicative (Alternative(empty, (<|>)))
 import Control.Monad (MonadPlus(mzero, mplus))
@@ -137,3 +138,6 @@ modify f = RWST (\_ s w -> return ((), f s, w))
 
 gets :: Monad m => (s -> a) -> RWST r w s m a
 gets f = RWST (\_ s w -> return (f s, s, w))
+
+instance MonadFix m => MonadFix (RWST r w s m) where
+  mfix f = RWST (\r s w -> mfix (\ ~(a, _, _) -> unRWST (f a) r s w))

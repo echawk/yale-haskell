@@ -6,6 +6,7 @@ module Control.Monad.Trans.Accum (
     liftCallCC, readerToAccumT, writerToAccumT
   ) where
 
+import Control.Monad.Fix (MonadFix(mfix))
 import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
 import Control.Monad.Trans.Class
@@ -95,3 +96,6 @@ readerToAccumT (ReaderT f) = AccumT (\w -> fmap (\a -> (a, mempty)) (f w))
 
 writerToAccumT :: WriterT w m a -> AccumT w m a
 writerToAccumT (WriterT m) = AccumT (const m)
+
+instance (Monoid w, MonadFix m) => MonadFix (AccumT w m) where
+  mfix m = AccumT (\w -> mfix (\ ~(a, _) -> runAccumT (m a) w))

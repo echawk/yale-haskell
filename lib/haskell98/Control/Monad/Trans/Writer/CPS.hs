@@ -7,6 +7,7 @@ module Control.Monad.Trans.Writer.CPS (
     tell, listen, listens, pass, censor
   ) where
 
+import Control.Monad.Fix (MonadFix(mfix))
 import PreludeModern
 import Control.Applicative (Alternative(empty, (<|>)))
 import Control.Monad (MonadPlus(mzero, mplus))
@@ -101,3 +102,6 @@ censor f m = WriterT (\w -> do
   (a, w') <- runWriterT m
   let wt = w `mappend` f w'
   wt `seq` return (a, wt))
+
+instance MonadFix m => MonadFix (WriterT w m) where
+  mfix f = WriterT (\w -> mfix (\ ~(a, _) -> unWriterT (f a) w))

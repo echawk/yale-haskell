@@ -6,6 +6,7 @@ module Control.Monad.Trans.Except (
     liftCallCC, liftListen, liftPass
   ) where
 
+import Control.Monad.Fix (MonadFix(mfix))
 import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
@@ -123,3 +124,7 @@ instance Foldable f => Foldable (ExceptT e f) where
 instance Traversable f => Traversable (ExceptT e f) where
   traverse f (ExceptT a) =
     fmap ExceptT (traverse (either (pure . Left) (fmap Right . f)) a)
+
+instance MonadFix m => MonadFix (ExceptT e m) where
+  mfix f = ExceptT (mfix (runExceptT . f . either (const bomb) id))
+    where bomb = error "mfix (ExceptT): inner computation returned Left value"

@@ -5,6 +5,7 @@ module Control.Monad.Trans.Reader (
     liftCallCC, liftCatch
   ) where
 
+import Control.Monad.Fix (MonadFix(mfix))
 import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
@@ -77,3 +78,6 @@ liftCatch f m h = ReaderT $ \r -> f (runReaderT m r) (\e -> runReaderT (h e) r)
 -- transformers' (the transformed monad contravariant)
 instance Contravariant m => Contravariant (ReaderT r m) where
   contramap f = ReaderT . fmap (contramap f) . runReaderT
+
+instance MonadFix m => MonadFix (ReaderT r m) where
+  mfix f = ReaderT (\r -> mfix (\a -> runReaderT (f a) r))

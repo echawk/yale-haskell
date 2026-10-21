@@ -4,6 +4,7 @@ module Control.Monad.Trans.Identity (
     liftCallCC, liftCatch
   ) where
 
+import Control.Monad.Fix (MonadFix(mfix))
 import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import Prelude hiding (foldr)
@@ -62,3 +63,6 @@ liftCatch f m h = IdentityT $ f (runIdentityT m) (runIdentityT . h)
 -- transformers' (the transformed monad contravariant)
 instance Contravariant f => Contravariant (IdentityT f) where
   contramap f = IdentityT . contramap f . runIdentityT
+
+instance MonadFix m => MonadFix (IdentityT m) where
+  mfix f = IdentityT (mfix (runIdentityT . f))

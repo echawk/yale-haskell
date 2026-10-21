@@ -4,6 +4,7 @@ module Control.Monad.Trans.Maybe (
     liftCallCC, liftCatch, liftListen, liftPass
   ) where
 
+import Control.Monad.Fix (MonadFix(mfix))
 import Data.Functor.Contravariant (Contravariant(contramap))
 import Control.Monad.Signatures
 import PreludeModern
@@ -81,3 +82,7 @@ instance Foldable f => Foldable (MaybeT f) where
   foldMap f (MaybeT a) = foldMap (foldMap f) a
 instance Traversable f => Traversable (MaybeT f) where
   traverse f (MaybeT a) = fmap MaybeT (traverse (traverse f) a)
+
+instance MonadFix m => MonadFix (MaybeT m) where
+  mfix f = MaybeT (mfix (runMaybeT . f . maybe bomb id))
+    where bomb = error "mfix (MaybeT): inner computation returned Nothing"
