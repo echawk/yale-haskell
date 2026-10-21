@@ -1,0 +1,23 @@
+ListLike: the IsString and StringLike instances at v Char (any generic
+vector) left out: Yale Haskell has no instances at a variable applied.
+--- a/Data/ListLike/Vector/Generic.hs
++++ b/Data/ListLike/Vector/Generic.hs
+@@ -91,16 +91,8 @@
+     sequence  = fmap fromList . P.sequenceA  . toList
+     mapM func = fmap fromList . P.traverse func . toList
+ 
+-instance (Eq (v Char), V.Vector v Char) => IsString (v Char) where
+-    fromString = V.fromList
+-
+-instance (Eq (v Char), V.Vector v Char) => StringLike (v Char) where
+-    toString = V.toList
+-    --words =
+-    --lines =
+-    unwords = let sp = V.singleton ' ' in V.concat . intersperse sp . toList
+-    unlines = let eol = V.singleton '\n' in V.concat . intersperse eol . toList
+-
++-- (Yale Haskell: IsString (v Char) left out: an instance at a variable applied, v Char)
++-- (Yale Haskell: StringLike (v Char) left out: an instance at a variable applied, v Char)
+ isPrefixOf' :: (V.Vector v a, Eq (v a)) => v a -> v a -> Bool
+ isPrefixOf' needle haystack
+   | V.null needle = True

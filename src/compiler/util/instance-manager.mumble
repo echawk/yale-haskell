@@ -341,9 +341,10 @@
   (if (null? types)
       ""
       (string-append
-       (if (tyvar? (car types))
-	   "a"
-	   (symbol->string (print-name (tycon-def (car types)))))
+       (cond ((tyvar? (car types)) "a")
+	     ;; a variable applied (ListLike's FoldableLL (v a) a)
+	     ((tyapp? (car types)) "app")
+	     (else (symbol->string (print-name (tycon-def (car types))))))
        (if (null? (cdr types)) "" "-")
        (mp-types-name (cdr types)))))
 

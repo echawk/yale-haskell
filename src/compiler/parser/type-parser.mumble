@@ -487,7 +487,12 @@
 (define (apply-equalities equalities sig)
   (dolist (e equalities)
     (let ((left (cadr e)) (right (caddr e)))
-      (cond ((tyvar? left)
+      (cond ((and (tyvar? left) (memq (tyvar-name left) (ast-tyvar-names right)))
+	     ;; circular (Item (v a) ~ a, ListLike's instance): not used
+	     '#f)
+	    ((and (tyvar? right) (memq (tyvar-name right) (ast-tyvar-names left)))
+	     '#f)
+	    ((tyvar? left)
 	     (record-equality (tyvar-name left) right)
 	     (substitute-signature sig (tyvar-name left) right))
 	    ((tyvar? right)

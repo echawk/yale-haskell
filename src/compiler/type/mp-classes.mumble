@@ -201,11 +201,22 @@
 		     '#f
 		     (match-ntype pattern type pvars env)))))
 	  ((ntyapp? pattern)
-	   (if (ntyapp? type)
-	       (match-ntypes (ntyapp-args pattern) (ntyapp-args type) pvars
-			     (match-ntype (ntyapp-fun pattern) (ntyapp-fun type)
-					  pvars env))
-	       '#f))
+	   (cond ((ntyapp? type)
+		  (match-ntypes (ntyapp-args pattern) (ntyapp-args type) pvars
+				(match-ntype (ntyapp-fun pattern) (ntyapp-fun type)
+					     pvars env)))
+		 ;; v a against T t1 .. tn: v is T t1 .. t(n-k), a the rest
+		 ;; (ListLike's FoldableLL (v a) a at a vector type)
+		 ((and (ntycon? type)
+		       (>= (length (ntycon-args type)) (length (ntyapp-args pattern))))
+		  (let* ((k (length (ntyapp-args pattern)))
+			 (n (length (ntycon-args type)))
+			 (head (**ntycon (ntycon-tycon type)
+					 (list-head (ntycon-args type) (- n k)))))
+		    (match-ntypes (ntyapp-args pattern) (list-tail (ntycon-args type) (- n k))
+				  pvars
+				  (match-ntype (ntyapp-fun pattern) head pvars env))))
+		 (else '#f)))
 	  (else (if (eq? pattern type) env '#f)))))
 
 (define (match-ntypes patterns types pvars env)
