@@ -4,7 +4,7 @@
 module System.Posix.Types (
     Fd(Fd), CMode, CDev, CIno, COff, CPid, CSsize, CUid, CGid, CNlink,
     FileMode, FileOffset, EpochTime, ProcessID, ByteCount, DeviceID,
-    FileID, UserID, GroupID, LinkCount
+    FileID, UserID, GroupID, LinkCount, Limit
   ) where
 
 import Data.Int (Int32, Int64)
@@ -54,3 +54,5 @@ type FileID = CIno
 type UserID = CUid
 type GroupID = CGid
 type LinkCount = CNlink
+-- pathconf's result (unix: CLong)
+type Limit = Int64

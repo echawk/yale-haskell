@@ -2,10 +2,15 @@
 -- checked here.
 module GHC.Arr (
     module Data.Array, unsafeIndex, unsafeRangeSize, unsafeAt, numElements,
-    amap
+    amap, STArray, boundsSTArray, numElementsSTArray, unsafeReadSTArray,
+    unsafeWriteSTArray, freezeSTArray, unsafeFreezeSTArray, thawSTArray,
+    unsafeThawSTArray
   ) where
 
 import Data.Array
+import Data.Array.Base (STArray, boundsSTArray, numElementsSTArray,
+  unsafeReadSTArray, unsafeWriteSTArray, freezeSTArray, unsafeFreezeSTArray,
+  thawSTArray, unsafeThawSTArray)
 
 unsafeIndex :: Ix i => (i, i) -> i -> Int
 unsafeIndex = index

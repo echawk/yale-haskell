@@ -9,12 +9,14 @@
 -- Array's vector is that bit vector).  UArray is Array.  runSTArray's type is the
 -- Haskell 98 one (see Control.Monad.ST's runST).
 module Data.Array.Base (
-    MArray(getBounds, newArray, newArray_, unsafeNewArray_, unsafeRead, unsafeWrite),
-    getNumElements, readArray, writeArray, modifyArray, modifyArray',
+    MArray(getBounds, getNumElements, newArray, newArray_, unsafeNewArray_, unsafeRead, unsafeWrite),
+    readArray, writeArray, modifyArray, modifyArray',
     newListArray, newGenArray, getElems, getAssocs, mapArray,
     freeze, thaw, unsafeFreeze, unsafeThaw,
     STArray, STUArray, IOArray, IOUArray, UArray,
-    runSTArray, runSTUArray, unsafeAt, numElements
+    runSTArray, runSTUArray, unsafeAt, numElements,
+    boundsSTArray, numElementsSTArray, unsafeReadSTArray, unsafeWriteSTArray,
+    freezeSTArray, unsafeFreezeSTArray, thawSTArray, unsafeThawSTArray
   ) where
 
 import Ix
@@ -25,6 +27,7 @@ import Control.Monad.ST (ST, runST, unsafeIOToST)
 
 class Monad m => MArray a e m where
   getBounds       :: Ix i => a i e -> m (i, i)
+  getNumElements  :: Ix i => a i e -> m Int
   newArray        :: Ix i => (i, i) -> e -> m (a i e)
   newArray_       :: Ix i => (i, i) -> m (a i e)
   unsafeNewArray_ :: Ix i => (i, i) -> m (a i e)
@@ -35,6 +38,7 @@ class Monad m => MArray a e m where
   arrFromVector   :: (i, i) -> Int -> MutArr e -> m (a i e)
   arrIO           :: a i e -> IO x -> m x     -- the array: only its type
 
+  getNumElements a = getBounds a >>= \b -> return (rangeSize b)
   newArray_ b = newArray b arrEleBottom
   unsafeNewArray_ b = newArray b arrEleBottom
 
@@ -112,8 +116,6 @@ instance MArray IOArray e IO where
   unsafeRead (IOArray _ _ v) i = primReadMutArr v i
   unsafeWrite (IOArray _ _ v) i x = primWriteMutArr v i x
 
-getNumElements :: (MArray a e m, Ix i) => a i e -> m Int
-getNumElements a = getBounds a >>= \b -> return (rangeSize b)
 
 readArray :: (MArray a e m, Ix i) => a i e -> i -> m e
 readArray a i = getBounds a >>= \b -> unsafeRead a (index b i)
@@ -180,3 +182,24 @@ unsafeAt arr k = primUnsafePerformIO (primReadMutArr (primArrayToMutArr arr) k)
 
 numElements :: Ix i => Array i e -> Int
 numElements arr = rangeSize (bounds arr)
+
+-- GHC.Arr's STArray operations
+boundsSTArray :: STArray s i e -> (i, i)
+boundsSTArray (STArray b _ _) = b
+
+numElementsSTArray :: STArray s i e -> Int
+numElementsSTArray (STArray _ n _) = n
+
+unsafeReadSTArray :: STArray s i e -> Int -> ST s e
+unsafeReadSTArray (STArray _ _ v) i = unsafeIOToST (primReadMutArr v i)
+
+unsafeWriteSTArray :: STArray s i e -> Int -> e -> ST s ()
+unsafeWriteSTArray (STArray _ _ v) i e = unsafeIOToST (primWriteMutArr v i e)
+
+freezeSTArray, unsafeFreezeSTArray :: Ix i => STArray s i e -> ST s (Array i e)
+freezeSTArray = freeze
+unsafeFreezeSTArray = unsafeFreeze
+
+thawSTArray, unsafeThawSTArray :: Ix i => Array i e -> ST s (STArray s i e)
+thawSTArray = thaw
+unsafeThawSTArray = unsafeThaw

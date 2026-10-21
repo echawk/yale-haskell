@@ -3,7 +3,10 @@
 -- file in one piece either way).  Data.ByteString.Lazy and
 -- Data.ByteString.Lazy.Char8 are generated over it
 -- (tools/gen/lazy-bytestring.py).
-module Data.ByteString.Lazy.Internal (ByteString(LBS)) where
+{-# LANGUAGE PatternSynonyms, ViewPatterns #-}
+module Data.ByteString.Lazy.Internal (
+    ByteString(LBS), pattern Empty, pattern Chunk, chunk
+  ) where
 
 import qualified Data.ByteString.Rep as S
 import PreludeModern (Semigroup((<>)), Monoid(mempty))
@@ -29,3 +32,26 @@ instance IsString ByteString where
 
 instance NFData ByteString where
   rnf (LBS b) = rnf b
+
+-- bytestring's chunk constructors: here at most one, nonempty, chunk.
+pattern Empty :: ByteString
+pattern Empty <- (isEmpty -> True)
+  where Empty = LBS mempty
+
+pattern Chunk :: S.ByteString -> ByteString -> ByteString
+pattern Chunk c rest <- (firstChunk -> Just (c, rest))
+  where Chunk c (LBS b) = LBS (c <> b)
+
+{-# COMPLETE Empty, Chunk #-}
+
+isEmpty :: ByteString -> Bool
+isEmpty (LBS b) = b == mempty
+
+firstChunk :: ByteString -> Maybe (S.ByteString, ByteString)
+firstChunk (LBS b)
+  | b == mempty = Nothing
+  | otherwise = Just (b, LBS mempty)
+
+-- | A chunk, unless it is empty, before a lazy ByteString.
+chunk :: S.ByteString -> ByteString -> ByteString
+chunk c rest = Chunk c rest

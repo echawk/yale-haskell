@@ -4,14 +4,17 @@ module Data.Text.Encoding (
     encodeUtf8, decodeUtf8, decodeUtf8', decodeUtf8With, decodeUtf8Lenient,
     decodeLatin1, decodeASCII, encodeUtf16LE, encodeUtf16BE, encodeUtf32LE,
     encodeUtf32BE, decodeUtf16LE, decodeUtf16BE, decodeUtf32LE, decodeUtf32BE,
-    utf8Bytes, utf8DecodeWith
+    utf8Bytes, utf8DecodeWith, encodeUtf8Builder, encodeUtf8BuilderEscaped
   ) where
 
 import Control.Exception (evaluate, try)
 import Data.Bits ((.&.), (.|.), shiftL, shiftR)
 import Data.Char (chr, ord)
 import qualified Data.ByteString as B
-import Data.ByteString.Rep (unBS, bsFromString)
+import Data.ByteString.Rep (unBS, bsFromString, c2w)
+import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Builder.Prim as BP
+import Data.Word (Word8)
 import qualified Data.Text as T
 import Data.Text.Encoding.Error
 import System.IO.Unsafe (unsafePerformIO)
@@ -117,3 +120,10 @@ words32 be (a : b : c : d : rest) =
   let ws = map ord (if be then [a, b, c, d] else [d, c, b, a])
   in chr (foldl (\x y -> x * 256 + y) 0 ws) : words32 be rest
 words32 _ _ = []
+
+encodeUtf8Builder :: T.Text -> BB.Builder
+encodeUtf8Builder = BB.byteString . encodeUtf8
+
+-- | Each byte of the UTF-8 through the primitive (aeson's JSON escaping).
+encodeUtf8BuilderEscaped :: BP.BoundedPrim Word8 -> T.Text -> BB.Builder
+encodeUtf8BuilderEscaped p t = BP.primMapListBounded p (map c2w (unBS (encodeUtf8 t)))

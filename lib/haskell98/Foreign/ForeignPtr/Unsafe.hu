@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Foreign/ForeignPtr/
+:o= all
+Unsafe.hs

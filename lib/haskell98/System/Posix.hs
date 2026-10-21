@@ -1,19 +1,17 @@
--- System.Posix (unix): the subset of System.Posix.Types, Files, IO and
--- Signals here, and sleep and the process id.
+-- System.Posix (unix): the subset of System.Posix.Types, Files, IO,
+-- Signals, Process, Unistd, Temp and Time here.
 module System.Posix (
     module System.Posix.Types, module System.Posix.Files,
     module System.Posix.IO, module System.Posix.Signals,
-    sleep, getProcessID
+    module System.Posix.Process, module System.Posix.Unistd,
+    module System.Posix.Temp, module System.Posix.Time
   ) where
 
-import PosixPrims (primPosixSleep, primGetProcessID)
 import System.Posix.Types
 import System.Posix.Files
 import System.Posix.IO
 import System.Posix.Signals
-
-sleep :: Int -> IO Int
-sleep = primPosixSleep
-
-getProcessID :: IO ProcessID
-getProcessID = fmap fromIntegral primGetProcessID
+import System.Posix.Process
+import System.Posix.Unistd
+import System.Posix.Temp
+import System.Posix.Time

@@ -8,6 +8,8 @@ import IOPrims(HandleObj)
 
 -- a file's status: the host's stat structure
 data FileStatusObj
+-- mkstemp's result: the descriptor and the name
+data MkstempObj
 
 primPosixStat        :: String -> Bool -> IO FileStatusObj
 primPosixFstat       :: Int -> IO FileStatusObj
@@ -33,6 +35,26 @@ primInstallSignalHandler :: Int -> Int -> IO () -> IO ()
 primRaiseSignal      :: Int -> IO ()
 primGetProcessID     :: IO Int
 primSetCooked        :: Bool -> IO ()
+primStatField        :: FileStatusObj -> Int -> Integer
+primPosixReadlink    :: String -> IO String
+primPosixRename      :: String -> String -> IO ()
+primPosixUnlink      :: String -> IO ()
+primPosixMkfifo      :: String -> Int -> IO ()
+primPosixMknod       :: String -> Int -> Integer -> IO ()
+primPosixChown       :: String -> Int -> Int -> Bool -> IO ()
+primPosixFchown      :: Int -> Int -> Int -> IO ()
+primPosixFchmod      :: Int -> Int -> IO ()
+primPosixTruncate    :: String -> Integer -> IO ()
+primPosixFtruncate   :: Int -> Integer -> IO ()
+primPosixUmask       :: Int -> IO Int
+primPosixAccess      :: String -> Bool -> Bool -> Bool -> IO Bool
+primPosixPathconf    :: String -> Int -> IO Integer
+primPosixFpathconf   :: Int -> Int -> IO Integer
+primPosixMkstemp     :: String -> IO MkstempObj
+primMkstempFd        :: MkstempObj -> Int
+primMkstempName      :: MkstempObj -> String
+primPosixTime        :: IO Integer
+primPosixUname       :: Int -> String
 
 {-#
 primPosixStat        :: LispName("prim.posix-stat")
@@ -59,4 +81,24 @@ primInstallSignalHandler :: LispName("prim.install-signal-handler"), Strictness(
 primRaiseSignal      :: LispName("prim.raise-signal")
 primGetProcessID     :: LispName("prim.get-process-id")
 primSetCooked        :: LispName("prim.set-cooked")
+primStatField        :: LispName("prim.stat-field")
+primPosixReadlink    :: LispName("prim.posix-readlink")
+primPosixRename      :: LispName("prim.posix-rename")
+primPosixUnlink      :: LispName("prim.posix-unlink")
+primPosixMkfifo      :: LispName("prim.posix-mkfifo")
+primPosixMknod       :: LispName("prim.posix-mknod")
+primPosixChown       :: LispName("prim.posix-chown")
+primPosixFchown      :: LispName("prim.posix-fchown")
+primPosixFchmod      :: LispName("prim.posix-fchmod")
+primPosixTruncate    :: LispName("prim.posix-truncate")
+primPosixFtruncate   :: LispName("prim.posix-ftruncate")
+primPosixUmask       :: LispName("prim.posix-umask")
+primPosixAccess      :: LispName("prim.posix-access")
+primPosixPathconf    :: LispName("prim.posix-pathconf")
+primPosixFpathconf   :: LispName("prim.posix-fpathconf")
+primPosixMkstemp     :: LispName("prim.posix-mkstemp")
+primMkstempFd        :: LispName("prim.mkstemp-fd")
+primMkstempName      :: LispName("prim.mkstemp-name")
+primPosixTime        :: LispName("prim.posix-time")
+primPosixUname       :: LispName("prim.posix-uname")
 #-}

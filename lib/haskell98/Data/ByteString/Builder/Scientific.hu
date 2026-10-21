@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Data/ByteString/Builder/
+:o= all
+Scientific.hs

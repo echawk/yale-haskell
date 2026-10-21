@@ -4,7 +4,7 @@
 -- changes only the type; Int64 is Integer, which Int's values are).
 -- Generated once from Data.Text's signatures; keep the two in step.
 module Data.Text.Lazy (
-    Text, fromStrict, toStrict, fromChunks, toChunks, pack, unpack, empty, singleton, cons, snoc, append, uncons, unsnoc, head, last, tail, init, null, length, compareLength, map, intercalate, intersperse, transpose, reverse, replace, toCaseFold, toLower, toUpper, toTitle, justifyLeft, justifyRight, center, foldl, foldl', foldl1, foldr, foldr1, concat, concatMap, any, all, maximum, minimum, scanl, scanl1, scanr, scanr1, mapAccumL, mapAccumR, replicate, unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, dropAround, strip, stripStart, stripEnd, splitAt, breakOn, breakOnEnd, break, span, spanM, group, groupBy, inits, tails, splitOn, split, chunksOf, lines, words, unlines, unwords, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, commonPrefixes, filter, breakOnAll, find, elem, partition, index, findIndex, count, zip, zipWith, copy, unpackCString
+    Text, fromStrict, toStrict, fromChunks, toChunks, foldrChunks, foldlChunks, pack, unpack, empty, singleton, cons, snoc, append, uncons, unsnoc, head, last, tail, init, null, length, compareLength, map, intercalate, intersperse, transpose, reverse, replace, toCaseFold, toLower, toUpper, toTitle, justifyLeft, justifyRight, center, foldl, foldl', foldl1, foldr, foldr1, concat, concatMap, any, all, maximum, minimum, scanl, scanl1, scanr, scanr1, mapAccumL, mapAccumR, replicate, unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, dropAround, strip, stripStart, stripEnd, splitAt, breakOn, breakOnEnd, break, span, spanM, group, groupBy, inits, tails, splitOn, split, chunksOf, lines, words, unlines, unwords, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, commonPrefixes, filter, breakOnAll, find, elem, partition, index, findIndex, count, zip, zipWith, copy, unpackCString
   ) where
 
 import Prelude ()
@@ -337,3 +337,10 @@ filter = unsafeCoerce S.filter
 
 instance NFData Text where
   rnf (Text t) = rnf t
+
+-- | Over the chunks (one here: a lazy Text is a strict one underneath).
+foldrChunks :: (S.Text -> a -> a) -> a -> Text -> a
+foldrChunks f z t = P.foldr f z (toChunks t)
+
+foldlChunks :: (a -> S.Text -> a) -> a -> Text -> a
+foldlChunks f z t = P.foldl f z (toChunks t)
