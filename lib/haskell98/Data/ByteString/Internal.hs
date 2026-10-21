@@ -8,13 +8,14 @@ module Data.ByteString.Internal (
     fromForeignPtr, fromForeignPtr0, toForeignPtr, toForeignPtr0,
     create, unsafeCreate, createAndTrim, mallocByteString,
     unsafePackLenBytes, unsafePackLenChars,
-    accursedUnutterablePerformIO, inlinePerformIO, unsafeDupablePerformIO
+    accursedUnutterablePerformIO, inlinePerformIO, unsafeDupablePerformIO,
+    nullForeignPtr
   ) where
 
 import Data.ByteString.Rep (ByteString, unBS, bsFromString, packChars, c2w, w2c)
 import Data.Word (Word8)
-import Foreign.ForeignPtr (ForeignPtr, mallocForeignPtrBytes, withForeignPtr, plusForeignPtr)
-import Foreign.Ptr (Ptr)
+import Foreign.ForeignPtr (ForeignPtr, mallocForeignPtrBytes, withForeignPtr, plusForeignPtr, newForeignPtr_)
+import Foreign.Ptr (Ptr, nullPtr)
 import Foreign.Marshal.Array (peekArray, pokeArray)
 import System.IO.Unsafe (unsafePerformIO, unsafeDupablePerformIO)
 
@@ -73,3 +74,8 @@ accursedUnutterablePerformIO = unsafeDupablePerformIO
 
 inlinePerformIO :: IO a -> a
 inlinePerformIO = unsafeDupablePerformIO
+
+-- a ForeignPtr to no memory (zlib's empty buffers)
+nullForeignPtr :: ForeignPtr Word8
+nullForeignPtr = unsafePerformIO (newForeignPtr_ nullPtr)
+{-# NOINLINE nullForeignPtr #-}

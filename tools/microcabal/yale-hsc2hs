@@ -1,0 +1,275 @@
+#!/usr/bin/env python3
+"""yale-hsc2hs -- the part of hsc2hs that packages use, for MicroCabal's
+Yale Haskell backend (Yale.hs).
+
+    yale-hsc2hs [-I DIR | -D NAME[=VAL]]... IN.hsc -o OUT.hs
+
+As hsc2hs does, the .hsc file becomes a C program that prints the Haskell
+module: its text is printed as it is, the C preprocessor's directives
+(#if, #include, #define, ...) are the program's, and each construct prints
+what the C compiler computes:
+
+    #{const e}, #const e        the integer e
+    #{const_str e}              the string e, as a Haskell literal
+    #{size t}, #{alignment t}   sizeof, alignment of the C type t
+    #{offset t, f}              offsetof(t, f)
+    #{peek t, f}, #{poke t, f}  (\\hsc_ptr -> peekByteOff hsc_ptr off), ...
+    #{ptr t, f}                 (\\hsc_ptr -> hsc_ptr `plusPtr` off)
+    #{type t}                   Int8 .. Word64, Float or Double
+    #{enum T, f, a = e, b}      a :: T; a = f e, for each
+
+`##` is a `#' in the output (##ifdef: a directive for the module's own
+CPP).  A conditional on MIN_VERSION_pkg(..), which the C compiler cannot
+evaluate, is left to the module's CPP (Yale Haskell's), with its #else and
+#endif.  #let and #def are not supported.  The program is compiled with
+cc and run; the output module starts with {-# LANGUAGE CPP #-}.
+"""
+
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+KEYWORDS = ["const_str", "const", "size", "alignment", "offset", "peek",
+            "poke", "ptr", "type", "enum"]
+DIRECTIVES = ["if", "ifdef", "ifndef", "elif", "else", "endif", "define",
+              "undef", "include", "error", "warning", "pragma", "line"]
+
+
+def c_string(s):
+    out = []
+    for ch in s:
+        if ch == "\\":
+            out.append("\\\\")
+        elif ch == '"':
+            out.append('\\"')
+        elif ch == "\n":
+            out.append("\\n")
+        elif ch == "%":
+            out.append("%%")
+        elif ord(ch) < 32 or ord(ch) > 126:
+            for b in ch.encode("utf-8"):
+                out.append("\\%03o" % b)
+        else:
+            out.append(ch)
+    return '"' + "".join(out) + '"'
+
+
+def split_args(s):
+    """Split a construct's arguments at top-level commas."""
+    args, depth, cur = [], 0, []
+    for ch in s:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            args.append("".join(cur).strip())
+            cur = []
+        else:
+            cur.append(ch)
+    args.append("".join(cur).strip())
+    return args
+
+
+def construct_code(key, body):
+    """C statements printing a construct's value."""
+    a = split_args(body) if key in ("offset", "peek", "poke", "ptr", "enum") else [body.strip()]
+    if key == "const":
+        e = a[0]
+        return ('if ((%s) < 0) printf("(%%lld)", (long long)(%s)); '
+                'else printf("%%llu", (unsigned long long)(%s));' % (e, e, e))
+    if key == "const_str":
+        return 'hsc_str(%s);' % a[0]
+    if key == "size":
+        return 'printf("%%lu", (unsigned long)sizeof(%s));' % a[0]
+    if key == "alignment":
+        return 'printf("%%lu", (unsigned long)_Alignof(%s));' % a[0]
+    if key == "offset":
+        return 'printf("%%lu", (unsigned long)offsetof(%s, %s));' % (a[0], a[1])
+    if key == "peek":
+        return ('printf("(\\\\hsc_ptr -> peekByteOff hsc_ptr %%lu)", '
+                '(unsigned long)offsetof(%s, %s));' % (a[0], a[1]))
+    if key == "poke":
+        return ('printf("(\\\\hsc_ptr -> pokeByteOff hsc_ptr %%lu)", '
+                '(unsigned long)offsetof(%s, %s));' % (a[0], a[1]))
+    if key == "ptr":
+        return ('printf("(\\\\hsc_ptr -> hsc_ptr `plusPtr` %%lu)", '
+                '(unsigned long)offsetof(%s, %s));' % (a[0], a[1]))
+    if key == "type":
+        t = a[0]
+        return ('if ((%s)0.5 != 0) printf(sizeof(%s) == 4 ? "Float" : "Double"); '
+                'else printf("%%s%%lu", ((%s)(-1) < 0) ? "Int" : "Word", '
+                '(unsigned long)(8 * sizeof(%s)));' % (t, t, t, t))
+    if key == "enum":
+        typ, fun = a[0], a[1]
+        code = []
+        for item in a[2:]:
+            if not item:
+                continue
+            if "=" in item:
+                name, e = [x.strip() for x in item.split("=", 1)]
+            else:
+                name, e = hs_name(item), item
+            code.append('printf("%s :: %s\\n%s = %s");' % (name, typ, name, fun + (" " if fun else "")))
+            code.append(construct_code("const", e))
+            code.append('printf("\\n");')
+        return " ".join(code)
+    raise ValueError(key)
+
+
+def hs_name(c):
+    """hsc2hs's Haskell name for a C constant: Z_OK is zOK."""
+    parts = c.split("_")
+    if not parts:
+        return c
+    first = parts[0].lower()
+    rest = "".join(p[:1].upper() + p[1:] for p in parts[1:])
+    return first + rest
+
+
+def scan_text(text):
+    """Pieces of a non-directive line: ('text', s) or ('construct', key, body)."""
+    pieces, i, cur = [], 0, []
+    while i < len(text):
+        ch = text[i]
+        if ch == "#" and text.startswith("##", i):
+            cur.append("#")
+            i += 2
+            continue
+        if ch == "#" and text.startswith("#{", i):
+            depth, j = 1, i + 2
+            while j < len(text) and depth > 0:
+                if text[j] == "{":
+                    depth += 1
+                elif text[j] == "}":
+                    depth -= 1
+                j += 1
+            inner = text[i + 2:j - 1].strip()
+            m = re.match(r"([a-z_]+)\s*(.*)", inner, re.S)
+            if m and m.group(1) in KEYWORDS:
+                pieces.append(("text", "".join(cur)))
+                cur = []
+                pieces.append(("construct", m.group(1), m.group(2)))
+                i = j
+                continue
+        if ch == "#" and (i == 0 or not (text[i - 1].isalnum() or text[i - 1] in "_'#")):
+            m = re.match(r"#([a-z_]+)\b", text[i:])
+            if m and m.group(1) in KEYWORDS:
+                # #const e: to the end of the line
+                end = text.find("\n", i)
+                end = len(text) if end < 0 else end
+                pieces.append(("text", "".join(cur)))
+                cur = []
+                pieces.append(("construct", m.group(1), text[i + m.end():end]))
+                i = end
+                continue
+        cur.append(ch)
+        i += 1
+    pieces.append(("text", "".join(cur)))
+    return pieces
+
+
+def translate(src):
+    lines = src.split("\n")
+    top, body = [], []
+    stack = []       # for each open conditional: 'c' or 'hs'
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # a directive may continue with backslashes
+        stripped = line.lstrip()
+        m = re.match(r"#\s*([a-z]+)\b", stripped)
+        if m and m.group(1) in DIRECTIVES and not stripped.startswith("##"):
+            full = line
+            while full.endswith("\\") and i + 1 < len(lines):
+                i += 1
+                full = full[:-1] + "\n" + lines[i]
+            d = m.group(1)
+            hs = False
+            if d in ("if", "ifdef", "ifndef"):
+                hs = "MIN_VERSION_" in full
+                stack.append("hs" if hs else "c")
+            elif d in ("elif", "else"):
+                hs = bool(stack) and stack[-1] == "hs"
+            elif d == "endif":
+                hs = bool(stack) and stack[-1] == "hs"
+                if stack:
+                    stack.pop()
+            if hs:
+                body.append('fputs(%s, stdout);' % c_string(full.strip() + "\n"))
+            elif d in ("include", "define", "undef") and not stack:
+                top.append(full.strip())
+            else:
+                body.append(full.strip())
+            i += 1
+            continue
+        for p in scan_text(line + ("\n" if i + 1 < len(lines) else "")):
+            if p[0] == "text":
+                if p[1]:
+                    body.append('fputs(%s, stdout);' % c_string(p[1]))
+            else:
+                body.append(construct_code(p[1], p[2]))
+        i += 1
+    prog = ["#include <stdio.h>", "#include <stddef.h>", "#include <string.h>"]
+    prog += top
+    prog += ["static void hsc_str(const char *s) {",
+             "  putchar('\"');",
+             "  for (; *s; s++) {",
+             "    if (*s == '\"' || *s == '\\\\') printf(\"\\\\%c\", *s);",
+             "    else if (*s < 32 || *s > 126) printf(\"\\\\%d\\\\&\", (unsigned char)*s);",
+             "    else putchar(*s);",
+             "  }",
+             "  putchar('\"');",
+             "}",
+             "int main(void) {",
+             'fputs("{-# LANGUAGE CPP #-}\\n", stdout);']
+    prog += body
+    prog += ["return 0;", "}"]
+    return "\n".join(prog) + "\n"
+
+
+def main(argv):
+    incs, defs, inp, out = [], [], None, None
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "-o":
+            out = argv[i + 1]
+            i += 2
+        elif a.startswith("-I"):
+            incs.append(a if len(a) > 2 else "-I" + argv[i + 1])
+            i += 1 if len(a) > 2 else 2
+        elif a.startswith("-D"):
+            defs.append(a if len(a) > 2 else "-D" + argv[i + 1])
+            i += 1 if len(a) > 2 else 2
+        else:
+            inp = a
+            i += 1
+    if not inp or not out:
+        sys.stderr.write("usage: yale-hsc2hs [-I DIR | -D NAME[=VAL]]... IN.hsc -o OUT.hs\n")
+        return 2
+    with open(inp, encoding="utf-8") as f:
+        prog = translate(f.read())
+    with tempfile.TemporaryDirectory() as d:
+        c = os.path.join(d, "hsc.c")
+        exe = os.path.join(d, "hsc")
+        with open(c, "w", encoding="utf-8") as f:
+            f.write(prog)
+        r = subprocess.run(["cc", "-w", "-o", exe, c, "-I" + os.path.dirname(os.path.abspath(inp))]
+                           + incs + defs)
+        if r.returncode != 0:
+            sys.stderr.write("yale-hsc2hs: the C program for %s does not compile\n" % inp)
+            return 1
+        r = subprocess.run([exe], stdout=subprocess.PIPE)
+        if r.returncode != 0:
+            sys.stderr.write("yale-hsc2hs: the C program for %s failed\n" % inp)
+            return 1
+    with open(out, "wb") as f:
+        f.write(r.stdout)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

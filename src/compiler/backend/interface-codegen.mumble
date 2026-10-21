@@ -386,16 +386,27 @@
   (if (eq? fn '#f) x (funcall fn x)))
 
 (define (ffi-expand ty)
+  (ffi-expand-1 ty 16))
+
+;;; A newtype crosses as its field (Haskell 2010 8.4.2): Foreign.C.Types'
+;;; (CInt over Int32), ConstPtr, zlib's newtype StreamState = StreamState
+;;; (Ptr StreamState).  (cfn erases the constructor.)
+(define (ffi-expand-1 ty depth)
   (let ((ty (expand-ntype-synonym (prune ty))))
-    ;; a Foreign.C.Types newtype (CInt over Int32) crosses as its field
-    (if (and (ntycon? ty)
+    (if (and (> depth 0)
+	     (ntycon? ty)
 	     (algdata? (ntycon-tycon ty))
-	     (eq? (def-module (ntycon-tycon ty)) '|Foreign.C.Types|)
-	     (algdata-newtype? (ntycon-tycon ty)))
+	     (algdata-newtype? (ntycon-tycon ty))
+	     ;; (IO is the action, not its representation; Int64, a newtype
+	     ;; over Integer, is a C type itself: *ffi-sized-types*)
+	     (not (eq? (ntycon-tycon ty) (core-symbol "IO")))
+	     (not (let ((m (assq (def-module (ntycon-tycon ty)) *ffi-sized-types*)))
+		    (and m (assq (def-name (ntycon-tycon ty)) (cdr m)))))
+	     (not (null? (algdata-constrs (ntycon-tycon ty)))))
 	(let* ((sig (con-signature (car (algdata-constrs (ntycon-tycon ty)))))
 	       (fn (prune (if (gtype? sig) (gtype-type sig) sig))))
 	  ;; the constructor's type, Int32 -> CInt: its argument
-	  (ffi-expand (car (ntycon-args fn))))
+	  (ffi-expand-1 (car (ntycon-args fn)) (1- depth)))
 	ty)))
 
 (define *ffi-export* '#f)	; the foreign-export being generated

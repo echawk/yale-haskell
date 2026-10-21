@@ -5,7 +5,8 @@
 -- (tools/gen/lazy-bytestring.py).
 {-# LANGUAGE PatternSynonyms, ViewPatterns #-}
 module Data.ByteString.Lazy.Internal (
-    ByteString(LBS), pattern Empty, pattern Chunk, chunk
+    ByteString(LBS), pattern Empty, pattern Chunk, chunk,
+    defaultChunkSize, smallChunkSize, chunkOverhead
   ) where
 
 import qualified Data.ByteString.Rep as S
@@ -55,3 +56,9 @@ firstChunk (LBS b)
 -- | A chunk, unless it is empty, before a lazy ByteString.
 chunk :: S.ByteString -> ByteString -> ByteString
 chunk c rest = Chunk c rest
+
+-- bytestring's chunk sizes (a chunk is one strict ByteString here)
+defaultChunkSize, smallChunkSize, chunkOverhead :: Int
+defaultChunkSize = 32 * 1024 - chunkOverhead
+smallChunkSize = 4 * 1024 - chunkOverhead
+chunkOverhead = 16

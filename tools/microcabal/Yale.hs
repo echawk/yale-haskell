@@ -160,7 +160,8 @@ stagePackage env db name vers flds = do
     mkdir env (pdir </> "include" </> d)
     copyTree env d (pdir </> "include" </> d)
   applyPatch env name (pdir </> "src")
-  preprocessModules env (pdir </> "src") (libModules flds ++ getFieldStrings flds [] "other-modules")
+  preprocessModules env (pdir </> "src") (map ("-I" ++) incDirs ++ filter ("-D" `isPrefixOf`) (cppOpts ++ extraCpp))
+    (libModules flds ++ getFieldStrings flds [] "other-modules")
   writeFile (pdir </> "yale-package") $ unlines
     [ "name: " ++ name
     , "version: " ++ showVersion vers
@@ -175,11 +176,12 @@ stagePackage env db name vers flds = do
 -- installed with mcabal install happy alex) or on the PATH.  An hsc2hs
 -- source (.hsc) using none of hsc2hs's own constructs (#{const ..},
 -- #size, #peek, ...) is a Haskell module with CPP directives, which Yale
--- Haskell's preprocessor reads: it is copied (unix-compat's).  hsc2hs
--- itself would evaluate #if MIN_VERSION_pkg(..) with the C preprocessor,
--- which has no such macros; a module that needs it has a patch.
-preprocessModules :: Env -> FilePath -> [String] -> IO ()
-preprocessModules env src mdls =
+-- Haskell's preprocessor reads: it is copied (unix-compat's).  One using
+-- them is preprocessed by $YALE_HSC2HS (tools/microcabal/yale-hsc2hs,
+-- which the mcabal script names), with the package's include-dirs and
+-- cpp-options' -D flags (HSCFLAGS).
+preprocessModules :: Env -> FilePath -> [String] -> [String] -> IO ()
+preprocessModules env src hscFlags mdls =
   forM_ (nub mdls) $ \ m -> do
     let base = src </> modulePath m
     hs <- or <$> mapM doesFileExist [base ++ ".hs", base ++ ".lhs"]
@@ -196,8 +198,13 @@ preprocessModules env src mdls =
           cmd env $ exe ++ " " ++ flags ++ " " ++ base ++ ext ++ " -o " ++ base ++ ".hs"
         [] | hsc -> do
           text <- readFile (base ++ ".hsc")
+          mhsc <- lookupEnv "YALE_HSC2HS"
           if any hscConstruct (lines text)
-            then message env 0 $ "Not preprocessed (hsc2hs constructs): " ++ m
+            then case mhsc of
+              Nothing -> message env 0 $ "Not preprocessed (hsc2hs constructs): " ++ m
+              Just exe -> do
+                message env 0 $ "Preprocessing " ++ m ++ " with yale-hsc2hs"
+                cmd env $ unwords ([exe] ++ hscFlags ++ [base ++ ".hsc", "-o", base ++ ".hs"])
             else do
               -- (__YALE_HSC__: its #included headers give macros, not
               -- text, as for hsc2hs's C program; Yale Haskell's cpp)
