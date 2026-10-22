@@ -291,6 +291,27 @@
     (lisp:finish-output (handle-stream h)))
   0)
 
+;;; GHC.IO.Handle's hDuplicate: a new handle on the same stream (a
+;;; standard handle's current one).
+(define (prim.h-duplicate h)
+  (let ((new (lisp:copy-structure h)))
+    (setf (haskell-handle-stream new) (handle-stream h))
+    new))
+
+;;; hDuplicateTo h1 h2: h2 is made a handle on h1's stream, after h2's
+;;; output is flushed (captured output: extra's captureOutput).
+(define (prim.h-duplicate-to h1 h2)
+  (when (and (haskell-handle-writable? h2) (eq? (haskell-handle-state h2) 'open))
+    (lisp:finish-output (handle-stream h2)))
+  (setf (haskell-handle-stream h2) (haskell-handle-stream h1))
+  (setf (haskell-handle-readable? h2) (haskell-handle-readable? h1))
+  (setf (haskell-handle-writable? h2) (haskell-handle-writable? h1))
+  (setf (haskell-handle-file? h2) (haskell-handle-file? h1))
+  (setf (haskell-handle-state h2) (haskell-handle-state h1))
+  (setf (haskell-handle-buffering h2) (haskell-handle-buffering h1))
+  (setf (haskell-handle-block-size h2) (haskell-handle-block-size h1))
+  0)
+
 ;;; primHGetPosn :: Handle -> IO Integer
 (define (prim.h-get-posn h)
   (check-file h "hGetPosn")

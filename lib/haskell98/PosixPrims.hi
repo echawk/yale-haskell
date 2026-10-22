@@ -19,6 +19,8 @@ primStatMtime        :: FileStatusObj -> Integer
 primStatAtime        :: FileStatusObj -> Integer
 primModeFileType     :: Int -> Int
 primPosixChmod       :: String -> Int -> IO ()
+primPosixMkdir       :: String -> Int -> IO ()
+primPosixRmdir       :: String -> IO ()
 primPosixUtimes      :: String -> Integer -> Integer -> IO ()
 primPosixLink        :: String -> String -> IO ()
 primPosixSymlink     :: String -> String -> IO ()
@@ -65,6 +67,8 @@ primStatMtime        :: LispName("prim.stat-mtime")
 primStatAtime        :: LispName("prim.stat-atime")
 primModeFileType     :: LispName("prim.mode-file-type")
 primPosixChmod       :: LispName("prim.posix-chmod")
+primPosixMkdir       :: LispName("prim.posix-mkdir")
+primPosixRmdir       :: LispName("prim.posix-rmdir")
 primPosixUtimes      :: LispName("prim.posix-utimes")
 primPosixLink        :: LispName("prim.posix-link")
 primPosixSymlink     :: LispName("prim.posix-symlink")

@@ -375,12 +375,31 @@
 	 (res (let ((r (reduce-family-app-1 eqs args)))
 		;; stuck: perhaps a given constraint's equality superclass
 		;; decides it (ListLike text char: Item text is char)
-		(if (eq? r 'stuck) (given-family-reduction type) r))))
+		(when (eq? r 'stuck) (setf r (given-family-reduction type)))
+		;; or an argument that is an application reducing so
+		;; (SubstArg (SubstArg a) with SubstArg a ~ a given)
+		(if (eq? r 'stuck) (reduce-with-reduced-args type) r))))
     ;; a family whose result is a type constructor, applied to more
     ;; arguments than it has (Rep1 f a): the result applied to the rest
     (if (or (eq? res 'stuck) (<= (length args) arity))
 	res
 	(apply-ntype res (list-tail args arity)))))
+
+;;; TYPE, a stuck family application, reduced after its arguments that
+;;; are family applications reducing are; else 'stuck.
+(define (reduce-with-reduced-args type)
+  (let* ((changed '#f)
+	 (args (map (lambda (a)
+		      (let ((a (prune a)))
+			(if (and (family-app? a)
+				 (not (eq? (reduce-family-app a) 'stuck)))
+			    (begin (setf changed '#t) (prune (expand-ntype-synonym a)))
+			    a)))
+		    (ntycon-args type))))
+    (if changed
+	(let ((r (reduce-family-app (**ntycon (ntycon-tycon type) args))))
+	  r)
+	'stuck)))
 
 (define (reduce-family-app-1 eqs args)
   (if (null? eqs)

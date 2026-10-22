@@ -370,14 +370,24 @@
   (and (eq? (def-name class) '|TypeEquality|)
        (eq? (def-module class) '|PreludeModern|)))
 
-;;; A wanted equality: its types unified, its dictionary ().
-(define (solve-type-equality p)
+;;; A wanted equality: its types unified, its dictionary ().  Where it is
+;;; made (type-vars.mumble's insert-mp-placeholders, EAGER?), one with a
+;;; side a family application that does not reduce yet waits until the
+;;; placeholder is processed, when the binding's signature (SubstArg a ~
+;;; a, Agda's composeS calling itself) may give it.
+(define (solve-type-equality p . eager?)
   (when (type-equality-class? (mp-placeholder-class p))
     (let ((types (mp-placeholder-types p)))
-      (type-unify (car types) (cadr types)
-	(type-error "The types ~A and ~A of an equality constraint do not match."
-		    (car types) (cadr types)))
-      (setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor"))))))
+      (when (not (and (not (null? eager?))
+		      (lisp:some (function stuck-family-app?) types)))
+	(type-unify (car types) (cadr types)
+	  (type-error "The types ~A and ~A of an equality constraint do not match."
+		      (car types) (cadr types)))
+	(setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor")))))))
+
+(define (stuck-family-app? type)
+  (let ((type (prune type)))
+    (and (family-app? type) (eq? (reduce-family-app type) 'stuck))))
 
 ;;; Structural equality of ntypes, nothing reduced (tyvars by identity).
 (define (ntype-identical? t1 t2)
@@ -928,7 +938,10 @@
 	       deferred)
 	      ((and (null? (cdr types))
 		    (null? (cdr (class-tyvars class)))
-		    (ntycon? (expand-ntype-synonym (prune (car types)))))
+		    (ntycon? (expand-ntype-synonym (prune (car types))))
+		    ;; (not a family application still stuck: no instance
+		    ;; is for it, SubstArg a of Agda's composeS)
+		    (not (family-app? (expand-ntype-synonym (prune (car types))))))
 	       ;; a one-parameter class given at an application of a type
 	       ;; variable (Monad (m s)), now wanted at a known type:
 	       ;; the type's instance, as for any other dictionary

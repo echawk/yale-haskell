@@ -79,6 +79,12 @@
 (cl:defun prim.posix-chmod (path mode)
   (with-posix-errors ("setFileMode" path) (sb-posix:chmod path mode)) 0)
 
+(cl:defun prim.posix-mkdir (path mode)
+  (with-posix-errors ("createDirectory" path) (sb-posix:mkdir path mode)) 0)
+
+(cl:defun prim.posix-rmdir (path)
+  (with-posix-errors ("removeDirectory" path) (sb-posix:rmdir path)) 0)
+
 (cl:defun prim.posix-utimes (path atime mtime)
   (with-posix-errors ("setFileTimes" path) (sb-posix:utimes path atime mtime)) 0)
 

@@ -41,6 +41,8 @@ primHSetBinaryMode    :: HandleObj -> Bool -> IO ()
 primHGetBuffering     :: HandleObj -> IO Int
 primHGetBlockSize     :: HandleObj -> IO Int
 primHFlush            :: HandleObj -> IO ()
+primHDuplicate        :: HandleObj -> IO HandleObj
+primHDuplicateTo      :: HandleObj -> HandleObj -> IO ()
 primHGetPosn          :: HandleObj -> IO Integer
 primHSeek             :: HandleObj -> Int -> Integer -> IO ()
 primHWaitForInput     :: HandleObj -> Int -> IO Bool
@@ -83,6 +85,8 @@ primHSetBinaryMode    :: LispName("prim.h-set-binary-mode")
 primHGetBuffering     :: LispName("prim.h-get-buffering")
 primHGetBlockSize     :: LispName("prim.h-get-block-size")
 primHFlush            :: LispName("prim.h-flush")
+primHDuplicate        :: LispName("prim.h-duplicate")
+primHDuplicateTo      :: LispName("prim.h-duplicate-to")
 primHGetPosn          :: LispName("prim.h-get-posn")
 primHSeek             :: LispName("prim.h-seek")
 primHWaitForInput     :: LispName("prim.h-wait-for-input")
