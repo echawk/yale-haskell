@@ -288,6 +288,31 @@
 	 (mlet (((fun b1) (ast->ntype/bindings (tyapp-fun type) bindings))
 		((args b2) (ast->ntype/bindings/l (tyapp-args type) b1)))
 	   (values (apply-ntype fun args) b2)))
+	((forall-type? type)
+	 ;; a nested polytype (an instance's quantified constraint): its own
+	 ;; variables kept, the others the bindings'
+	 (let* ((free (lisp:remove-duplicates
+		       (lisp:remove-if (lambda (v) (memq v (forall-type-tyvars type)))
+				       (append (ast-tyvar-names (forall-type-type type))
+					       (lisp:mapcan (lambda (c)
+							      (lisp:mapcan (function ast-tyvar-names)
+									   (mp-context-types c)))
+							    (forall-type-mcontext type))))))
+		(b1 bindings)
+		(vars (map (lambda (v)
+			     (let ((b (assq v b1)))
+			       (if b
+				   (tuple-2-2 b)
+				   (let ((tv (**ntyvar)))
+				     (setf b1 (cons (tuple v tv) b1))
+				     tv))))
+			   free))
+		(env '()))
+	   (dolist (v free)
+	     (mlet (((_ env1) (ast->gtyvar v env)))
+	       (setf env env1)))
+	   (mlet (((g _) (type->gtype type env)))
+	     (values (copy-gtype g vars) b1))))
 	(else
 	 (mlet (((args b1) (ast->ntype/bindings/l (tycon-args type) bindings)))
 	   (values (**ntycon (tycon-def type) args) b1)))))
@@ -595,6 +620,8 @@
 	(let ((class (mp-placeholder-class p))
 	      (types (mp-placeholder-types p)))
 	  (when (and (some (function mp-type-generic?) types)
+		     ;; (a quantified constraint is made where it is wanted)
+		     (not (qc-class? class))
 		     ;; a polymorphic argument's context gives it
 		     ;; (process-mp-placeholder)
 		     (not (local-mp-param-matches? p class types))
@@ -649,6 +676,8 @@
 	((type-equality-class? (mp-placeholder-class p))
 	 (solve-type-equality p)
 	 deferred)
+	((qc-class? (mp-placeholder-class p))
+	 (process-qc-wanted p deferred decls))
 	((class-constraint-family (mp-placeholder-class p))
 	 (process-cfam-placeholder p deferred decls))
 	((reducible-one-parameter-mp? p)
@@ -956,6 +985,12 @@
 	      ((not (eq? found '#f))
 	       (resolve-mp-by-instance p (tuple-2-1 found) (tuple-2-2 found)
 				       deferred decls))
+	      ((qc-given-find p class types decls)
+	       ;; a given quantified constraint's head
+	       (mlet (((code d1) (qc-given-dict (qc-given-find p class types decls)
+						p deferred decls)))
+		 (setf (placeholder-exp p) (mp-dict-use p code))
+		 d1))
 	      ((some (function mp-type-non-generic?) types)
 	       (cons p deferred))
 	      ((inside-enclosing-decl? p decls)
@@ -1176,3 +1211,180 @@
 	(setf dict (**app dict p))
 	(setf deferred (process-mp-placeholder p deferred decls))))
     (values dict deferred)))
+
+;;;=====================================================================
+;;; Quantified constraints
+;;;=====================================================================
+
+;;; QuantifiedConstraints: forall x. C x => D (t x) is PreludeModern's
+;;; QuantifiedConstraint at the polytype forall x. C x => D (t x)
+;;; (parser/type-parser.mumble), its head a constraint type (the class
+;;; literal of D applied: constraint-type-class).  Its dictionary is a
+;;; function from the premises' dictionaries, one for each class on each
+;;; of the polytype's variables in order, then one for each of its
+;;; multi-parameter constraints, to the head's.  Given, it gives the head
+;;; at any instance of the variables (qc-given-dict); wanted, it is that
+;;; function, made from the instances there are (process-qc-wanted).
+
+(define (qc-class? class)
+  (and (class? class)
+       (eq? (def-name class) '|QuantifiedConstraint|)
+       (eq? (def-module class) '|PreludeModern|)))
+
+;;; A new instance of the quantified constraint's polytype G: the head's
+;;; class and types, the polytype's variables (with their premises as
+;;; their contexts) and its multi-parameter premises as (class . types).
+(define (qc-instantiate g)
+  (let ((g (prune g)))
+    (if (not (polytype? g))
+	(values '#f '() '() '())
+	(let ((tyvars (map (lambda (c) (declare (ignore c)) (**ntyvar)) (gtype-context g))))
+	  (dolist2 (tv tyvars) (c (gtype-context g))
+	    (setf (ntyvar-context tv) c))
+	  (mlet (((class args) (constraint-type-class (copy-polytype-body (gtype-type g) tyvars))))
+	    (values class args tyvars
+		    (map (lambda (c)
+			   (tuple (tuple-2-1 c)
+				  (map (lambda (ty) (copy-polytype-body ty tyvars))
+				       (tuple-2-2 c))))
+			 (gtype-mcontext g))))))))
+
+;;; Matches PATTERNS, types whose PVARS may stand for any type, against
+;;; TYPES: the bindings ((tyvar . type) ...), or 'fail.
+(define (qc-match-list patterns types pvars env)
+  (cond ((eq? env 'fail) 'fail)
+	((and (null? patterns) (null? types)) env)
+	((or (null? patterns) (null? types)) 'fail)
+	(else (qc-match-list (cdr patterns) (cdr types) pvars
+			     (qc-match (car patterns) (car types) pvars env)))))
+
+(define (qc-match pat type pvars env)
+  (let ((pat (prune pat))
+	(type (reduce-mp-type type)))
+    (cond ((eq? env 'fail) 'fail)
+	  ((and (ntyvar? pat) (memq pat pvars))
+	   (let ((b (assq pat env)))
+	     (cond ((not b) (cons (cons pat type) env))
+		   ((mp-type-equal? (cdr b) type) env)
+		   (else 'fail))))
+	  ((and (ntycon? pat) (ntycon? type)
+		(eq? (ntycon-tycon pat) (ntycon-tycon type)))
+	   (qc-match-list (ntycon-args pat) (ntycon-args type) pvars env))
+	  ((and (ntyapp? pat) (ntyapp? type)
+		(eqv? (length (ntyapp-args pat)) (length (ntyapp-args type))))
+	   (qc-match-list (ntyapp-args pat) (ntyapp-args type) pvars
+			  (qc-match (ntyapp-fun pat) (ntyapp-fun type) pvars env)))
+	  ;; T a b against an application t c of a variable (a head's t x
+	  ;; with t L)
+	  ((and (ntyapp? pat) (ntycon? type)
+		(>= (length (ntycon-args type)) (length (ntyapp-args pat))))
+	   (let* ((n (length (ntyapp-args pat)))
+		  (k (- (length (ntycon-args type)) n)))
+	     (qc-match-list (ntyapp-args pat) (list-tail (ntycon-args type) k) pvars
+			    (qc-match (ntyapp-fun pat)
+				      (**ntycon (ntycon-tycon type) (list-head (ntycon-args type) k))
+				      pvars env))))
+	  ((mp-type-equal? pat type) env)
+	  (else 'fail))))
+
+;;; The quantified constraints given to the bindings enclosing P, as
+;;; (polytype . dictionary var): the enclosing binding's parameters, and
+;;; a polymorphic argument's (*local-mp-params*).
+(define (qc-givens p decls)
+  (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls))
+	(res '()))
+    (dolist (param (append (if (mp-placeholder? p) (mp-placeholder-local-params p) '())
+			   (if decl (valdef-mp-dict-params decl) '())))
+      (when (qc-class? (mp-param-class param))
+	(push (cons (car (mp-param-types param)) (mp-param-var param)) res)))
+    (reverse res)))
+
+;;; Whether the signature's givens (*given-mp-constraints*) have a
+;;; quantified constraint whose head is CLASS at TYPES (unify.mumble's
+;;; given-app-constraint?).
+(define (qc-given-matches? class types)
+  (lisp:some (lambda (g)
+	       (and (qc-class? (car g))
+		    (mlet (((hclass hargs tyvars _) (qc-instantiate (cadr g))))
+		      (and hclass
+			   (or (eq? hclass class) (memq class (class-super* hclass)))
+			   (not (eq? (qc-match-list hargs types tyvars '()) 'fail))))))
+	     (dynamic *given-mp-constraints*)))
+
+;;; A given quantified constraint of the bindings enclosing P whose head
+;;; is CLASS at TYPES: (given tyvars mps bindings), or #f; qc-given-dict
+;;; makes the dictionary.
+(define (qc-given-find p class types decls)
+  (let ((found '#f))
+    (dolist (g (qc-givens p decls))
+      (when (not found)
+	(mlet (((hclass hargs tyvars mps) (qc-instantiate (car g))))
+	  (when (and hclass (eq? hclass class))
+	    (let ((env (qc-match-list hargs types tyvars '())))
+	      (when (not (eq? env 'fail))
+		(setf found (list g tyvars mps env))))))))
+    found))
+
+;;; The dictionary from FOUND (qc-given-find): the given's function applied
+;;; to the premises' dictionaries, new placeholders processed here.
+;;; Returns the code and the placeholders left.
+(define (qc-given-dict found p deferred decls)
+	(let* ((g (car found)) (tyvars (cadr found)) (mps (caddr found))
+	       (env (cadddr found))
+	       (args '())
+	       (edecls (placeholder-enclosing-decls p))
+	       (var (placeholder-overloaded-var p)))
+	  ;; the variables the match left unbound (a premise's only) stay
+	  ;; new variables
+	  (dolist (tv tyvars)
+	    (let ((classes (ntyvar-context tv))
+		  (b (assq tv env)))
+	      (setf (ntyvar-context tv) '())
+	      (when b (setf (ntyvar-value tv) (cdr b)))
+	      (dolist (c classes)
+		(let ((q (**dict-placeholder c (prune tv) edecls var)))
+		  (setf deferred (process-placeholder q deferred decls))
+		  (push q args)))))
+	  (dolist (m mps)
+	    (let ((q (**mp-placeholder (tuple-2-1 m) (tuple-2-2 m) '#f edecls var)))
+	      (setf deferred (process-placeholder q deferred decls))
+	      (push q args)))
+	  (values (**app/l (**var/def (cdr g)) (reverse args)) deferred)))
+
+;;; A wanted quantified constraint: \d1 .. dn -> the head's dictionary,
+;;; the polytype's variables new ones given the premises by d1 .. dn
+;;; (as a polymorphic argument's are: polytypes.mumble).
+(define (process-qc-wanted p deferred decls)
+  (mlet (((hclass hargs tyvars mps) (qc-instantiate (car (mp-placeholder-types p)))))
+    (if (not hclass)
+	(begin
+	  (signal-unresolved-mp-constraint p)
+	  deferred)
+	(let ((pats '())
+	      (local '())
+	      (edecls (placeholder-enclosing-decls p))
+	      (var (placeholder-overloaded-var p)))
+	  (dolist (tv tyvars)
+	    (let ((params '()))
+	      (dolist (c (ntyvar-context tv))
+		(let ((d (create-temp-var (string-append "d_" (symbol->string (def-name c))))))
+		  (setf (var-type d) (**ntyvar))
+		  (push (**var-pat/def d) pats)
+		  (push (tuple c d) params)))
+	      (when (not (null? params))
+		(setf (ntyvar-read-only? tv) '#t)
+		(push (tuple (car edecls) (reverse params)) (ntyvar-dict-params tv)))))
+	  (dolist (m mps)
+	    (let ((d (create-temp-var (string-append "d_" (symbol->string (def-name (tuple-2-1 m)))))))
+	      (setf (var-type d) (**ntyvar))
+	      (push (**var-pat/def d) pats)
+	      (push (list (tuple-2-1 m) (tuple-2-2 m) d) local)))
+	  (let ((q (dynamic-let ((*local-mp-params*
+				  (append (reverse local) (dynamic *local-mp-params*))))
+		     (if (and (null? (cdr hargs)) (null? (cdr (class-tyvars hclass))))
+			 (**dict-placeholder hclass (car hargs) edecls var)
+			 (**mp-placeholder hclass hargs '#f edecls var)))))
+	    (setf deferred (process-placeholder q deferred decls))
+	    (setf (placeholder-exp p)
+		  (if (null? pats) q (**lambda/pat (reverse pats) q)))
+	    deferred)))))

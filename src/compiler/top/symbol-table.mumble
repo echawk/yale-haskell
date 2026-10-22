@@ -660,6 +660,9 @@
       (let* ((def0 (cond ((eq? (class-ref-name class-ref) '|%IP|)
 			  ;; ImplicitParams' ?x :: t (parser/type-parser.mumble)
 			  (prelude-modern-def '|IP|))
+			 ((eq? (class-ref-name class-ref) '|%QC|)
+			  ;; a quantified constraint's (parser/type-parser.mumble)
+			  (prelude-modern-def '|QuantifiedConstraint|))
 			 ((eq? (class-ref-name class-ref) '|%TypeEq|)
 			  ;; an equality's (parser/type-parser.mumble's
 			  ;; apply-equalities)

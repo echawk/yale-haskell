@@ -273,7 +273,9 @@
 ;;; search.
 (define (scan-for-context-arrow depth)
   (token-case
-   (=> (eqv? depth 0))
+   ;; (one inside brackets is a quantified constraint's or a rank-n
+   ;; argument's: (forall x. C x => D (t x)) => ..)
+   (=> (or (eqv? depth 0) (scan-for-context-arrow depth)))
    ((\( \[) (scan-for-context-arrow (1+ depth)))
    ;; ImplicitParams' ?x :: t
    (ipvar (when (eq-token? '\:\:) (advance-token)) (scan-for-context-arrow depth))
@@ -381,6 +383,21 @@
 	(\, (cons context (parse-contexts)))
 	(\) (list context))
 	(else (signal-missing-token "`)' or `,'" "context")))))
+    ;; QuantifiedConstraints: forall x. C x => D (t x) is PreludeModern's
+    ;; QuantifiedConstraint of the polytype forall x. C x => D (t x), D
+    ;; (t x) a constraint type (a class literal applied)
+    ((no-advance satisfies forall-here?)
+     (let* ((tyvars (skip-explicit-forall))
+	    (premises (parse-optional-context))
+	    (head (quantified-head (parse-btype))))
+       (mlet (((single mp) (split-contexts premises)))
+	 (let ((context (**mp-context (make class-ref (name '|%QC|) (class *undefined-def*))
+				      (list (make forall-type (tyvars tyvars) (context single)
+						  (mcontext mp) (type head))))))
+	   (token-case
+	    (\, (cons context (parse-contexts)))
+	    (\) (list context))
+	    (else (signal-missing-token "`)' or `,'" "context")))))))
     ;; ImplicitParams: ?x :: t is IP "x" t (PreludeModern's class)
     ((no-advance ipvar)
      (let ((name (car *token-args*)))
@@ -424,7 +441,8 @@
 			 ;; the parentheses close the whole signature:
 			 ;; (forall a. C a => a -> t) -> u is a rank-2 argument
 			 (scan-to-close-paren 0)
-			 (not (memq *token* '(-> varid conid \( \[))))))
+			 ;; (and not a context: (forall x. C x => D (t x)) => ..)
+			 (not (memq *token* '(-> => varid conid \( \[))))))
 	   (restore-excursion saved-excursion)
 	   res))))
 
@@ -575,6 +593,18 @@
 ;;; forall a b . t (GHC's ExplicitForAll): the quantifier is implicit
 ;;; anyway.  In Haskell 98 forall is an ordinary name, but it cannot
 ;;; begin a type, so this changes no valid program.
+;;; A quantified constraint's head D t1 .. tn as a type: the class D,
+;;; unapplied (a class literal: top/symbol-table.mumble's resolve-tycon),
+;;; applied to t1 .. tn.
+(define (quantified-head type)
+  (if (and (tycon? type) (not (null? (tycon-args type))))
+      (make tyapp (fun (make tycon (name (tycon-name type)) (def *undefined-def*) (args '())))
+	    (args (tycon-args type)))
+      type))
+
+(define (forall-here?)
+  (and (haskell98?) (eq-token? 'varid) (string=? (car *token-args*) "forall")))
+
 (define (skip-explicit-forall)
   (if (and (haskell98?) (eq-token? 'varid)
 	   (string=? (car *token-args*) "forall"))

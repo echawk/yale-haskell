@@ -119,6 +119,20 @@
 			      (let ((m (method-placeholder-method p)))
 				(method-reference-code m (method-var-class m) given))))
 		    deferred)
+		   ((qc-given-find p (placeholder-class p) (list type) decls)
+		    ;; a given quantified constraint's head (forall x. Curry x
+		    ;; => Curry (t x), KiCS2's)
+		    (mlet (((code d1) (qc-given-dict
+				       (qc-given-find p (placeholder-class p) (list type) decls)
+				       p deferred decls)))
+		      (setf (placeholder-exp p)
+			    (if (dict-placeholder? p)
+				code
+				(let ((m (method-placeholder-method p)))
+				  (**app (**var/def (tuple-2-2 (assq m (class-selectors
+									  (placeholder-class p)))))
+					 code))))
+		      d1))
 		   ((app-catch-all-instance (placeholder-class p))
 		    ;; C (t a) (Agda's TermSize (t a))
 		    (process-app-catch-all type p deferred decls))
@@ -318,7 +332,21 @@
 		    (let ((m (method-placeholder-method p)))
 		      (method-reference-code m (method-var-class m) given))))
 	  deferred)
-	(process-instantiated-tyvar-1 tycon p deferred decls))))
+	(let ((qc (qc-given-find p (placeholder-class p) (list tycon) decls)))
+	  (if qc
+	      ;; a given quantified constraint's head (forall x. Curry x =>
+	      ;; Curry (Apply t x)), before an instance, as GHC prefers
+	      ;; givens
+	      (mlet (((code d1) (qc-given-dict qc p deferred decls)))
+		(setf (placeholder-exp p)
+		      (if (dict-placeholder? p)
+			  code
+			  (let ((m (method-placeholder-method p)))
+			    (**app (**var/def (tuple-2-2 (assq m (class-selectors
+								    (placeholder-class p)))))
+				   code))))
+		d1)
+	      (process-instantiated-tyvar-1 tycon p deferred decls))))))
 
 ;;; C at an application of a type variable, through C's instance C (t a).
 (define (process-app-catch-all type p deferred decls)

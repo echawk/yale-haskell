@@ -326,6 +326,9 @@
 	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
 	   (type-error "Type ~A is not in class ~A: the instance is for ~A"
 		       type class (make-instance-type instance)))
+	  ((and (eq? instance '#f) (qc-given-matches? class (list type)))
+	   ;; a given quantified constraint's head
+	   'OK)
 	  ((and (eq? instance '#f)
 		;; given by the signature being checked (a flexible given,
 		;; StringLike Text in ListLike's class)
@@ -359,14 +362,15 @@
 ;;; application of a type variable (Monad (m s): util/signature.mumble's
 ;;; reduce-flexible-contexts keeps such constraints).
 (define (given-app-constraint? class type)
-  (lisp:some (lambda (g)
+  (or (qc-given-matches? class (list type))
+   (lisp:some (lambda (g)
 	       (and (or (eq? (tuple-2-1 g) class)
 			;; a subclass given (Ord (f a) gives Eq (f a))
 			(and (class? (tuple-2-1 g))
 			     (memq class (class-super* (tuple-2-1 g)))))
 		    (null? (cdr (tuple-2-2 g)))
 		    (mp-type-equal? (car (tuple-2-2 g)) type)))
-	     (dynamic *given-mp-constraints*)))
+	     (dynamic *given-mp-constraints*))))
 
 ;;; A flexible head not matched yet because the type's arguments are still
 ;;; undecided (Map t a against instance C (Map Face a)): when this is the

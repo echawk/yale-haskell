@@ -626,7 +626,9 @@
   (cond ((null? args) fun)
 	((tyapp? fun)
 	 (**tyapp (tyapp-fun fun) (append (tyapp-args fun) args)))
-	((tycon? fun)
+	;; (not a class literal, TypeSymbol of a class's name: a quantified
+	;; constraint's head D t1 .. tn applies it)
+	((and (tycon? fun) (not (eq? (tycon-def fun) (core-symbol "TypeSymbol"))))
 	 (make tycon (name (tycon-name fun)) (def (tycon-def fun))
 		     (args (append (tycon-args fun) args))))
 	(else (**tyapp fun args))))

@@ -225,6 +225,7 @@
     (cons (make entity-abbreviated (name '|WrappedMonad|))
     (cons (make entity-abbreviated (name '|IP|))
     (cons (make entity-abbreviated (name '|TypeEquality|))
+    (cons (make entity-abbreviated (name '|QuantifiedConstraint|))
      (cons (make entity-abbreviated (name '|NonEmpty|))
 	  (map (lambda (name) (make entity-var (name name)))
 	       '(|<**>| |liftA| |liftA3| |optional|
@@ -232,7 +233,7 @@
 		 |toList| |foldl'| |foldr'| |find| |maximumBy| |minimumBy|
 		 |fold| |foldMap'|
 		 ;; Data.Semigroup's
-		 |sconcat| |stimes|))))))))
+		 |sconcat| |stimes|)))))))))
 
 (define (filter-complete-module-exports exports)
   (if (null? exports)

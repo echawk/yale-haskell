@@ -24,7 +24,7 @@ module PreludeModern (
     Traversable(traverse, sequenceA, mapM, sequence),
     mapM_, sequence_, concat, concatMap, and, or, any, all, notElem,
     find, maximumBy, minimumBy, WrappedMonad(WrapMonad, unwrapMonad),
-    IP(ip), TypeEquality,
+    IP(ip), TypeEquality, QuantifiedConstraint,
     Word,
     errorWithoutStackTrace
   ) where
@@ -401,6 +401,12 @@ class IP x a | x -> a where
 -- and its dictionary is (); given, the application reduces to the other
 -- type (src/compiler/type/mp-classes.mumble's given-family-reduction).
 class TypeEquality a b
+
+-- QuantifiedConstraints: forall x. C x => D (t x) is this class's
+-- constraint on that polytype, whose dictionary is a function from the
+-- premises' dictionaries to the head's (src/compiler/type/mp-classes
+-- .mumble's quantified constraints).
+class QuantifiedConstraint q
 
 newtype WrappedMonad m a = WrapMonad { unwrapMonad :: m a }
 
