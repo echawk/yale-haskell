@@ -23,7 +23,17 @@
 	  ((eq? decl-type 'plus-def)
 	   (parse-plus-def))
 	  ((eq? decl-type 'annotation)
-	   (make annotation-decls (annotations (parse-annotations)))))))
+	   (make annotation-decls (annotations (parse-annotations))))
+	  ((eq? decl-type 'ip-binding)
+	   (parse-ip-binding)))))
+
+;;; ImplicitParams: ?x = e (exp-parser.mumble's ip-let-or-let).
+(define (parse-ip-binding)
+  (save-parser-context
+   (let ((name (car *token-args*)))
+     (advance-token)
+     (require-token = (signal-missing-token "`='" "implicit parameter binding"))
+     (make ip-binding (name name) (exp (parse-exp))))))
 
 ;;; This looks at the first tokens in a definition to determine it's type.
 ;;;   var (:: | ,)      - signdecl
@@ -47,6 +57,7 @@
 	       (+ 'plus-def)
 	       (else 'pat-or-op)))
 	   (begin-annotation 'annotation)
+	   (ipvar 'ip-binding)
 	   ((no-advance \()
 	    (if (scan-paren-funlhs) 'paren-fundef 'pat-or-op))
 	   (else 'pat-or-op))))
@@ -246,6 +257,10 @@
    ;; an empty declaration (H98: `a = 1;' at the end of a layout line)
    (\; (parse-decl-list-1 in-layout?))
    ((apat-start begin-annotation)
+    (let ((decl (parse-decl)))
+      (parse-decl-list-2 decl in-layout?)))
+   ;; let ?x = e (ImplicitParams)
+   ((no-advance ipvar)
     (let ((decl (parse-decl)))
       (parse-decl-list-2 decl in-layout?)))
    ;; let !x = e (BangPatterns)

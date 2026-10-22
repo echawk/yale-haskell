@@ -657,7 +657,10 @@
 (define (resolve-class class-ref)
   (when (eq? (class-ref-class class-ref) *undefined-def*)
     (remember-context class-ref
-      (let* ((def0 (fetch-top-def (class-ref-name class-ref) 'class))
+      (let* ((def0 (if (eq? (class-ref-name class-ref) '|%IP|)
+		       ;; ImplicitParams' ?x :: t (parser/type-parser.mumble)
+		       (prelude-modern-def '|IP|)
+		       (fetch-top-def (class-ref-name class-ref) 'class)))
 	     ;; a constraint family names its class (import-export/
 	     ;; top-definitions.mumble's create-constraint-family-class)
 	     (def (or (and (synonym? def0) (constraint-family-class def0)) def0)))

@@ -885,9 +885,21 @@
 				       deferred decls))
 	      ((some (function mp-type-non-generic?) types)
 	       (cons p deferred))
+	      ((inside-enclosing-decl? p decls)
+	       ;; a local binding's: the enclosing binding's signature may
+	       ;; give it (ImplicitParams' ?x, a pattern binding's)
+	       (cons p deferred))
 	      (else
 	       (signal-unresolved-mp-constraint p)
 	       deferred)))))
+
+;;; Whether placeholder P, made in a binding of DECLS, is inside another
+;;; binding too.
+(define (inside-enclosing-decl? p decls)
+  (let ((edecls (placeholder-enclosing-decls p)))
+    (do ((l edecls (cdr l)))
+	((or (null? l) (memq (car l) decls))
+	 (and (pair? l) (pair? (cdr l)))))))
 
 ;;; The dictionary, or the method selected from it.
 (define (mp-dict-use p dict-code)

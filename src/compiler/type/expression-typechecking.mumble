@@ -271,6 +271,22 @@
 	      (dispatch-type-check exp))))
       (return-type new-exp type))))
 
+;;; ImplicitParams: let ?x = e in body gives IP "x" t, t e's type, to the
+;;; placeholders made in body (mp-classes.mumble's find-mp-param).  IP
+;;; has one method, so its dictionary is the method: e itself.
+(define-type-checker ip-let
+  (type-check ip-let exp exp-type
+    (let ((d (create-temp-var "d_IP")))
+      (setf (var-type d) (**ntyvar))
+      (mlet (((name-type _) (ast->ntype/bindings (ip-name-type (ip-let-name object)) '()))
+	     ((body body-type)
+	      (dynamic-let ((*local-mp-params*
+			     (cons (list (prelude-modern-def '|IP|) (list name-type exp-type) d)
+				   (dynamic *local-mp-params*))))
+		(dispatch-type-check (ip-let-body object)))))
+	(return-type (**app (**lambda/pat (list (**var-pat/def d)) body) (ip-let-exp object))
+		     body-type)))))
+
 (define-type-checker exp-sign
  (type-rewrite
   (let* ((temp-var (create-temp-var "TC"))

@@ -1,3 +1,4 @@
+{-# LANGUAGE FunctionalDependencies, AllowAmbiguousTypes #-}
 -- PreludeModern: the names GHC's base Prelude exports beyond the Haskell
 -- 2010 Prelude, for yale-haskell --modern-prelude (which imports this
 -- module implicitly, next to the Prelude; doc/plans/MICROCABAL.md step 2).
@@ -23,6 +24,7 @@ module PreludeModern (
     Traversable(traverse, sequenceA, mapM, sequence),
     mapM_, sequence_, concat, concatMap, and, or, any, all, notElem,
     find, maximumBy, minimumBy, WrappedMonad(WrapMonad, unwrapMonad),
+    IP(ip),
     Word,
     errorWithoutStackTrace
   ) where
@@ -388,6 +390,12 @@ instance Foldable ((,) a) where
 
 -- Monad has no Applicative superclass here, so mapM goes through this
 -- Applicative for any Monad (Control.Applicative's).
+-- ImplicitParams: ?x :: t is IP "x" t, ?x is ip @"x", and let ?x = e
+-- gives the constraint to its body (src/compiler/type/
+-- expression-typechecking.mumble's ip-let).  GHC.Classes' class.
+class IP x a | x -> a where
+  ip :: a
+
 newtype WrappedMonad m a = WrapMonad { unwrapMonad :: m a }
 
 instance Monad m => Functor (WrappedMonad m) where

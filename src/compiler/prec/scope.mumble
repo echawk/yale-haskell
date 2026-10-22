@@ -439,6 +439,11 @@
   (setf (type-app-exp object) (scope-ast-1 (type-app-exp object) env))
   object)
 
+(define-walker-method scope ip-let (object env)
+  (setf (ip-let-exp object) (scope-ast-1 (ip-let-exp object) env))
+  (setf (ip-let-body object) (scope-ast-1 (ip-let-body object) env))
+  object)
+
 (define-walker-method scope exp-sign (object env)
   (resolve-signature (exp-sign-signature object))
   (setf (exp-sign-exp object) (scope-ast-1 (exp-sign-exp object) env))
@@ -647,6 +652,10 @@
 	    "proc notation needs Control.Arrow (~A); import it or a module that does." name)
 	  (setf (var-ref-var object) def))))
   (when (and (eq? (var-ref-var object) *undefined-def*)
+	     (eq? (var-ref-name object) '|%ip|))
+    ;; ImplicitParams' ?x (parser/exp-parser.mumble): PreludeModern's ip
+    (setf (var-ref-var object) (prelude-modern-def '|ip|)))
+  (when (and (eq? (var-ref-var object) *undefined-def*)
 	     (string-starts? "%dot." (symbol->string (var-ref-name object))))
     ;; OverloadedRecordDot's field (parser/exp-parser.mumble)
     (let ((field (string->symbol
@@ -827,7 +836,7 @@
 	   (cond ((is-type? 'qual-filter stmt)
 		  (**app (**var/def (core-symbol ">>")) (qual-filter-exp stmt) rest))
 		 ((is-type? 'qual-let stmt)
-		  (**let (qual-let-decls stmt) rest))
+		  (ip-let-or-let (qual-let-decls stmt) rest))
 		 (else
 		  (desugar-do-bind (qual-generator-pat stmt)
 				   (qual-generator-exp stmt)

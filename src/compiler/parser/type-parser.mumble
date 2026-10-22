@@ -273,6 +273,8 @@
   (token-case
    (=> (eqv? depth 0))
    ((\( \[) (scan-for-context-arrow (1+ depth)))
+   ;; ImplicitParams' ?x :: t
+   (ipvar (when (eq-token? '\:\:) (advance-token)) (scan-for-context-arrow depth))
    ((\) \]) (and (> depth 0) (scan-for-context-arrow (1- depth))))
    ((-> = \| \; \} |where| \:\: <- eof) '#f)
    (else (advance-token) (scan-for-context-arrow depth))))
@@ -377,6 +379,17 @@
 	(\, (cons context (parse-contexts)))
 	(\) (list context))
 	(else (signal-missing-token "`)' or `,'" "context")))))
+    ;; ImplicitParams: ?x :: t is IP "x" t (PreludeModern's class)
+    ((no-advance ipvar)
+     (let ((name (car *token-args*)))
+       (advance-token)
+       (require-token \:\: (signal-missing-token "`::'" "implicit parameter"))
+       (let ((context (**mp-context (make class-ref (name '|%IP|) (class *undefined-def*))
+				    (list (ip-name-type name) (parse-type)))))
+	 (token-case
+	  (\, (cons context (parse-contexts)))
+	  (\) (list context))
+	  (else (signal-missing-token "`)' or `,'" "context"))))))
     (tycon (let ((context (parse-single-context)))
 	      (token-case
 		(\, (cons context (parse-contexts)))

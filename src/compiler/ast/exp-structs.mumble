@@ -96,6 +96,19 @@
    (exp (type exp))
    (type (type type))))
 
+;;; ImplicitParams (GHC): let ?x = e in body, from a let (or a do's let)
+;;; of implicit-parameter bindings (parser/exp-parser.mumble's
+;;; ip-let-or-let).  The type checker makes it (\d -> body) e, d the
+;;; dictionary of IP "x" t given to body.  Gone after type checking.
+
+(define-struct ip-let
+  (include exp)
+  (predicate ip-let?)
+  (slots
+   (name (type string))
+   (exp (type exp))
+   (body (type exp))))
+
 
 ;;; <fn-app> -> <exp> <aexp>
 

@@ -232,6 +232,12 @@
 	    (advance-char) (advance-char) (emit-token '\)))
 	   ((record-dot-here?)
 	    (lex-record-dot))
+	   ;; ImplicitParams: ?x is one token
+	   ((and (char=? *char* #\?)
+		 (or (char-lower-case? *peek-char*) (char=? *peek-char* #\_))
+		 (language-extension? "ImplicitParams"))
+	    (advance-char)
+	    (emit-token/string 'ipvar (scan-var-con)))
 	   ((and (> *quote-depth* 0) (char=? *char* #\|) (char=? *peek-char* #\]))
 	    ;; the end of a quote
 	    (advance-char) (advance-char)

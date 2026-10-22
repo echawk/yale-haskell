@@ -126,7 +126,30 @@
     (let ((decls (parse-decl-list)))
       (require-token |in| (signal-missing-token "`in'" "let expression"))
       (let ((exp (parse-exp)))
-	(make let (decls decls) (body exp)))))))
+	(ip-let-or-let decls exp))))))
+
+;;; let DECLS in BODY; implicit-parameter bindings (ImplicitParams: let
+;;; ?x = e) are an ip-let each, in order.
+(define (ip-let-or-let decls body)
+  (if (and (pair? decls) (lisp:every (function ip-binding?) decls))
+      (let ((res body))
+	(dolist (b (reverse decls))
+	  (setf res (make ip-let (name (ip-binding-name b)) (exp (ip-binding-exp b))
+			  (body res))))
+	res)
+      (begin
+	(when (lisp:some (function ip-binding?) decls)
+	  (signal-invalid-syntax "implicit parameter bindings only"))
+	(make let (decls decls) (body body)))))
+
+;;; ImplicitParams: ?x is ip @"x" (PreludeModern's class IP).
+(define (ip-var->ast name)
+  (make type-app (exp (generated-var-ref '|%ip|)) (type (ip-name-type name))))
+
+;;; The type-level string "x" of ?x.
+(define (ip-name-type name)
+  (**tycon/def (core-symbol "TypeSymbol")
+	       (list (promoted-list (map (function type-literal-char) (string->list name))))))
 
 ;;; Haskell 2010 (DoAndIfThenElse): in a do block, then and else may start
 ;;; lines of their own at the block's indentation, where layout puts a
@@ -333,6 +356,10 @@
     (var (save-parser-context (var->ast)))
     (con (save-parser-context (magic-hash-con (con->ast))))
     (literal (overloaded-string (literal->ast)))
+    ((no-advance ipvar)
+     (let ((name (car *token-args*)))
+       (advance-token)
+       (ip-var->ast name)))
     ;; TemplateHaskell's quoted names ('f, ''T): lexer.mumble
     (name-quote (parse-name-quote '#f))
     (type-name-quote (parse-name-quote '#t))

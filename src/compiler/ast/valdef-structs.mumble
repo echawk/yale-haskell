@@ -28,6 +28,14 @@
    ;; DefaultSignatures (GHC): `default m :: sig' in a class
    (default? (type bool) (default '#f))))
 
+;;; ImplicitParams: ?x = e among a let's declarations (an ip-let).
+(define-struct ip-binding
+  (include decl)
+  (predicate ip-binding?)
+  (slots
+   (name (type string))
+   (exp (type exp))))
+
 ;;; This is introduced into decl lists by dependency analysis
 (define-struct recursive-decl-group
   (include decl)
