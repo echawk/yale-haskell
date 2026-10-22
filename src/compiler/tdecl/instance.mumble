@@ -427,7 +427,9 @@
   (let ((under  (instance-newtype-of inst)))
     (setf (instance-dictionary inst) (instance-dictionary under))
     (setf (instance-methods inst) (instance-methods under))
-    (setf (instance-gcontext inst) '())
+    ;; no class on each of the type's parameters
+    (setf (instance-gcontext inst) (map (lambda (v) (declare (ignore v)) '())
+					(instance-tyvars inst)))
     (setf (instance-context inst) '())
     (setf (instance-decls inst) '())))
 

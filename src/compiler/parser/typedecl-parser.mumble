@@ -397,13 +397,18 @@
 	(let* ((simple (data-decl-simple data-decl))
 	       (field (tuple-2-1 (car (constr-types
 				       (car (data-decl-constrs data-decl))))))
-	       (vars (reverse (tycon-args simple))))
-	  (when (eta-reducible? vars field)
-	    (setf field (type-without-last-arg field))
-	    (setf vars (cdr vars)))
+	       (all-vars (reverse (tycon-args simple))))
 	  (map (lambda (d)
-		 (let ((class (tuple-2-1 d))
-		       (args (tuple-2-2 d)))
+		 (let* ((class (tuple-2-1 d))
+			(args (tuple-2-2 d))
+			;; not when the class's other arguments mention the
+			;; variable (Agda's deriving (Singleton a) of
+			;; Favorites a = Favorites [a]: Singleton a [a])
+			(reduce? (and (eta-reducible? all-vars field)
+				      (not (memq (tyvar-name (car all-vars))
+						 (lisp:mapcan (function ast-tyvar-names) args)))))
+			(field (if reduce? (type-without-last-arg field) field))
+			(vars (if reduce? (cdr all-vars) all-vars)))
 		   (make instance-decl (context '())
 			 (class class) (simple simple) (decls '())
 			 (types (append args

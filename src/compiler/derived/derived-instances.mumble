@@ -257,7 +257,8 @@
 		  (instance-ok? under)
 		  (null? (instance-head-args under))
 		  (null? (instance-mcontext under))
-		  (not (eq? (def-module (tycon-def type)) *module-name*))
+		  (or (not (eq? (def-module (tycon-def type)) *module-name*))
+		      (explicit-module-instance? under))
 		  (= (length (instance-tyvars under)) (length (tycon-args type)))))
 	'fail
 	(begin
@@ -275,6 +276,15 @@
 		     (setf ctx (via-instance-context-1 arg cl tyvars ctx
 						       (1+ depth)))))))
 	  ctx))))
+
+;;; Whether INST is an instance declaration of this module: made before
+;;; the derived ones (tdecl/type-declaration-analysis.mumble), its
+;;; context known (Agda's PartialOrd (CallMatrixAug cinfo), for CMSet's
+;;; Monoid through Favorites (CallMatrixAug cinfo)).
+(define (explicit-module-instance? inst)
+  (and (memq inst (module-instance-defs *module*))
+       (not (instance-scoped-tyvars? inst))
+       (eq? (instance-newtype-of inst) '#f)))
 
 ;;; How many arguments the class's type variable takes in its methods'
 ;;; signatures (Bifunctor's p in p a c: 2), or its superclasses'; 0 for a
