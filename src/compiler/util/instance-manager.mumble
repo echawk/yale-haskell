@@ -136,8 +136,12 @@
 ;;; The class's catch-all instance C a, or #f: used at a type no other
 ;;; instance is for (tdecl/instance.mumble's catch-all-instance->def).
 (define (catch-all-instance class-def)
-  (lisp:find-if (lambda (i) (and (instance-catch-all? i) (instance-ok? i)))
-		(class-instances class-def)))
+  ;; (C a before C (t a))
+  (or (lisp:find-if (lambda (i) (and (instance-catch-all? i) (instance-ok? i)
+				     (null? (cdr (instance-tyvars i)))))
+		    (class-instances class-def))
+      (lisp:find-if (lambda (i) (and (instance-catch-all? i) (instance-ok? i)))
+		    (class-instances class-def))))
 
 (define (lookup-instance/type-1 alg-def class-def type)
   (let ((all (lisp:remove-if-not

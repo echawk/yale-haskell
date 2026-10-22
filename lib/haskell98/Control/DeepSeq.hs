@@ -109,6 +109,16 @@ instance (NFData a, NFData b, NFData c) => NFData (a, b, c) where
 instance (NFData a, NFData b, NFData c, NFData d) => NFData (a, b, c, d) where
   rnf (a, b, c, d) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d
 
+instance (NFData a, NFData b, NFData c, NFData d, NFData e) => NFData (a, b, c, d, e) where
+  rnf (a, b, c, d, e) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e
+instance (NFData a, NFData b, NFData c, NFData d, NFData e, NFData f) => NFData (a, b, c, d, e, f) where
+  rnf (a, b, c, d, e, f) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e `seq` rnf f
+instance (NFData a, NFData b, NFData c, NFData d, NFData e, NFData f, NFData g) => NFData (a, b, c, d, e, f, g) where
+  rnf (a, b, c, d, e, f, g) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e `seq` rnf f `seq` rnf g
+instance (NFData a, NFData b, NFData c, NFData d, NFData e, NFData f, NFData g, NFData h) => NFData (a, b, c, d, e, f, g, h) where
+  rnf (a, b, c, d, e, f, g, h) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e `seq` rnf f `seq` rnf g `seq` rnf h
+instance (NFData a, NFData b, NFData c, NFData d, NFData e, NFData f, NFData g, NFData h, NFData i) => NFData (a, b, c, d, e, f, g, h, i) where
+  rnf (a, b, c, d, e, f, g, h, i) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e `seq` rnf f `seq` rnf g `seq` rnf h `seq` rnf i
 instance NFData (a -> b)
 
 instance NFData Int8

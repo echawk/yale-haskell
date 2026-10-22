@@ -714,7 +714,102 @@
 ;;; case is `zero' of class MonadZero (feature monad-fail).
 
 (define-walker-method scope do-exp (object env)
-  (scope-ast-1 (desugar-do (do-exp-stmts object)) env))
+  (scope-ast-1 (or (and (module-extension? "ApplicativeDo")
+			(applicative-do (do-exp-stmts object)))
+		   (desugar-do (do-exp-stmts object)))
+	       env))
+
+;;; ApplicativeDo (GHC): do p1 <- e1; ..; pn <- en; pure e, no ei using
+;;; an earlier pi's variables and each pi failure-free, is
+;;; (\p1 .. pn -> e) <$> e1 <*> .. <*> en (an expression statement's
+;;; pattern is _), needing only Applicative (Agda's exprToPattern).
+;;; Else #f, for the monadic desugaring.
+(define (applicative-do stmts)
+  (let ((last (car (lisp:last stmts)))
+	(binds (lisp:butlast stmts)))
+    (and (not (null? binds))
+	 (is-type? 'qual-filter last)
+	 (lisp:every (lambda (s) (or (is-type? 'qual-filter s) (is-type? 'qual-generator s)))
+		     binds)
+	 (let ((result (pure-argument (qual-filter-exp last))))
+	   (and result
+		(let ((pats (map (lambda (s)
+				   (if (is-type? 'qual-generator s)
+				       (massage-pattern (qual-generator-pat s))
+				       (**wildcard-pat)))
+				 binds)))
+		  (and (lisp:every (function failure-free-pattern?) pats)
+		       (applicative-do-independent? binds pats)
+		       (let ((exp (**app (**var/def (core-symbol "fmap"))
+					 (make lambda (pats pats) (body result))
+					 (stmt-exp (car binds)))))
+			 (dolist (s (cdr binds))
+			   (setf exp (**app (**var/def (prelude-modern-def '|<*>|)) exp (stmt-exp s))))
+			 exp))))))))
+
+(define (stmt-exp s)
+  (if (is-type? 'qual-generator s) (qual-generator-exp s) (qual-filter-exp s)))
+
+;;; E of pure E, return E, pure $ E or return $ E (before the precedence
+;;; parse), or #f.
+(define (pure-argument exp)
+  (let ((pure? (lambda (f) (and (var-ref? f) (memq (var-ref-name f) '(|pure| |return|))))))
+    (cond ((and (is-type? 'app exp) (funcall pure? (app-fn exp)))
+	   (app-arg exp))
+	  ((and (is-type? 'pp-exp-list exp)
+		(>= (length (pp-exp-list-exps exp)) 3)
+		(funcall pure? (car (pp-exp-list-exps exp)))
+		(let ((op (cadr (pp-exp-list-exps exp))))
+		  (and (var-ref? op) (eq? (var-ref-name op) '|$|))))
+	   (let ((rest (cddr (pp-exp-list-exps exp))))
+	     (if (null? (cdr rest))
+		 (car rest)
+		 (make pp-exp-list (exps rest)))))
+	  (else '#f))))
+
+;;; No statement's expression names an earlier statement's variable.
+(define (applicative-do-independent? binds pats)
+  (let ((bound '()))
+    (lisp:every (lambda (s p)
+		  (let ((ok (not (ast-mentions-names? (stmt-exp s) bound 200))))
+		    (setf bound (append (map (function var-ref-name) (collect-pattern-vars p))
+					bound))
+		    ok))
+		binds pats)))
+
+(define (names-less-pattern-vars names pats)
+  (let ((bound (map (function var-ref-name) (collect-pattern-vars/list pats '()))))
+    (lisp:remove-if (lambda (n) (memq n bound)) names)))
+
+;;; Whether a (not yet scoped) expression has a variable named one of
+;;; NAMES; a structure's slots are walked generically.
+(define (ast-mentions-names? x names depth)
+  (cond ((null? names) '#f)
+	((<= depth 0) '#t)
+	((var-ref? x) (memq (var-ref-name x) names))
+	((pair? x) (lisp:some (lambda (y) (ast-mentions-names? y names (1- depth))) x))
+	;; (a binder shadows: \p -> .., case alternatives, do statements)
+	((is-type? 'lambda x)
+	 (ast-mentions-names? (lambda-body x)
+			      (names-less-pattern-vars names (lambda-pats x)) (1- depth)))
+	((is-type? 'alt x)
+	 (let ((names (names-less-pattern-vars names (list (alt-pat x)))))
+	   (or (ast-mentions-names? (alt-rhs-list x) names (1- depth))
+	       (ast-mentions-names? (alt-where-decls x) names (1- depth)))))
+	((is-type? 'do-exp x)
+	 (let ((names names))
+	   (lisp:some (lambda (s)
+			(if (is-type? 'qual-generator s)
+			    (let ((r (ast-mentions-names? (qual-generator-exp s) names (1- depth))))
+			      (setf names (names-less-pattern-vars names (list (qual-generator-pat s))))
+			      r)
+			    (ast-mentions-names? s names (1- depth))))
+		      (do-exp-stmts x))))
+	((and (struct? x) (not (is-type? (quote def) x)))
+	 (lisp:some (lambda (sd)
+		      (ast-mentions-names? (funcall (lisp:symbol-function (sd-getter sd)) x) names (1- depth)))
+		    (td-slots (struct-type-descriptor x))))
+	(else '#f)))
 
 (define (desugar-do stmts)
   (cond ((null? stmts)

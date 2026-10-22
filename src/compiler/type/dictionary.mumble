@@ -228,6 +228,8 @@
 (define (catch-all-dict class param-vars)
   (let ((inst (catch-all-instance class)))
     (and inst
+	 ;; (C a, not C (t a), at a type variable)
+	 (null? (cdr (instance-tyvars inst)))
 	 (not (monad-implied-class? class))
 	 (let ((dict (dict-ref-code inst)))
 	   (dolist (c (car (instance-gcontext inst)))

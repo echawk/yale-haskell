@@ -82,6 +82,11 @@
 	  ((arrow-ast-type? ty)
 	   (functor-context-tyvars (car (tycon-args ty)) a
 	     (functor-context-tyvars (cadr (tycon-args ty)) a vars)))
+	  ((and (tycon? ty) (is-tuple-tycon? (tycon-def ty)))
+	   ;; (each component of a tuple: tuple-field-case)
+	   (let ((vs vars))
+	     (dolist (u (tycon-args ty)) (setf vs (functor-context-tyvars u a vs)))
+	     vs))
 	  ((and (tycon? ty) (not (null? (tycon-args ty))))
 	   (functor-context-tyvars (car (lisp:last (tycon-args ty))) a vars))
 	  ((forall-type? ty)
@@ -130,9 +135,9 @@
 	      (lisp:some (lambda (u) (mentions-tyvar? u a)) (lisp:butlast args))
 	      (and (tycon? ty) (eq? (tycon-def ty) (core-symbol "Arrow"))))
       (phase-error 'cannot-derive-instance
-	"Instance ~A cannot be derived: a field's type uses the last type variable~%~
-         other than as the last argument of a type."
-	class))
+	"Instance ~A cannot be derived: a field's type, ~A (in ~A), uses the last~%~
+         type variable other than as the last argument of a type."
+	class ty *module-name*))
     (car (lisp:last args))))
 
 (define *functor-var-count* 0)
@@ -157,9 +162,27 @@
 		    (map (lambda (v ty) (fmap-field ty a (**var '|f%|) (**var v)))
 			 vars (con-types con)))))))))
 
+;;; A tuple field (a, ListT m a, ..): each component mapped (as GHC's
+;;; DeriveFunctor does), by case on the tuple.
+(define (tuple-field? ty)
+  (let ((ty (functor-expand ty)))
+    (and (tycon? ty) (is-tuple-tycon? (tycon-def ty)))))
+
+(define (tuple-field-case ty x fn)
+  (let* ((args (tycon-args (functor-expand ty)))
+	 (vars (map (lambda (a) a (functor-temp "t%")) args)))
+    (**case x
+	    (list (**alt/simple (**pat (cons (tuple-constructor (length args)) vars))
+				(funcall fn args vars))))))
+
 (define (fmap-field ty a f x)
   (cond ((not (mentions-tyvar? ty a)) x)
 	((tyvar? (functor-expand ty)) (**app f x))
+	((tuple-field? ty)
+	 (tuple-field-case ty x
+	   (lambda (args vars)
+	     (**app/l (**con/def (tuple-constructor (length args)))
+		      (map (lambda (ty1 v) (fmap-field ty1 a f (**var v))) args vars)))))
 	((forall-type? (functor-expand ty))
 	 (fmap-field (forall-type-type (functor-expand ty)) a f x))
 	((arrow-ast-type? (functor-expand ty))
@@ -214,6 +237,13 @@
 (define (foldr-field ty a f x acc)
   (cond ((not (mentions-tyvar? ty a)) acc)
 	((tyvar? (functor-expand ty)) (**app f x acc))
+	((tuple-field? ty)
+	 (tuple-field-case ty x
+	   (lambda (args vars)
+	     (let ((r acc))
+	       (dolist (tv (reverse (map (function cons) args vars)))
+		 (setf r (foldr-field (car tv) a f (**var (cdr tv)) r)))
+	       r))))
 	(else
 	 (**app (**var/def (functor-method '|foldr|))
 		(foldr-fn (functor-last-arg ty a (prelude-modern-def '|Foldable|))
@@ -247,6 +277,16 @@
   (cond ((not (mentions-tyvar? ty a))
 	 (**app (**var/def (functor-method '|pure|)) x))
 	((tyvar? (functor-expand ty)) (**app f x))
+	((tuple-field? ty)
+	 (tuple-field-case ty x
+	   (lambda (args vars)
+	     (let ((exp (**app (**var/def (functor-method '|pure|))
+			       (**con/def (tuple-constructor (length args))))))
+	       (dolist (tv (map (function cons) args vars))
+		 (setf exp (**app (**var/def (functor-method '|<*>|))
+				  exp
+				  (traverse-field (car tv) a f (**var (cdr tv))))))
+	       exp))))
 	(else
 	 (**app (**var/def (functor-method '|traverse|))
 		(traverse-fn (functor-last-arg ty a

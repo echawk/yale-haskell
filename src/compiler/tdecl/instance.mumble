@@ -260,7 +260,8 @@
     "The instance overlaps another instance of class ~A." class))
 
 (define (instance->def-1 inst-decl)
- (if (tyvar? (instance-decl-simple inst-decl))
+ (if (or (tyvar? (instance-decl-simple inst-decl))
+	 (var-application-head? (instance-decl-simple inst-decl)))
      (catch-all-instance->def inst-decl)
      (instance->def-2 inst-decl)))
 
@@ -273,12 +274,20 @@
     (with-slots instance-decl (context class simple decls mcontext) inst-decl
       (resolve-class class)
       (let* ((class-def (class-ref-class class))
-	     (tyvar (tyvar-name simple)))
-	(resolve-signature-aux (list tyvar) context)
-	(when (lisp:some (lambda (i) (instance-catch-all? i))
+	     ;; C a, or C (t a) (Agda's TermSize (t a)): at an
+	     ;; application, t the function and a the last argument
+	     ;; (type/unify.mumble's instance-arg-types)
+	     (tyvars (if (tyvar? simple)
+			 (list (tyvar-name simple))
+			 (list (tyvar-name (tyapp-fun simple))
+			       (tyvar-name (car (tyapp-args simple))))))
+	     (tyvar (car tyvars)))
+	(resolve-signature-aux tyvars context)
+	(when (lisp:some (lambda (i) (and (instance-catch-all? i)
+					  (eqv? (length (instance-tyvars i)) (length tyvars))))
 			 (class-instances class-def))
 	  (signal-multiple-instance class-def simple))
-	(let ((inst (make instance (algdata '#f) (tyvars (list tyvar))
+	(let ((inst (make instance (algdata '#f) (tyvars tyvars)
 			  (class class-def) (gcontext '()) (context '())
 			  (dictionary (make-new-var
 				       (unique-instance-name
@@ -872,7 +881,10 @@
 
 (define (make-instance-type inst)
   (if (instance-catch-all? inst)
-      (**tyvar (car (instance-tyvars inst)))
+      (if (null? (cdr (instance-tyvars inst)))
+	  (**tyvar (car (instance-tyvars inst)))
+	  (apply-ast-type (**tyvar (car (instance-tyvars inst)))
+			  (list (**tyvar (cadr (instance-tyvars inst))))))
       (make-instance-type-1 inst)))
 
 (define (make-instance-type-1 inst)

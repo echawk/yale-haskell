@@ -226,6 +226,13 @@
   (parser-error 'unique-tyvars-required
 		"Duplicate type variables appear in simple."))
 
+;;; An instance head t a: a type variable applied to another.
+(define (var-application-head? ty)
+  (and (tyapp? ty) (tyvar? (tyapp-fun ty))
+       (eqv? (length (tyapp-args ty)) 1)
+       (tyvar? (car (tyapp-args ty)))
+       (not (eq? (tyvar-name (tyapp-fun ty)) (tyvar-name (car (tyapp-args ty)))))))
+
 (define (signal-not-simple where)
   (parser-error 'not-simple "Simple type required in ~a." where))
 
@@ -619,7 +626,10 @@
 	      (simple
 	       ;; FlexibleInstances (GHC): any arguments (tdecl/instance.mumble)
 	       ;; and a catch-all instance C a (UndecidableInstances)
-	       (if (and (haskell98?) (or (tycon? simple) (tyvar? simple)))
+	       (if (and (haskell98?) (or (tycon? simple) (tyvar? simple)
+					 ;; C (t a): tdecl/instance.mumble's
+					 ;; catch-all-instance->def
+					 (var-application-head? simple)))
 		   '#t
 		   (check-simple simple '#f "instance declaration")))
 	      ;; FlexibleInstances: a multi-parameter instance's types may be

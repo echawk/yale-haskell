@@ -493,9 +493,19 @@
 	     ;; pattern x :> xs = ... (an infix operator synonym)
 	     (left (and infix? (token->symbol)))
 	     (name (if infix? (token->symbol/con) (con->symbol)))
-	     (params (if infix?
-			 (list left (token->symbol))
-			 (parse-pattern-synonym-params))))
+	     (record? (and (not infix?) (eq-token? '\{)))
+	     (params (cond (infix?
+			    (list left (token->symbol)))
+			   (record?
+			    ;; pattern P{f1, .., fn} = ..: P f1 .. fn, and the
+			    ;; fields' selectors (Agda's EqualityType{..})
+			    (advance-token)
+			    (parse-record-synonym-fields))
+			   (else
+			    (parse-pattern-synonym-params)))))
+	(when record?
+	  (dolist (f params)
+	    (push (record-synonym-selector name params f) *pattern-builders*)))
 	(token-case
 	 (= (let ((pat (parse-pat)))
 	      (push (pattern-synonym-entry name params pat) *pattern-synonyms*)
@@ -584,6 +594,24 @@
 
 (define (remove-con-prefix-if s)
   (if (has-con-prefix? s) (remove-con-prefix s) s))
+
+(define (parse-record-synonym-fields)
+  (cond ((eq-token? '\}) (advance-token) '())
+	((eq-token? '\,) (advance-token) (parse-record-synonym-fields))
+	((eq-token? 'varid)
+	 (let ((v (token->symbol)))
+	   (cons v (parse-record-synonym-fields))))
+	(else (signal-missing-token "`}'" "record pattern synonym"))))
+
+;;; f x = case x of P v1 .. vn -> vi, for field f of record synonym P.
+(define (record-synonym-selector name fields f)
+  (**define f '(|x%rsyn|)
+	    (**case (**var '|x%rsyn|)
+		    (list (**alt/simple
+			   (make pcon (name name) (con *undefined-def*)
+				 (pats (map (lambda (g) (**pat g)) fields))
+				 (infix? '#f))
+			   (**var f))))))
 
 (define (parse-pattern-synonym-params)
   (if (eq-token? 'varid)

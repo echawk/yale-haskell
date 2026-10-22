@@ -404,6 +404,20 @@
 	    (head-could-match? pattern type (map (function tuple-2-2) vars)))))
    (class-instances (instance-class instance))))
 
+;;; An application's function and last argument, or #f.
+(define (application-parts type)
+  (let ((type (if (ntycon? type) (prune (expand-ntype-synonym type)) type)))
+    (cond ((and (ntycon? type) (not (null? (ntycon-args type)))
+		(not (family-app? type)))
+	   (list (**ntycon (ntycon-tycon type) (lisp:butlast (ntycon-args type)))
+		 (car (lisp:last (ntycon-args type)))))
+	  ((and (ntyapp? type) (not (null? (ntyapp-args type))))
+	   (list (if (null? (cdr (ntyapp-args type)))
+		     (ntyapp-fun type)
+		     (**ntyapp (ntyapp-fun type) (lisp:butlast (ntyapp-args type))))
+		 (car (lisp:last (ntyapp-args type)))))
+	  (else '#f))))
+
 ;;; The types an instance's tyvars stand for at TYPE (an ntycon of the
 ;;; instance's type constructor): its arguments, or for a flexible head
 ;;; (instance C [Char]) what matching the head binds (when
@@ -411,7 +425,9 @@
 ;;; type variable.  (A list, possibly empty: not #f.)
 
 (define (instance-head-matches? instance type)
-  (or (instance-catch-all? instance)
+  (or (and (instance-catch-all? instance)
+	   (or (null? (cdr (instance-tyvars instance)))
+	       (application-parts (prune type))))
       (null? (instance-head-args instance))
       (not (eq? (instance-head-bindings instance type) '#f))))
 
@@ -420,7 +436,13 @@
 		   (list (tuple '|%none| '|%none|))))
 
 (define (instance-arg-types instance type)
-  (cond ((instance-catch-all? instance) (list type))
+  (cond ((and (instance-catch-all? instance) (pair? (cdr (instance-tyvars instance))))
+	 ;; C (t a) at T x1 .. xn: T x1 .. xn-1 and xn
+	 (let ((parts (application-parts (prune type))))
+	   (if parts
+	       (list (car parts) (cadr parts))
+	       (list type type))))
+	((instance-catch-all? instance) (list type))
 	;; at a data instance of the family the instance is for
 	((and (data-family-def? (instance-algdata instance))
 	      (ntycon? type)
