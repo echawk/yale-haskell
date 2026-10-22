@@ -431,11 +431,18 @@
 	      (setf deferred dv1)))
 	 ((ntyapp? ntype)
 	  (let* ((p (**dict-placeholder class ntype edecls var))
-		 (given (given-app-dict-params p ntype decls)))
+		 (given (given-app-dict-params p ntype decls))
+		 (qc (and (null? given) (qc-given-find p class (list ntype) decls))))
 	    (cond ((not (null? given))
 		   ;; given by the enclosing binding (a derived instance's
 		   ;; inferred Eq (f a), for a field of type [f a])
 		   (setf dict (**app dict (dict-reference-code class given))))
+		  (qc
+		   ;; by a given quantified constraint (KiCS2's forall x.
+		   ;; Curry x => Curry (C_Apply t x))
+		   (mlet (((code d1) (qc-given-dict qc p deferred decls)))
+		     (setf dict (**app dict code))
+		     (setf deferred d1)))
 		  ((non-generic-app? ntype)
 		   (setf dict (**app dict p))
 		   (push p deferred))

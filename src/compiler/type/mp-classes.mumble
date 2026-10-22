@@ -1296,6 +1296,7 @@
   (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls))
 	(res '()))
     (dolist (param (append (if (mp-placeholder? p) (mp-placeholder-local-params p) '())
+			   (dynamic *local-mp-params*)
 			   (if decl (valdef-mp-dict-params decl) '())))
       (when (qc-class? (mp-param-class param))
 	(push (cons (car (mp-param-types param)) (mp-param-var param)) res)))
@@ -1321,10 +1322,11 @@
     (dolist (g (qc-givens p decls))
       (when (not found)
 	(mlet (((hclass hargs tyvars mps) (qc-instantiate (car g))))
-	  (when (and hclass (eq? hclass class))
+	  ;; (or a superclass of its head's: Curry gives NonDet, KiCS2's)
+	  (when (and hclass (or (eq? hclass class) (memq class (class-super* hclass))))
 	    (let ((env (qc-match-list hargs types tyvars '())))
 	      (when (not (eq? env 'fail))
-		(setf found (list g tyvars mps env))))))))
+		(setf found (list g tyvars mps env hclass class))))))))
     found))
 
 ;;; The dictionary from FOUND (qc-given-find): the given's function applied
@@ -1351,7 +1353,11 @@
 	    (let ((q (**mp-placeholder (tuple-2-1 m) (tuple-2-2 m) '#f edecls var)))
 	      (setf deferred (process-placeholder q deferred decls))
 	      (push q args)))
-	  (values (**app/l (**var/def (cdr g)) (reverse args)) deferred)))
+	  (let ((code (**app/l (**var/def (cdr g)) (reverse args)))
+		(hclass (list-ref found 4))
+		(class (list-ref found 5)))
+	    (values (if (eq? hclass class) code (**dsel/dict hclass class code))
+		    deferred))))
 
 ;;; A wanted quantified constraint: \d1 .. dn -> the head's dictionary,
 ;;; the polytype's variables new ones given the premises by d1 .. dn
@@ -1381,12 +1387,14 @@
 	      (setf (var-type d) (**ntyvar))
 	      (push (**var-pat/def d) pats)
 	      (push (list (tuple-2-1 m) (tuple-2-2 m) d) local)))
-	  (let ((q (dynamic-let ((*local-mp-params*
-				  (append (reverse local) (dynamic *local-mp-params*))))
-		     (if (and (null? (cdr hargs)) (null? (cdr (class-tyvars hclass))))
+	  ;; (the premises are given while the head is resolved, also to the
+	  ;; placeholders made on the way: an instance's context)
+	  (dynamic-let ((*local-mp-params*
+			 (append (reverse local) (dynamic *local-mp-params*))))
+	    (let ((q (if (and (null? (cdr hargs)) (null? (cdr (class-tyvars hclass))))
 			 (**dict-placeholder hclass (car hargs) edecls var)
-			 (**mp-placeholder hclass hargs '#f edecls var)))))
-	    (setf deferred (process-placeholder q deferred decls))
-	    (setf (placeholder-exp p)
-		  (if (null? pats) q (**lambda/pat (reverse pats) q)))
-	    deferred)))))
+			 (**mp-placeholder hclass hargs '#f edecls var))))
+	      (setf deferred (process-placeholder q deferred decls))
+	      (setf (placeholder-exp p)
+		    (if (null? pats) q (**lambda/pat (reverse pats) q)))
+	      deferred))))))
