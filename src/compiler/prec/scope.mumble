@@ -1034,7 +1034,10 @@
   (let ((labels (con-field-labels con)))
     (map (lambda (v label)
 	   (let ((bind (assq label binds)))
-	     (if bind (tuple-2-2 bind) (**var v))))
+	     ;; a literal is annotated by the type checker: one per alternative
+	     (cond ((not bind) (**var v))
+		   ((is-type? 'const (tuple-2-2 bind)) (copy-const (tuple-2-2 bind)))
+		   (else (tuple-2-2 bind)))))
 	 vars labels)))
 
 ;;; The datatype of the fields being updated; they must all belong to one.
