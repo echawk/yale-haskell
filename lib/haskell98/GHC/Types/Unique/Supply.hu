@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/GHC/Types/Unique/
+:o= all
+Supply.hs
