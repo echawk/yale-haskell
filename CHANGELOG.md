@@ -19,6 +19,54 @@ The version is `*haskell-compiler-version*` in
 both change together, with an entry here.  The version is part of every
 compiled interface, so a new version recompiles cached units.
 
+## Unreleased (since 3.1.0.0)
+
+Toward Agda 2.8.0.2 and the rest of its dependency chain
+(generic-deriving, ListLike, process-extras, regex-tdfa, uri-encode,
+vector-hashtables, zlib, pqueue, nonempty-containers, invariant,
+profunctors, monad-control, pretty 1.1.3.6: about 80 packages build).
+
+- **Type system:**
+  - ImplicitParams: `?x :: t` is PreludeModern's `IP "x" t`, `?x` is
+    `ip @"x"`, and `let ?x = e` gives the constraint to its body.
+  - Equalities on type family applications (`SubstArg a ~ a`,
+    `F a ~ Int`) in signatures and constraint synonyms are kept as
+    TypeEquality constraints: unified where wanted, reducing the
+    application where given.  `~` needs only TypeFamilies or GADTs.
+  - Equality superclasses (`class (item ~ Item full) => ListLike full
+    item`) and superclass functional dependencies; fundep improvement
+    through an instance unifies only the determined positions.
+  - Constraint families (`type family All c xs :: Constraint`) are
+    classes whose dictionaries are the tuples of what they reduce to.
+  - GADT matches refine pattern variables' types, with the clause
+    linked to its signature first; signatures are checked before
+    bodies; rank-N callbacks with contexts.
+  - Coercible: `coerce` unifies up to newtypes.
+  - MonoLocalBinds (with TypeFamilies or GADTs); ConstrainedClassMethods;
+    a constraint at a concrete type without an instance is kept as a
+    given; instances at a variable application, `C (t a)`.
+- **Syntax:** ApplicativeDo; RebindableSyntax's `if`; UnicodeSyntax;
+  MultiWayIf layout; record pattern synonyms (`pattern P{f} = ..`) and
+  `P {}`; `x :: t | g = e`; `forall {k}`; naked top-level splices
+  starting with a bracket.
+- **Modules:** mutually recursive modules (an import cycle is compiled
+  as one unit); `hiding (T(C))` and `hiding (T())` follow GHC; a
+  class or type exported with `(..)` keeps a member whose name clashes
+  with another import.
+- **Deriving:** Generic and Generic1 with GHC's `Rep`, `from` and `to`
+  (balanced sums and products, metadata, URec for unlifted fields), and
+  base's types' instances; newtype deriving of multi-parameter classes,
+  through shared dictionaries and with inferred contexts; standalone
+  deriving keeps its context; Functor, Foldable and Traversable through
+  tuple fields.
+- **Libraries:** GHC.Float, GHC.Ix, GHC.Fingerprint.Type,
+  GHC.IO.Exception, GHC.Compact, Data.Array.Unsafe, Data.String.UTF8,
+  STM's TVar, TMVar, TChan, TQueue and TBQueue modules, mtl's
+  Writer.Lazy and Writer.Strict, MonadFix for the transformers, more of
+  NonEmpty, IsList for Text, ByteString and Seq.
+- **Tools:** `tools/microcabal/yale-hsc2hs`, hsc2hs's constructs for the
+  Yale backend; newtypes cross the FFI as their fields.
+
 ## 3.1.0.0 (2026-10-21)
 
 - Toward Agda's dependency chain (aeson, async, blaze-*, generic-data,

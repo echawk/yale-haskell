@@ -3,9 +3,12 @@
 Yale Haskell is a Haskell compiler written at Yale in the early 1990s by
 the Yale Haskell Group.  Its last release, Y2.0.5 (1994), implemented
 **Haskell 1.2**; this is its revival on a modern Common Lisp, version
-**3.0.0**, which compiles Haskell 98 and Haskell 2010 with a large set
+**3.1.0.0**, which compiles Haskell 98 and Haskell 2010 with a large set
 of GHC extensions and the commonly used libraries (CHANGELOG.md lists
-the versions; doc/REVIVAL-PLAN.md the history).
+the versions; doc/REVIVAL-PLAN.md the history).  Hackage packages build
+with MicroCabal's Yale backend (doc/PACKAGES.md): about 80, the
+dependencies of Agda among them, and Agda itself is the current target
+(doc/plans/MICROCABAL.md).
 
 The compiler is written in [*mumble*](src/mumble/README.md), a small
 Scheme-flavoured Lisp dialect implemented on top of Common Lisp; despite
@@ -107,11 +110,15 @@ recurse; `YALE_HASKELL_STACK_MB` sets another size.  A program that
 runs out of stack prints `stack overflow` and exits with status 2, as
 GHC's does.
 
-Programs use Haskell 1.2 conventions: `main` is a `Dialogue`, e.g.
+Without a language flag the compiler reads Haskell 1.2, where `main` is
+a `Dialogue`, e.g.
 
 ```haskell
 main = appendChan stdout "Hello, world!\n" abort done
 ```
+
+`--haskell98` selects Haskell 98 (and 2010); `--modern-prelude` (implied
+by `--ghc2021` and `--ghc2024`) gives modules GHC base's Prelude.
 
 ## Layout
 
@@ -120,12 +127,20 @@ main = appendChan stdout "Hello, world!\n" abort done
 | `src/mumble/` | the mumble dialect (Common Lisp implementation) and its compilation-unit system — [what is mumble?](src/mumble/README.md) |
 | `src/compiler/` | the compiler phases (`parser/`, `type/`, `backend/`, …), the interactive top level (`command-interface/`), and `system.mumble`, which loads them all |
 | `src/runtime/` | runtime primitives used by compiled Haskell code |
+| `src/base/` | the Lisp runtime of the Haskell 98 libraries (text, bytestring, I/O, POSIX, parallelism) |
+| `src/ffi/` | the C foreign function interface (doc/FFI.md) |
+| `src/cli/` | the command line (`bin/yale-haskell`) |
+| `src/liquid/` | refinement types (doc/plans/LIQUID-HASKELL.md) |
 | `lib/haskell-1.2/` | the Haskell 1.2 Prelude and libraries |
+| `lib/haskell98/` | the Haskell 98 and 2010 Prelude and libraries, and base, containers, text, mtl ... under their GHC module names |
 | `examples/` | the tutorial and demo programs (Haskell 1.2) |
 | `tools/build/` | Lisp drivers used by the Makefile |
+| `tools/microcabal/` | MicroCabal's Yale backend and the package patches (doc/PACKAGES.md) |
+| `tools/conformance/` | conformance runners: extension probes, nofib, real programs |
 | `tools/emacs/` | the original Emacs interface |
 | `tests/` | test suite (`make test`) |
-| `doc/` | documentation; [doc/REVIVAL-PLAN.md](doc/REVIVAL-PLAN.md) is the modernisation plan, `doc/history/` the 1994 README |
+| `doc/` | documentation; [doc/REVIVAL-PLAN.md](doc/REVIVAL-PLAN.md) is the modernisation history, [doc/plans/](doc/plans/README.md) the current plans, `doc/history/` the 1994 README |
+| `bench/` | benchmarks against GHC ([bench/RESULTS.md](bench/RESULTS.md)) |
 | `ref/` | untracked reference clones (Hugs, the H98 Report); `make ref` |
 | `build/` | all build output |
 

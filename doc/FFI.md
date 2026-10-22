@@ -116,4 +116,5 @@ from a program or the interactive system.
   `src/ffi/ffi-runtime.lisp`, loaded into the image after CFFI
   (tools/build/image.lisp).  `Ptr` and `FunPtr` are CFFI foreign
   pointers; the Data.Int and Data.Word newtypes are erased, so they
-  reach C as their `Int` or `Integer`.
+  reach C as their `Int` or `Integer`.  A user's newtype of a marshallable type (`newtype Flush = Flush CInt`)
+  crosses the FFI as its field, as the Report allows.

@@ -21,16 +21,16 @@ Ordered roughly by expected payoff.
   marshalling.
 - **Why it is interesting:** it would really stress our FFI:
   `foreign import` of C functions taking and returning pointers,
-  passing Haskell callbacks *down* into a foreign runtime (the `foreign
-  export` / `"wrapper"` imports that are still missing —
-  [CONFORMANCE.md](CONFORMANCE.md), "Next": `foreign export` and
-  `"wrapper"`), and keeping a foreign
-  thread's call back into Haskell alive. Getting inline-java's JNI
-  layer to run is a much harder and more realistic test of the FFI than
-  anything in `bench/`.
-- **What it needs:** `foreign export`, stable callback trampolines,
-  and probably a JVM on the system. Expect it to land only after those
-  FFI pieces are done.
+  passing Haskell callbacks *down* into a foreign runtime (`foreign
+  export` and `"wrapper"` imports, which exist now: doc/FFI.md), and
+  keeping a foreign thread's call back into Haskell alive. Getting
+  inline-java's JNI layer to run is a much harder and more realistic
+  test of the FFI than anything in `bench/`.
+- **What it needs:** a JVM on the system; callbacks from a foreign
+  thread (Yale's runtime has one Haskell thread); the `inline-java`
+  quasi-quoter itself needs QuasiQuotes, so start with the `jni`
+  package.  One of the FFI stress tests planned after Agda
+  (REAL-WORLD-TARGETS.md, "After Agda").
 
 ## 2. Template Haskell
 
@@ -57,7 +57,10 @@ Ordered roughly by expected payoff.
   TH program shares the compiler's image). This is a large project;
   keep it as a design question until the smaller gaps close (the
   current mission brief, `claude-prompt.md`, puts it out of scope).
-  The design is now written up in TEMPLATE-HASKELL.md.
+  The design is now written up in TEMPLATE-HASKELL.md, and its
+  milestones 1-4 (the library, quotes, expression and declaration
+  splices, reify of types) are done (2026-10-18); QuasiQuotes and typed
+  TH remain.
 
 ## 3. JHC — John Meacham's whole-program Haskell compiler
 
@@ -161,6 +164,21 @@ Ordered roughly by expected payoff.
   does not permit copying into this project; we copy ideas and
   behaviour, not code (REVIVAL-PLAN §3).
 
+## 8. KiCS2 — the Kiel Curry System
+
+- **URL:** <https://www-ps.informatik.uni-kiel.de/kics2/>
+- **Category:** a compiler for another language, written in Haskell
+  and Curry, that compiles Curry to Haskell
+- KiCS2 translates Curry (a functional logic language: Haskell's syntax
+  plus nondeterminism and free variables) into Haskell and runs it with
+  a Haskell compiler; its front end and much of its runtime are Haskell
+  packages.
+- **Why it is interesting:** both a large Haskell codebase to compile
+  and, once it builds, a generator of large Haskell programs to run.
+- **What it needs:** sketch first (its packages, the GHC features and
+  runtime support they use, how it calls the Haskell compiler), then the
+  attempt.  Planned after Agda and the stress tests (2026-10-22).
+
 ---
 
 ### Suggested order
@@ -169,6 +187,6 @@ UHC (smallest full compiler) → JHC → Helium (all three: "can we
 compile a Haskell compiler?"), rusholme as a design to revisit once its
 optimisation passes exist (it is a reference for
 [GHC-OPTIMIZATIONS.md](GHC-OPTIMIZATIONS.md) more than a target), NHC98 as a reference yardstick rather than
-a milestone, and inline-java / Template Haskell last — each gated on a
-large missing feature (`foreign export` callbacks; a TH staging
-story) that should exist first.
+a milestone.  Since 2026-10-22 the order after Agda is: stress tests
+(inline-java's jni among the FFI-heavy ones, and recent libraries using
+modern GHC features), then KiCS2.

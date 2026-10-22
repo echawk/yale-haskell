@@ -9,7 +9,8 @@ dependencies from Hackage, and build them and your project with
 
 This guide covers running a single file, making a standalone
 executable, and building a cabal project with Hackage dependencies.
-Everything here was run against version 3.0.15.0 on macOS/arm64; the
+Everything here was run against version 3.0.15.0 on macOS/arm64 (the
+package list under "What works today" against 3.1.0.0 and later); the
 design notes and survey tables are in
 [plans/MICROCABAL.md](plans/MICROCABAL.md).
 
@@ -290,7 +291,8 @@ Other commands (`mcabal help`):
   deepseq, directory, filepath, process, time, mtl, transformers,
   parsec, pretty, random, stm, parallel, binary, QuickCheck, hashable,
   unordered-containers, scientific, haskeline, ansi-terminal,
-  utf8-string, old-time, old-locale, xhtml, unix, knob, and the
+  utf8-string, old-time, old-locale, xhtml, unix, knob, ghc-boot-th
+  (GHC.Lexeme), ghc-compact, and the
   compatibility packages fail, semigroups, void, nats, tagged-compat
   (the list is `builtinPackages` in `tools/microcabal/Yale.hs`).  They
   are "complete, or in the part commonly used", so a program may still
@@ -299,6 +301,11 @@ Other commands (`mcabal help`):
   it; Template Haskell itself is only partly there (below).
 - `impl(ghc ...)` conditions in a `.cabal` file are false (the compiler
   is called `yale`).
+- A `.hsc` module is preprocessed by `tools/microcabal/yale-hsc2hs`
+  (`$YALE_HSC2HS`), which handles hsc2hs's constructs (`#{const ..}`,
+  `#peek`, `#poke`, `#size`, ...) by compiling the file into a C program
+  that prints the module, as hsc2hs does; one with only CPP is read
+  directly.
 
 ### Environment variables
 
@@ -321,11 +328,14 @@ with GHC` (alex, dlist).
 Some packages contain code that only GHC was meant to compile.  Each
 `NAME.patch` in `tools/microcabal/patches/` is applied (`patch -p1`,
 paths relative to the package's `src/` tree) when the backend stages the
-package named `NAME`; "Patching NAME with ..." is printed.  Today there
-is one, `tagged.patch` (imports `Proxy` where the GHC-only `Data.Data`
-import is skipped).  To add one, drop a file of that name there, or set
-`YALE_MCABAL_PATCHES` to your own directory.  A patch applies to
-every version of the package.
+package named `NAME`; "Patching NAME with ..." is printed.  A
+`NAME.cpp-options` file there adds cpp options (`-D...`) for that
+package only.  About twenty packages have one or the other today
+(aeson, async, ListLike, monad-control, primitive, regex-tdfa, tagged,
+...): each replaces a GHC-only construct with portable code and says
+why.  To add one, drop a file of that name there, or set
+`YALE_MCABAL_PATCHES` to your own directory.  A patch applies to every
+version of the package.
 
 ## What works today
 
@@ -345,6 +355,13 @@ indexed-traversable.
 Executables: alex 3.5.4.2 builds (`YALE_CPP_OPTIONS=-D__GLASGOW_HASKELL__=906
 mcabal -r install alex`) and generates the same scanners as the
 GHC-built one on its test grammars.
+
+Since 3.1.0.0 the work toward Agda (doc/plans/MICROCABAL.md, "Agda's
+dependency chain") has installed about 80 packages in `build/mcabal`,
+among them aeson, async, vector, primitive, profunctors, semigroupoids,
+bifunctors, comonad, generic-data, generic-deriving, ListLike,
+regex-tdfa, zlib, pqueue, nonempty-containers, monad-control,
+th-abstraction, happy (its libraries) and alex.
 
 To check a package yourself:
 
@@ -368,15 +385,16 @@ dated: a package listed there as failing may build now.
   next to others (tagged's Data.Proxy.TH) still builds, but anything that
   imports it fails.  Packages that need TH at their core (aeson via
   exceptions, lens, ...) do not build.
-- Several `GHC.*` internals are missing or partial: `GHC.IO`'s `IO`
-  constructor with `State# RealWorld` (async, attoparsec), unboxed
-  primitives and the kind `TYPE` (primitive, vector), parts of
-  `GHC.Generics`.  Packages built on them do not build.
-- C libraries (clock), boot packages Stackage does not list
-  (integer-gmp) and `.hsc`/foreign-library targets are not supported;
+- `GHC.*` internals are approximated: unboxed types are boxed, GHC.Exts'
+  primops (arrays, byte arrays, Addr#, MutVar#, MVar#) are ordinary
+  operations threaded by the State# token, so primitive and vector
+  build; a package relying on exact unboxed representations or GHC's
+  runtime (weak pointers' timing, the RTS) may not.
+- C libraries need their bindings to find the library at load time; boot
+  packages Stackage does not list (integer-gmp) are not fetched;
   `foreign-library` stanzas raise "foreign-library is not supported".
-- Mutually recursive modules through `hs-boot` files and
-  `{-# SOURCE #-}` imports are not supported yet (megaparsec).
+- Mutually recursive modules are compiled as one unit when their files
+  import each other; `hs-boot` files are ignored.
 - `Int` is a 63-bit fixnum, not 64-bit (the only deliberate departure
   noted in doc/plans/GHC-EXTENSIONS.md; programs that rely on Int
   wrap-around differ).

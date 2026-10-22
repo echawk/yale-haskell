@@ -115,12 +115,13 @@ GHC extension or a modern-base idiom, and compares them with GHC's output:
 - transformers: State, Reader, Writer, Maybe, Except.
 - mtl: State, Reader, Writer, Except.
 
-**Known gaps** (2026-10-11; see GHC-EXTENSIONS.md):
-- Escape checks for existential and rank-N type variables, and local
-  type refinement for GADTs (both permissive).
+**Known gaps** (2026-10-11, revised 2026-10-22; see GHC-EXTENSIONS.md):
+- Escape checks for existential and rank-N type variables (permissive);
+  GADT refinement is partial (pattern variables, by the signature).
 - The Strict extension (ignored).
-- QuantifiedConstraints, Arrows, Template Haskell,
-  Typeable's typeOf, Generic representations.
+- QuantifiedConstraints, the rest of Template Haskell (QuasiQuotes,
+  typed TH).  (Arrows, Typeable's typeOf and Generic representations
+  have been done since.)
 
 ## Next
 

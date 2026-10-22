@@ -1,26 +1,29 @@
-# Haskell 98 libraries (work in progress)
+# Haskell 98 and 2010 libraries
 
 This tree is the Haskell 98 counterpart of `lib/haskell-1.2/`.  It is
 built as a separate *dialect*: `make` compiles both Preludes and saves
 one executable per dialect, and `bin/yale-haskell --haskell98` selects
-this one.
+this one.  Besides the Report's libraries it holds base and the other
+boot-style packages under GHC's module names (about 450 modules), so
+that Hackage packages built with MicroCabal (doc/PACKAGES.md) find them.
 
 | Path | Contents |
 |---|---|
-| `prelude/` | the Prelude.  It started as a copy of the 1.2 Prelude and is being moved towards the H98 Report's Standard Prelude as the compiler gains the language features it needs. |
-| `<Module>.hs`, `<Module>.hu` | the H98 standard libraries: `List`, `Char`, `Maybe`, `Numeric`, `Ratio`, `Complex`, `Ix`, `Array`, `IO`, `System`, `Directory`, `Time`, `Locale`, `CPUTime`, `Random`, `Monad`; and `Dialogue` (Yale: Haskell 1.2 stream I/O, `appendChan stdout ... abort done`) |
+| `prelude/` | the Haskell 98 Standard Prelude, as the Report gives it, with the deviations below |
+| `<Module>.hs`, `<Module>.hu` | the H98 standard libraries: `List`, `Char`, `Maybe`, `Numeric`, `Ratio`, `Complex`, `Ix`, `Array`, `IO`, `System`, `Directory`, `Time`, `Locale`, `CPUTime`, `Random`, `Monad`; `Dialogue` (Yale: Haskell 1.2 stream I/O, `appendChan stdout ... abort done`); `PreludeModern` (GHC base's Prelude names, for `--modern-prelude`; also the hidden classes `IP` of ImplicitParams and `TypeEquality` of equality constraints) |
+| `*Prims.hi` | primitives: Haskell names for Lisp functions (`src/base/`, `src/runtime/`) |
+| `Control/`, `Data/`, `Foreign/`, `GHC/`, `System/`, `Text/`, `Numeric/`, `Debug/`, `Unsafe/`, `Type/`, `Test/` | base, containers, text, bytestring, mtl, transformers, stm, deepseq, parsec, time, process, unix, QuickCheck, ... (the packages listed as built in by `tools/microcabal/Yale.hs`) |
+| `Language/` | Template Haskell's library (doc/plans/TEMPLATE-HASKELL.md) |
+| `include/` | C headers packages `#include` (HsBaseConfig.h, MachDeps.h, ...) |
 
 Reference material: the Report (`ref/haskell-report`, branch `h98`) is
 the specification; Hugs (`ref/hugs98`, `libraries/hugsbase/Hugs/Prelude.hs`
 and `packages/haskell98`) is the reference implementation.  See
 `ref/README.md` for licensing when borrowing code.
 
-The compiler still implements Haskell 1.2 (no constructor classes,
-`do`, `newtype`, records or qualified names; see
-`doc/REVIVAL-PLAN.md` §3).  Anything here must compile with the
-compiler as it is today; definitions that need a missing feature are
-left out until that feature lands, and the tests that need them are
-marked as expected failures (`tests/README.md`).
+Anything here must compile with the compiler as it is; a definition
+that needs a feature Yale Haskell lacks is left out (or approximated,
+and says so in a comment) until the feature lands.
 
 ## How the Prelude is organised
 

@@ -54,9 +54,10 @@ MultiParamTypeClasses + FunctionalDependencies; FlexibleInstances /
 FlexibleContexts; ScopedTypeVariables (explicit `forall`, scoped type
 variables in local signatures); TupleSections; LambdaCase;
 BangPatterns; GeneralizedNewtypeDeriving; RankNTypes (needed by `ST`
-and lens-like code, hardest); GADTs and TypeFamilies (out of scope for
-now).  The `LANGUAGE` pragma is ignored today; it should become a
-switch per extension once the first one exists.
+and lens-like code, hardest); GADTs and TypeFamilies.
+
+(2026-10-22: all of these are in; the `LANGUAGE` pragma switches each
+extension per module.  GHC-EXTENSIONS.md is the current record.)
 
 ## Beyond the ladder: xmonad and darcs
 
@@ -171,7 +172,13 @@ replaced by a list of its properties.  What it needed:
 - **Flags:** `-D__GLASGOW_HASKELL__=906` for the package's own files (the
   examples define `(<>)` for GHC 7.2 and older otherwise).
 
-## megaparsec (blocked)
+## megaparsec (blocked when surveyed)
+
+(2026-10-22: both blockers below have since been addressed on the way
+to Agda: a class constraint at a family application resolves through
+the given superclass, and an import cycle of source files is compiled
+as one unit.  megaparsec has not been surveyed again.)
+
 
 Surveyed 2026-10-15 (megaparsec 9.6.1, parser-combinators 1.3.0,
 case-insensitive 1.2.1.0, in build/conformance/megaparsec).  Done on the
@@ -191,3 +198,25 @@ it:
   together; the implicit units (one per file) report it as circular.
   Merging an import cycle's files into one unit automatically would fix
   this.
+
+## Agda
+
+Status (2026-10-22).  **Agda 2.8.0.2**, a dependently typed language and
+proof assistant of about 160,000 lines (390 modules) of modern GHC Haskell, is the
+current target: built with MicroCabal's Yale backend
+(`tools/microcabal/mcabal -r install Agda`), so its whole dependency
+chain of about 80 Hackage packages builds first (MICROCABAL.md).  What
+it has needed so far is listed in CHANGELOG.md (3.1.0.0 and after):
+GHC.Generics' representation, GADT refinement, equality superclasses and
+given equalities on type families, constraint families, ImplicitParams,
+ApplicativeDo, mutually recursive modules, and many smaller points.
+It is done when it builds and its own test suite passes.
+
+## After Agda
+
+1. Stress tests: FFI-heavy bindings (C, Python, Java; inline-java in
+   FUTURE-TARGETS.md) and recent libraries that use many modern GHC
+   language features, choosing those that are language rather than GHC
+   internals, so that Yale can implement them.
+2. KiCS2, the Kiel Curry System (Curry compiled to Haskell): sketch what
+   it needs first, then build it.

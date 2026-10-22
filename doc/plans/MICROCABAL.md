@@ -294,3 +294,26 @@ eight packages above it, Data.Functor.Contravariant, Control.Monad.Trans
 | C libraries (clock), boot packages (integer-gmp), Data.Hashable.Lifted | extra, integer-logarithms, data-fix |
 | type checking: a signature too general (colour, microlens) | colour, microlens |
 
+
+### Agda's dependency chain (2026-10-18 to 2026-10-22, 3.0.15.0 to 3.1.0.0 and after)
+
+`tools/microcabal/mcabal -r install Agda` (Agda 2.8.0.2), run into
+`build/mcabal`, now installs every library Agda depends on, about 80
+packages (`build/mcabal/yale-VERSION/packages`), among them aeson,
+async, vector, primitive, bifunctors, profunctors, semigroupoids,
+comonad, generic-data, generic-deriving, ListLike, regex-tdfa, zlib,
+pqueue, nonempty-containers, monad-control, process-extras,
+vector-hashtables, happy's libraries and alex.  About twenty need a
+patch or cpp options in `tools/microcabal/patches/` (a GHC-only
+construct replaced by portable code).
+
+What the chain needed is in CHANGELOG.md (3.1.0.0 and the unreleased
+entries): GHC.Generics' representation, GHC.Exts' primops threaded by
+State#, GADT refinement, equality superclasses and given equalities on
+type families, constraint families, Coercible, ImplicitParams,
+ApplicativeDo, MonoLocalBinds, mutually recursive modules,
+`yale-hsc2hs` for `.hsc` sources (zlib), and many library modules.
+
+Agda itself is being compiled; Agda.Setup and Agda.VersionCommit (Template
+Haskell) are installed without being compiled.  Agda counts as done when
+its own test suite passes (REAL-WORLD-TARGETS.md, "Agda").

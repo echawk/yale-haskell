@@ -1,7 +1,9 @@
 # GHC extensions: what Yale Haskell supports, and what is realistic
 
 Status: assessment and record (2026-10-11; 2026-10-12: cubicaltt, a
-3,000-line GHC program, runs unchanged — CUBICALTT.md).  Measured by
+3,000-line GHC program, runs unchanged — CUBICALTT.md; 2026-10-22:
+updated for the work toward Agda, whose dependency chain of about 80
+Hackage packages now builds — MICROCABAL.md).  Measured by
 `tools/conformance/extensions.py` (one small program per extension or
 library idiom, compared with GHC 9.14's output and exit code) and by the
 nofib suites (`tools/conformance/nofib.py`, with `--suite real
@@ -24,8 +26,8 @@ and Data.Dynamic work and show types as GHC does.
 
 Every GHC2021 extension is accepted except where a probe below says
 otherwise, and so are most of the extensions modern code turns on beyond
-GHC2021.  What is left is either large (Template Haskell, the runtime's
-concurrency) or rare (QuantifiedConstraints).
+GHC2021.  What is left is either large (the rest of Template Haskell,
+the runtime's concurrency) or rare (QuantifiedConstraints).
 
 ## How extensions are switched on
 
@@ -120,6 +122,18 @@ Arrows (2026-10-15: `proc` with `-<`, `-<<`, `do` binds, `let` and
 parser/exp-parser.mumble; not `rec`, `case` commands or banana
 brackets).
 
+Added on the way to Agda (2026-10-18 to 10-22): ImplicitParams (`?x ::
+t` is PreludeModern's class `IP "x" t`, `?x` is `ip @"x"`, and `let ?x
+= e` gives the constraint to its body as a local dictionary;
+type/expression-typechecking.mumble's ip-let), ApplicativeDo (independent
+statements ending in `pure`/`return`), RebindableSyntax's `if` (through
+`ifThenElse`), UnicodeSyntax, MonoLocalBinds (on with TypeFamilies or
+GADTs, as in GHC), ConstrainedClassMethods in multi-parameter classes,
+record pattern synonyms (`pattern P{f, g} = ..`) and `P {}`, `forall
+{k}` binders, and mutually recursive modules (an import cycle of source
+files is compiled as one unit; `{-# SOURCE #-}` imports and .hs-boot
+files are not needed).
+
 Haskell 98 and 2010 points fixed on the way (2026-10-12): a Prelude class
 method hidden by `import Prelude hiding ((*))` can be defined again; an
 instance may bind the methods of a class imported only qualified; the
@@ -141,8 +155,10 @@ be accepted.
 - **RankNTypes**: polytypes as arguments and fields, with contexts; an
   argument without a context is not checked to be polymorphic.
 - **ExistentialQuantification**: no escape check.
-- **GADTs**: constructors are typed exactly; a match does not refine
-  types locally, its right-hand side is coerced instead
+- **GADTs**: constructors are typed exactly.  A clause matching a GADT
+  is linked to its signature first, and the pattern variables whose
+  types the match refines are typed "softly" (their uses are not
+  generalized); other right-hand sides are coerced
   (`type/existentials.mumble`).  A right-hand side whose type is
   ambiguous without the refinement is defaulted.
 - **TypeFamilies**: open, closed and associated type families, data
@@ -150,7 +166,16 @@ be accepted.
   yet decided is deferred and retried, and dropped if never decided
   (`util/type-utils.mumble`, `type/unify.mumble`).  No overlap or
   termination checks; data families are injective, type families are
-  not assumed to be.
+  not assumed to be.  Equalities: `a ~ t` with `a` a variable is
+  substituted; one with a family application on a side (`SubstArg a ~
+  a`, `F a ~ Int`), in a signature or a constraint synonym, is
+  PreludeModern's `TypeEquality` constraint, whose wanted instances are
+  unified and whose given ones reduce the application
+  (mp-classes.mumble's given-family-reduction); a class's equality
+  superclass (`class (item ~ Item full) => ListLike full item`) reduces
+  the application the same way.  Families of constraints
+  (`:: Constraint`) are classes whose dictionary is the tuple of the
+  constraints an application reduces to.
 - **DataKinds**: promoted constructors are empty types; kinds are not
   checked.  With GADTs and TypeFamilies, length-indexed vectors and
   type-level arithmetic work; so do type-level lists (`'[]`, `'[a, b]`,
@@ -159,7 +184,8 @@ be accepted.
   applications (tests/haskell98/language/hlist.hs).
 - **AllowAmbiguousTypes**: a class method need not mention the class's
   variables; type applications choose the instance.
-- **coerce** (Data.Coerce) has type `a -> b`: no Coercible check.
+- **coerce** (Data.Coerce): once the signature is checked, its argument
+  and result types are unified up to newtypes; no role checking.
 - **IsString [a]** is an instance for every element type (base's
   `a ~ Char`).
 
@@ -191,10 +217,13 @@ be accepted.
   Control.Monad.Par, ParallelArrays, spark statistics (`+RTS -s`), and a
   `<<loop>>` report for a thunk that is re-entered after parallel
   evaluation has started (it waits instead).
-- **GHC.Generics, Control.DeepSeq**: the classes exist and deriving
-  them gives empty instances, so programs that derive them for a library
-  compile.  Generic representations and deep `rnf` for user types (it
-  evaluates to WHNF) are not there.  Data.Typeable is complete for types
+- **GHC.Generics**: derived Generic and Generic1 give GHC's
+  representation (`Rep`, `from`, `to`: balanced sums and products,
+  metadata as promoted MetaData/MetaCons/MetaSel, URec for unlifted
+  fields; derived/generic.mumble), and base's types have instances, so
+  generic-deriving and generic-data build.  **Control.DeepSeq**: the
+  default `rnf` evaluates to WHNF (no Generic default); instances for
+  base's types and tuples are deep.  Data.Typeable is complete for types
   of kind `*` and their constructors (`typeOf`, `cast`, Data.Dynamic);
   `Typeable (f a)` for a type variable `f` is not.
 
@@ -204,36 +233,36 @@ be accepted.
 |---|---|---|
 | QuantifiedConstraints | contexts with `forall` in instance heads; dictionary functions as dictionary fields | medium-large |
 | Real concurrency | `forkIO` threads on SBCL threads: blocking MVars and STM, and the IO primitives' shared state (thunk update is thread-safe already, Control.Parallel) | large |
-| GHC.Generics' `Rep` | type families exist now; the derived `from`/`to` and the representation types | large |
 
 ### 5. Not realistic here
 
 - **TemplateHaskell / QuasiQuotes**: in progress (TEMPLATE-HASKELL.md):
   the library, name quotes ('f, ''T), quotes ([| |], [p| |], [t| |],
   [d| |]), expression and declaration splices of imported functions, and
-  reify of types and constructors work; QuasiQuotes and typed TH do not
-  yet.
+  reify of types and constructors work; QuasiQuotes, reify of classes
+  and typed TH do not yet.  MicroCabal's backend installs a package's
+  TH modules without compiling them.
 - **GHC's runtime features**: `+RTS` options, profiling, the GHC event
   log, `GHC.Stats`, sparks (`par` is ignored), weak pointers with
   finalizers' timing, stable names.
 - **The package ecosystem as Cabal sees it**: Yale Haskell compiles
-  source modules; libraries are added as modules under `lib/haskell98`.
+  source modules.  base, containers, text, bytestring, mtl and the other
+  boot-style libraries are modules under `lib/haskell98`; other Hackage
+  packages build from source with MicroCabal's Yale backend
+  (doc/PACKAGES.md), some with a patch in tools/microcabal/patches/.
 
 ## What running "modern Haskell" needs now
 
 The probes say the language is mostly there.  The gaps that real
 programs hit first are, in order:
 
-1. **Libraries.**  Each modern program imports a few packages beyond
-   base.  text, bytestring, containers, mtl, transformers, stm,
-   deepseq, parsec (3.1.18, the unchanged source as a `:package` unit:
-   compiled against base's Prelude in every mode), filepath, time
-   (Data.Time.Clock), QuickCheck (a subset) and haskeline (without line
-   editing) exist now (some as approximations); vector,
-   unordered-containers, aeson, optparse-applicative and process do
-   not.  These are mostly Haskell and could be ported
-   module by module (GHC-specific internals are the obstacle: vector's
-   primitive arrays map onto Yale's MutArr).
+1. **Libraries.**  text, bytestring, containers, mtl, transformers,
+   stm, deepseq, parsec, filepath, time, QuickCheck (a subset),
+   haskeline (without line editing) and process are in lib/haskell98;
+   vector, primitive, aeson, optparse-applicative, profunctors,
+   regex-tdfa, zlib and about 70 more build from Hackage (doc/PACKAGES.md
+   lists them).  What still stops packages is mostly Template Haskell
+   in exposed modules and C libraries without bindings yet.
 2. **Record update of a duplicated field** (`r { name = x }` with
    `name` in several types) needs the record's type; construction,
    patterns and `r.name` work.
@@ -252,6 +281,10 @@ programs hit first are, in order:
 | GADTs | parser/typedecl-parser.mumble (`make-gadt-constr`), tdecl/alg-syn.mumble, type/existentials.mumble |
 | TypeFamilies | parser/typedecl-parser.mumble, tdecl/alg-syn.mumble (`process-family-equations`), util/type-utils.mumble (reduction), type/unify.mumble (deferral, injectivity) |
 | ConstraintKinds | tdecl/alg-syn.mumble (`constraint-synonym-body`), util/signature.mumble (`expand-constraint-synonyms`) |
+| equality constraints | parser/type-parser.mumble (`apply-equalities`), util/signature.mumble (`keep-family-equalities`), type/mp-classes.mumble (`solve-type-equality`, `given-family-reduction`) |
+| ImplicitParams | parser/lexer.mumble (the `ipvar` token), exp-parser.mumble (`ip-let-or-let`), type/expression-typechecking.mumble (`ip-let`), lib/haskell98/PreludeModern.hs (`class IP`) |
+| GHC.Generics deriving | derived/generic.mumble |
+| mutually recursive modules | csys/compiler-driver.mumble (`merge-unit-cycle`) |
 | DataKinds | parser/lexer.mumble (`promotion-tick?`), module-parser.mumble (`add-promoted-constructors`) |
 | PatternSynonyms | parser/pattern-parser.mumble (templates for other modules), prec/prec-parse.mumble, prec/scope.mumble, csys/dump-interface.mumble |
 | overlapping instances | util/instance-manager.mumble (`lookup-instance/type`), tdecl/instance.mumble, type/unify.mumble (`unify-with-only-instance-head`) |
