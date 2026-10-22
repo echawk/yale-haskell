@@ -150,7 +150,12 @@
    (save-parser-context
     (begin
       (advance-token)
-      (let ((rhs-list (parse-guarded-alt-rhs)))
+      ;; the alternatives are a layout block: a | left of the first one's
+      ;; column, on a later line, is not theirs (an enclosing guard's,
+      ;; Agda's splitEllipsis)
+      (let ((rhs-list (dynamic-let ((*multiway-if-position*
+				     (cons *current-line* *current-col*)))
+			(parse-guarded-alt-rhs))))
 	(make case
 	      (exp (**con/def (core-symbol "UnitConstructor")))
 	      (alts (list (make alt (pat (make wildcard-pat))
@@ -206,7 +211,8 @@
 		    (-> (let ((exp (parse-exp)))
 			  (list (make guarded-rhs (guard (make omitted-guard))
 				                  (rhs exp)))))
-		    (\| (parse-guarded-alt-rhs))
+		    (\| (dynamic-let ((*multiway-if-position* '#f))
+			  (parse-guarded-alt-rhs)))
 		    (else (signal-missing-token "`->' or `|'" "rhs of alt")))))
 	 (decls (parse-where-decls)))
     (make alt (pat pat) (rhs-list rhs-list) (where-decls decls)))))
@@ -216,9 +222,17 @@
     (require-token -> (signal-missing-token "`->'" "alt"))
     (let* ((exp (parse-exp))
 	   (res (make guarded-rhs (guard guard) (rhs exp))))
-      (token-case
-       (\| (cons res (parse-guarded-alt-rhs)))
-       (else (list res))))))
+      (if (and (eq-token? '\|) (not (multiway-if-ends?)))
+	  (begin (advance-token) (cons res (parse-guarded-alt-rhs)))
+	  (list res)))))
+
+(define *multiway-if-position* '#f)   ; (line . column) of its first |
+
+(define (multiway-if-ends?)
+  (let ((pos (dynamic *multiway-if-position*)))
+    (and pos
+	 (not (eqv? *current-line* (car pos)))
+	 (< *current-col* (cdr pos)))))
 
 ;;; A guard: quals separated by commas (Haskell 2010 pattern guards,
 ;;; report 3.13).  A single boolean qual is returned as its expression.

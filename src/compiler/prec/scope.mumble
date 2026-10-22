@@ -934,7 +934,11 @@
   (scope-ast-1 (desugar-record-con object env) env))
 
 (define-walker-method scope record-update (object env)
-  (scope-ast-1 (desugar-record-update object) env))
+  (let ((decls (shared-update-binds object)))
+    (scope-ast-1 (if (null? decls)
+		     (desugar-record-update object)
+		     (**let decls (desugar-record-update object)))
+		 env)))
 
 (define (desugar-record-con object env)
   (let* ((con-ref (record-con-con object))
@@ -1002,6 +1006,24 @@
 				(**abort "No match in record update"))
 		  alts))
 	  (**case (record-update-exp object) (reverse alts))))))
+
+;;; With several constructors' alternatives, each new field value is
+;;; let-bound first: the alternatives share no expression (a shared one
+;;; would be type checked once for each: Agda's core { lhsPats = .. }).
+(define (shared-update-binds object)
+  (let ((decls '()))
+    (setf (record-update-fields object)
+	  (map (lambda (b)
+		 (let ((e (tuple-2-2 b)))
+		   (if (or (var-ref? e) (is-type? 'const e))
+		       b
+		       (let ((v (string->symbol (format '#f "updval%~A" (incf *update-var-count*)))))
+			 (push (**define v '() e) decls)
+			 (tuple (tuple-2-1 b) (**var v))))))
+	       (record-update-fields object)))
+    decls))
+
+(define *update-var-count* 0)
 
 (define (update-vars n)
   (do ((i n (1- i))
