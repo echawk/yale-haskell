@@ -316,4 +316,5 @@ ApplicativeDo, MonoLocalBinds, mutually recursive modules,
 
 Agda itself is being compiled; Agda.Setup and Agda.VersionCommit (Template
 Haskell) are installed without being compiled.  Agda counts as done when
-its own test suite passes (REAL-WORLD-TARGETS.md, "Agda").
+its own test suite passes and it checks agda-stdlib
+(REAL-WORLD-TARGETS.md, "Agda").

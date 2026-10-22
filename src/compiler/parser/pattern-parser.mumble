@@ -672,6 +672,8 @@
 	 (make list-exp (exps (map (function pattern->exp) (list-pat-pats p)))))
 	((is-type? 'pp-pat-list p)
 	 (make pp-exp-list (exps (map (function pattern->exp) (pp-pat-list-pats p)))))
+	;; the - of a negative literal, (-1)
+	((is-type? 'pp-pat-negated p) (make negate))
 	((is-type? 'bang-pat p) (pattern->exp (bang-pat-pattern p)))
 	((is-type? 'sig-pat p) (pattern->exp (sig-pat-pattern p)))
 	(else (parser-error 'pattern-synonym-not-invertible

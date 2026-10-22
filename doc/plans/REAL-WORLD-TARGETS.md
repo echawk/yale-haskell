@@ -210,7 +210,9 @@ it has needed so far is listed in CHANGELOG.md (3.1.0.0 and after):
 GHC.Generics' representation, GADT refinement, equality superclasses and
 given equalities on type families, constraint families, ImplicitParams,
 ApplicativeDo, mutually recursive modules, and many smaller points.
-It is done when it builds and its own test suite passes.
+It is done when it builds, its own test suite passes, and it checks
+agda-stdlib (also the benchmark: the time to check the library against
+a GHC-built Agda's).
 
 ## After Agda
 
