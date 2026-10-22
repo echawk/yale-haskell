@@ -19,6 +19,7 @@ these are what comes after M11.
 | [MUMBLE-TO-CL.md](MUMBLE-TO-CL.md) | Moving the compiler from mumble to plain Common Lisp, piece by piece | planned |
 | [TEMPLATE-HASKELL.md](TEMPLATE-HASKELL.md) | Template Haskell and QuasiQuotes: the design (from the TH papers and GHC's guide), where it goes in Yale's pipeline, files to change, pain points, milestones | milestones 1-4 done (2026-10-18); QuasiQuotes, typed TH to do |
 | [LIQUID-HASKELL.md](LIQUID-HASKELL.md) | Refinement types in LiquidHaskell's style: a typed core after cfn, `{-@ @-}` specifications, constraint generation, Z3 and a fixpoint solver, milestones and pain points | milestone 1, the typed core, done (2026-10-17); rest design |
+| [KICS2.md](KICS2.md) | KiCS2, the Kiel Curry System (Curry to Haskell): its parts, bootstrapping its Haskell without GHC, what the generated code needs (QuantifiedConstraints), steps | survey (2026-10-22) |
 | [FUTURE-TARGETS.md](FUTURE-TARGETS.md) | Further real-world targets to try compiling (inline-java, JHC, rusholme, Helium, UHC, NHC98, KiCS2) | proposed (2026-10-14; order after Agda 2026-10-22) |
 
 Current order (2026-10-22): Agda through MicroCabal until its own test

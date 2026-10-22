@@ -175,9 +175,9 @@ Ordered roughly by expected payoff.
   packages.
 - **Why it is interesting:** both a large Haskell codebase to compile
   and, once it builds, a generator of large Haskell programs to run.
-- **What it needs:** sketch first (its packages, the GHC features and
-  runtime support they use, how it calls the Haskell compiler), then the
-  attempt.  Planned after Agda and the stress tests (2026-10-22).
+- **What it needs:** surveyed in [KICS2.md](KICS2.md) (2026-10-22): its
+  compiler's Haskell is generated once with the distribution's kics2c,
+  and the generated code needs QuantifiedConstraints.
 
 ---
 
