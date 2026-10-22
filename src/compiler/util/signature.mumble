@@ -326,6 +326,15 @@
 ;;; known.)
 
 (define (resolve-forall-mcontext type vars)
+  ;; its constraint synonyms expanded, as a signature's are: a nullary
+  ;; one of () is no constraint (Agda's HasCallStack => a -> m b)
+  (let ((sig (make signature (context (forall-type-context type))
+		   (type (forall-type-type type))
+		   (mcontext (forall-type-mcontext type))
+		   (foralls '()))))
+    (expand-constraint-synonyms sig)
+    (setf (forall-type-context type) (signature-context sig))
+    (setf (forall-type-mcontext type) (signature-mcontext sig)))
   (dolist (c (forall-type-mcontext type))
     (resolve-class (mp-context-class c)))
   (dolist (c (forall-type-mcontext type))

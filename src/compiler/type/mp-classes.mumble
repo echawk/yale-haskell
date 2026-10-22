@@ -1242,7 +1242,9 @@
 	  (dolist2 (tv tyvars) (c (gtype-context g))
 	    (setf (ntyvar-context tv) c))
 	  (mlet (((class args) (constraint-type-class (copy-polytype-body (gtype-type g) tyvars))))
-	    (values class args tyvars
+	    ;; (synonyms expanded: KiCS2's Curry (C_Apply t x), C_Apply a b
+	    ;; = a b)
+	    (values class (map (function reduce-mp-type) args) tyvars
 		    (map (lambda (c)
 			   (tuple (tuple-2-1 c)
 				  (map (lambda (ty) (copy-polytype-body ty tyvars))
@@ -1259,7 +1261,7 @@
 			     (qc-match (car patterns) (car types) pvars env)))))
 
 (define (qc-match pat type pvars env)
-  (let ((pat (prune pat))
+  (let ((pat (reduce-mp-type pat))
 	(type (reduce-mp-type type)))
     (cond ((eq? env 'fail) 'fail)
 	  ((and (ntyvar? pat) (memq pat pvars))
