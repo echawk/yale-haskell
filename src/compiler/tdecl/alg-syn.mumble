@@ -351,13 +351,26 @@
 	 (memq (def-name def) *constraint-families*)
 	 '#t)))
 
+;;; Whether the equality P (%equality t1 t2) has a side that is a type
+;;; family's application: a TypeEquality constraint (util/signature
+;;; .mumble's keep-family-equalities), as Agda's type SubstWith t a =
+;;; (Subst a, SubstArg a ~ t).
+(define (family-equality? p)
+  (and (prelude-modern-def '|TypeEquality|)
+       (lisp:some (lambda (a)
+		    (and (tycon? a)
+			 (let ((def (resolve-toplevel-name (tycon-name a))))
+			   (and def (synonym? def) (synonym-family? def)))))
+		  (tycon-args p))))
+
 (define (constraint-synonym-body body)
   (let ((parts (lisp:remove-if
 		;; an equality (~): not kept, as outside a signature; nor a
 		;; constraint-valued family (generic-data's NewtypeErr a b, a
 		;; TypeError's or ()), which is not evaluated
 		(lambda (p) (and (tycon? p)
-				 (or (eq? (tycon-name p) '|%equality|)
+				 (or (and (eq? (tycon-name p) '|%equality|)
+					  (not (family-equality? p)))
 				     (family-name? (tycon-name p)))))
 		(if (and (tycon? body)
 			 (not (eq? (tycon-def body) *undefined-def*))
@@ -372,6 +385,7 @@
 		       (not (eq? (tycon-def p) (core-symbol "Arrow")))
 		       (let ((def (resolve-toplevel-name (tycon-name p))))
 			 (or (class? def)
+			     (eq? (tycon-name p) '|%equality|)
 			     (and (synonym? def)
 				  (not (null? (synonym-constraints def))))))))
 		parts)
@@ -383,7 +397,8 @@
 		      ;; in an interface, type GShow0 = GShow Proxy)
 		      (dolist (a (tycon-args p))
 			(resolve-type-1 a '() '#t))
-		      (cons (tycon-name p) (tycon-args p)))))
+		      (cons (if (eq? (tycon-name p) '|%equality|) '|%TypeEq| (tycon-name p))
+			    (tycon-args p)))))
 	      (if (null? parts)
 		  ;; nothing but equalities: the true constraint
 		  (if (and (tycon? body)

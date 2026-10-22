@@ -342,12 +342,51 @@
 	 (let ((class (car g))
 	       (types (cdr g)))
 	   (and (class? class)
+		(type-equality-class? class)
+		(cond ((ntype-identical? (car types) type) (cadr types))
+		      ((ntype-identical? (cadr types) type) (car types))
+		      (else '#f)))))
+       (dynamic *given-mp-constraints*))
+      (lisp:some
+       (lambda (g)
+	 (let ((class (car g))
+	       (types (cdr g)))
+	   (and (class? class)
 		(lisp:some (lambda (e)
 			     (and (given-template-matches? (cdr e) types type)
 				  (list-ref types (car e))))
 			   (class-equalities class)))))
        (dynamic *given-mp-constraints*))
       'stuck))
+
+;;; PreludeModern's TypeEquality: an equality constraint on a family's
+;;; application (parser/type-parser.mumble's apply-equalities).
+(define (type-equality-class? class)
+  (and (eq? (def-name class) '|TypeEquality|)
+       (eq? (def-module class) '|PreludeModern|)))
+
+;;; A wanted equality: its types unified, its dictionary ().
+(define (solve-type-equality p)
+  (when (type-equality-class? (mp-placeholder-class p))
+    (let ((types (mp-placeholder-types p)))
+      (type-unify (car types) (cadr types)
+	(type-error "The types ~A and ~A of an equality constraint do not match."
+		    (car types) (cadr types)))
+      (setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor"))))))
+
+;;; Structural equality of ntypes, nothing reduced (tyvars by identity).
+(define (ntype-identical? t1 t2)
+  (let ((t1 (prune t1)) (t2 (prune t2)))
+    (cond ((eq? t1 t2) '#t)
+	  ((and (ntycon? t1) (ntycon? t2))
+	   (and (eq? (ntycon-tycon t1) (ntycon-tycon t2))
+		(eqv? (length (ntycon-args t1)) (length (ntycon-args t2)))
+		(every (function ntype-identical?) (ntycon-args t1) (ntycon-args t2))))
+	  ((and (ntyapp? t1) (ntyapp? t2))
+	   (and (ntype-identical? (ntyapp-fun t1) (ntyapp-fun t2))
+		(eqv? (length (ntyapp-args t1)) (length (ntyapp-args t2)))
+		(every (function ntype-identical?) (ntyapp-args t1) (ntyapp-args t2))))
+	  (else '#f))))
 
 ;;; Whether TYPE is the class equality's template at a given's types
 ;;; (structurally, type variables by identity, nothing reduced).
@@ -592,6 +631,9 @@
 (define (process-mp-placeholder p deferred decls)
   (cond ((not (eq? (mp-placeholder-exp p) '#f))
 	 deferred)
+	((type-equality-class? (mp-placeholder-class p))
+	 (solve-type-equality p)
+	 deferred)
 	((class-constraint-family (mp-placeholder-class p))
 	 (process-cfam-placeholder p deferred decls))
 	((reducible-one-parameter-mp? p)
@@ -642,6 +684,19 @@
 
 ;;; The one-parameter classes at type variable TYVAR that the signatures'
 ;;; constraint family constraints being checked give.
+;;; The one-parameter classes the signature gives at a type that reduces
+;;; to TYVAR: DeBruijn (SubstArg a), Subst a's superclass, with SubstArg a
+;;; ~ a given (Agda's lookupS).
+(define (given-classes-at-reduced tyvar)
+  (let ((classes '()))
+    (dolist (g (dynamic *given-mp-constraints*))
+      (when (and (class? (car g))
+		 (pair? (cdr g)) (null? (cddr g))
+		 (not (eq? (prune (cadr g)) tyvar))
+		 (eq? (reduce-mp-type (cadr g)) tyvar))
+	(push (car g) classes)))
+    classes))
+
 (define (cfam-given-classes tyvar)
   (let ((classes '()))
     (dolist (g (dynamic *given-mp-constraints*))

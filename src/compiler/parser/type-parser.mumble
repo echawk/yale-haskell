@@ -40,7 +40,9 @@
       (parse-type-operators-1 left)))
 
 (define (parse-type-operators-1 left)
-  (cond ((and (haskell98?) (tilde-here?) (language-extension? "TypeOperators"))
+  (cond ((and (haskell98?) (tilde-here?)
+	      (or (language-extension? "TypeOperators") (language-extension? "TypeFamilies")
+		  (language-extension? "GADTs")))
 	 ;; an equality as a type, in a constraint synonym's body (type C a
 	 ;; = (F a ~ '())): %equality, which constraint-synonym-body drops
 	 (advance-token)
@@ -511,11 +513,19 @@
 (define (apply-equalities equalities sig)
   (dolist (e equalities)
     (let ((left (cadr e)) (right (caddr e)))
-      (cond ((and (tyvar? left) (memq (tyvar-name left) (ast-tyvar-names right)))
-	     ;; circular (Item (v a) ~ a, ListLike's instance): not used
-	     '#f)
-	    ((and (tyvar? right) (memq (tyvar-name right) (ast-tyvar-names left)))
-	     '#f)
+      (cond ((or (and (tyvar? left) (memq (tyvar-name left) (ast-tyvar-names right)))
+		 (and (tyvar? right) (memq (tyvar-name right) (ast-tyvar-names left)))
+		 (not (or (tyvar? left) (tyvar? right))))
+	     ;; circular (SubstArg a ~ a), or between two other types (F a
+	     ;; ~ Int): a TypeEquality constraint, kept when a side is a
+	     ;; family's application (util/signature.mumble's
+	     ;; keep-family-equalities)
+	     (when (not (dynamic *recording-equalities?*))
+	       (setf (signature-mcontext sig)
+		     (append (signature-mcontext sig)
+			     (list (**mp-context (make class-ref (name '|%TypeEq|)
+						       (class *undefined-def*))
+						 (list left right)))))))
 	    ((tyvar? left)
 	     (record-equality (tyvar-name left) right)
 	     (record-signature-equality sig (tyvar-name left) right)

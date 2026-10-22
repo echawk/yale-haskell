@@ -12,6 +12,7 @@
 (define (resolve-signature signature)
   (float-synonym-foralls signature)
   (expand-constraint-synonyms signature)
+  (keep-family-equalities signature)
   (reduce-flexible-contexts signature)
   (add-mp-superclass-contexts signature)
   (with-slots signature (context type mcontext) signature
@@ -382,6 +383,19 @@
 		    (append (signature-context signature)
 			    (list (make context (class (**class/def (tuple-2-1 s)))
 					         (tyvar (tyvar-name ty)))))))))))))
+
+;;; An equality constraint (TypeEquality, parser/type-parser.mumble's
+;;; apply-equalities) is kept only when a side is a type family's
+;;; application, and PreludeModern is there to give the class.
+(define (keep-family-equalities signature)
+  (setf (signature-mcontext signature)
+	(lisp:remove-if
+	 (lambda (c)
+	   (and (eq? (class-ref-name (mp-context-class c)) '|%TypeEq|)
+		(or (not (prelude-modern-def '|TypeEquality|))
+		    (not (lisp:some (function family-application-ast?)
+				    (mp-context-types c))))))
+	 (signature-mcontext signature))))
 
 (define (family-application-ast? type)
   (and (tycon? type)

@@ -24,7 +24,7 @@ module PreludeModern (
     Traversable(traverse, sequenceA, mapM, sequence),
     mapM_, sequence_, concat, concatMap, and, or, any, all, notElem,
     find, maximumBy, minimumBy, WrappedMonad(WrapMonad, unwrapMonad),
-    IP(ip),
+    IP(ip), TypeEquality,
     Word,
     errorWithoutStackTrace
   ) where
@@ -395,6 +395,12 @@ instance Foldable ((,) a) where
 -- expression-typechecking.mumble's ip-let).  GHC.Classes' class.
 class IP x a | x -> a where
   ip :: a
+
+-- A given equality on a type family's application (SubstArg a ~ a, F a
+-- ~ Int), kept as this class's constraint: wanted, its types are unified
+-- and its dictionary is (); given, the application reduces to the other
+-- type (src/compiler/type/mp-classes.mumble's given-family-reduction).
+class TypeEquality a b
 
 newtype WrappedMonad m a = WrapMonad { unwrapMonad :: m a }
 

@@ -256,7 +256,8 @@
 	  (if (or (context-implies? (ntyvar-context type) classes)
 		  ;; or a given constraint family's constraint gives them
 		  ;; (All Show '[a]: mp-classes.mumble's cfam-given-classes)
-		  (context-implies? (append (ntyvar-context type) (cfam-given-classes type))
+		  (context-implies? (append (ntyvar-context type) (cfam-given-classes type)
+					    (given-classes-at-reduced type))
 				    classes))
 	      'OK ; no need for context propagation here
 	      (begin 
