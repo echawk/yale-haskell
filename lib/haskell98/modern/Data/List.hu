@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/modern/Data/
+:o= all
+List.hs

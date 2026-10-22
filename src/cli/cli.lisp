@@ -258,6 +258,27 @@
   (setf *package* (find-package "MUMBLE-USER"))
   (setf *readtable* (symbol-value (find-symbol "*MUMBLE-READTABLE*"
                                                "MUMBLE-IMPLEMENTATION")))
+  ;; YALE_HASKELL_BACKTRACE_AFTER=N: after N seconds, each thread prints
+  ;; its backtrace on standard error (to find where a compile loops)
+  #+sbcl
+  (let ((after (uiop:getenv "YALE_HASKELL_BACKTRACE_AFTER")))
+    (when (and after (plusp (length after)))
+      (let ((main-thread sb-thread:*current-thread*))
+        (declare (ignore main-thread))
+        (sb-thread:make-thread
+         (lambda ()
+           (sleep (parse-integer after))
+           (dolist (th (sb-thread:list-all-threads))
+             (unless (or (eq th sb-thread:*current-thread*)
+                         (search "finalizer" (or (sb-thread:thread-name th) "")))
+               (ignore-errors
+                (sb-thread:interrupt-thread
+                 th (lambda ()
+                      (format *error-output* "~&--- backtrace of ~A ---~%"
+                              (sb-thread:thread-name sb-thread:*current-thread*))
+                      (sb-debug:print-backtrace :count 80 :stream *error-output*)
+                      (finish-output *error-output*)))))))
+         :name "backtrace timer"))))
   (let ((args (split-program-args argv)))
     #+sbcl (run-with-program-stack (lambda () (clingon:run (command) args)))
     #-sbcl (clingon:run (command) args))

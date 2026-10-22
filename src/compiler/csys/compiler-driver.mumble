@@ -918,6 +918,7 @@
 		;; the cache's interfaces are compiled, for loading speed
 		(*compile-interface*
 		  (or (unit-in-cache? c) (dynamic *compile-interface*))))
+    (trace-compile "~&Compiling unit ~A~%" (ucache-ufile c))
     (when (memq 'compiling *printers*)
        (format '#t "~&Compiling unit ~s.~%Optimizers: ~A~%"
 	       (ucache-ufile c)

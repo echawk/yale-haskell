@@ -21,8 +21,12 @@ what the C compiler computes:
 `##` is a `#' in the output (##ifdef: a directive for the module's own
 CPP).  A conditional on MIN_VERSION_pkg(..), which the C compiler cannot
 evaluate, is left to the module's CPP (Yale Haskell's), with its #else and
-#endif.  #let and #def are not supported.  The program is compiled with
-cc and run; the output module starts with {-# LANGUAGE CPP #-}.
+#endif.  `#let name x y = "fmt", e1, ...` defines the construct
+#{name a, b}, which prints printf("fmt", e1, ...) with x, y bound to a, b
+(a C macro, so it is subject to the conditionals around it; one that
+names a built-in construct overrides it where it is defined).  #def is
+not supported.  The program is compiled with cc and run; the output
+module starts with {-# LANGUAGE CPP #-}.
 """
 
 import os
@@ -34,7 +38,10 @@ import tempfile
 KEYWORDS = ["const_str", "const", "size", "alignment", "offset", "peek",
             "poke", "ptr", "type", "enum"]
 DIRECTIVES = ["if", "ifdef", "ifndef", "elif", "else", "endif", "define",
-              "undef", "include", "error", "warning", "pragma", "line"]
+              "undef", "include", "error", "warning", "pragma", "line", "let"]
+
+# the names #let defines (translate's first pass)
+LET_NAMES = set()
 
 
 def c_string(s):
@@ -46,8 +53,6 @@ def c_string(s):
             out.append('\\"')
         elif ch == "\n":
             out.append("\\n")
-        elif ch == "%":
-            out.append("%%")
         elif ord(ch) < 32 or ord(ch) > 126:
             for b in ch.encode("utf-8"):
                 out.append("\\%03o" % b)
@@ -73,8 +78,24 @@ def split_args(s):
     return args
 
 
+def let_define(full):
+    """The C macro for `#let name x y = "fmt", e1, ...`."""
+    m = re.match(r"\s*#\s*let\s+([A-Za-z_][A-Za-z0-9_]*)\s*([^=]*)=(.*)", full, re.S)
+    if not m:
+        return ""
+    params = ", ".join(m.group(2).split())
+    return "#define hsc_let_%s(%s) printf(%s);" % (m.group(1), params, m.group(3).strip())
+
+
 def construct_code(key, body):
     """C statements printing a construct's value."""
+    if key in LET_NAMES:
+        builtin = construct_code_1(key, body) if key in KEYWORDS else ""
+        return "\n#ifdef hsc_let_%s\nhsc_let_%s(%s)\n#else\n%s\n#endif\n" % (key, key, body, builtin)
+    return construct_code_1(key, body)
+
+
+def construct_code_1(key, body):
     a = split_args(body) if key in ("offset", "peek", "poke", "ptr", "enum") else [body.strip()]
     if key == "const":
         e = a[0]
@@ -147,16 +168,16 @@ def scan_text(text):
                     depth -= 1
                 j += 1
             inner = text[i + 2:j - 1].strip()
-            m = re.match(r"([a-z_]+)\s*(.*)", inner, re.S)
-            if m and m.group(1) in KEYWORDS:
+            m = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\s*(.*)", inner, re.S)
+            if m and (m.group(1) in KEYWORDS or m.group(1) in LET_NAMES):
                 pieces.append(("text", "".join(cur)))
                 cur = []
                 pieces.append(("construct", m.group(1), m.group(2)))
                 i = j
                 continue
         if ch == "#" and (i == 0 or not (text[i - 1].isalnum() or text[i - 1] in "_'#")):
-            m = re.match(r"#([a-z_]+)\b", text[i:])
-            if m and m.group(1) in KEYWORDS:
+            m = re.match(r"#([A-Za-z_][A-Za-z0-9_]*)\b", text[i:])
+            if m and (m.group(1) in KEYWORDS or m.group(1) in LET_NAMES):
                 # #const e: to the end of the line
                 end = text.find("\n", i)
                 end = len(text) if end < 0 else end
@@ -173,6 +194,10 @@ def scan_text(text):
 
 def translate(src):
     lines = src.split("\n")
+    for line in lines:
+        m = re.match(r"\s*#\s*let\s+([A-Za-z_][A-Za-z0-9_]*)", line)
+        if m:
+            LET_NAMES.add(m.group(1))
     top, body = [], []
     stack = []       # for each open conditional: 'c' or 'hs'
     i = 0
@@ -197,7 +222,9 @@ def translate(src):
                 hs = bool(stack) and stack[-1] == "hs"
                 if stack:
                     stack.pop()
-            if hs:
+            if d == "let":
+                body.append(let_define(full))
+            elif hs:
                 body.append('fputs(%s, stdout);' % c_string(full.strip() + "\n"))
             elif d in ("include", "define", "undef") and not stack:
                 top.append(full.strip())

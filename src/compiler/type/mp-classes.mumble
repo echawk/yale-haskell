@@ -343,8 +343,13 @@
 	       (types (cdr g)))
 	   (and (class? class)
 		(type-equality-class? class)
+		;; oriented when both sides are applications (PrimState m1 ~
+		;; PrimState m2, primitive's): the first reduces to the
+		;; second, not back
 		(cond ((ntype-identical? (car types) type) (cadr types))
-		      ((ntype-identical? (cadr types) type) (car types))
+		      ((and (ntype-identical? (cadr types) type)
+			    (not (family-app? (prune (car types)))))
+		       (car types))
 		      (else '#f)))))
        (dynamic *given-mp-constraints*))
       (lisp:some

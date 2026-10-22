@@ -11,10 +11,20 @@
 
 (define *module-asts* '())   ; a global only for debugging purposes
 
-;;; Later add the printing and timing stuff here
+;;; YALE_HASKELL_TRACE set: each unit and phase as it starts, and each
+;;; phase's time, on standard error, whatever the printers (a package's
+;;; units print nothing otherwise): to find where a long compile is.
+(define (trace-compile?)
+  (not (eq? (getenv "YALE_HASKELL_TRACE") '#f)))
+
+(define (trace-compile format-string . args)
+  (when (trace-compile?)
+    (apply (function lisp:format) lisp:*error-output* format-string args)
+    (lisp:force-output lisp:*error-output*)))
 
 (define-local-syntax (phase-body phase-name body printer)
   `(dynamic-let ((*phase*       ',phase-name))
+     (trace-compile "~&  ~A~%" ',phase-name)
      (when (memq ',phase-name (dynamic *printers*))
        (format '#t "~%Phase ~a:~%" ',phase-name)
        (force-output))
@@ -28,6 +38,7 @@
 	     `((when (memq ',phase-name (dynamic *printers*))
 		 (funcall ,printer result)
 		 (force-output))))
+       (trace-compile "~&  ~A: ~A s~%" ',phase-name (- current-time phase-start-time))
        (when (memq 'phase-time *printers*)
 	 (let ((elapsed-time (- current-time phase-start-time)))
 	   (format '#t "~&~A complete: ~A seconds~%"

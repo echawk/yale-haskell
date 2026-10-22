@@ -412,6 +412,7 @@ dated: a package listed there as failing may build now.
 | `#error This code isn't being built with GHC` | set `YALE_CPP_OPTIONS=-D__GLASGOW_HASKELL__=906` for that install |
 | `stack overflow`, exit status 2 | the program ran out of its 512 MB control stack; `YALE_HASKELL_STACK_MB` sets another size |
 | a crash with no Haskell message when the heap runs out | `YALE_HASKELL_DEBUG=1` prints a backtrace |
+| a compile that seems to hang (no output: a package's units print nothing) | `YALE_HASKELL_TRACE=1` prints each unit and phase as it starts, and each phase's time, on standard error; `YALE_HASKELL_BACKTRACE_AFTER=N` prints the threads' backtraces after N seconds |
 | mcabal rejects a `.cabal` file (for example an empty `Default-Extensions:` field, or `{ }` blocks after `if`) | MicroCabal's own parser (GHC-built MicroCabal rejects them too); edit the cabal file |
 
 ### Cache

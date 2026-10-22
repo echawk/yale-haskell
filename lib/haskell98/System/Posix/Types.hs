@@ -4,11 +4,13 @@
 module System.Posix.Types (
     Fd(Fd), CMode, CDev, CIno, COff, CPid, CSsize, CUid, CGid, CNlink,
     FileMode, FileOffset, EpochTime, ProcessID, ByteCount, DeviceID,
-    FileID, UserID, GroupID, LinkCount, Limit
+    FileID, UserID, GroupID, LinkCount, Limit,
+    CClockId, CBlkSize, CBlkCnt, CFsBlkCnt, CFsFilCnt, CRLim, CSpeed,
+    CTcflag, CCc, CId, CKey, CSocklen, CNfds
   ) where
 
 import Data.Int (Int32, Int64)
-import Data.Word (Word16, Word32, Word64)
+import Data.Word (Word8, Word16, Word32, Word64)
 import Foreign.C.Types (CInt)
 
 newtype Fd = Fd CInt deriving (Eq, Ord)
@@ -44,6 +46,20 @@ type CSsize = Int64
 type CUid = Word32
 type CGid = Word32
 type CNlink = Word16
+-- (the sizes of macOS/arm64's C types)
+type CClockId = Word32
+type CBlkSize = Int32
+type CBlkCnt = Int64
+type CFsBlkCnt = Word32
+type CFsFilCnt = Word32
+type CRLim = Word64
+type CSpeed = Word64
+type CTcflag = Word64
+type CCc = Word8
+type CId = Word32
+type CKey = Int32
+type CSocklen = Word32
+type CNfds = Word32
 type FileMode = CMode
 type FileOffset = COff
 type EpochTime = Int64
