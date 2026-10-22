@@ -1,9 +1,10 @@
 -- System.Time (old-time): the Haskell 98 library Time under its
--- hierarchical name, with old-time's additions noTimeDiff and
--- normalizeTimeDiff.
-module System.Time (module Time, noTimeDiff, normalizeTimeDiff) where
+-- hierarchical name, with old-time's additions: ClockTime's constructor
+-- TOD, noTimeDiff and normalizeTimeDiff.
+module System.Time (module Time, ClockTime(TOD), noTimeDiff, normalizeTimeDiff) where
 
 import Time
+import TimeBase (ClockTime(TOD))
 
 noTimeDiff :: TimeDiff
 noTimeDiff = TimeDiff 0 0 0 0 0 0 0

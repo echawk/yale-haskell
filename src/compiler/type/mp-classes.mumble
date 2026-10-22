@@ -1296,6 +1296,7 @@
   (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls))
 	(res '()))
     (dolist (param (append (if (mp-placeholder? p) (mp-placeholder-local-params p) '())
+			   (placeholder-given-locals p)
 			   (dynamic *local-mp-params*)
 			   (if decl (valdef-mp-dict-params decl) '())))
       (when (qc-class? (mp-param-class param))

@@ -244,7 +244,8 @@
 (define (**dict-placeholder class tyvar edecls var)
   (make dict-placeholder
 	(class class) (exp '#f) (overloaded-var var)
-	(tyvar tyvar) (enclosing-decls edecls)))
+	(tyvar tyvar) (enclosing-decls edecls)
+	(given-locals (dynamic *local-mp-params*))))
 
 ;;; Multi-parameter dictionaries a polymorphic argument's context gives
 ;;; while it is type checked, as (class types var) (type/polytypes.mumble).
@@ -259,7 +260,8 @@
 (define (**method-placeholder method tyvar edecls var)
   (make method-placeholder
 	(method method) (exp '#f) (overloaded-var var)
-	(tyvar tyvar) (enclosing-decls edecls)))
+	(tyvar tyvar) (enclosing-decls edecls)
+	(given-locals (dynamic *local-mp-params*))))
 
 ;;; Some less primitive stuff
 

@@ -408,7 +408,11 @@
    (exp (type (maybe exp)))
    (tyvar (type ntype))
    (overloaded-var (type exp))
-   (enclosing-decls (type (list decl)))))
+   (enclosing-decls (type (list decl)))
+   ;; the multi-parameter dictionaries (quantified constraints among them)
+   ;; given where it was made: a polymorphic argument's context
+   ;; (util/constructors.mumble's *local-mp-params*)
+   (given-locals (type list) (default '()))))
 
 (define-struct method-placeholder
   (include placeholder)

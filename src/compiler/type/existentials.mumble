@@ -391,6 +391,9 @@
 ;;; variable to anything but a free variable.  No side effects: the
 ;;; tentative bindings of free variables are kept in an alist, so that
 ;;; Refl :: c :~: c does not unify with b :~: a.
+(define (scoped-ntyvar? tv)
+  (lisp:some (lambda (b) (eq? (prune (tuple-2-2 b)) tv)) (dynamic *scoped-tyvars*)))
+
 (define (could-unify? t1 t2 depth)
   (not (eq? (could-unify-1 t1 t2 depth '()) 'fail)))
 
@@ -402,11 +405,13 @@
 	  ((eq? t1 t2) env)
 	  ;; (as unify: a monomorphic variable is not bound to a signature's:
 	  ;; bifunctors' smash's go (One x) (One _) = p x)
-	  ((and (ntyvar? t1) (not (ntyvar-read-only? t1)))
+	  ;; (nor is an enclosing signature's scoped type variable: Agda's
+	  ;; coerce v :: t, t conApp's)
+	  ((and (ntyvar? t1) (not (ntyvar-read-only? t1)) (not (scoped-ntyvar? t1)))
 	   (if (or (occurs-in-type t1 t2) (monomorphic-to-signature? t1 t2))
 	       'fail
 	       (cons (cons t1 t2) env)))
-	  ((and (ntyvar? t2) (not (ntyvar-read-only? t2)))
+	  ((and (ntyvar? t2) (not (ntyvar-read-only? t2)) (not (scoped-ntyvar? t2)))
 	   (if (or (occurs-in-type t2 t1) (monomorphic-to-signature? t2 t1))
 	       'fail
 	       (cons (cons t2 t1) env)))

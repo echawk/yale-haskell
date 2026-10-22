@@ -420,7 +420,10 @@
 	       (match-family-patterns (cdr pats) (cdr types) env1))))))
 
 (define (match-family-pattern pat type env)
-  (let ((type (prune type)))
+  (let ((type (prune type))
+	;; a synonym in an equation's pattern is its expansion (Agda's type
+	;; SubstArg DeBruijnPattern, DeBruijnPattern = Pattern' DBPatVar)
+	(pat (expand-pattern-synonym pat 8)))
     (cond ((tyvar? pat)
 	   (let ((b (assq (tyvar-name pat) env)))
 	     (cond ((not b) (cons (tuple (tyvar-name pat) type) env))
@@ -444,6 +447,15 @@
 		   ((ntycon? type) 'fail)
 		   (else 'stuck))))
 	  (else 'stuck))))
+
+(define (expand-pattern-synonym pat depth)
+  (if (and (> depth 0) (tycon? pat)
+	   (synonym? (tycon-def pat))
+	   (not (synonym-family? (tycon-def pat)))
+	   (synonym-body (tycon-def pat))
+	   (eqv? (length (tycon-args pat)) (length (synonym-args (tycon-def pat)))))
+      (expand-pattern-synonym (expand-synonym pat) (1- depth))
+      pat))
 
 (define (expand-ntype-synonym-1 type env)
   (cond ((tyvar? type)

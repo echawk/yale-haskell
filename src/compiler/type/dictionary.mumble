@@ -70,9 +70,15 @@
 ;;;  e) the type variable is ambiguous (none of the above)
 
 (define (process-placeholder p deferred decls)
-  (if (mp-placeholder? p)
-      (process-mp-placeholder p deferred decls)
-      (process-placeholder-1 p deferred decls)))
+  ;; (what was given where P was made is given to the placeholders made
+  ;; on the way: an instance's context)
+  (dynamic-let ((*local-mp-params*
+		 (append (placeholder-given-locals p)
+			 (if (mp-placeholder? p) (mp-placeholder-local-params p) '())
+			 (dynamic *local-mp-params*))))
+    (if (mp-placeholder? p)
+	(process-mp-placeholder p deferred decls)
+	(process-placeholder-1 p deferred decls))))
 
 (define (process-placeholder-1 p deferred decls)
   (process-placeholder-at p (prune (placeholder-tyvar p)) deferred decls))

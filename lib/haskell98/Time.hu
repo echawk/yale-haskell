@@ -1,5 +1,4 @@
 :output $LIBRARYBIN/
 :o= all
-Locale.hu
-TimePrims.hu
+TimeBase.hu
 Time.hs
