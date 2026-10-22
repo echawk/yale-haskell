@@ -950,6 +950,20 @@
 		 env)))
 
 (define (desugar-record-con object env)
+  (let ((fields (record-synonym-fields (con-ref-name (record-con-con object)))))
+    (if fields
+	;; P {f = e, ..} of a record pattern synonym: P e1 .. en
+	(**app/l (make con-ref (name (con-ref-name (record-con-con object)))
+		       (con *undefined-def*) (infix? '#f))
+		 (map (lambda (f)
+			(let ((b (synonym-field-binding f (record-con-fields object))))
+			  (if b
+			      (tuple-2-2 b)
+			      (**abort (format '#f "Missing field ~A in record construction" f)))))
+		      fields))
+	(desugar-record-con-1 object env))))
+
+(define (desugar-record-con-1 object env)
   (let* ((con-ref (record-con-con object))
 	 (con (lookup-toplevel-name (con-ref-name con-ref)))
 	 (binds (resolve-field-bindings (record-con-fields object) con)))
@@ -991,6 +1005,83 @@
     (reverse args)))
 
 (define (desugar-record-update object)
+  (let ((syn (update-record-synonym (record-update-fields object))))
+    (if syn
+	(desugar-synonym-record-update object (car syn) (cdr syn))
+	(desugar-record-update-1 object))))
+
+;;; e {f = v, ..} with fields of a record pattern synonym P (Agda's d {
+;;; primClauses = ..}): case e of P x1 .. xn -> P x1 .. v .. xn.
+(define (desugar-synonym-record-update object name fields)
+  (let* ((vars (update-vars (length fields)))
+	 (pcon (make pcon (name name) (con *undefined-def*) (infix? '#f)
+		     (pats (map (function **pat) vars))))
+	 (args (map (lambda (f v)
+		      (let ((b (synonym-field-binding f (record-update-fields object))))
+			(if b (tuple-2-2 b) (**var v))))
+		    fields vars)))
+    (**case (record-update-exp object)
+	    (list (**alt/simple pcon
+				(**app/l (make con-ref (name name) (con *undefined-def*)
+					       (infix? '#f))
+					 args))
+		  (**alt/simple (**wildcard-pat)
+				(**abort "No match in record update"))))))
+
+;;; The fields of record pattern synonym NAME (this module's or an
+;;; imported one), when NAME is not a data constructor; else #f.
+(define (record-synonym-fields name)
+  (let ((local (assq name (module-pattern-synonyms *module*))))
+    (cond ((and local (not (null? (cadr local)))) (cadr local))
+	  (local '#f)
+	  (else
+	   (let ((template (imported-pattern-synonym name)))
+	     (and template (not (null? (car template))) (car template)))))))
+
+;;; The binding of field F in BINDINGS ((var-ref item) ..), by its name.
+(define (synonym-field-binding f bindings)
+  (lisp:find-if (lambda (b)
+		  (and (not (eq? (tuple-2-1 b) '|..|))
+		       (eq? (unqualified-name (var-ref-name (tuple-2-1 b))) f)))
+		bindings))
+
+(define (unqualified-name sym)
+  (let* ((s (symbol->string sym))
+	 (i (lisp:position #\. s :from-end '#t)))
+    (if (and i (> i 0) (< (1+ i) (string-length s))
+	     (char-upper-case? (string-ref s 0)))
+	(string->symbol (substring s (1+ i) (string-length s)))
+	sym)))
+
+;;; For a record update whose fields are none of a data type's but all a
+;;; record pattern synonym's: (name . fields), else #f.
+(define (update-record-synonym bindings)
+  (let ((names (map (lambda (b) (unqualified-name (var-ref-name (tuple-2-1 b))))
+		    (lisp:remove '|..| bindings :key (function tuple-2-1)))))
+    (and (not (null? names))
+	 (lisp:every (lambda (n)
+		       (let ((def (lookup-toplevel-name n)))
+			 (not (and (var? def) (var-field-alg def)))))
+		     names)
+	 (or (lisp:some (lambda (syn)
+			  (and (every (lambda (n) (memq n (cadr syn))) names)
+			       (cons (car syn) (cadr syn))))
+			(module-pattern-synonyms *module*))
+	     (let ((found '#f))
+	       (lisp:maphash
+		(lambda (builder template)
+		  (when (and (not found) template
+			     (every (lambda (n) (memq n (car template))) names))
+		    (let* ((s (symbol->string (def-name builder)))
+			   (con (add-con-prefix/symbol
+				 (string->symbol (substring s 8 (string-length s))))))
+		      ;; (one in scope here)
+		      (when (imported-pattern-synonym con)
+			(setf found (cons con (car template)))))))
+		*pattern-synonym-templates*)
+	       found)))))
+
+(define (desugar-record-update-1 object)
   (let* ((binds (resolve-field-bindings (record-update-fields object)))
 	 (alg (fields-algdata binds)))
     (if (eq? alg '#f)
@@ -1113,6 +1204,22 @@
 ;;; patterns are massaged by the caller.
 
 (define (desugar-record-pat pat)
+  (let ((fields (and (not (null? (record-pat-fields pat)))
+		     (eq? (pcon-con (record-pat-con pat)) *undefined-def*)
+		     (record-synonym-fields (pcon-name (record-pat-con pat))))))
+    (if fields
+	;; P {f = p} of a record pattern synonym (Agda's Primitive{
+	;; primClauses = cs }): P _ .. p .. _
+	(let ((pcon (record-pat-con pat)))
+	  (setf (pcon-pats pcon)
+		(map (lambda (f)
+		       (let ((b (synonym-field-binding f (record-pat-fields pat))))
+			 (if b (tuple-2-2 b) (**wildcard-pat))))
+		     fields))
+	  pcon)
+	(desugar-record-pat-0 pat))))
+
+(define (desugar-record-pat-0 pat)
   (let ((n (and (null? (record-pat-fields pat))
 		(eq? (pcon-con (record-pat-con pat)) *undefined-def*)
 		(pattern-synonym-arity (pcon-name (record-pat-con pat))))))

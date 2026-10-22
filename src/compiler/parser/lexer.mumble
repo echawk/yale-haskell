@@ -303,7 +303,11 @@
 		    (let ((tok  (car *tokens*)))
 		      (when (eq? (car tok) 'conid)
 			(push (cadr tok) *promoted-names*))))
-	     (lex-char))))
+	     (begin
+	       (lex-char)
+	       ;; MagicHash: 'c'# is the Char# literal, the character
+	       (when (and (char=? *char* #\#) (language-extension? "MagicHash"))
+		 (advance-char))))))
     (#\" (lex-string)
 	 ;; MagicHash: "..."# is an Addr# literal, (GHC.Exts.addrLit# "...")
 	 (when (and (char=? *char* #\#) (language-extension? "MagicHash"))
