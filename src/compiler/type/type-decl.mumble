@@ -132,8 +132,12 @@
        (setf (dynamic *given-mp-constraints*) '())
        (let ((sig-contexts (check-user-signatures all-vars)))
 	 (restrict-stuck-family-tyvars all-vars)
+	 (apply-mono-local-binds all-vars (map (function var-type) all-vars))
 	 (improve-mp-placeholders/given (dynamic *placeholders*)
 					(dynamic *given-mp-constraints*))
+	 ;; (before the overloaded variables are collected: improvement may
+	 ;; unify them, Singleton a1 (NonEmpty a2) making a1 a2)
+	 (improve-mp-placeholders (dynamic *placeholders*))
 
 ;;; This generalizes the signatures of recursive decls.  First, the
 ;;; context of the declaration group is computed.  Any tyvar in the
@@ -272,6 +276,7 @@
       (setf (dynamic *given-mp-constraints*) '())
       (check-user-signatures all-vars)
       (restrict-stuck-family-tyvars all-vars)
+      (apply-mono-local-binds all-vars (list lhs-type))
       ;; multi-parameter constraints (mp-classes.mumble): improve by
       ;; functional dependencies, then those to generalize over, when
       ;; there is no signature to give them
@@ -404,6 +409,37 @@
 ;;; signature is not generalized over the application's type variables:
 ;;; they stay the enclosing binding's, whose use decides the application
 ;;; and so the constraint (its placeholder is passed out to it).
+
+;;; MonoLocalBinds (GHC; implied by TypeFamilies and GADTs): a local
+;;; binding without a signature that is not closed, its type or its
+;;; constraints mentioning an enclosing binding's type variables, is not
+;;; generalized (Agda's recurse in instance PatternLike a (Pattern' a),
+;;; whose constraint PatternLike a (Pattern' t) only a use resolves).
+(define (apply-mono-local-binds vars types)
+  (when (and (not (null? vars))
+	     (not (null? (dynamic *enclosing-decls*)))   ; a local binding
+	     (mono-local-binds-module? (car vars))
+	     (not (some (function var-signature) vars)))
+    (let* ((types (lisp:remove-if-not (lambda (ty) (or (ntyvar? ty) (ntycon? ty) (ntyapp? ty))) types))
+	   (tyvars (collect-tyvars/l types)))
+      ;; (mp-type-non-generic? sees an application's head too: m in
+      ;; Pat t -> m (Pat t))
+      (when (or (lisp:some (function mp-type-non-generic?) types)
+		(lisp:some (lambda (p)
+			     (and (mp-placeholder? p)
+				  (lisp:some (function mp-type-non-generic?)
+					     (mp-placeholder-types p))))
+			   (dynamic *placeholders*)))
+	(setf (dynamic *non-generic-tyvars*)
+	      (append (lisp:remove-if (function non-generic?) tyvars)
+		      (dynamic *non-generic-tyvars*)))))))
+
+;;; Whether VAR's module has MonoLocalBinds, or TypeFamilies or GADTs.
+(define (mono-local-binds-module? var)
+  (let ((m (table-entry *modules* (def-module var))))
+    (and m
+	 (lisp:some (lambda (e) (mem-string e (module-extensions m)))
+		    '("MonoLocalBinds" "TypeFamilies" "GADTs")))))
 
 ;;; A type variable this binding may generalize.
 (define (non-generic-free? tv)

@@ -557,10 +557,53 @@
     (when (recursive-type? ovar-type)
 	 (error
 	  "Implementation error: overloaded method found a recursive type"))
-    ;; (and the multi-parameter context's: an instance of a class whose
-    ;; method has its own constraints, under the instance's Step t u)
-    (mlet (((ntype new-vars mps) (instantiate-gtype/mp gtype))
-	   (object1 (insert-mp-placeholders
-		     (insert-dict-placeholders (**var/def var) new-vars object)
-		     mps object)))
-	  (return-type object1 ntype))))
+    (if (and (gtype? (var-signature var)) (not (null? (gtype-mcontext gtype))))
+	(return-type-of-overloaded-method object var gtype)
+	(mlet (((ntype new-vars) (instantiate-gtype/newvars gtype))
+	       (object1 (insert-dict-placeholders
+			 (**var/def var) new-vars object)))
+	  (return-type object1 ntype)))))
+
+;;; An instance's method in its dictionary, the instance with a
+;;; multi-parameter context (instance Step t u => Step [t] u): the method
+;;; takes its dictionaries in its own signature's order, the instance's
+;;; and its own mixed (one-parameter first, then multi-parameter ones), so
+;;; the dictionary's entry is \own .. -> m <instance's and own, in order>.
+(define (return-type-of-overloaded-method object var gtype)
+  (mlet (((ntype otyvars omps) (instantiate-gtype/mp gtype))
+	 ((vtype vtyvars vmps) (instantiate-gtype/mp (var-signature var))))
+    (let ((ocontexts (map (lambda (tv) (cons tv (ntyvar-context tv))) otyvars))
+	  (vcontexts (map (lambda (tv) (cons tv (ntyvar-context tv))) vtyvars))
+	  (own '())
+	  (args '()))
+      ;; (the method's own contexts are its parameters here, not the
+      ;; dictionary's: the instance's become placeholders below)
+      (dolist (tv vtyvars) (setf (ntyvar-context tv) '()))
+      (type-unify vtype ntype '#f)
+      (dolist (vc vcontexts)
+	(dolist (class (cdr vc))
+	  (if (lisp:some (lambda (oc) (and (eq? (prune (car oc)) (prune (car vc)))
+					   (memq class (cdr oc))))
+			 ocontexts)
+	      (let ((p (**dict-placeholder class (prune (car vc)) (dynamic *enclosing-decls*) object)))
+		(remember-placeholder p)
+		(push p args))
+	      (let ((d (create-temp-var "d_own")))
+		(push d own)
+		(push (**var/def d) args)))))
+      (dolist (m vmps)
+	(if (lisp:some (lambda (om) (and (eq? (tuple-2-1 om) (tuple-2-1 m))
+					 (every (function mp-type-equal?) (tuple-2-2 om) (tuple-2-2 m))))
+		       omps)
+	    (let ((p (**mp-placeholder (tuple-2-1 m) (tuple-2-2 m) '#f
+				       (dynamic *enclosing-decls*) object)))
+	      (remember-placeholder p)
+	      (push p args))
+	    (let ((d (create-temp-var "d_own")))
+	      (push d own)
+	      (push (**var/def d) args))))
+      (let ((body (**app/l (**var/def var) (reverse args))))
+	(return-type (if (null? own)
+			 body
+			 (**lambda/pat (map (function **var-pat/def) (reverse own)) body))
+		     ntype)))))

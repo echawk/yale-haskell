@@ -1,12 +1,5 @@
--- hiding (T): a bare type name hides the type (and a constructor named
--- T), not the type's other constructors (H98 5.3.1)
+-- hiding (T()) hides the type T, not its constructor T
 module Main (main) where
-import qualified HideTypeA as A
-import HideTypeA hiding (Color, Shape)
-
-f :: A.Color -> A.Shape
-f Red = Circle 1
-f Green = A.Shape
-
+import HidingTypeA hiding (T())
 main :: IO ()
-main = print (map f [Red, Green])
+main = print (T 2)

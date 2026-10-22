@@ -125,7 +125,11 @@
   (let* ((listed  (hidden-group-members group all))
 	 (members (lisp:remove-if
 		   (lambda (n-d)
-		     (or (lisp:find (tuple-2-1 n-d) all
+		     (or (lisp:find (tuple-2-1 n-d)
+				    ;; (T() or T(C) names T, not a constructor T:
+				    ;; Agda's hiding (TerminationCheck())
+				    (lisp:remove-if (lambda (e) (or (entity-class? e) (entity-datatype? e)))
+						    all)
 				    :test (function hidden-name-matches?))
 			 (lisp:some (lambda (m)
 				      (or (eq? (tuple-2-1 n-d) m)
