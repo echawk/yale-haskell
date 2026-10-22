@@ -205,7 +205,10 @@
 			  (tycon-def type)
 			  (tycon-name type))))
 	  (push (tuple class (if via
-				 (list '%via target via (tycon-args type))
+				 ;; (and the declared context: deriving via
+				 ;; FiniteEnumeration (Maybe a) instance (Bounded a,
+				 ;; Enum a) => Enum (Maybe a), Agda's)
+				 (list '%via target via (tycon-args type) single)
 				 target))
 		*standalone-derivings*)))))
     (terminate-topdecl mod-ast in-layout? 'topdecl))
@@ -355,7 +358,10 @@
   (and (language-extension? "TemplateHaskell")
        (or (eq-token? 'splice-paren)
 	   (eq-token? 'splice-var)
-	   (and (eq-token? 'varid) (naked-splice-ahead?)))))
+	   ;; (or an expression starting with a bracket: Agda's
+	   ;; [] <$ mapM_ (qAddDependentFile . dataPath) dataFiles)
+	   (and (or (eq-token? 'varid) (eq-token? '\[) (eq-token? '\())
+		(naked-splice-ahead?)))))
 
 (define (naked-splice-ahead?)
   (let ((col *current-col*)

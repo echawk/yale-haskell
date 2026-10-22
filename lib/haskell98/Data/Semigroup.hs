@@ -110,3 +110,21 @@ instance Ord a => Ord (Arg a b) where
 instance Functor (Arg a) where fmap f (Arg x a) = Arg x (f a)
 instance Foldable (Arg a) where foldMap f (Arg _ a) = f a
 instance Traversable (Arg a) where traverse f (Arg x a) = Arg x <$> f a
+
+-- base's numeric instances
+instance Num a => Num (Min a) where
+  Min x + Min y = Min (x + y)
+  Min x - Min y = Min (x - y)
+  Min x * Min y = Min (x * y)
+  negate (Min x) = Min (negate x)
+  abs (Min x) = Min (abs x)
+  signum (Min x) = Min (signum x)
+  fromInteger n = Min (fromInteger n)
+instance Num a => Num (Max a) where
+  Max x + Max y = Max (x + y)
+  Max x - Max y = Max (x - y)
+  Max x * Max y = Max (x * y)
+  negate (Max x) = Max (negate x)
+  abs (Max x) = Max (abs x)
+  signum (Max x) = Max (signum x)
+  fromInteger n = Max (fromInteger n)

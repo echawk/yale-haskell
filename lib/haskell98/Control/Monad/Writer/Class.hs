@@ -15,6 +15,8 @@ import Control.Monad.Trans.Maybe (MaybeT(MaybeT), runMaybeT)
 import qualified Control.Monad.Trans.RWS.Lazy as RWSL
 import qualified Control.Monad.Trans.RWS.Strict as RWSS
 import qualified Control.Monad.Trans.Writer.Strict as WS
+import Control.Monad.Trans.Except (ExceptT(ExceptT), runExceptT)
+import Control.Monad.Trans.Identity (IdentityT(IdentityT), runIdentityT)
 
 class (Monoid w, Monad m) => MonadWriter w m | m -> w where
   writer :: (a, w) -> m a
@@ -81,3 +83,17 @@ instance (Monoid w, Monad m) => MonadWriter w (WS.WriterT w m) where
   tell = WS.tell
   listen = WS.listen
   pass = WS.pass
+
+instance (Monad m, MonadWriter w m) => MonadWriter w (ExceptT e m) where
+  writer aw = lift (writer aw)
+  tell w = lift (tell w)
+  listen m = ExceptT (listen (runExceptT m) >>= \(v, w) -> return (fmap (\a -> (a, w)) v))
+  pass m = ExceptT (pass (runExceptT m >>= \v -> return (case v of
+                     Left e -> (Left e, id)
+                     Right (a, f) -> (Right a, f))))
+
+instance (Monad m, MonadWriter w m) => MonadWriter w (IdentityT m) where
+  writer aw = lift (writer aw)
+  tell w = lift (tell w)
+  listen m = IdentityT (listen (runIdentityT m))
+  pass m = IdentityT (pass (runIdentityT m))

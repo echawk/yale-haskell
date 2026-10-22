@@ -44,9 +44,10 @@
 	(let* ((class-ref (tuple-2-1 d))
 	       (via?      (and (pair? (tuple-2-2 d)) (eq? (car (tuple-2-2 d)) '%via)))
 	       (target    (if via? (cadr (tuple-2-2 d)) (tuple-2-2 d)))
-	       (alg       (if (algdata? target)
-			      target
-			      (lookup-toplevel-name target))))
+	       (alg       (synonym-algdata
+			   (if (algdata? target)
+			       target
+			       (lookup-toplevel-name target)))))
 	  (resolve-class class-ref)
 	  (cond (via?
 		 ;; deriving via T instance C (A a ..): T with the head's
@@ -59,11 +60,21 @@
 								   (min (length args)
 									(length (algdata-tyvars alg))))))))
 		   (resolve-type-1 via '() '#t)
-		   (add-special-derived-instance
-		    alg (class-ref-class class-ref)
-		    (substitute-tyvars-simultaneously
-		     via (map (lambda (p) (tyvar-name (car p))) pairs)
-		     (map (lambda (p) (**tyvar (cdr p))) pairs)))))
+		   (dynamic-let ((*standalone-context*
+				  (let ((ctx (and (> (length (tuple-2-2 d)) 4)
+						  (list-ref (tuple-2-2 d) 4))))
+				    (and (pair? ctx)
+					 (map (lambda (c)
+						(let ((p (lisp:find (context-tyvar c) pairs
+								    :key (lambda (p) (tyvar-name (car p))))))
+						  (**context (context-class c)
+							     (if p (cdr p) (context-tyvar c)))))
+					      ctx)))))
+		     (add-special-derived-instance
+		      alg (class-ref-class class-ref)
+		      (substitute-tyvars-simultaneously
+		       via (map (lambda (p) (tyvar-name (car p))) pairs)
+		       (map (lambda (p) (**tyvar (cdr p))) pairs))))))
 		;; every type constructor is Typeable already (a data
 		;; family too: deriving instance Typeable Vector)
 		((typeable-class? (class-ref-class class-ref)))
@@ -72,6 +83,16 @@
 		(else
 		 (setf insts (derive-instance alg (class-ref-class class-ref) insts)))))))
     insts))
+
+;;; deriving instance C S, S a synonym for T t1 .. tn (Agda's Show
+;;; TypedBinding, TypedBinding' Expr): T's instance, its context inferred
+;;; (more general than GHC's, at the arguments).
+(define (synonym-algdata def)
+  (if (and (synonym? def) (not (synonym-family? def))
+	   (tycon? (synonym-body def))
+	   (algdata? (tycon-def (synonym-body def))))
+      (tycon-def (synonym-body def))
+      def))
 
 ;;; The derived instance of CLASS for ALG, added to INSTS (the standard
 ;;; classes, whose instances are computed together) or to the module.
@@ -164,6 +185,9 @@
 ;;; The instance context is the class on each of the type's parameters
 ;;; that the via type mentions (GHC infers it).
 
+;;; A standalone deriving's declared context (find-derivable-instances).
+(define *standalone-context* '#f)
+
 (define (add-special-derived-instance alg class strategy)
   (if (lookup-instance alg class)
       (signal-instance-exists alg class)
@@ -186,7 +210,12 @@
 			  (else (drop-trailing-type-args strategy dropped)))))
 	(setf (instance-ok? inst) '#t)
 	(setf (instance-suppress-readers? inst) '#f)
-	(cond ((and via (tyapp? via) (tyvar? (tyapp-fun via)))
+	(cond ((dynamic *standalone-context*)
+	       ;; a standalone deriving's own context
+	       (dolist (c (dynamic *standalone-context*))
+		 (resolve-class (context-class c)))
+	       (setf (instance-context inst) (dynamic *standalone-context*)))
+	      ((and via (tyapp? via) (tyvar? (tyapp-fun via)))
 	       ;; a via type headed by a variable (bi a): C (bi a), a
 	       ;; flexible context, as GHC infers it
 	       (setf (instance-context inst) '())

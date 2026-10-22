@@ -119,6 +119,9 @@
 			      (let ((m (method-placeholder-method p)))
 				(method-reference-code m (method-var-class m) given))))
 		    deferred)
+		   ((app-catch-all-instance (placeholder-class p))
+		    ;; C (t a) (Agda's TermSize (t a))
+		    (process-app-catch-all type p deferred decls))
 		   ((non-generic-app? type)
 		    (cons p deferred))
 		   (else
@@ -302,6 +305,22 @@
 		      (method-reference-code m (method-var-class m) given))))
 	  deferred)
 	(process-instantiated-tyvar-1 tycon p deferred decls))))
+
+;;; C at an application of a type variable, through C's instance C (t a).
+(define (process-app-catch-all type p deferred decls)
+  (let* ((class (placeholder-class p))
+	 (instance (app-catch-all-instance class)))
+    (mlet (((code def1)
+	    (generate-dict-ref instance type deferred decls
+			       (placeholder-enclosing-decls p)
+			       (placeholder-overloaded-var p))))
+      (setf (placeholder-exp p)
+	    (if (dict-placeholder? p)
+		code
+		(**app (**var/def (tuple-2-2 (assq (method-placeholder-method p)
+						   (class-selectors class))))
+		       code)))
+      def1)))
 
 (define (instance-for-placeholder? tycon p)
   (let ((class (if (dict-placeholder? p)

@@ -405,8 +405,32 @@
 ;;; they stay the enclosing binding's, whose use decides the application
 ;;; and so the constraint (its placeholder is passed out to it).
 
+;;; A type variable this binding may generalize.
+(define (non-generic-free? tv)
+  (not (non-generic? tv)))
+
 (define (restrict-stuck-family-tyvars vars)
   (when (not (some (function var-signature) vars))
+    ;; a class at a family application (Show (Item l), from IsList's
+    ;; toList): a flexible constraint, as a multi-parameter one, which
+    ;; the binding is generalized over (Agda's local prRen)
+    (setf (dynamic *placeholders*)
+	  (map (lambda (p)
+		 (let ((type (and (not (mp-placeholder? p)) (prune (placeholder-tyvar p)))))
+		   (if (and type (ntycon? type) (family-app? (expand-ntype-synonym type))
+			    (lisp:some (function non-generic-free?) (collect-tyvars type)))
+		       (let ((q (**mp-placeholder
+				 (if (dict-placeholder? p)
+				     (dict-placeholder-class p)
+				     (method-var-class (method-placeholder-method p)))
+				 (list type)
+				 (if (method-placeholder? p) (method-placeholder-method p) '#f)
+				 (placeholder-enclosing-decls p)
+				 (placeholder-overloaded-var p))))
+			 (setf (placeholder-exp p) q)
+			 q)
+		       p)))
+	       (dynamic *placeholders*)))
     (let ((tyvars '()))
       (dolist (p (dynamic *placeholders*))
 	(let ((type (if (mp-placeholder? p)

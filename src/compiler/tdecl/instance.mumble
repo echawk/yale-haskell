@@ -298,7 +298,9 @@
 	  (link-instance inst)
 	  (setf (instance-context inst) context)
 	  (dolist (c mcontext)
-	    (resolve-class (mp-context-class c)))
+	    (resolve-class (mp-context-class c))
+	    (dolist (ty (mp-context-types c))
+	      (resolve-type-1 ty '() '#t)))
 	  (setf (instance-mcontext inst) mcontext)
 	  (setf (instance-decls inst) decls)
 	  (setf (instance-ok? inst) '#t)
@@ -348,7 +350,9 @@
 	      (setf (instance-context inst) context)
 	      ;; multi-parameter constraints in the context
 	      (dolist (c mcontext)
-		(resolve-class (mp-context-class c)))
+		(resolve-class (mp-context-class c))
+		(dolist (ty (mp-context-types c))
+		  (resolve-type-1 ty '() '#t)))
 	      ;; with its one-parameter classes' multi-parameter
 	      ;; superclasses (Unbox a gives G.Vector Vector a), which the
 	      ;; methods' signatures get (util/signature.mumble)

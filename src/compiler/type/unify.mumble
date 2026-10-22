@@ -283,7 +283,11 @@
 (define (propagate-contexts/app type classes)
   (let ((head (prune (ntyapp-fun type))))
     (cond ((and (ntyvar? head) (ntyvar-read-only? head)
-		(not (every (lambda (c) (given-app-constraint? c type)) classes)))
+		(not (every (lambda (c) (or (given-app-constraint? c type)
+					    ;; C (t a) gives it (its arguments'
+					    ;; constraints found with the dictionary)
+					    (app-catch-all-instance c)))
+			    classes)))
 	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
 	   (type-error
 	    "Signature context is too general: no instance for ~A" type))
@@ -403,6 +407,13 @@
 	  (mlet (((pattern vars) (ast->ntype/bindings (make-instance-type i) '())))
 	    (head-could-match? pattern type (map (function tuple-2-2) vars)))))
    (class-instances (instance-class instance))))
+
+;;; CLASS's instance C (t a), or #f.
+(define (app-catch-all-instance class)
+  (and (class? class)
+       (lisp:find-if (lambda (i) (and (instance-catch-all? i) (instance-ok? i)
+				      (pair? (cdr (instance-tyvars i)))))
+		     (class-instances class))))
 
 ;;; An application's function and last argument, or #f.
 (define (application-parts type)

@@ -180,3 +180,21 @@ instance Foldable f => Foldable (Alt f) where foldMap f (Alt t) = foldMap f t
 instance Traversable f => Traversable (Alt f) where traverse f (Alt t) = fmap Alt (traverse f t)
 instance Foldable f => Foldable (Ap f) where foldMap f (Ap t) = foldMap f t
 instance Traversable f => Traversable (Ap f) where traverse f (Ap t) = fmap Ap (traverse f t)
+
+-- base's numeric instances
+instance Num a => Num (Sum a) where
+  Sum x + Sum y = Sum (x + y)
+  Sum x - Sum y = Sum (x - y)
+  Sum x * Sum y = Sum (x * y)
+  negate (Sum x) = Sum (negate x)
+  abs (Sum x) = Sum (abs x)
+  signum (Sum x) = Sum (signum x)
+  fromInteger n = Sum (fromInteger n)
+instance Num a => Num (Product a) where
+  Product x + Product y = Product (x + y)
+  Product x - Product y = Product (x - y)
+  Product x * Product y = Product (x * y)
+  negate (Product x) = Product (negate x)
+  abs (Product x) = Product (abs x)
+  signum (Product x) = Product (signum x)
+  fromInteger n = Product (fromInteger n)

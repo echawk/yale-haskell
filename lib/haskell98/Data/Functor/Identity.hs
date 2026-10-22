@@ -31,3 +31,13 @@ instance Foldable Identity where
 
 instance Traversable Identity where
   traverse f (Identity x) = fmap Identity (f x)
+
+-- base's numeric instances
+instance Num a => Num (Identity a) where
+  Identity x + Identity y = Identity (x + y)
+  Identity x - Identity y = Identity (x - y)
+  Identity x * Identity y = Identity (x * y)
+  negate (Identity x) = Identity (negate x)
+  abs (Identity x) = Identity (abs x)
+  signum (Identity x) = Identity (signum x)
+  fromInteger n = Identity (fromInteger n)

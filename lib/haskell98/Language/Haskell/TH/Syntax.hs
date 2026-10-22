@@ -354,8 +354,10 @@ instance Quasi IO where
   qReifyConStrictness _ = badIO "reifyConStrictness"
   qLocation             = badIO "currentLocation"
   qRecover _ _          = badIO "recover" -- Maybe we could fix this?
-  qGetPackageRoot       = badIO "getProjectRoot"
-  qAddDependentFile _   = badIO "addDependentFile"
+  -- (the compile's directory: MicroCabal compiles in the package's)
+  qGetPackageRoot       = return "."
+  -- (there is no recompilation checking to tell)
+  qAddDependentFile _   = return ()
   qAddTempFile _        = badIO "addTempFile"
   qAddTopDecls _        = badIO "addTopDecls"
   qAddForeignFilePath _ _ = badIO "addForeignFilePath"

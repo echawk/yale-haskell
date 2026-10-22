@@ -248,6 +248,14 @@
 			 (or (eq? (group-name group) '|Ix|)
 			     (memq (group-name group) *ix-core-names*)))))
       (export-group group))
+    ;; module M of a qualified import as M: what is also in scope
+    ;; unqualified, the same entity (report 5.2; Agda's module Reexport
+    ;; of import qualified GHC.Exts as Reexport (toList))
+    (when (and qualified-only? qualifier
+	       (memq qualifier (module-exported-module-names *module*)))
+      (dolist (n-d group)
+	(when (eq? (resolve-toplevel-name (tuple-2-1 n-d)) (tuple-2-2 n-d))
+	  (export-group (list n-d)))))
     (dolist (n-d group)
       (when (not qualified-only?)
 	(insert-top-definition (tuple-2-1 n-d) (tuple-2-2 n-d)))

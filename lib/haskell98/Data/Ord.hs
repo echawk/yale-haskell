@@ -46,3 +46,13 @@ instance M.Semigroup a => M.Semigroup (Down a) where
 
 instance M.Monoid a => M.Monoid (Down a) where
   mempty = Down M.mempty
+
+-- base's numeric instances
+instance Num a => Num (Down a) where
+  Down x + Down y = Down (x + y)
+  Down x - Down y = Down (x - y)
+  Down x * Down y = Down (x * y)
+  negate (Down x) = Down (negate x)
+  abs (Down x) = Down (abs x)
+  signum (Down x) = Down (signum x)
+  fromInteger n = Down (fromInteger n)
