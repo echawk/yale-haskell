@@ -75,11 +75,13 @@
 	((tycon? type)
 	 (let ((poly (polytype-synonym-expansion type 8)))
 	   (if poly
-	       (make forall-type (tyvars (forall-type-tyvars poly))
-		     (context (forall-type-context poly))
-		     (mcontext (forall-type-mcontext poly))
-		     (type (expand-nested-polytype-synonyms (forall-type-type poly)
-							     (1- depth))))
+	       (float-polytype-results
+		(make forall-type (tyvars (forall-type-tyvars poly))
+		      (context (forall-type-context poly))
+		      (mcontext (forall-type-mcontext poly))
+		      (type (expand-nested-polytype-synonyms (forall-type-type poly)
+							      (1- depth))))
+		8)
 	       (begin
 		 (when (not (null? (tycon-args type)))
 		   (setf (tycon-args type)
@@ -94,8 +96,50 @@
 	((forall-type? type)
 	 (setf (forall-type-type type)
 	       (expand-nested-polytype-synonyms (forall-type-type type) depth))
-	 type)
+	 (float-polytype-results type 8))
 	(else type)))
+
+;;; A polytype whose arrow's result is a polytype (SYB's GenericQ
+;;; (GenericQ r): forall a. Data a => a -> forall b. Data b => b -> r) is
+;;; the one polytype with both's variables and contexts, as a signature's
+;;; result polytype is floated (float-result-foralls): a function of such
+;;; a type takes all the dictionaries first, wherever the type is written.
+(define (float-polytype-results poly depth)
+  (mlet (((body vars cs mcs) (float-arrow-result-polytypes (forall-type-type poly) depth)))
+    (if (null? vars)
+	poly
+	(make forall-type (tyvars (append (forall-type-tyvars poly) vars))
+	      (context (append (forall-type-context poly) cs))
+	      (mcontext (append (forall-type-mcontext poly) mcs))
+	      (type body)))))
+
+;;; TYPE's arrows' result polytypes taken out: the type, and the
+;;; polytypes' variables, contexts and multi-parameter contexts.
+(define (float-arrow-result-polytypes type depth)
+  (cond ((<= depth 0) (values type '() '() '()))
+	((and (tycon? type)
+	      (eq? (resolve-tycon-def type) (core-symbol "Arrow"))
+	      (eqv? (length (tycon-args type)) 2))
+	 (let* ((res0 (cadr (tycon-args type)))
+		(res (if (forall-type? res0)
+			 res0
+			 (or (polytype-synonym-expansion res0 8) res0))))
+	   (if (forall-type? res)
+	       (let ((poly (rename-forall-apart res)))
+		 (mlet (((body vars cs mcs)
+			 (float-arrow-result-polytypes (forall-type-type poly) (1- depth))))
+		   (values (make tycon (name (tycon-name type)) (def (tycon-def type))
+				 (args (list (car (tycon-args type)) body)))
+			   (append (forall-type-tyvars poly) vars)
+			   (append (forall-type-context poly) cs)
+			   (append (forall-type-mcontext poly) mcs))))
+	       (mlet (((body vars cs mcs) (float-arrow-result-polytypes res (1- depth))))
+		 (if (null? vars)
+		     (values type '() '() '())
+		     (values (make tycon (name (tycon-name type)) (def (tycon-def type))
+				   (args (list (car (tycon-args type)) body)))
+			     vars cs mcs))))))
+	(else (values type '() '() '()))))
 
 ;;; The type with a polytype synonym at the top, or in the result of an
 ;;; arrow, replaced by the polytype's body; and the contexts lifted.
