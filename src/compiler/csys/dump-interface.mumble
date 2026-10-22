@@ -145,6 +145,12 @@
 		  (filename-place filename)
 		  (format '#f "~a-tmp~a" (filename-name filename) (host-pid))
 		  (filename-type filename))))
+      ;; (with IEEE float semantics, as the program runs: the Lisp
+      ;; compiler folds a constant 0.0 / 0.0 to NaN, Agda's nan)
+      #+sbcl
+      (sb-int:with-float-traps-masked (:overflow :invalid :divide-by-zero :inexact)
+	(compile-file (dynamic *magic-file-to-compile*) temp))
+      #-sbcl
       (compile-file (dynamic *magic-file-to-compile*) temp)
       (rename-file-replacing temp filename))))
 
@@ -227,8 +233,17 @@
   (file-write-date file))
 
 (define (load-compiled-interface-file file)
-  (load file)
+  (load-with-ieee-floats file)
   (file-write-date file))
+
+;;; A compiled file, loaded with IEEE float semantics (as the program
+;;; runs): a constant 0.0 / 0.0 is NaN (Agda's nan).
+(define (load-with-ieee-floats file)
+  #+sbcl
+  (sb-int:with-float-traps-masked (:overflow :invalid :divide-by-zero :inexact)
+    (load file))
+  #-sbcl
+  (load file))
 
 
 ;;;==================================================================

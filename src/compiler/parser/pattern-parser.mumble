@@ -365,6 +365,9 @@
    ((\) \]) (and (> depth 0) (scan-for-view-arrow (1- depth))))
    (\, (and (> depth 0) (scan-for-view-arrow depth)))
    ((= \| \; \} |where| <- eof) '#f)
+   ;; (p :: a -> b) is a signature's arrow (Agda's (f :: Maybe Suffix ->
+   ;; f (Maybe Suffix)))
+   (\:\: (if (eqv? depth 0) '#f (scan-for-view-arrow depth)))
    (else (advance-token) (scan-for-view-arrow depth))))
 
 ;;; Past a lambda's parameters and its ->.

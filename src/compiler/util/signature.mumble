@@ -464,7 +464,7 @@
   (dolist (ctxt context)
     (with-slots context (class tyvar) ctxt
       (when (not (memq tyvar tyvars))
-	(signal-ambiguous-context tyvar))
+	(signal-ambiguous-context tyvar class))
       (resolve-class class))))
 
 (define (resolve-type type)
@@ -607,10 +607,13 @@
 
 ;;; Error signalling routines
 
-(define (signal-ambiguous-context tyvar)
+(define (signal-ambiguous-context tyvar . class)
   (phase-error 'ambiguous-context
-    "~a is referenced in a context, but is not bound as a type variable."
-    tyvar))
+    "~a is referenced in a context~A, but is not bound as a type variable."
+    tyvar (if (pair? class)
+	      (format '#f " (~A ~A, in ~A)" (class-ref-name (car class)) tyvar *module-name*)
+	      "")))
+
 
 (define (signal-tycon-arity name type)
   (phase-error 'tycon-arity

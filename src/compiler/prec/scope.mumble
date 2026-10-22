@@ -984,6 +984,26 @@
 ;;; patterns are massaged by the caller.
 
 (define (desugar-record-pat pat)
+  (let ((n (and (null? (record-pat-fields pat))
+		(eq? (pcon-con (record-pat-con pat)) *undefined-def*)
+		(pattern-synonym-arity (pcon-name (record-pat-con pat))))))
+    (if n
+	;; P {} of a pattern synonym (Agda's Graph.CyclicSCC{}): P _ .. _
+	(let ((pcon (record-pat-con pat)))
+	  (setf (pcon-pats pcon)
+		(let ((l '())) (dotimes (i n) (push (**wildcard-pat) l)) l))
+	  pcon)
+	(desugar-record-pat-1 pat))))
+
+;;; The number of arguments of pattern synonym NAME, or #f.
+(define (pattern-synonym-arity name)
+  (let ((local (assq name (module-pattern-synonyms *module*))))
+    (if local
+	(length (cadr local))
+	(let ((template (imported-pattern-synonym name)))
+	  (and template (length (car template)))))))
+
+(define (desugar-record-pat-1 pat)
   (let* ((pcon (record-pat-con pat))
 	 (con (if (eq? (pcon-con pcon) *undefined-def*)
 		  (lookup-toplevel-name (pcon-name pcon))

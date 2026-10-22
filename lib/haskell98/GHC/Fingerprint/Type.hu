@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/GHC/Fingerprint/
+:o= all
+Type.hs

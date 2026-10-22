@@ -102,7 +102,12 @@
 		     (haskell98?)
 		     (algdata-newtype? alg)
 		     (or (module-extension? "GeneralizedNewtypeDeriving")
-			 (module-extension? "GeneralisedNewtypeDeriving")))
+			 (module-extension? "GeneralisedNewtypeDeriving"))
+		     ;; (a constructor class through the field type only when
+		     ;; that is T .. a: newtype Pointwise a = Pointwise a,
+		     ;; Agda's, derives Functor as data does)
+		     (or (eq? class (core-symbol "Enum"))
+			 (newtype-field-eta-reducible? alg)))
 		(if (eq? class (core-symbol "Enum"))
 		    (add-newtype-derived-instance alg class)
 		    ;; (a dictionary of its own, its methods coerced: shared
@@ -272,6 +277,20 @@
 	(else 0)))
 
 ;;; TYPE without its last arguments when they are the type variables
+;;; Whether a newtype's field type is F t1 .. a, a its last variable not
+;;; otherwise in it.
+(define (newtype-field-eta-reducible? alg)
+  (let ((tyvars (algdata-tyvars alg))
+	(cons (algdata-constrs alg)))
+    (and (not (null? tyvars))
+	 (not (null? cons))
+	 (not (null? (con-types (car cons))))
+	 (let* ((a (car (lisp:last tyvars)))
+		(ty (car (con-types (car cons))))
+		(dropped (drop-trailing-type-args ty (list a))))
+	   (and (not (eq? dropped ty))
+		(not (mentions-tyvar? dropped a)))))))
+
 ;;; DROPPED (bi a b without a b is bi), else TYPE.
 (define (drop-trailing-type-args type dropped)
   (let ((n  (length dropped)))

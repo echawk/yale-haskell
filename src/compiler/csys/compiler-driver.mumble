@@ -970,7 +970,7 @@
       (when (cflags-load-code? cflags)
 	(if (and (cflags-write-code? cflags)
 		 (cflags-compile-code? cflags))
-	    (load (ucache-cfile c))
+	    (load-with-ieee-floats (ucache-cfile c))
 	    ;; in-core compilation at the quality a code file would get
 	    (load-code-in-core
 	      code
@@ -1022,7 +1022,7 @@
     (unwind-protect
 	 (begin
 	   (write-compiled-code-file file code quality chunk-size)
-	   (load file))
+	   (load-with-ieee-floats file))
       (lisp:funcall (lisp:find-symbol "DELETE-DIRECTORY-TREE" "UIOP")
 		    dir ':validate '#t ':if-does-not-exist ':ignore)))
   #-sbcl
