@@ -18,11 +18,26 @@
 	    (lambda (key group)
 	      (declare (ignore key))
 	      (when (not found)
-		(dolist (n-d (cdr group))
+		;; (the whole group: a constructor exported alone, by
+		;; `pattern C', is its group's first)
+		(dolist (n-d group)
 		  (when (and (eq? (tuple-2-1 n-d) con) (con? (tuple-2-2 n-d)))
 		    (setf found (list n-d))))))
 	    (module-export-table mod))
 	   found))))
+
+;;; An associated type family named by itself: a group of just it.
+(define (family-member-group name mod)
+  (let ((found  '#f))
+    (table-for-each
+     (lambda (key group)
+       (declare (ignore key))
+       (when (not found)
+	 (dolist (n-d (cdr group))
+	   (when (and (eq? (tuple-2-1 n-d) name) (synonym? (tuple-2-2 n-d)))
+	     (setf found (list n-d))))))
+     (module-export-table mod))
+    found))
 
 ;;; A class method or record field named by itself (import M (method)):
 ;;; a group of just that member, from the class's or type's export group.
@@ -44,7 +59,12 @@
 	 (group (or (table-entry (module-export-table mod) name)
 		    (and (is-type? 'entity-var entity)
 			 (or (group-member-group name mod)
-			     (pattern-constructor-group name mod))))))
+			     (pattern-constructor-group name mod)))
+		    ;; an associated type named by itself (import M (C, F)),
+		    ;; from its class's group (C(..) exports it)
+		    (and (or (is-type? 'entity-abbreviated entity)
+			     (is-type? 'entity-con entity))
+			 (family-member-group name mod)))))
     (if (eq? group '#f)
 	(if (not force-error?)
 	    'not-found

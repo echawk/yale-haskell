@@ -6,6 +6,16 @@
 ;;;  c) renamed entities that were never found
 ;;;  d) hidden entities that were never found
 
+;;; The data constructor C an export `pattern C' (pattern%C) names, or #f.
+(define (pattern-export-constructor export)
+  (and (is-type? 'entity-var export)
+       (let ((s (symbol->string (entity-name export))))
+	 (and (string-starts? "pattern%" s)
+	      (let ((def (resolve-toplevel-name
+			  (string->symbol
+			   (add-con-prefix (substring s 8 (string-length s)))))))
+		(and def (con? def) def))))))
+
 (define (check-missing-names)
   (dolist (export (module-exports *module*))
     (remember-context export
@@ -15,11 +25,17 @@
 			  (and (is-type? 'entity-class export)
 			       (null? (entity-class-methods export))))
 		      (resolve-toplevel-name (entity-name export)))))
-	(if (and def (algdata? def))
-	    ;; T(..) of a type whose constructors are not in scope (an
-	    ;; abstract type imported from elsewhere): T, as in GHC
-	    (export-group (list (tuple (entity-name export) def)))
-	    (signal-missing-export export)))))
+	(cond ((and def (algdata? def))
+	       ;; T(..) of a type whose constructors are not in scope (an
+	       ;; abstract type imported from elsewhere): T, as in GHC
+	       (export-group (list (tuple (entity-name export) def))))
+	      ((pattern-export-constructor export)
+	       ;; `pattern C' naming a data constructor (GHC: Agda's
+	       ;; module Imports (Mode, pattern ScopeCheck, ...))
+	       (let ((con (pattern-export-constructor export)))
+		 (export-group (list (tuple (def-name con) con)))))
+	      (else
+	       (signal-missing-export export))))))
   (dolist (import-decl (module-imports *module*))
     (remember-context import-decl
       (with-slots import-decl (mode specs renamings) import-decl
