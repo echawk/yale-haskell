@@ -612,12 +612,30 @@
 ;;; type ThrowsError = Either LispError, used in data LispVal) is defined
 ;;; now.
 
+(define *synonyms-being-defined* '())
+
 (define (ensure-synonym-defined def)
   (when (and (not (synonym-body def)) (not (synonym-family? def))
-	     (null? (synonym-constraints def)))
+	     (null? (synonym-constraints def))
+	     ;; (one whose definition this is in: a synonym naming another
+	     ;; that names it back)
+	     (not (memq def (dynamic *synonyms-being-defined*))))
+   (dynamic-let ((*synonyms-being-defined* (cons def (dynamic *synonyms-being-defined*))))
     (let ((decl (lisp:find-if (lambda (d) (eq? (tycon-def (synonym-decl-simple d)) def))
 			      (module-synonyms *module*))))
-      (when decl (synonym->def decl)))))
+      (if decl
+	  (synonym->def decl)
+	  ;; one of another module compiled with this one (an import
+	  ;; cycle: Agda's MonadCheckInternal m = MonadConversion m, the
+	  ;; latter Conversion's), whose declarations are not processed yet
+	  (let ((mod (and (def-module def) (locate-module (def-module def)))))
+	    (when (and mod (not (eq? mod *module*)))
+	      (let ((decl (lisp:find-if
+			   (lambda (d) (eq? (tycon-def (synonym-decl-simple d)) def))
+			   (module-synonyms mod))))
+		(when decl
+		  (walk-modules (list mod)
+		    (lambda () (synonym->def decl))))))))))))
 
 (define (resolve-type/list args vars)
   (if (null? args)

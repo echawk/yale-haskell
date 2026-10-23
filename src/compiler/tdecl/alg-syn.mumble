@@ -384,6 +384,11 @@
 		       ;; Control.Arrow's class: never a constraint
 		       (not (eq? (tycon-def p) (core-symbol "Arrow")))
 		       (let ((def (resolve-toplevel-name (tycon-name p))))
+			 ;; (a synonym not defined yet, of this module or of
+			 ;; one compiled with it: defined now, to see whether
+			 ;; it is a constraint synonym)
+			 (when (synonym? def)
+			   (ensure-synonym-defined def))
 			 (or (class? def)
 			     (eq? (tycon-name p) '|%equality|)
 			     (and (synonym? def)
