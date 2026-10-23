@@ -23,7 +23,7 @@
 (define (parse-infix-exps)
   (token-case
      (- (cons (make negate) (parse-infix-exps)))
-     (\\ (list (parse-lambda)))
+     (\\ (parse-lambda-infix))
      (|let| (list (parse-let)))
      (|if| (list (parse-if)))
      (|case| (parse-possible-app (parse-case)))
@@ -72,9 +72,35 @@
   (token-case
     (|do| (parse-possible-app (make app (fn exp) (arg (parse-do)))))
     (|case| (parse-possible-app (make app (fn exp) (arg (parse-case)))))
-    (\\ (list (make app (fn exp) (arg (parse-lambda)))))
+    (\\ (if (eq-token? '|case|)
+	     (parse-operator-after (make app (fn exp) (arg (parse-lambda))))
+	     (list (make app (fn exp) (arg (parse-lambda))))))
     (|let| (list (make app (fn exp) (arg (parse-let)))))
     (|if| (list (make app (fn exp) (arg (parse-if)))))))
+
+;;; A lambda as an operand: it extends as far as it can, but \case's
+;;; alternatives are a block, which layout may close before an operator
+;;; (Agda's computingOverlap f `catchError` \case ... on lines below,
+;;; then `ifNoConstraints` ...).
+(define (parse-lambda-infix)
+  (if (eq-token? '|case|)
+      (parse-operator-after (parse-lambda))
+      (list (parse-lambda))))
+
+;;; EXP, and the operator and operands after it if one follows.
+(define (parse-operator-after exp)
+  (token-case
+    (varop
+     (let ((varop (varop->ast)))
+       (if (eq-token? '\))
+	   (list exp varop)
+	   `(,exp ,varop ,@(parse-infix-exps)))))
+    (conop
+     (let ((conop (conop->ast)))
+       (if (eq-token? '\))
+	   (list exp conop)
+	   `(,exp ,conop ,@(parse-infix-exps)))))
+    (else (list exp))))
 
 (define (at-type-application?)
   (and (haskell98?) (eq-token? '@)))

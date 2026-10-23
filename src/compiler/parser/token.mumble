@@ -15,6 +15,13 @@
   (setf *save-col?* (or (memq type '(|where| |of| |let| |do| open-decs-quote
 				      ;; MultiWayIf's first | (exp-parser.mumble)
 				      |if|))
+			 ;; LambdaCase: \case's alternatives (and \cases')
+			 ;; are a block at the next token's column
+			 (and (or (eq? type '|case|)
+				  (and (eq? type 'varid) (pair? args)
+				       (equal? (car args) "cases")))
+			      (pair? (cdr *tokens*))
+			      (eq? (car (cadr *tokens*)) '\\))
 			 ;; RecursiveDo: rec and mdo open blocks too
 			 (and (eq? type 'varid)
 			      (pair? args)
