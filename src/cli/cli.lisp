@@ -294,9 +294,36 @@
                    (sb-vm:instance-usage :dynamic :top-n 25)
                    (room t)
                    (print-closure-census 40)
+                   (let ((name (uiop:getenv "YALE_HASKELL_ROOT_PATH")))
+                     (when (and name (plusp (length name)))
+                       (print-root-path name)))
                    (finish-output))))))
        :name "room timer")))
   nil)
+
+;;; YALE_HASKELL_ROOT_PATH=NAME (with YALE_HASKELL_ROOM_AFTER): the path
+;;; from a root to one live closure whose function's name contains NAME
+;;; (what keeps it live); then the program exits (the search leaves the
+;;; collector unable to go on).
+#+sbcl
+(defun print-root-path (name)
+  (let ((found nil))
+    (sb-sys:without-gcing
+      (sb-vm:map-allocated-objects
+       (lambda (obj type size)
+         (declare (ignore size))
+         (when (and (not found) (= type sb-vm:closure-widetag)
+                    (search name (princ-to-string
+                                  (sb-kernel:%fun-name (sb-kernel:%closure-fun obj)))))
+           (setf found (sb-ext:make-weak-pointer obj))))
+       :dynamic))
+    (if found
+        (progn
+          (format t "~&Path from a root to a closure of ~A:~%" name)
+          (sb-ext:search-roots found :criterion :oldest :print :verbose))
+        (format t "~&No live closure of ~A.~%" name))
+    (finish-output)
+    (sb-ext:exit :code 3 :abort t)))
 
 ;;; The live closures, counted by the function they close over.
 #+sbcl
