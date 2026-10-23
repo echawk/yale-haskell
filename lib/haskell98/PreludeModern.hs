@@ -165,6 +165,13 @@ instance Semigroup b => Semigroup (a -> b) where
 instance Monoid b => Monoid (a -> b) where
   mempty = \_ -> mempty
 
+-- IO, as in base: the actions in order, their results combined.
+instance Semigroup a => Semigroup (IO a) where
+  m <> n = m >>= \a -> n >>= \b -> return (a <> b)
+
+instance Monoid a => Monoid (IO a) where
+  mempty = return mempty
+
 class Semigroup a where
   (<>) :: a -> a -> a
   sconcat :: NonEmpty a -> a
