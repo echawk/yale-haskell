@@ -1173,6 +1173,14 @@
 			   (lisp:find-if (lambda (v)
 					   (eq? (field-original-name v) name))
 					 (con-field-labels (car con))))
+		      (resolve-toplevel-name name)
+		      ;; DisambiguateRecordFields (implied by RecordWildCards):
+		      ;; the constructor's field, when only qualified names
+		      ;; are in scope (G.E { source = x }, import qualified G)
+		      (and (pair? con) (con? (car con))
+			   (lisp:find-if (lambda (v)
+					   (and v (eq? (field-original-name v) name)))
+					 (con-field-labels (car con))))
 		      (lookup-toplevel-name name))))
 	(cond ((eq? def *undefined-def*))
 	      ((not (and (var? def) (var-field-alg def)))
