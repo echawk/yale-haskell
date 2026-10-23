@@ -54,6 +54,20 @@
      (module-export-table mod))
     found))
 
+;;; The fields of datatype DEF that MOD exports in groups of their own.
+(define (exported-fields-of def mod)
+  (let ((found '()))
+    (table-for-each
+     (lambda (key group)
+       (declare (ignore key))
+       (dolist (n-d group)
+	 (let ((d (tuple-2-2 n-d)))
+	   (when (and (var? d) (eq? (var-field-alg d) def)
+		      (not (lisp:find d found :key (function tuple-2-2))))
+	     (push n-d found)))))
+     (module-export-table mod))
+    (reverse found)))
+
 (define (locate-entity/export-table entity mod force-error?)
   (let* ((name (entity-name entity))
 	 (group (or (table-entry (module-export-table mod) name)
@@ -90,8 +104,12 @@
 		 (cond ((algdata? def)
 			(cond ((and (hidden-constructors? group) (haskell98?))
 			       ;; T(..) of an abstract type is T alone, as in
-			       ;; GHC (import GHC.Base (Int(..)))
-			       (strip-constructors group))
+			       ;; GHC (import GHC.Base (Int(..))), with the
+			       ;; fields the module exports by name (Agda's
+			       ;; Warnings (WarningsAndNonFatalErrors,
+			       ;; tcWarnings, nonFatalErrors))
+			       (append (strip-constructors group)
+				       (exported-fields-of def mod)))
 			      ((hidden-constructors? group)
 			       (if force-error?
 				   (signal-abstract-type
