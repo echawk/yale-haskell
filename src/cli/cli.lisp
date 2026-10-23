@@ -307,15 +307,21 @@
 ;;; collector unable to go on).
 #+sbcl
 (defun print-root-path (name)
-  (let ((found nil))
+  (let ((found nil)
+        (matches (make-hash-table :test 'eq)))
     (sb-sys:without-gcing
       (sb-vm:map-allocated-objects
        (lambda (obj type size)
          (declare (ignore size))
-         (when (and (not found) (= type sb-vm:closure-widetag)
-                    (search name (princ-to-string
-                                  (sb-kernel:%fun-name (sb-kernel:%closure-fun obj)))))
-           (setf found (sb-ext:make-weak-pointer obj))))
+         (when (and (not found) (= type sb-vm:closure-widetag))
+           (let ((f (sb-kernel:%closure-fun obj)))
+             (when (multiple-value-bind (m known) (gethash f matches)
+                     (if known
+                         m
+                         (setf (gethash f matches)
+                               (and (search name (princ-to-string (sb-kernel:%fun-name f)))
+                                    t))))
+               (setf found (sb-ext:make-weak-pointer obj))))))
        :dynamic))
     (if found
         (progn
