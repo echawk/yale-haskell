@@ -738,7 +738,7 @@
       (incf n)
       (let ((single '()) (multi (signature-mcontext signature)))
 	(dolist (c (signature-context signature))
-	  (let ((syn (constraint-synonym (class-ref-name (context-class c)))))
+	  (let ((syn (class-ref-constraint-synonym (context-class c))))
 	    (if syn
 		(begin
 		  (setf changed '#t)
@@ -749,7 +749,7 @@
 		(setf single (append single (list c))))))
 	(let ((multi2 '()))
 	  (dolist (c multi)
-	    (let ((syn (constraint-synonym (class-ref-name (mp-context-class c)))))
+	    (let ((syn (class-ref-constraint-synonym (mp-context-class c))))
 	      (cond
 	       ;; C with no arguments naming a synonym of (): no constraint
 	       ((and (null? (mp-context-types c))
@@ -809,9 +809,21 @@
 	 (def (and mod (not (eq? mod *module*))
 		   (module-symbol-table mod)
 		   (table-entry (module-symbol-table mod) name))))
-    (if (and def (class? def))
+    (when (and def (synonym? def))
+      (ensure-synonym-defined def))
+    (if (and def (or (class? def)
+		     ;; (or a constraint synonym there, expanded in turn:
+		     ;; Agda's MonadPretty m = MonadAbsToCon m)
+		     (and (synonym? def) (not (null? (synonym-constraints def))))))
 	(make class-ref (name (def-name def)) (class def))
 	(make class-ref (name name) (class *undefined-def*)))))
+
+;;; The constraint synonym a constraint's class reference names, or #f.
+(define (class-ref-constraint-synonym cr)
+  (let ((c (class-ref-class cr)))
+    (if (and (synonym? c) (not (null? (synonym-constraints c))))
+	c
+	(constraint-synonym (class-ref-name cr)))))
 
 ;;; The synonym's constraints with its parameters replaced by TYPES:
 ;;; returns the one-parameter contexts (on type variables) and the others.

@@ -278,6 +278,29 @@
 	     ;; multi-parameter class's variable (ListLike's Ord item) is
 	     ;; one of the method's; on a one-parameter class's, an error
 	     (when (not (mp-class? class))
+	       ;; (the class itself or a superclass at its variable is
+	       ;; implied, and dropped: Agda's assignTerm' :: MonadMetaSolver
+	       ;; m => .. in class MonadMetaSolver m; with the class itself
+	       ;; come its multi-parameter superclasses, MonadState Int m,
+	       ;; dropped too)
+	       (let ((own? (lisp:some (lambda (context)
+					(and (memq (context-tyvar context) class-tyvars)
+					     (eq? (class-ref-class (context-class context)) class)))
+				      (signature-context signature))))
+		 (setf (signature-context signature)
+		       (lisp:remove-if
+			(lambda (context)
+			  (and (memq (context-tyvar context) class-tyvars)
+			       (let ((c (class-ref-class (context-class context))))
+				 (or (eq? c class) (memq c (class-super* class))))))
+			(signature-context signature)))
+		 (when own?
+		   (let ((supers (append (map (function tuple-2-1) (class-mp-mp-supers class))
+					 (map (function tuple-2-1) (class-mp-supers class)))))
+		     (setf (signature-mcontext signature)
+			   (lisp:remove-if
+			    (lambda (c) (memq (class-ref-class (mp-context-class c)) supers))
+			    (signature-mcontext signature))))))
 	       (dolist (context (signature-context signature))
 		 (when (memq (context-tyvar context) class-tyvars)
 		   (signal-method-constrains-class-tyvar context))))
