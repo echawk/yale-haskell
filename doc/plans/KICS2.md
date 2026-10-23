@@ -1,14 +1,21 @@
 # Plan: KiCS2, the Kiel Curry System, on Yale Haskell
 
-Status (2026-10-23): steps 2 and 3 done, step 4 under way.  The
-runtime builds as a package; QuantifiedConstraints are implemented; the
-58 generated modules compile, and the Yale-built `kics2c` (a standalone
-executable, `build/kics2/kics2c/kics2c`) writes the same Haskell,
-FlatCurry and info files as the distribution's for a small module.
-Compiling the Curry Prelude itself exhausts its 4 GB heap while reading
-the Prelude's 3.9 MB annotated FlatCurry back (Curry's Read), which
-GHC's build does not; that is next.  curry-frontend (step 1) is being
-built.  Survey of 2026-10-22 below.  KiCS2 3.5.0 (upstream
+Status (2026-10-23): steps 1-3 done, step 4 under way.
+- curry-frontend builds with MicroCabal's Yale backend (from the
+  `frontend` submodule, `tools/microcabal/mcabal -r install`; set-extra,
+  tree-monad and parallel-tree-search come from Hackage, Stackage lacking
+  them), and the Yale-built executable writes the same FlatCurry,
+  interface and icurry files as the distribution's kics2-frontend.
+- The runtime builds as a package (`tools/conformance/kics2/setup.sh`).
+- QuantifiedConstraints are implemented.
+- The 58 generated modules compile; the Yale-built `kics2c`
+  (`build/kics2/kics2c/kics2c`) with the Yale-built frontend writes the
+  same Haskell, FlatCurry and info files as the distribution's for
+  library modules (Data.List).  The Curry Prelude itself still exhausts
+  even a 16 GB heap while kics2c reads its 3.9 MB annotated FlatCurry
+  back: the Yale build keeps about twenty times the live data GHC's does
+  (1.4 GB against GHC's 480 MB resident for Data.List's 190 KB).
+Survey of 2026-10-22 below.  KiCS2 3.5.0 (upstream
 <https://github.com/curry-language/kics2>, with its `frontend` submodule
 <https://github.com/cau-placc/curry-frontend> at 66db010) and the arm64
 macOS distribution `kics2-3.5.0-arm64-darwin.tar.gz` from
