@@ -16,6 +16,8 @@ module Control.Monad (
   ) where
 
 import Prelude hiding (mapM, mapM_, sequence, sequence_, foldr)
+import Data.Traversable (forM)
+import Data.Foldable (forM_, msum)
 import ControlMonadBase hiding (guard, mapM, mapM_, forM, forM_, sequence,
                                sequence_, msum, replicateM, replicateM_, when,
                                unless, forever, filterM, zipWithM, zipWithM_)
@@ -53,17 +55,10 @@ zipWithM f xs ys = sequenceA' (zipWith f xs ys)
 zipWithM_ :: Applicative m => (a -> b -> m c) -> [a] -> [b] -> m ()
 zipWithM_ f xs ys = foldr (*>) (pure ()) (zipWith f xs ys)
 
--- over any Traversable or Foldable, as base's
-forM :: (Traversable t, Monad m) => t a -> (a -> m b) -> m (t b)
-forM t f = mapM f t
-{-# forM :: Inline #-}
+-- over any Traversable or Foldable, as base's (forM is Data.Traversable's,
+-- the one entity in both, as in base)
 
-forM_ :: (Foldable t, Monad m) => t a -> (a -> m b) -> m ()
-forM_ t f = mapM_ f t
-{-# forM_ :: Inline #-}
-
-msum :: (Foldable t, MonadPlus m) => t (m a) -> m a
-msum t = foldr mplus mzero t
+-- (forM_ and msum are Data.Foldable's)
 
 infixl 4 <$!>
 
