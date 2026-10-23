@@ -14,7 +14,7 @@ module Data.Array.Base (
     newListArray, newGenArray, getElems, getAssocs, mapArray,
     freeze, thaw, unsafeFreeze, unsafeThaw,
     STArray, STUArray, IOArray, IOUArray, UArray,
-    runSTArray, runSTUArray, unsafeAt, numElements,
+    runSTArray, runSTUArray, IA.IArray(..),
     boundsSTArray, numElementsSTArray, unsafeReadSTArray, unsafeWriteSTArray,
     freezeSTArray, unsafeFreezeSTArray, thawSTArray, unsafeThawSTArray
   ) where
@@ -23,6 +23,7 @@ import Ix
 import Array
 import Monad (zipWithM_)
 import BasePrims
+import qualified DataArrayIArrayBase as IA
 import Control.Monad.ST (ST, runST, unsafeIOToST)
 
 class Monad m => MArray a e m where
@@ -175,13 +176,6 @@ runSTArray st = runST (st >>= unsafeFreeze)
 
 runSTUArray :: Ix i => ST s (STUArray s i e) -> UArray i e
 runSTUArray st = runST (st >>= unsafeFreeze)
-
--- The element at an offset (0 .. numElements - 1)
-unsafeAt :: Ix i => Array i e -> Int -> e
-unsafeAt arr k = primUnsafePerformIO (primReadMutArr (primArrayToMutArr arr) k)
-
-numElements :: Ix i => Array i e -> Int
-numElements arr = rangeSize (bounds arr)
 
 -- GHC.Arr's STArray operations
 boundsSTArray :: STArray s i e -> (i, i)

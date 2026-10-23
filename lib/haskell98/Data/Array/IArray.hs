@@ -2,9 +2,9 @@
 -- Array (and UArray, which is Array here) as its instance; the functions
 -- not in the class are defined over it, as the array package does.
 module Data.Array.IArray (
-    IArray(bounds, (!), array, listArray, elems), Array, UArray,
+    IArray(bounds, (!), array, listArray, elems, numElements), Array, UArray,
     Ix(range, index, inRange, rangeSize),
-    indices, assocs, (//), accum, accumArray, amap, ixmap, numElements,
+    indices, assocs, (//), accum, accumArray, amap, ixmap,
     (!?)
   ) where
 
@@ -12,22 +12,9 @@ import qualified Data.Array as A
 import Data.Array (Array)
 import Ix (Ix(range, index, inRange, rangeSize))
 import Data.Array.Base (UArray)
+import DataArrayIArrayBase (IArray(..))
 
-infixl 9 !, //
-
-class IArray a e where
-  bounds    :: Ix i => a i e -> (i, i)
-  (!)       :: Ix i => a i e -> i -> e
-  array     :: Ix i => (i, i) -> [(i, e)] -> a i e
-  listArray :: Ix i => (i, i) -> [e] -> a i e
-  elems     :: Ix i => a i e -> [e]
-
-instance IArray Array e where
-  bounds = A.bounds
-  (!) = (A.!)
-  array = A.array
-  listArray = A.listArray
-  elems = A.elems
+infixl 9 //
 
 indices :: (IArray a e, Ix i) => a i e -> [i]
 indices arr = range (bounds arr)
@@ -50,9 +37,6 @@ amap f arr = listArray (bounds arr) (map f (elems arr))
 
 ixmap :: (IArray a e, Ix i, Ix j) => (i, i) -> (i -> j) -> a j e -> a i e
 ixmap b f arr = listArray b [arr ! f i | i <- range b]
-
-numElements :: (IArray a e, Ix i) => a i e -> Int
-numElements arr = rangeSize (bounds arr)
 
 (!?) :: (IArray a e, Ix i) => a i e -> i -> Maybe e
 arr !? i = if inRange (bounds arr) i then Just (arr ! i) else Nothing
