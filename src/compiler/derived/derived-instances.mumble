@@ -440,6 +440,11 @@
 	  ((or (not under)
 	       (not (null? (instance-context under)))
 	       (not (null? (instance-head-args under)))
+	       ;; a class of type constructors (MonadTrans, its variable
+	       ;; applied to two arguments): the instance is at the newtype
+	       ;; less as many parameters, which add-special-derived-instance
+	       ;; works out (Agda's BlockT m a, MonadTrans BlockT)
+	       (> (class-tyvar-arity class 4) 0)
 	       (eq? (def-module (tycon-def type)) *module-name*)
 	       ;; the class (so the field type's instance, perhaps) is this
 	       ;; module's, not compiled yet

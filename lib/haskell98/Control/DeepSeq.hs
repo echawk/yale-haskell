@@ -15,6 +15,7 @@ import Data.Complex (Complex((:+)))
 import Data.Functor.Identity (Identity(Identity))
 import Data.Functor.Const (Const(Const))
 import Data.Proxy (Proxy(Proxy))
+import GHC.Stack (CallStack, SrcLoc(..))
 import Data.Fixed (Fixed)
 
 infixr 0 $!!, `deepseq`
@@ -155,6 +156,14 @@ instance NFData a => NFData (Const a b) where
 
 instance NFData (Proxy a) where
   rnf Proxy = ()
+
+-- (deepseq's, for GHC.Stack's types)
+instance NFData CallStack where
+  rnf s = s `seq` ()
+
+instance NFData SrcLoc where
+  rnf (SrcLoc p m f a b c d) = rnf p `seq` rnf m `seq` rnf f `seq` rnf a `seq`
+                               rnf b `seq` rnf c `seq` rnf d
 
 instance NFData1 Proxy where
   liftRnf _ Proxy = ()
