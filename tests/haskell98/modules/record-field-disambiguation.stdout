@@ -1,0 +1,3 @@
+Clause {clauseLHS = 1, clauseCatchall = True}
+(5,1)
+Params {level = 1, strategy = 2}

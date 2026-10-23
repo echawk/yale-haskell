@@ -1051,10 +1051,12 @@
   (let ((names (map (lambda (b) (unqualified-name (var-ref-name (tuple-2-1 b))))
 		    (lisp:remove '|..| bindings :key (function tuple-2-1)))))
     (and (not (null? names))
-	 (lisp:every (lambda (n)
-		       (let ((def (lookup-toplevel-name n)))
+	 ;; (each name as written, G.compressLevel qualified: none a data
+	 ;; type's field)
+	 (lisp:every (lambda (b)
+		       (let ((def (resolve-toplevel-name (var-ref-name (tuple-2-1 b)))))
 			 (not (and (var? def) (var-field-alg def)))))
-		     names)
+		     (lisp:remove '|..| bindings :key (function tuple-2-1)))
 	 (or (lisp:some (lambda (syn)
 			  (and (every (lambda (n) (memq n (cadr syn))) names)
 			       (cons (car syn) (cadr syn))))
@@ -1173,10 +1175,11 @@
 			   (lisp:find-if (lambda (v)
 					   (eq? (field-original-name v) name))
 					 (con-field-labels (car con))))
-		      (resolve-toplevel-name name)
 		      ;; DisambiguateRecordFields (implied by RecordWildCards):
 		      ;; the constructor's field, when only qualified names
-		      ;; are in scope (G.E { source = x }, import qualified G)
+		      ;; are in scope (G.E { source = x }, import qualified G),
+		      ;; or another type's field of that name is (Agda's
+		      ;; A.Clause { clauseLHS = .. } with Internal's in scope)
 		      (and (pair? con) (con? (car con))
 			   (lisp:find-if (lambda (v)
 					   (and v (eq? (field-original-name v) name)))
