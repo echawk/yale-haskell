@@ -551,10 +551,12 @@
 	 (cons (tyvar-name type) vars))
 	((forall-type? type)
 	 ;; its own type variables are not free; its context constrains
-	 ;; only them
-	 (resolve-signature-aux (forall-type-tyvars type) (forall-type-context type))
+	 ;; them, or the outer variables its type mentions (C m => t
+	 ;; without a forall: type FoldFn m a = Monoid m => (e -> m) -> a -> m)
 	 (let ((inner (resolve-forall-mcontext type
 		        (resolve-type-1 (forall-type-type type) '() '#f))))
+	   (resolve-signature-aux (append (forall-type-tyvars type) inner)
+				  (forall-type-context type))
 	   (append (lisp:remove-if (lambda (v) (memq v (forall-type-tyvars type)))
 				   inner)
 		   vars)))
