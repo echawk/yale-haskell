@@ -273,20 +273,55 @@
                       (finish-output *error-output*)))))))
          :name "backtrace timer"))))
   ;; YALE_HASKELL_ROOM_AFTER=N: after N seconds, the heap's contents by
-  ;; type on standard error (to find what a program retains)
+  ;; type on standard error, and the closures by function (to find what a
+  ;; program retains; an unevaluated thunk is a closure).  Taken in the
+  ;; program's thread, after a full collection, so the heap holds what
+  ;; is live and is not changing.
   #+sbcl
   (let ((after (uiop:getenv "YALE_HASKELL_ROOM_AFTER")))
     (when (and after (plusp (length after)))
       (sb-thread:make-thread
        (lambda ()
          (sleep (parse-integer after))
-         (let ((*standard-output* *error-output*))
-           (format t "~&--- heap after ~A s ---~%" after)
-           (sb-vm:instance-usage :dynamic :top-n 25)
-           (room t)
-           (finish-output)))
+         (let ((th (or (find "yale-haskell" (sb-thread:list-all-threads)
+                             :key #'sb-thread:thread-name :test #'equal)
+                       (sb-thread:main-thread))))
+           (sb-thread:interrupt-thread
+            th (lambda ()
+                 (let ((*standard-output* *error-output*))
+                   (sb-ext:gc :full t)
+                   (format t "~&--- heap after ~A s ---~%" after)
+                   (sb-vm:instance-usage :dynamic :top-n 25)
+                   (room t)
+                   (print-closure-census 40)
+                   (finish-output))))))
        :name "room timer")))
   nil)
+
+;;; The live closures, counted by the function they close over.
+#+sbcl
+(defun print-closure-census (n)
+  (let ((counts (make-hash-table :test 'eq)))
+    (sb-sys:without-gcing
+      (sb-vm:map-allocated-objects
+       (lambda (obj type size)
+         (when (= type sb-vm:closure-widetag)
+           (let ((e (or (gethash (sb-kernel:%closure-fun obj) counts)
+                        (setf (gethash (sb-kernel:%closure-fun obj) counts)
+                              (cons 0 0)))))
+             (incf (car e))
+             (incf (cdr e) size))))
+       :dynamic))
+    (let ((rows '()))
+      (maphash (lambda (f e) (push (list f (car e) (cdr e)) rows)) counts)
+      (setf rows (sort rows #'> :key #'third))
+      (format t "~&Top ~A closures by function:~%" n)
+      (loop for (f count bytes) in rows
+            repeat n
+            do (format t "  ~15:D bytes ~12:D  ~A~%" bytes count
+                       (let ((name (sb-kernel:%fun-name f)))
+                         (subseq (princ-to-string name)
+                                 0 (min 200 (length (princ-to-string name))))))))))
 
 (defun main (&optional (argv (uiop:command-line-arguments)))
   ;; The saved executable sets up its environment and picks the image
