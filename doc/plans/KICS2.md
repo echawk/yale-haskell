@@ -17,6 +17,19 @@ Status (2026-10-23): steps 1-3 done, step 4 under way.
   recent results: kics2c rebuilt `Curry [a]` and `Curry (a, b)`
   dictionaries on every call while reading the 3.9 MB annotated FlatCurry
   back, and kept millions of them live.
+- Curry programs run: `tools/conformance/kics2/libs.sh` compiles the
+  library (29 modules) with the Yale-built kics2c and frontend and
+  installs it as the package `kics2-libs`; `run-curry.sh DIR MODULE
+  [GOAL]` compiles a program against it and runs its main or prints a
+  goal's values.  Of the 36 benchmarks in `benchmarks/suite` with a
+  main: 15 give their results (Queens 2680, Primes 17393, PermSort,
+  Tak, SearchEmbed, ...); 8 are older Curry the frontend rejects
+  (no Eq context, `Success`); 6 import modules KiCS2 3 no longer has;
+  NDNums and BFSvsPar loop under depth-first search, as their comments
+  say; LogBindTest's main takes arguments; SearchSMM exhausts a 16 GB
+  heap: the depth-first search keeps millions of unevaluated choice
+  thunks live.  KiCS2's testsuite needs curry-check (a CPM package,
+  not in the distribution).
 Survey of 2026-10-22 below.  KiCS2 3.5.0 (upstream
 <https://github.com/curry-language/kics2>, with its `frontend` submodule
 <https://github.com/cau-placc/curry-frontend> at 66db010) and the arm64

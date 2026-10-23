@@ -6,10 +6,15 @@
 # it is overloaded: perm [1,2,3::Int]) it evaluates GOAL.  An IO action is
 # run, a value's values are printed (depth first), as kics2's :eval does.  The Main
 # module is the one KiCS2.Linker's mainModule writes.
-# $YALE is the yale-haskell to use.
+# $YALE is the yale-haskell to use: the one that built kics2-libs (by
+# default build/kics2-tree's, a 16 GB-heap worktree), since another
+# compiler recompiles the library's 2.6 MB Prelude on every run.
 set -e
 top=$(cd "$(dirname "$0")/../../.." && pwd)
-YALE=${YALE:-$top/bin/yale-haskell}
+if [ -z "$YALE" ]; then
+  YALE=$top/bin/yale-haskell
+  [ -x "$top/build/kics2-tree/bin/yale-haskell" ] && YALE=$top/build/kics2-tree/bin/yale-haskell
+fi
 kics2c=$top/build/kics2/kics2c/kics2c
 db=${CABALDIR:-$top/build/mcabal}/yale-3.1.0.0/packages
 dir=$1 mod=$2 goal=$3
