@@ -246,6 +246,9 @@
 	       (\, (scan-pat-list '\)))
 	       (\) '#t)
 	       (\:\: (scan-to-close-paren 0))
+	       ;; ViewPatterns: (e -> pat), e scanned as a pattern
+	       ;; (t@(compTerm -> v@Var{}) <- localVars, Agda's)
+	       (-> (scan-to-close-paren 0))
 	       (else '#f))))))
    (\[ (token-case
 	(\] '#t)
@@ -258,6 +261,8 @@
        (token-case
 	(\, (scan-pat-list term))
 	((unquote term) '#t)
+	;; a later tuple element's signature: (a, bs :: [Int])
+	(\:\: (and (eq? term '\)) (scan-to-close-paren 0)))
 	(else '#f))))
 
 (define (scan-apat-list)

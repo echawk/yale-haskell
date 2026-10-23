@@ -581,17 +581,18 @@
      (close-layout in-layout?)
      '())
     (else
-     (let ((stmt (token-case
-		  (|let| (parse-let-stmt))
-		  ;; RecursiveDo (GHC): rec stmts
-		  ((no-advance satisfies at-rec-stmt?)
-		   (advance-token)
-		   (build-rec-stmt (start-layout (function parse-stmts))))
-		  (else (parse-qual)))))
-       (token-case
-	(\; (cons stmt (parse-stmts in-layout?)))
-	(else (close-layout in-layout?)
-	      (list stmt)))))))
+     (let ((stmts (token-case
+		   (|let| (list (parse-let-stmt)))
+		   ;; RecursiveDo (GHC): rec stmts
+		   ((no-advance satisfies at-rec-stmt?)
+		    (advance-token)
+		    (list (build-rec-stmt (start-layout (function parse-stmts)))))
+		   (else (parse-qual/views)))))
+       (let ()
+	 (token-case
+	  (\; (append stmts (parse-stmts in-layout?)))
+	  (else (close-layout in-layout?)
+		stmts)))))))
 
 (define (operator-ends-block?)
   (or (eq-token? '\`)
@@ -634,16 +635,16 @@
 ;;; Returns the qualifiers, or (parallel . qualifiers) when a `|' ends them.
 
 (define (parse-qual-list)
-  (let ((qual (token-case
-	       (|let| (parse-let-qual))
-	       (else (parse-qual)))))
+  (let ((quals (token-case
+		(|let| (list (parse-let-qual)))
+		(else (parse-qual/views)))))
     (token-case
       (\, (let ((rest (parse-qual-list)))
 	    (if (eq? (car rest) 'parallel)
-		(cons 'parallel (cons qual (cdr rest)))
-		(cons qual rest))))
-      (\] (list qual))
-      (\| (list 'parallel qual))
+		(cons 'parallel (append quals (cdr rest)))
+		(append quals rest))))
+      (\] quals)
+      (\| (cons 'parallel quals))
       (else (signal-missing-token "`]' or `,'" "list comprehension")))))
 
 ;;; ParallelListComp (GHC):
@@ -785,7 +786,18 @@
 (define (let-qual? q)
   (and (pair? q) (eq? (car q) 'let-qual)))
 
-(define (parse-qual)
+(define *view-quals* '())
+
+;;; The qualifier, and the view patterns' generators after it (parse-qual
+;;; with MONADIC?: a statement's or a comprehension's).
+(define (parse-qual/views)
+  (setf *view-quals* '())
+  (let ((qual (parse-qual '#t)))
+    (let ((extra *view-quals*))
+      (setf *view-quals* '())
+      (cons qual extra))))
+
+(define (parse-qual . monadic?)
  (trace-parser qual
   (save-parser-context 
    (let* ((saved-excursion (save-scanner-state))
@@ -795,9 +807,25 @@
 			    (and (pattern-signature-follows?) (scan-to-larrow 0))))))
     (restore-excursion saved-excursion)
     (cond (is-gen?
-	   (let ((pat (maybe-pattern-signature (parse-pat))))
+	   (let* ((outer (if (pair? monadic?) *view-patterns* '()))
+		  (_ (when (pair? monadic?) (setf *view-patterns* '())))
+		  (pat (maybe-pattern-signature (parse-pat)))
+		  (views (if (pair? monadic?) (take-view-patterns) '())))
+	     (when (pair? monadic?) (setf *view-patterns* outer))
 	     (advance-token) ; past the <-
 	     (let ((exp (parse-exp)))
+	       (setf *view-quals*
+		     (map (lambda (v)
+			    ;; ViewPatterns in a statement or a comprehension's
+			    ;; generator: each view's pattern bound after it,
+			    ;; p <- return (e v), failing as the generator's
+			    ;; pattern does
+			    (make qual-generator
+				  (pat (caddr v))
+				  (exp (make app (fn (generated-var-ref '|return|))
+					     (arg (make app (fn (cadr v))
+							(arg (generated-var-ref (car v)))))))))
+			  views))
 	       (make qual-generator (pat pat) (exp exp)))))
 	  (else
 	   (let ((exp (parse-exp)))

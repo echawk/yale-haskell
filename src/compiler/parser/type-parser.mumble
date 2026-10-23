@@ -280,7 +280,10 @@
    ;; ImplicitParams' ?x :: t
    (ipvar (when (eq-token? '\:\:) (advance-token)) (scan-for-context-arrow depth))
    ((\) \]) (and (> depth 0) (scan-for-context-arrow (1- depth))))
-   ((-> = \| \; \} |where| \:\: <- eof) '#f)
+   ;; (an arrow inside brackets is a class argument's: MonadReader
+   ;; (MetaId -> Maybe Nat) m => ..)
+   (-> (and (> depth 0) (scan-for-context-arrow depth)))
+   ((= \| \; \} |where| \:\: <- eof) '#f)
    (else (advance-token) (scan-for-context-arrow depth))))
 
 (define (has-optional-context-1.2?)
