@@ -91,13 +91,22 @@
 
 (define-walker-method cfn dict-placeholder (object)
   (if (eq? (dict-placeholder-exp object) '#f)
-      (error "Type checker screwed a dict placeholder object ~s." object)
+      (unresolved-placeholder "dictionary" object)
       (cfn-ast-1 (dict-placeholder-exp object))))
 
 (define-walker-method cfn method-placeholder (object)
   (if (eq? (method-placeholder-exp object) '#f)
-      (error "Type checker screwed a method placeholder object ~s." object)
+      (unresolved-placeholder "method" object)
       (cfn-ast-1 (method-placeholder-exp object))))
+
+;;; A placeholder the type checker left unresolved: an error at the
+;;; definition it is in (remember-context in cfn-valdef).
+(define (unresolved-placeholder what object)
+  (phase-error 'unresolved-placeholder
+    "Internal error: the type checker left a ~A placeholder ~S unresolved~%~
+     (its type: ~A)."
+    what object (prune (placeholder-tyvar object)))
+  (cfn-ast-1 (**abort "unresolved placeholder")))
 
 (define-walker-method cfn mp-placeholder (object)
   (if (eq? (mp-placeholder-exp object) '#f)
