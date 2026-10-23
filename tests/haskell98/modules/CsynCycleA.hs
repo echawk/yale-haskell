@@ -1,7 +1,12 @@
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ConstraintKinds, FlexibleContexts #-}
 module CsynCycleA where
 import {-# SOURCE #-} CsynCycleB (MonadCI)
 import CsynCycleB
-type MonadConv m = (Monad m, Functor m)
+import Control.Monad.State (MonadState(get, put))
+-- (CsynCycleB names MonadConv without importing MonadState)
+type MonadConv m = (Monad m, MonadState Int m)
 g :: MonadConv m => Int -> m Int
-g n = return (n * 2)
+g n = do
+  k <- get
+  put (k + 1)
+  return (n * 2 + k)

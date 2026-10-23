@@ -1,3 +1,4 @@
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ConstraintKinds, FlexibleContexts #-}
 module CsynCycleB where
-type MonadCI m = (Monad m, Functor m)
+import Control.Monad.State (MonadState)
+type MonadCI m = (Monad m, MonadState Int m)

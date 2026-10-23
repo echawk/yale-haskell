@@ -800,6 +800,19 @@
   (let ((def (resolve-toplevel-name name)))
     (and (synonym? def) (not (null? (synonym-constraints def))) def)))
 
+;;; The class a constraint synonym's constraint names: resolved where the
+;;; synonym is defined when that module is at hand (one compiled with
+;;; this: Agda's CheckInternal uses MonadConversion, whose MonadError
+;;; CheckInternal does not import), else by name where it is used.
+(define (synonym-class-ref syn name)
+  (let* ((mod (and (def-module syn) (locate-module (def-module syn))))
+	 (def (and mod (not (eq? mod *module*))
+		   (module-symbol-table mod)
+		   (table-entry (module-symbol-table mod) name))))
+    (if (and def (class? def))
+	(make class-ref (name (def-name def)) (class def))
+	(make class-ref (name name) (class *undefined-def*)))))
+
 ;;; The synonym's constraints with its parameters replaced by TYPES:
 ;;; returns the one-parameter contexts (on type variables) and the others.
 (define (instantiate-constraint-synonym syn types)
@@ -814,12 +827,10 @@
       (let ((args (append (map (lambda (a) (copy-synonym-body a env)) (cdr c))
 			  extra)))
 	(if (and (pair? args) (null? (cdr args)) (tyvar? (car args)))
-	    (push (make context (class (make class-ref (name (car c))
-					      (class *undefined-def*)))
+	    (push (make context (class (synonym-class-ref syn (car c)))
 			(tyvar (tyvar-name (car args))))
 		  single)
-	    (push (**mp-context (make class-ref (name (car c)) (class *undefined-def*))
-				args)
+	    (push (**mp-context (synonym-class-ref syn (car c)) args)
 		  multi))))
     (values (reverse single) (reverse multi))))
 
