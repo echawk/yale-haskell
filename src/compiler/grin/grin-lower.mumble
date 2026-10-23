@@ -57,7 +57,10 @@
 (define (grin-unoverloaded-type var)
   (let ((ty  (var-type var)))
     (cond ((gtype? ty)
+	   ;; (multi-parameter constraints are dictionary parameters too:
+	   ;; KiCS2's quantified Curry, whose x1 was declared a fixnum)
 	   (and (every-1 (function null?) (gtype-context ty))
+		(null? (gtype-mcontext ty))
 		(gtype-type ty)))
 	  ((or (ntycon? ty) (ntyvar? ty)) ty)
 	  (else '#f))))

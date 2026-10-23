@@ -1,6 +1,14 @@
 # Plan: KiCS2, the Kiel Curry System, on Yale Haskell
 
-Status: survey (2026-10-22).  KiCS2 3.5.0 (upstream
+Status (2026-10-23): steps 2 and 3 done, step 4 under way.  The
+runtime builds as a package; QuantifiedConstraints are implemented; the
+58 generated modules compile, and the Yale-built `kics2c` (a standalone
+executable, `build/kics2/kics2c/kics2c`) writes the same Haskell,
+FlatCurry and info files as the distribution's for a small module.
+Compiling the Curry Prelude itself exhausts its 4 GB heap while reading
+the Prelude's 3.9 MB annotated FlatCurry back (Curry's Read), which
+GHC's build does not; that is next.  curry-frontend (step 1) is being
+built.  Survey of 2026-10-22 below.  KiCS2 3.5.0 (upstream
 <https://github.com/curry-language/kics2>, with its `frontend` submodule
 <https://github.com/cau-placc/curry-frontend> at 66db010) and the arm64
 macOS distribution `kics2-3.5.0-arm64-darwin.tar.gz` from
