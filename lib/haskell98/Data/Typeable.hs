@@ -10,11 +10,15 @@ module Data.Typeable (
     typeOf, typeRep, cast, gcast, gcast1, gcast2, eqTypeRep,
     typeRepTyCon, typeRepArgs, splitTyConApp, funResultTy, tyConName,
     tyConModule, tyConPackage,
-    showsTypeRep, rnfTypeRep, primTypeableDict
+    showsTypeRep, rnfTypeRep, primTypeableDict, typeRepFingerprint
   ) where
 
 import Data.Proxy (Proxy(Proxy))
 import Unsafe.Coerce (unsafeCoerce)
+import Data.Bits (xor)
+import Data.Char (ord)
+import Data.Word (Word64)
+import GHC.Fingerprint.Type (Fingerprint(Fingerprint))
 import BasePrims (TypeRepObj, primTypeRepName, primTypeRepModule, primTypeRepArity, primTypeRepArg,
                   primTypeableDict)
 
@@ -52,6 +56,19 @@ typeOf :: Typeable a => a -> TypeRep
 typeOf x = fromObj (primTypeRepOf (proxyOf x))
   where proxyOf :: a -> Proxy a
         proxyOf _ = Proxy
+
+-- Equal representations have equal fingerprints: two 64-bit FNV-1a
+-- hashes (different offsets) of the representation's encoding, each
+-- type constructor's module, name and argument count.
+typeRepFingerprint :: TypeRep -> Fingerprint
+typeRepFingerprint r = Fingerprint (fnv 14695981039346656037 s) (fnv 1099511628211 s)
+  where
+    s = enc r ""
+    enc (TypeRep (TyCon n m) as) =
+      showString m . showChar '.' . showString n . showChar '/' .
+      shows (length as) . showChar ';' . foldr (.) id (map enc as)
+    fnv :: Word64 -> String -> Word64
+    fnv = foldl (\h c -> (h `xor` fromIntegral (ord c)) * 1099511628211)
 
 eqTypeRep :: TypeRep -> TypeRep -> Bool
 eqTypeRep = (==)
