@@ -152,6 +152,8 @@
 		 (push tyvar overloaded-tyvars)))
 	   (reconcile-sig-contexts overloaded-tyvars sig-contexts)
 	   (improve-mp-placeholders (dynamic *placeholders*))
+	   (when (not (some (function var-signature) all-vars))
+	     (add-instance-mp-requirements))
 	   (setf mp-constraints
 		 (mp-generalizable-constraints (dynamic *placeholders*)))
 	 ;; We should probably also emit a warning about inherently
@@ -295,8 +297,10 @@
 				  all-vars))
 	     (mp-constraints (if (some (function var-signature) all-vars)
 				 '()
-				 (mp-generalizable-constraints
-				  (dynamic *placeholders*)))))
+				 (begin
+				   (add-instance-mp-requirements)
+				   (mp-generalizable-constraints
+				    (dynamic *placeholders*))))))
 	(dolist (tyvar all-tyvars)
 	  (when (ntyvar-context tyvar)
 	     (push tyvar overloaded-tyvars)))

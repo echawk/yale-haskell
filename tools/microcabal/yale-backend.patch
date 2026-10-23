@@ -25,7 +25,22 @@
        loop e ("--dry-run"    : as) = loop e{ dryRun = True } as
        loop e ("--nightly"    : as) = loop e{ useNightly = True } as
        loop e ("--no-nightly" : as) = loop e{ useNightly = False } as
-@@ -313,7 +315,11 @@
+@@ -302,7 +304,13 @@
+     "import Data.Version\n" ++
+     "version :: Version; version = makeVersion " ++ show (versionBranch vers) ++ "\n" ++
+     "getDataDir :: IO FilePath; getDataDir = return " ++ show dataDir ++ "\n" ++
+-    "getDataFileName :: FilePath -> IO FilePath; getDataFileName name = fmap (++ '/' : name) getDataDir\n"
++    "getDataFileName :: FilePath -> IO FilePath; getDataFileName name = fmap (++ '/' : name) getDataDir\n" ++
++    -- (Cabal's other directories, under the package's install prefix)
++    "getBinDir :: IO FilePath; getBinDir = return " ++ show (dataPrefix </> "bin") ++ "\n" ++
++    "getLibDir :: IO FilePath; getLibDir = return " ++ show (dataPrefix </> "lib") ++ "\n" ++
++    "getDynLibDir :: IO FilePath; getDynLibDir = return " ++ show (dataPrefix </> "lib") ++ "\n" ++
++    "getLibexecDir :: IO FilePath; getLibexecDir = return " ++ show (dataPrefix </> "libexec") ++ "\n" ++
++    "getSysconfDir :: IO FilePath; getSysconfDir = return " ++ show (dataPrefix </> "etc") ++ "\n"
+ 
+ build :: Env -> IO ()
+ build env = do
+@@ -313,7 +321,11 @@
        info = FlagInfo { os = I.os, arch = I.arch, flags = eflags env, impl = comp }
        ncbl@(Cabal sects) = normalizeAndPatch env info cbl
        glob = getGlobal ncbl
@@ -38,7 +53,7 @@
        sectLib s@(Section "foreign-library" _ _) | TgtFor `elem` targets env && isBuildable s = buildForeignLib env glob s
        sectLib _ = return Nothing
        sectExe ll s@(Section "executable"   _ _) | TgtExe `elem` targets env && isBuildable s = void $ buildExe env glob s ll
-@@ -328,6 +334,27 @@
+@@ -328,6 +340,27 @@
    mapM_ (sectExe localLibs) sects'
    mapM_ (sectTst localLibs) sects'
  
@@ -66,7 +81,7 @@
  isBuildable :: Section -> Bool
  isBuildable (Section _ _ flds) = getFieldBool True flds "buildable"
  
-@@ -357,11 +384,11 @@
+@@ -357,11 +390,11 @@
            in  replField mhso mfs' fs
          localFiles = map (\ n -> distDir env ++ "/" ++  n ++ "-" ++ showVersion vers ++ ".pkg") locals
  
@@ -81,7 +96,7 @@
    mapM_ (checkDep env) pkgs
    buildPkgLib (backend env) env glob sect
    return (Just name)
-@@ -421,6 +448,7 @@
+@@ -421,6 +454,7 @@
        ncbl@(Cabal sects) = normalizeAndPatch env info cbl
        glob = getGlobal ncbl
        sect s@(Section "executable" _ _) | TgtExe `elem` targets env && isBuildable s = installExe env glob s
@@ -89,7 +104,7 @@
        sect s@(Section "library"    _ _) | TgtLib `elem` targets env && isBuildable s = installLib env glob s
        sect _ = return ()
    message env 3 $ "Unnormalized Cabal file:\n" ++ show cbl
-@@ -519,7 +547,8 @@
+@@ -519,7 +553,8 @@
    \  -q                            be quiet\n\
    \  -r                            do recursive installs for missing packages\n\
    \  --ghc                         compile using ghc\n\

@@ -17,6 +17,15 @@
     (compute-di-fixpoint insts)
     (dolist (inst insts)
       (when (instance-ok? inst)
+	;; its context's multi-parameter superclasses, as a declared
+	;; instance's (tdecl/instance.mumble): Subst a gives DeBruijn
+	;; (SubstArg a) (Agda's deriving instance (Subst a, Ord a) => Ord
+	;; (Tele a))
+	(setf (instance-mcontext inst)
+	      (with-mp-mp-superclasses
+	       (append-new-mp-contexts
+		(instance-mcontext inst)
+		(one-parameter-mp-superclasses (instance-context inst)))))
         (create-instance-fns inst)
 	(let ((m (cdr (assq inst owners))))
 	  (push inst (module-instance-defs m)))))))
@@ -80,9 +89,34 @@
 		((typeable-class? (class-ref-class class-ref)))
 		((not (algdata? alg))
 		 (signal-not-derivable (tuple-2-2 d)))
+		((synonym-head-args target)
+		 ;; deriving instance C S, S = T Term: the instance at T Term,
+		 ;; as GHC's (Agda's Ord Level, Level = Level' Term, whose
+		 ;; PlusLevel's Ord is for PlusLevel' Term only)
+		 (let ((before insts))
+		   (setf insts (derive-instance alg (class-ref-class class-ref) insts))
+		   (when (and (not (eq? insts before)) (pair? insts))
+		     (let ((inst (car insts))
+			   (args (synonym-head-args target)))
+		       (setf (instance-head-args inst) args)
+		       (setf (instance-tyvars inst)
+			     (lisp:remove-duplicates (lisp:mapcan (function ast-tyvar-names) args)))
+		       (setf (instance-context inst)
+			     (or (dynamic *standalone-context*) '()))))))
 		(else
 		 (setf insts (derive-instance alg (class-ref-class class-ref) insts)))))))
     insts))
+
+;;; For a synonym S = T t1 .. tn with a ti not a type variable: t1 .. tn;
+;;; else #f.
+(define (synonym-head-args target)
+  (let ((def (if (symbol? target) (lookup-toplevel-name target) target)))
+    (and (synonym? def) (not (synonym-family? def))
+	 (tycon? (synonym-body def))
+	 (null? (synonym-args def))
+	 (let ((args (tycon-args (synonym-body def))))
+	   (and (lisp:some (lambda (a) (not (tyvar? a))) args)
+		args)))))
 
 ;;; deriving instance C S, S a synonym for T t1 .. tn (Agda's Show
 ;;; TypedBinding, TypedBinding' Expr): T's instance, its context inferred
@@ -479,7 +513,9 @@
   ;; (a derived Functor, Foldable or Traversable has its context already)
   (when (and (instance-ok? inst)
 	     (not (constructor-class-derivable? (instance-class inst)))
-	     (not (generic-class? (instance-class inst))))
+	     (not (generic-class? (instance-class inst)))
+	     ;; (one at a flexible head has its standalone context)
+	     (null? (instance-head-args inst)))
     (propagate-constructor-contexts inst
 			   (algdata-constrs (instance-algdata inst)))))
 

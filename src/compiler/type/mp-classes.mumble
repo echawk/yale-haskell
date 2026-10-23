@@ -1404,3 +1404,38 @@
 	      (setf (placeholder-exp p)
 		    (if (null? pats) q (**lambda/pat (reverse pats) q)))
 	      deferred))))))
+
+;;; Before a binding without a signature is generalized: a one-parameter
+;;; constraint at a type constructor whose instance has multi-parameter
+;;; constraints (instance (Subst a, Ord a) => Ord (Abs a), Subst's
+;;; superclass DeBruijn (SubstArg a)) needs them at the instance's types,
+;;; which only resolving it would make (instance-mp-dict-args): they are
+;;; made now, so that the binding is generalized over them too (a derived
+;;; Ord's local inner, Agda's Ord (Tele a)).  Through the instance's
+;;; context's constraints at type constructors too, a few levels deep.
+(define (add-instance-mp-requirements)
+  (dolist (p (dynamic *placeholders*))
+    (when (and (not (mp-placeholder? p)) (eq? (placeholder-exp p) '#f))
+      (instance-mp-requirements (placeholder-class p) (placeholder-tyvar p) p 3))))
+
+(define (instance-mp-requirements class type p depth)
+  (let ((type (reduce-mp-type type)))
+    (when (and (> depth 0) (ntycon? type) (not (family-app? type))
+	       (mp-type-generic? type)
+	       (algdata? (ntycon-tycon type)))
+      (let ((inst (lookup-instance/type (ntycon-tycon type) class type)))
+	(when (and inst (instance-ok? inst) (null? (instance-head-args inst)))
+	  (let ((bindings (list (tuple '|%none| '|%none|))))
+	    (dolist2 (tv (instance-tyvars inst)) (ty (instance-arg-types inst type))
+	      (push (tuple tv ty) bindings))
+	    (dolist (c (instance-mcontext inst))
+	      (mlet (((types b1) (ast->ntype/bindings/l (mp-context-types c) bindings)))
+		(setf bindings b1)
+		(remember-placeholder
+		 (**mp-placeholder (class-ref-class (mp-context-class c)) types '#f
+				   (placeholder-enclosing-decls p)
+				   (placeholder-overloaded-var p)))))
+	    ;; the context's one-parameter classes at the arguments
+	    (dolist2 (classes (instance-gcontext inst)) (ty (instance-arg-types inst type))
+	      (dolist (c classes)
+		(instance-mp-requirements c ty p (1- depth))))))))))

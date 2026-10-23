@@ -1,0 +1,2 @@
+EQ
+ExtendTel (Var 9) (Abs (ExtendTel (App (Var 0) (Var 9)) (Abs EmptyTel)))
