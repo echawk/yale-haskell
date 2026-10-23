@@ -280,6 +280,14 @@
 	     (group (locate-entity entity)))
 	(cond ((eq? group 'error)
 	       (export-entities (cdr entities)))
+	      ((and (eq? group 'not-found) (pattern-export-constructor entity))
+	       ;; `pattern C' naming a data constructor in scope (GHC:
+	       ;; Agda's module Imports (Mode, pattern ScopeCheck, ...)),
+	       ;; exported in this pass, before the modules importing it
+	       ;; look for it (ie-errors.mumble)
+	       (let ((con (pattern-export-constructor entity)))
+		 (export-group (list (tuple (def-name con) con))))
+	       (export-entities (cdr entities)))
 	      ((eq? group 'not-found)
 	       (cons entity (export-entities (cdr entities))))
 	      (else

@@ -6,7 +6,8 @@
 ;;;  c) renamed entities that were never found
 ;;;  d) hidden entities that were never found
 
-;;; The data constructor C an export `pattern C' (pattern%C) names, or #f.
+;;; The data constructor C an export `pattern C' (pattern%C) names, or #f
+;;; (import-export.mumble's export-entities exports it).
 (define (pattern-export-constructor export)
   (and (is-type? 'entity-var export)
        (let ((s (symbol->string (entity-name export))))
@@ -29,11 +30,6 @@
 	       ;; T(..) of a type whose constructors are not in scope (an
 	       ;; abstract type imported from elsewhere): T, as in GHC
 	       (export-group (list (tuple (entity-name export) def))))
-	      ((pattern-export-constructor export)
-	       ;; `pattern C' naming a data constructor (GHC: Agda's
-	       ;; module Imports (Mode, pattern ScopeCheck, ...))
-	       (let ((con (pattern-export-constructor export)))
-		 (export-group (list (tuple (def-name con) con)))))
 	      (else
 	       (signal-missing-export export))))))
   (dolist (import-decl (module-imports *module*))
