@@ -209,7 +209,12 @@
 				 ;; FiniteEnumeration (Maybe a) instance (Bounded a,
 				 ;; Enum a) => Enum (Maybe a), Agda's)
 				 (list '%via target via (tycon-args type) single)
-				 target))
+				 (if (algdata? target)
+				     target
+				     ;; a synonym, perhaps applied (deriving instance
+				     ;; Ord a => Ord (Dom a), Dom = Dom' Term): its
+				     ;; arguments and the declared context
+				     (list '%stand target (tycon-args type) single))))
 		*standalone-derivings*)))))
     (terminate-topdecl mod-ast in-layout? 'topdecl))
    (|instance| (let ((instance-decl (parse-instance-decl '#f)))

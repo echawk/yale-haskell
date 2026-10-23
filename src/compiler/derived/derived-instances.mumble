@@ -52,7 +52,10 @@
       (remember-context (tuple-2-1 d)
 	(let* ((class-ref (tuple-2-1 d))
 	       (via?      (and (pair? (tuple-2-2 d)) (eq? (car (tuple-2-2 d)) '%via)))
-	       (target    (if via? (cadr (tuple-2-2 d)) (tuple-2-2 d)))
+	       (stand?    (and (pair? (tuple-2-2 d)) (eq? (car (tuple-2-2 d)) '%stand)))
+	       (stand-args (if stand? (caddr (tuple-2-2 d)) '()))
+	       (stand-ctx (if stand? (cadddr (tuple-2-2 d)) '()))
+	       (target    (if (or via? stand?) (cadr (tuple-2-2 d)) (tuple-2-2 d)))
 	       (alg       (synonym-algdata
 			   (if (algdata? target)
 			       target
@@ -89,7 +92,7 @@
 		((typeable-class? (class-ref-class class-ref)))
 		((not (algdata? alg))
 		 (signal-not-derivable (tuple-2-2 d)))
-		((synonym-head-args target)
+		((synonym-head-args target stand-args)
 		 ;; deriving instance C S, S = T Term: the instance at T Term,
 		 ;; as GHC's (Agda's Ord Level, Level = Level' Term, whose
 		 ;; PlusLevel's Ord is for PlusLevel' Term only)
@@ -97,26 +100,35 @@
 		   (setf insts (derive-instance alg (class-ref-class class-ref) insts))
 		   (when (and (not (eq? insts before)) (pair? insts))
 		     (let ((inst (car insts))
-			   (args (synonym-head-args target)))
+			   (args (synonym-head-args target stand-args)))
+		       (dolist (c stand-ctx)
+			 (resolve-class (context-class c)))
 		       (setf (instance-head-args inst) args)
 		       (setf (instance-tyvars inst)
 			     (lisp:remove-duplicates (lisp:mapcan (function ast-tyvar-names) args)))
-		       (setf (instance-context inst)
-			     (or (dynamic *standalone-context*) '()))))))
+		       (setf (instance-context inst) stand-ctx)))))
 		(else
 		 (setf insts (derive-instance alg (class-ref-class class-ref) insts)))))))
     insts))
 
-;;; For a synonym S = T t1 .. tn with a ti not a type variable: t1 .. tn;
-;;; else #f.
-(define (synonym-head-args target)
+;;; For a synonym S a1 .. ak = T t1 .. tn applied to ARGS (S u1 .. um, m
+;;; >= k), with a ti not a type variable: T's arguments, t1 .. tn with the
+;;; ai the ui, then the further ui; else #f.
+(define (synonym-head-args target args)
   (let ((def (if (symbol? target) (lookup-toplevel-name target) target)))
     (and (synonym? def) (not (synonym-family? def))
 	 (tycon? (synonym-body def))
-	 (null? (synonym-args def))
-	 (let ((args (tycon-args (synonym-body def))))
-	   (and (lisp:some (lambda (a) (not (tyvar? a))) args)
-		args)))))
+	 (>= (length args) (length (synonym-args def)))
+	 (let* ((params (synonym-args def))
+		(body-args (map (lambda (a)
+				  (let ((ty a))
+				    (dolist2 (p params) (u (list-head args (length params)))
+				      (setf ty (substitute-tyvar ty p u)))
+				    ty))
+				(tycon-args (synonym-body def))))
+		(all (append body-args (list-tail args (length params)))))
+	   (and (lisp:some (lambda (a) (not (tyvar? a))) all)
+		all)))))
 
 ;;; deriving instance C S, S a synonym for T t1 .. tn (Agda's Show
 ;;; TypedBinding, TypedBinding' Expr): T's instance, its context inferred
