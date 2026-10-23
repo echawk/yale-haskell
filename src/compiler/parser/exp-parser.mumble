@@ -293,12 +293,12 @@
 	(make pattern-guard (quals quals)))))
 
 (define (parse-guard-quals)
-  (let ((qual (token-case
-	       (|let| (parse-let-stmt))
-	       (else (parse-qual)))))
+  (let ((quals (token-case
+		(|let| (list (parse-let-stmt)))
+		(else (parse-qual/views 'guard)))))
     (token-case
-     (\, (cons qual (parse-guard-quals)))
-     (else (list qual)))))
+     (\, (append quals (parse-guard-quals)))
+     (else quals))))
 
 ;;; Record construction and update bind tighter than application
 ;;; (report 3.15): f r {x = 1} is f (r {x = 1}).
@@ -790,9 +790,9 @@
 
 ;;; The qualifier, and the view patterns' generators after it (parse-qual
 ;;; with MONADIC?: a statement's or a comprehension's).
-(define (parse-qual/views)
+(define (parse-qual/views . mode)
   (setf *view-quals* '())
-  (let ((qual (parse-qual '#t)))
+  (let ((qual (parse-qual (if (pair? mode) (car mode) '#t))))
     (let ((extra *view-quals*))
       (setf *view-quals* '())
       (cons qual extra))))
@@ -810,7 +810,9 @@
 	   (let* ((outer (if (pair? monadic?) *view-patterns* '()))
 		  (_ (when (pair? monadic?) (setf *view-patterns* '())))
 		  (pat (maybe-pattern-signature (parse-pat)))
-		  (views (if (pair? monadic?) (take-view-patterns) '())))
+		  (views (if (pair? monadic?) (take-view-patterns) '()))
+		  ;; a guard's (pattern guard, not monadic): p <- e v
+		  (guard? (and (pair? monadic?) (eq? (car monadic?) 'guard))))
 	     (when (pair? monadic?) (setf *view-patterns* outer))
 	     (advance-token) ; past the <-
 	     (let ((exp (parse-exp)))
@@ -822,9 +824,12 @@
 			    ;; pattern does
 			    (make qual-generator
 				  (pat (caddr v))
-				  (exp (make app (fn (generated-var-ref '|return|))
-					     (arg (make app (fn (cadr v))
-							(arg (generated-var-ref (car v)))))))))
+				  (exp (let ((use (make app (fn (cadr v))
+							(arg (generated-var-ref (car v))))))
+					 (if guard?
+					     use
+					     (make app (fn (generated-var-ref '|return|))
+						   (arg use)))))))
 			  views))
 	       (make qual-generator (pat pat) (exp exp)))))
 	  (else

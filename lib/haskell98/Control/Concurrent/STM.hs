@@ -7,9 +7,9 @@ module Control.Concurrent.STM (
     putTMVar, readTMVar, tryTakeTMVar, tryPutTMVar, isEmptyTMVar,
     swapTMVar, tryReadTMVar, writeTMVar,
     TChan, newTChan, newTChanIO, writeTChan, readTChan, tryReadTChan,
-    isEmptyTChan,
+    isEmptyTChan, unGetTChan, peekTChan, tryPeekTChan,
     TQueue, newTQueue, newTQueueIO, writeTQueue, readTQueue, tryReadTQueue,
-    isEmptyTQueue, flushTQueue,
+    isEmptyTQueue, flushTQueue, unGetTQueue, peekTQueue, tryPeekTQueue,
     TBQueue, newTBQueue, newTBQueueIO, writeTBQueue, readTBQueue,
     tryReadTBQueue, flushTBQueue, lengthTBQueue, isEmptyTBQueue, isFullTBQueue
   ) where
@@ -110,6 +110,18 @@ isEmptyTQueue (TQueue v) = fmap (\(f, b) -> null f && null b) (readTVar v)
 flushTQueue :: TQueue a -> STM [a]
 flushTQueue (TQueue v) = do { (f, b) <- readTVar v; writeTVar v ([], []); return (f ++ reverse b) }
 
+-- the next value to read
+unGetTQueue :: TQueue a -> a -> STM ()
+unGetTQueue (TQueue v) x = modifyTVar' v (\(f, b) -> (x : f, b))
+tryPeekTQueue :: TQueue a -> STM (Maybe a)
+tryPeekTQueue q = do
+  m <- tryReadTQueue q
+  case m of
+    Just x -> do { unGetTQueue q x; return (Just x) }
+    Nothing -> return Nothing
+peekTQueue :: TQueue a -> STM a
+peekTQueue q = tryPeekTQueue q >>= maybe retry return
+
 newTChan :: STM (TChan a)
 newTChan = newTQueue
 newTChanIO :: IO (TChan a)
@@ -122,6 +134,12 @@ tryReadTChan :: TChan a -> STM (Maybe a)
 tryReadTChan = tryReadTQueue
 isEmptyTChan :: TChan a -> STM Bool
 isEmptyTChan = isEmptyTQueue
+unGetTChan :: TChan a -> a -> STM ()
+unGetTChan = unGetTQueue
+peekTChan :: TChan a -> STM a
+peekTChan = peekTQueue
+tryPeekTChan :: TChan a -> STM (Maybe a)
+tryPeekTChan = tryPeekTQueue
 
 -- A bounded queue: writeTBQueue retries while it holds its capacity.
 data TBQueue a = TBQueue (TQueue a) (TVar Int) Int

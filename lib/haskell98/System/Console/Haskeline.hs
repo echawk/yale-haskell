@@ -14,19 +14,38 @@ module System.Console.Haskeline (
     completeWord, completeWord', completeWordWithPrev, completeQuotedWord,
     completeFilename, listFiles, noCompletion, simpleCompletion,
     fallbackCompletion, filenameWordBreakChars,
-    withInterrupt, handleInterrupt, Interrupt(Interrupt)
+    withInterrupt, handleInterrupt, Interrupt(Interrupt),
+    MonadException(catch), handle, throwIO
   ) where
 
+import Prelude hiding (catch)
 import PreludeModern (Applicative(pure, (<*>)))
 import Control.Monad.Trans.Class (MonadTrans(lift))
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import System.IO
 import System.Console.Haskeline.History
+import qualified Control.Exception as E
+import Control.Exception (Exception, throwIO)
 
 newtype InputT m a = InputT (History -> m (a, History))
 
 unInputT :: InputT m a -> History -> m (a, History)
 unInputT (InputT f) = f
+
+-- haskeline before 0.8: catching in IO and in InputT over it (0.8 has
+-- exceptions' MonadCatch instead; Agda's Interaction.Monad takes this one
+-- when MIN_VERSION_haskeline(0,8,0) is false, as it is here)
+class Monad m => MonadException m where
+  catch :: Exception e => m a -> (e -> m a) -> m a
+
+instance MonadException IO where
+  catch = E.catch
+
+instance MonadException m => MonadException (InputT m) where
+  catch (InputT f) h = InputT (\hist -> f hist `catch` (\e -> unInputT (h e) hist))
+
+handle :: (MonadException m, Exception e) => (e -> m a) -> m a -> m a
+handle h m = m `catch` h
 
 instance Monad m => Functor (InputT m) where
   fmap f (InputT g) = InputT (\h -> g h >>= \(a, h') -> return (f a, h'))
