@@ -247,12 +247,17 @@
     (when (and (is-type? 'signdecl decl) (signdecl-default? decl))
       (resolve-signature (signdecl-signature decl))
       (dolist (v (signdecl-vars decl))
-	(push (tuple (var-ref-name v)
-		     (rename-class-sig-vars (signdecl-signature decl) class-tyvars))
-	      default-sigs)
-	(let ((eqs (assq (signdecl-signature decl) *default-sig-equalities*)))
-	  (when (and eqs (not (null? (tuple-2-2 eqs))))
-	    (push (tuple (var-ref-name v) (tuple-2-2 eqs)) default-equalities))))))
+	(mlet (((renamed env) (rename-class-sig-vars/env (signdecl-signature decl) class-tyvars)))
+	  (push (tuple (var-ref-name v) renamed) default-sigs)
+	  (let ((eqs (assq (signdecl-signature decl) *default-sig-equalities*)))
+	    (when (and eqs (not (null? (tuple-2-2 eqs))))
+	      ;; (in the renamed signature's names)
+	      (push (tuple (var-ref-name v)
+			   (map (lambda (e)
+				  (mlet (((ty _) (rename-type-vars (tuple-2-2 e) env)))
+				    (tuple (tuple-2-1 e) ty)))
+				(tuple-2-2 eqs)))
+		    default-equalities)))))))
   (dolist (decl decls)
    (remember-context decl
     (cond ((and (is-type? 'signdecl decl) (signdecl-default? decl))
@@ -381,8 +386,14 @@
 		    (mp-context-types c)))
 	      new-multi)))
     (dolist (c single)
-      (let ((e (assq (context-tyvar c) substituted)))
-	(cond ((memq (context-tyvar c) dropped))
+      (let ((e (assq (context-tyvar c) substituted))
+	    (d (assq (context-tyvar c) eqs)))
+	(cond ((memq (context-tyvar c) dropped)
+	       ;; but the class's superclasses hold at t n (GHC has the
+	       ;; class there, whose superclasses they are): Agda's
+	       ;; liftThrough, Monad (t n) from ReadTCState (t n)
+	       (dolist (super (class-super* (class-ref-class (context-class c))))
+		 (push (**mp-context (**class/def super) (list (tuple-2-2 d))) new-multi)))
 	      (e (push (**mp-context (context-class c) (list (tuple-2-2 e))) new-multi))
 	      (else (push c new-single)))))
     (tuple (reverse new-single) (reverse new-multi))))
@@ -458,6 +469,12 @@
 ;;; prevented.
 
 (define (rename-class-sig-vars signature tyvars)
+  (mlet (((new-sig _) (rename-class-sig-vars/env signature tyvars)))
+    new-sig))
+
+;;; Also the renaming, for other types of the signature's (a default's
+;;; equalities, t n ~ m).
+(define (rename-class-sig-vars/env signature tyvars)
   (mlet (((new-context env1)
 	  (rename-context-vars (signature-context signature)
 			       (map (lambda (v) (tuple v v)) tyvars)))
@@ -472,7 +489,7 @@
 					ty1))
 				    (mp-context-types c))))
 	       (signature-mcontext signature)))
-    new-sig))
+    (values new-sig env2)))
 
 (define (rename-context-vars contexts env)
   (if (null? contexts)

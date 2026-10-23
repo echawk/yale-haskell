@@ -137,10 +137,14 @@
 ;;; (Mutable Vector) a, from Vector's superclass, is MVec MVector a).
 (define (reduce-mp-type type)
   (let ((type (prune type)))
-    (if (ntycon? type)
-	(let ((e (prune (expand-ntype-synonym type))))
-	  (if (eq? e type) type (reduce-mp-type e)))
-	type)))
+    (cond ((ntycon? type)
+	   (let ((e (prune (expand-ntype-synonym type))))
+	     (if (eq? e type) type (reduce-mp-type e))))
+	  ;; an application of a variable bound to a type constructor (t n,
+	  ;; t ReaderT r) is that constructor's application
+	  ((and (ntyapp? type) (ntycon? (prune (ntyapp-fun type))))
+	   (reduce-mp-type (apply-ntype (prune (ntyapp-fun type)) (ntyapp-args type))))
+	  (else type))))
 
 (define (find-mp-instance-1 instances positions types)
   ;; of the instances whose heads match, the most specific (OVERLAPPING:
@@ -1173,6 +1177,20 @@
 	    (type-unify tv (tuple-2-2 b) '#f)))))))
 
 (define (signal-unresolved-mp-constraint p)
+  (when (getenv "YALE_DEBUG_MP")
+    (lisp:format lisp:*error-output* "~&MP unresolved, in ~A, from ~A~%"
+		 (map (lambda (d) (and (valdef? d) (map (function var-ref-name)
+							 (collect-pattern-vars (valdef-lhs d)))))
+		      (placeholder-enclosing-decls p))
+		 (placeholder-overloaded-var p))
+    (let ((ov (placeholder-overloaded-var p)))
+      (when (var-ref? ov)
+	(lisp:format lisp:*error-output* "  var type ~A sig ~A~%" (var-type (var-ref-var ov))
+		     (var-signature (var-ref-var ov)))))
+    (dolist (ty (mp-placeholder-types p))
+      (let ((ty (prune ty)))
+	(lisp:format lisp:*error-output* "  type ~A ~A~%" (lisp:type-of ty)
+		     (if (ntyapp? ty) (list (prune (ntyapp-fun ty)) (map (function prune) (ntyapp-args ty))) ty)))))
   (phase-error 'unresolved-mp-constraint
     "No instance for ~A~%(and no constraint in the type signature provides it)."
     (**mp-context (**class/def (mp-placeholder-class p))

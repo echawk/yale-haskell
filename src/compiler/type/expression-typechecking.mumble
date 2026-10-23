@@ -573,7 +573,11 @@
     (when (recursive-type? ovar-type)
 	 (error
 	  "Implementation error: overloaded method found a recursive type"))
-    (if (and (gtype? (var-signature var)) (not (null? (gtype-mcontext gtype))))
+    (if (and (gtype? (var-signature var))
+	     (or (not (null? (gtype-mcontext gtype)))
+		 ;; (or the method's own signature has multi-parameter
+		 ;; constraints: a default's at t n, t n ~ m)
+		 (not (null? (gtype-mcontext (var-signature var))))))
 	(return-type-of-overloaded-method object var gtype)
 	(mlet (((ntype new-vars) (instantiate-gtype/newvars gtype))
 	       (object1 (insert-dict-placeholders
