@@ -1318,6 +1318,10 @@
 			   (list (core-symbol "build") (core-symbol "inlineBuild"))))))
       (cheap-to-repeat? exp)))
 
+(define (field-selection-of-var? exp)
+  (and (is-type? 'flic-sel exp)
+       (is-type? 'flic-ref (flic-sel-exp exp))))
+
 (define (cheap-to-repeat? exp)
   (cond ((is-type? 'flic-sel exp)
 	 (is-type? 'flic-ref (flic-sel-exp exp)))
@@ -1434,6 +1438,13 @@
     (cond ((memq var (dynamic *inlining-vars*))
 	   object)
 	  ((and (var-single-ref var)
+		;; A field selected from a matched constructor is kept as
+		;; its binding, as GHC's case binds the fields: copied to its
+		;; use, often in a thunk or after a call (dfs (N l r) = dfs l
+		;; >>= \a -> dfs r a), the selection keeps the whole
+		;; constructor, and with it the explored left subtree, live
+		;; (KiCS2's SearchSMM kept its whole search tree).
+		(not (field-selection-of-var? (var-value var)))
 		;; Inside a lambda that the binding is outside of, only a
 		;; value that does no work is copied: anything else would be
 		;; computed again at each call (nofib fem: a list built
