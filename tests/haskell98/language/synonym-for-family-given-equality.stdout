@@ -1,0 +1,2 @@
+Just ()
+Just (Pair 1 (Pair 2 ()))

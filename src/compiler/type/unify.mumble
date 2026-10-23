@@ -144,7 +144,12 @@
 (define (unify-expanded type1 type2)
   (let ((etype1 (if (ntycon? type1) (expand-ntype-synonym type1) type1))
 	(etype2 (if (ntycon? type2) (expand-ntype-synonym type2) type2)))
-    (cond ((and (ntycon? etype1) (ntycon? etype2))
+    (cond ((and (or (not (eq? etype1 type1)) (not (eq? etype2 type2)))
+		(or (family-app? etype1) (family-app? etype2)))
+	   ;; a synonym for a family application (Agda's StrictProducts as,
+	   ;; Foldr StrictPair () as): unified as one, which may reduce
+	   (unify-1 (prune etype1) (prune etype2)))
+	  ((and (ntycon? etype1) (ntycon? etype2))
 	   (if (same-tycon? (ntycon-tycon etype1) (ntycon-tycon etype2))
 	       (unify-args etype1 etype2)
 	       ;; This error message should probably show both the original
