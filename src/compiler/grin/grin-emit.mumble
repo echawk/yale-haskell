@@ -33,7 +33,10 @@
       (let ((opt  `(begin
 		     ,@(grin-ftype-declamation def)
 		     (define (,(grin-def-optname def) ,@(grin-def-params def))
-		       ,@(grin-emit-self-local def)))))
+		       ,@(if (grin-def-memo? def)
+			     (codegen-dictionary-memo (grin-def-params def)
+						      (grin-emit-self-local def))
+			     (grin-emit-self-local def))))))
 	(if (grin-def-selector? def)
 	    opt
 	    `(begin

@@ -15,7 +15,7 @@
   (let ((exp  (var-value var)))
     (if (not (flic-lambda? exp))
 	(make-grin-def 'value (fullname var) '#f '() '() '() '#f '#f
-		       (grin-lower exp) '() '#f)
+		       (grin-lower exp) '() '#f '#f)
 	(let* ((vars  (flic-lambda-vars exp))
 	       (def   (make-grin-def 'fun (fullname var) (optname var)
 				     (map (function fullname) vars)
@@ -24,7 +24,8 @@
 				     (var-selector-fn? var)
 				     (var-strict? var)
 				     (grin-lower (flic-lambda-body exp))
-				     '() '#f)))
+				     '() '#f
+				     (not (eq? (dictionary-fn-value var) '#f)))))
 	  (setf (grin-def-param-types def)
 		(grin-param-types var (length vars) (var-strictness var)))
 	  (setf (grin-def-result-type def)
