@@ -228,6 +228,20 @@
 ;;; when the declaration's type is not yet the signature's; elsewhere a
 ;;; fresh instance's family applications, Mutable v, would not be tied to
 ;;; the signature's when it is checked: vector's freeze)
+;;; The instance of VAR's signature its body is checked against, made once:
+;;; (type tyvars givens), as instantiate-gtype/mp gives them.
+(define *signature-instances* (lisp:make-hash-table :test (function lisp:eq)))
+(define *rigid-signature-tyvars* '())
+
+(define (shared-signature-instance var sig)
+  (let ((pre (lisp:gethash var *signature-instances*)))
+    (if pre
+	(car pre)
+	(mlet (((type tyvars givens) (instantiate-gtype/mp sig)))
+	  (setf (lisp:gethash var *signature-instances*) (list type tyvars givens))
+	  (setf *rigid-signature-tyvars* (append tyvars *rigid-signature-tyvars*))
+	  type))))
+
 (define (gadt-link-signature arg-types fresh-ok?)
   (let* ((decl (car (dynamic *enclosing-decls*)))
 	 (var (and (valdef? decl)
@@ -243,6 +257,13 @@
 	 (sig-args (cond ((>= (length own) (length arg-types)) own)
 			 ((and fresh-ok? sig (gtype? sig) (not (gtype-nested? sig)))
 			  (arrow-argument-types (instantiate-gtype sig)))
+			 ;; else the instance the signature is checked with
+			 ;; (type-decl.mumble's check-var-signature), so that the
+			 ;; body sees the signature's types and nothing ties them
+			 ;; later (Agda's rf x = applySubst rho x, rho the
+			 ;; enclosing binding's Substitution' Term)
+			 ((and sig (gtype? sig) (not (gtype-nested? sig)))
+			  (arrow-argument-types (shared-signature-instance var sig)))
 			 (else '())))
 	 (n (min (length sig-args) (length arg-types))))
     (dolist2 (a (list-head arg-types n)) (b (list-head sig-args n))
@@ -392,7 +413,10 @@
 ;;; tentative bindings of free variables are kept in an alist, so that
 ;;; Refl :: c :~: c does not unify with b :~: a.
 (define (scoped-ntyvar? tv)
-  (lisp:some (lambda (b) (eq? (prune (tuple-2-2 b)) tv)) (dynamic *scoped-tyvars*)))
+  (or (lisp:some (lambda (b) (eq? (prune (tuple-2-2 b)) tv)) (dynamic *scoped-tyvars*))
+      ;; or the variable of a signature's instance a body is checked
+      ;; against (shared-signature-instance)
+      (memq tv *rigid-signature-tyvars*)))
 
 (define (could-unify? t1 t2 depth)
   (not (eq? (could-unify-1 t1 t2 depth '()) 'fail)))

@@ -279,6 +279,20 @@
                       (sb-debug:print-backtrace :count 80 :stream *error-output*)
                       (finish-output *error-output*)))))))
          :name "backtrace timer"))))
+  ;; YALE_HASKELL_ROOM_AFTER=N: after N seconds, the heap's contents by
+  ;; type on standard error (to find what a program retains)
+  #+sbcl
+  (let ((after (uiop:getenv "YALE_HASKELL_ROOM_AFTER")))
+    (when (and after (plusp (length after)))
+      (sb-thread:make-thread
+       (lambda ()
+         (sleep (parse-integer after))
+         (let ((*standard-output* *error-output*))
+           (format t "~&--- heap after ~A s ---~%" after)
+           (sb-vm:instance-usage :dynamic :top-n 25)
+           (room t)
+           (finish-output)))
+       :name "room timer")))
   (let ((args (split-program-args argv)))
     #+sbcl (run-with-program-stack (lambda () (clingon:run (command) args)))
     #-sbcl (clingon:run (command) args))

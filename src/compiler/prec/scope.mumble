@@ -1045,14 +1045,6 @@
 		       (eq? (unqualified-name (var-ref-name (tuple-2-1 b))) f)))
 		bindings))
 
-(define (unqualified-name sym)
-  (let* ((s (symbol->string sym))
-	 (i (lisp:position #\. s :from-end '#t)))
-    (if (and i (> i 0) (< (1+ i) (string-length s))
-	     (char-upper-case? (string-ref s 0)))
-	(string->symbol (substring s (1+ i) (string-length s)))
-	sym)))
-
 ;;; For a record update whose fields are none of a data type's but all a
 ;;; record pattern synonym's: (name . fields), else #f.
 (define (update-record-synonym bindings)

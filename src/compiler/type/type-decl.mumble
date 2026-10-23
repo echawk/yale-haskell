@@ -520,7 +520,7 @@
 
 
 (define (check-var-signature var sig)
-  (mlet (((sig-type sig-vars givens) (instantiate-gtype/mp sig)))
+  (mlet (((sig-type sig-vars givens) (signature-instance-for-check var sig)))
     ;; the signature's multi-parameter constraints, for fundep
     ;; improvement before defaulting (mp-classes.mumble)
     (setf (dynamic *given-mp-constraints*)
@@ -538,6 +538,24 @@
     (dolist (tyvar sig-vars)
       (setf (ntyvar-read-only? tyvar) '#f))
     sig-vars))
+
+;;; The instance the body was checked against (existentials.mumble's
+;;; shared-signature-instance), its variables still distinct variables
+;;; (else the signature is too general), or a new one.
+(define (signature-instance-for-check var sig)
+  (let ((pre (lisp:gethash var *signature-instances*)))
+    (if (not pre)
+	(instantiate-gtype/mp sig)
+	(begin
+	  (lisp:remhash var *signature-instances*)
+	  (setf *rigid-signature-tyvars*
+		(lisp:set-difference *rigid-signature-tyvars* (cadr pre)))
+	  (let ((vars (map (function prune) (cadr pre))))
+	    (when (or (not (every (function ntyvar?) vars))
+		      (not (eqv? (length (lisp:remove-duplicates vars)) (length vars))))
+	      (type-error "Signature too general: ~A for the signature's variables of ~A."
+			  vars (def-name var)))
+	    (values (car pre) vars (caddr pre)))))))
   
 ;;; Once the declaration context is computed, it must be compared to the
 ;;; contexts given by the user.  All we need to check is that all tyvars
