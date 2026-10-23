@@ -70,6 +70,17 @@
 (define (match-type-tyvars t1 t2 found)
   (cond ((and (tyvar? t1) (tyvar? t2))
 	 (funcall found (tyvar-name t1) (tyvar-name t2)))
+	;; the signature's forall, or a synonym for a polytype with its
+	;; context (Agda's recurseExpr :: forall m. RecurseExprFn m Expr,
+	;; type RecurseExprFn m a = Applicative m => ...)
+	((forall-type? t2)
+	 (match-type-tyvars t1 (forall-type-type t2) found))
+	((forall-type? t1)
+	 (match-type-tyvars (forall-type-type t1) t2 found))
+	((and (tycon? t2)
+	      (not (and (tycon? t1) (eq? (tycon-name t1) (tycon-name t2))))
+	      (polytype-synonym-expansion t2 8))
+	 (match-type-tyvars t1 (polytype-synonym-expansion t2 8) found))
 	((and (tycon? t1) (tycon? t2)
 	      (eqv? (length (tycon-args t1)) (length (tycon-args t2))))
 	 (dolist2 (a (tycon-args t1)) (b (tycon-args t2))
