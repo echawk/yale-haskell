@@ -10,7 +10,8 @@ module System.Process (
     readCreateProcessWithExitCode, readProcessWithExitCode,
     withCreateProcess, cleanupProcess,
     waitForProcess, getProcessExitCode, terminateProcess,
-    showCommandForUser, system, rawSystem
+    showCommandForUser, system, rawSystem,
+    runInteractiveCommand, runInteractiveProcess
   ) where
 
 import System.Exit
@@ -208,3 +209,20 @@ showCommandForUser prog args = unwords (map quote (prog : args))
         esc '\'' = "'\\''"
         esc c    = [c]
         safe c = c `elem` "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_./=:,+@%"
+
+-- The old interface: a command's (or a program's) stdin, stdout and stderr
+-- as pipes.
+runInteractiveCommand :: String -> IO (Handle, Handle, Handle, ProcessHandle)
+runInteractiveCommand cmd = interactive (shell cmd)
+
+runInteractiveProcess :: FilePath -> [String] -> Maybe FilePath
+                      -> Maybe [(String, String)]
+                      -> IO (Handle, Handle, Handle, ProcessHandle)
+runInteractiveProcess prog args dir e =
+  interactive ((proc prog args) { cwd = dir, env = e })
+
+interactive :: CreateProcess -> IO (Handle, Handle, Handle, ProcessHandle)
+interactive cp = do
+  (Just i, Just o, Just r, p) <-
+    createProcess cp { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
+  return (i, o, r, p)

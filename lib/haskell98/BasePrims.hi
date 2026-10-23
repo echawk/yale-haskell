@@ -97,6 +97,7 @@ primGetEcho        :: IO Bool
 primSetEcho        :: Bool -> IO ()
 primTruncateFile   :: String -> Integer -> IO ()
 primCreateTempFile :: String -> String -> String -> IO String
+primGetHostName    :: IO String
 
 -- Text.Regex: a compiled regular expression (a cl-ppcre scanner)
 data RegexObj
@@ -184,4 +185,5 @@ primGetEcho        :: LispName("prim.get-echo")
 primSetEcho        :: LispName("prim.set-echo")
 primTruncateFile   :: LispName("prim.truncate-file")
 primCreateTempFile :: LispName("prim.create-temp-file")
+primGetHostName    :: LispName("prim.get-host-name")
 #-}

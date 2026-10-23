@@ -164,6 +164,9 @@
     out))
 (cl:defun prim.last-exit-code () *last-exit-code*)
 
+;;; Network.BSD's getHostName: the host's name (gethostname)
+(cl:defun prim.get-host-name () (cl:or (cl:machine-instance) "localhost"))
+
 ;;; System.Process's createProcess and readProcessWithExitCode, over
 ;;; uiop:launch-program / run-program.  A command is its argument words
 ;;; joined by NUL characters (the Haskell side's [String]); ENV, when
