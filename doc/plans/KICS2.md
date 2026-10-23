@@ -11,10 +11,12 @@ Status (2026-10-23): steps 1-3 done, step 4 under way.
 - The 58 generated modules compile; the Yale-built `kics2c`
   (`build/kics2/kics2c/kics2c`) with the Yale-built frontend writes the
   same Haskell, FlatCurry and info files as the distribution's for
-  library modules (Data.List).  The Curry Prelude itself still exhausts
-  even a 16 GB heap while kics2c reads its 3.9 MB annotated FlatCurry
-  back: the Yale build keeps about twenty times the live data GHC's does
-  (1.4 GB against GHC's 480 MB resident for Data.List's 190 KB).
+  library modules (Data.List) and for the Curry Prelude.  The Prelude
+  takes 77 s and 6.4 GB resident (GHC's build: 24 s, 5.0 GB).  It
+  exhausted a 16 GB heap until instance dictionary functions kept their
+  recent results: kics2c rebuilt `Curry [a]` and `Curry (a, b)`
+  dictionaries on every call while reading the 3.9 MB annotated FlatCurry
+  back, and kept millions of them live.
 Survey of 2026-10-22 below.  KiCS2 3.5.0 (upstream
 <https://github.com/curry-language/kics2>, with its `frontend` submodule
 <https://github.com/cau-placc/curry-frontend> at 66db010) and the arm64

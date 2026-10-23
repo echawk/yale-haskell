@@ -82,35 +82,48 @@
 
 ;;; An instance's dictionary function (dictionary-fn-value,
 ;;; optimize.mumble: \d1 ... dn -> pack m1 ... mk) keeps its last
-;;; arguments and result, and returns the same dictionary when called with
-;;; the same (eq) dictionaries.  A recursive function at Curry a that
-;;; needs Curry [a] otherwise builds a new dictionary, with a thunk per
-;;; method, on every call; KiCS2's Prelude kept millions of them live.
-;;; BODY is the function's body forms, declarations first.
+;;; *dictionary-memo-size* argument lists and results, and returns the same
+;;; dictionary when called with the same (eq) dictionaries.  A recursive
+;;; function at Curry a that needs Curry [a] otherwise builds a new
+;;; dictionary, with a thunk per method, on every call; KiCS2's Prelude
+;;; kept millions of them live.  BODY is the function's body forms,
+;;; declarations first.  The cache is a vector of entries #(d1 .. dn
+;;; result), the last slot the next one to replace.
+
+(define *dictionary-memo-size* 8)
 
 (define (codegen-dictionary-memo params body)
   (let ((decls  '())
-	(cell   (gensym "CELL"))
+	(n      *dictionary-memo-size*)
+	(cache  (gensym "CACHE"))
 	(entry  (gensym "ENTRY"))
+	(i      (gensym "I"))
 	(result (gensym "RESULT")))
     (do () ((not (and (pair? body) (pair? (car body))
 		      (eq? (car (car body)) 'declare))))
       (push (car body) decls)
       (setf body (cdr body)))
     `(,@(reverse decls)
-      (let* ((,cell  (lisp:load-time-value (lisp:cons '#f '#f)))
-	     (,entry (car ,cell)))
-	(if (and ,entry
-		 ,@(let ((i -1))
-		     (map (lambda (p)
-			    (setf i (1+ i))
-			    `(lisp:eq (lisp:svref ,entry ,i) ,p))
-			  params)))
-	    (lisp:svref ,entry ,(length params))
-	    (let ((,result (begin ,@body)))
-	      (write-barrier)
-	      (setf (car ,cell) (lisp:vector ,@params ,result))
-	      ,result))))))
+      (lisp:block dictionary-memo
+      (let ((,cache (lisp:load-time-value
+		     (let ((v (lisp:make-array ,(1+ n) :initial-element '#f)))
+		       (setf (lisp:svref v ,n) 0)
+		       v))))
+	(lisp:dotimes (,i ,n)
+	  (let ((,entry (lisp:svref ,cache ,i)))
+	    (when (and ,entry
+		       ,@(let ((k -1))
+			   (map (lambda (p)
+				  (setf k (1+ k))
+				  `(lisp:eq (lisp:svref ,entry ,k) ,p))
+				params)))
+	      (lisp:return-from dictionary-memo (lisp:svref ,entry ,(length params))))))
+	(let ((,result (begin ,@body))
+	      (,i (lisp:svref ,cache ,n)))
+	  (write-barrier)
+	  (setf (lisp:svref ,cache ,i) (lisp:vector ,@params ,result))
+	  (setf (lisp:svref ,cache ,n) (lisp:mod (lisp:1+ ,i) ,n))
+	  ,result))))))
 
 ;;; For top-level definitions bound to lambda expressions, make both
 ;;; a standard entry point (with possibly unboxed arguments) and
