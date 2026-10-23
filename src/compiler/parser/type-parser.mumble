@@ -552,12 +552,12 @@
 	     (record-equality (tyvar-name right) left)
 	     (record-signature-equality sig (tyvar-name right) left)
 	     (substitute-signature sig (tyvar-name right) left)))))
+  sig)
 
 (define (record-equality name type)
   (when (dynamic *recording-equalities?*)
     (setf (dynamic *recorded-equalities*)
 	  (cons (tuple name type) (dynamic *recorded-equalities*)))))
-  sig)
 
 ;;; The same for an instance (instance ann ~ Void => Pretty (Doc ann) is
 ;;; Pretty (Doc Void)): returns its contexts, multi-parameter contexts and
