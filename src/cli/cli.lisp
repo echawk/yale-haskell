@@ -276,13 +276,19 @@
   ;; type on standard error, and the closures by function (to find what a
   ;; program retains; an unevaluated thunk is a closure).  Taken in the
   ;; program's thread, after a full collection, so the heap holds what
-  ;; is live and is not changing.
+  ;; is live and is not changing.  YALE_HASKELL_ROOM_AT_MB=M instead: once
+  ;; the heap in use passes M megabytes.
   #+sbcl
-  (let ((after (uiop:getenv "YALE_HASKELL_ROOM_AFTER")))
-    (when (and after (plusp (length after)))
+  (let ((after (uiop:getenv "YALE_HASKELL_ROOM_AFTER"))
+        (at-mb (uiop:getenv "YALE_HASKELL_ROOM_AT_MB")))
+    (when (or (and after (plusp (length after))) (and at-mb (plusp (length at-mb))))
       (sb-thread:make-thread
        (lambda ()
-         (sleep (parse-integer after))
+         (if (and after (plusp (length after)))
+             (sleep (parse-integer after))
+             (loop with limit = (* (parse-integer at-mb) 1024 1024)
+                   until (> (sb-kernel:dynamic-usage) limit)
+                   do (sleep 0.2)))
          (let ((th (or (find "yale-haskell" (sb-thread:list-all-threads)
                              :key #'sb-thread:thread-name :test #'equal)
                        (sb-thread:main-thread))))
@@ -290,7 +296,10 @@
             th (lambda ()
                  (let ((*standard-output* *error-output*))
                    (sb-ext:gc :full t)
-                   (format t "~&--- heap after ~A s ---~%" after)
+                   (format t "~&--- heap at ~A ---~%"
+                           (if (and after (plusp (length after)))
+                               (format nil "~A s" after)
+                               (format nil "~A MB" at-mb)))
                    (sb-vm:instance-usage :dynamic :top-n 25)
                    (room t)
                    (print-closure-census 40)
