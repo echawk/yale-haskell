@@ -104,6 +104,18 @@
 			      (let ((m (method-placeholder-method p)))
 				(method-reference-code m (method-var-class m) given))))
 		    deferred)
+		   ;; out of a constraint family's given constraint (Agda's
+		   ;; All EmbPrj (CoDomain t ': Domains t) gives EmbPrj
+		   ;; (CoDomain t))
+		   ((cfam-given-component p (placeholder-class p) (list type) decls)
+		    (let ((d (cfam-given-component p (placeholder-class p) (list type) decls)))
+		      (setf (placeholder-exp p)
+			    (if (dict-placeholder? p)
+				d
+				(let ((m (method-placeholder-method p)))
+				  (**app (**var/def (tuple-2-2 (assq m (class-selectors (placeholder-class p)))))
+					 d)))))
+		    deferred)
 		   ;; a data family with an instance of its own (instance
 		   ;; Show (Vector a)): that instance, at any arguments
 		   ((and (data-family-def? family)

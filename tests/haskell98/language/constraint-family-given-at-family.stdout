@@ -1,0 +1,5 @@
+Just ()
+Just (Pair 1 (Pair 2 ()))
+(False,1)
+True
+"AB"
