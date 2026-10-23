@@ -248,16 +248,9 @@
                                :description "compile FILE and run Main.main"
                                :handler #'run-handler))))
 
-(defun main (&optional (argv (uiop:command-line-arguments)))
-  ;; The saved executable sets up its environment and picks the image
-  ;; (src/cli/startup.lisp); a launcher script does that on other Lisps.
-  (when (fboundp 'startup)
-    (setf argv (funcall 'startup argv)))
-  ;; The compiler interns symbols in the current package and reads with
-  ;; mumble's readtable.
-  (setf *package* (find-package "MUMBLE-USER"))
-  (setf *readtable* (symbol-value (find-symbol "*MUMBLE-READTABLE*"
-                                               "MUMBLE-IMPLEMENTATION")))
+;;; The debugging timers the environment asks for (also in a saved
+;;; program: saved-program-main).
+(defun start-debug-timers ()
   ;; YALE_HASKELL_BACKTRACE_AFTER=N: after N seconds, each thread prints
   ;; its backtrace on standard error (to find where a compile loops)
   #+sbcl
@@ -293,6 +286,19 @@
            (room t)
            (finish-output)))
        :name "room timer")))
+  nil)
+
+(defun main (&optional (argv (uiop:command-line-arguments)))
+  ;; The saved executable sets up its environment and picks the image
+  ;; (src/cli/startup.lisp); a launcher script does that on other Lisps.
+  (when (fboundp 'startup)
+    (setf argv (funcall 'startup argv)))
+  ;; The compiler interns symbols in the current package and reads with
+  ;; mumble's readtable.
+  (setf *package* (find-package "MUMBLE-USER"))
+  (setf *readtable* (symbol-value (find-symbol "*MUMBLE-READTABLE*"
+                                               "MUMBLE-IMPLEMENTATION")))
+  (start-debug-timers)
   (let ((args (split-program-args argv)))
     #+sbcl (run-with-program-stack (lambda () (clingon:run (command) args)))
     #-sbcl (clingon:run (command) args))
@@ -359,6 +365,7 @@
 
 #+sbcl
 (defun saved-program-main ()
+  (start-debug-timers)
   (setf *package* (find-package "MUMBLE-USER"))
   (setf *readtable* (symbol-value (find-symbol "*MUMBLE-READTABLE*"
                                                "MUMBLE-IMPLEMENTATION")))

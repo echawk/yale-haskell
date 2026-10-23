@@ -85,6 +85,12 @@
 		       (non-generic? type1))
 		  (type-error
  "Type signature cannot be used: monomorphic type variables present."))
+		 ;; (a rigid variable, a signature's instance's or a scoped one,
+		 ;; is the one kept: the other may yet be bound to a family's
+		 ;; application, Agda's substPattern')
+		 ((and (ntyvar? type2) (not (ntyvar-read-only? type2))
+		       (scoped-ntyvar? type1) (not (scoped-ntyvar? type2)))
+		  (unify-1 type2 type1))
 		 (else
 		  (instantiate-tyvar type1 type2)
 		  (let ((classes (ntyvar-context type1))
