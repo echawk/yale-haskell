@@ -50,6 +50,14 @@ instance (Monoid w, Monad m) => Monad (WriterT w m) where
 instance (Monoid w, MonadFail m) => MonadFail (WriterT w m) where
   fail msg = WriterT (fail msg)
 
+instance (Monoid w, MonadPlus m) => Alternative (WriterT w m) where
+  empty = WriterT mzero
+  m <|> n = WriterT (runWriterT m `mplus` runWriterT n)
+
+instance (Monoid w, MonadPlus m) => MonadPlus (WriterT w m) where
+  mzero = WriterT mzero
+  m `mplus` n = WriterT (runWriterT m `mplus` runWriterT n)
+
 instance Monoid w => MonadTrans (WriterT w) where
   lift m = WriterT (m >>= \a -> return (a, mempty))
 
