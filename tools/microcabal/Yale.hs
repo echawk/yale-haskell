@@ -70,6 +70,9 @@ builtinPackages =
     "ghc-boot-th",
     -- GHC.Compact, its regions the values themselves (Agda's Serialise)
     "ghc-compact",
+    -- Data.FileEmbed in the library (embedFile through Template
+    -- Haskell's runIO)
+    "file-embed",
     -- compatibility packages whose modules base has
     "fail", "semigroups", "void", "nats", "tagged-compat" ]
 
