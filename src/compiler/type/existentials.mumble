@@ -87,11 +87,13 @@
     (lisp:remove-if-not
      ;; only those whose type has a variable the match refines (aeson's
      ;; m1 beside targs@(To1Args ..) keeps its type)
+     ;; (or a polytype's, at its free variables: Agda's mapWithIndex f
+     ;; (Cons p ps) = Cons (f Zero p) ..., f :: forall x. Index xs x ->
+     ;; p x -> q x and the match refining xs)
      (lambda (v)
        (let ((ty (var-type v)))
-	 (and (not (gtype? ty))
-	      (lisp:some (lambda (tv) (memq tv refined))
-			 (ntype-free-tyvars ty)))))
+	 (lisp:some (lambda (tv) (memq tv refined))
+		    (ntype-free-tyvars (if (gtype? ty) (gtype-type ty) ty)))))
      (lisp:mapcan (lambda (p)
 		    (if (pattern-has-gadt-con? p)
 			'()
@@ -251,9 +253,15 @@
 	 ;; the declaration's own type, once the signature's (a scoped
 	 ;; signature is: scoped-tyvars.mumble's scoped-signatures, which
 	 ;; then drops the signature)
-	 (own (if var
-		  (arrow-argument-types (remove-recursive-type (var-type var)))
-		  '()))
+	 (own (cond ((not var) '())
+		    ;; checked at its signature (type-decl.mumble's
+		    ;; type-decl-rhs/at-signature): its own type
+		    ((and (gtype? (var-type var))
+			  (assq var (dynamic *at-signature-lhs-types*)))
+		     (arrow-argument-types
+		      (tuple-2-2 (assq var (dynamic *at-signature-lhs-types*)))))
+		    (else
+		     (arrow-argument-types (remove-recursive-type (var-type var))))))
 	 (sig-args (cond ((>= (length own) (length arg-types)) own)
 			 ((and fresh-ok? sig (gtype? sig) (not (gtype-nested? sig)))
 			  (arrow-argument-types (instantiate-gtype sig)))

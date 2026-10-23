@@ -329,11 +329,19 @@
 ;;; The right hand side typed with each variable of the binding at its
 ;;; signature, then given back the type its left hand side gave it.
 
+;;; (tuple var type) for the declarations checked at their signatures:
+;;; their own types, which polytype-arguments ties to the signature
+;;; (existentials.mumble's gadt-link-signature links clauses to them).
+(define *at-signature-lhs-types* '())
+
 (define (type-decl-rhs/at-signature decl vars)
   (let ((lhs-types (map (function var-type) vars)))
     (dolist (v vars)
       (setf (var-type v) (var-signature v)))
-    (let ((rhs-type (type-decl-rhs decl)))
+    (let ((rhs-type (dynamic-let ((*at-signature-lhs-types*
+				   (append (map (function tuple) vars lhs-types)
+					   (dynamic *at-signature-lhs-types*))))
+		      (type-decl-rhs decl))))
       (dolist2 (v vars) (ty lhs-types)
 	(setf (var-type v) ty))
       rhs-type)))
