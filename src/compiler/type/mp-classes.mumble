@@ -403,12 +403,17 @@
 (define (solve-type-equality p . eager?)
   (when (type-equality-class? (mp-placeholder-class p))
     (let ((types (mp-placeholder-types p)))
-      (when (not (and (not (null? eager?))
-		      (lisp:some (function stuck-family-app?) types)))
-	(type-unify (car types) (cadr types)
-	  (type-error "The types ~A and ~A of an equality constraint do not match."
-		      (car types) (cadr types)))
-	(setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor")))))))
+      (cond ((mp-type-equal? (car types) (cadr types))
+	     ;; equal once the given equalities reduce them (SubstArg t ~
+	     ;; t given: Agda's local sub at SubstWith t a, a t): nothing
+	     ;; to unify
+	     (setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor"))))
+	    ((not (and (not (null? eager?))
+		       (lisp:some (function stuck-family-app?) types)))
+	     (type-unify (car types) (cadr types)
+	       (type-error "The types ~A and ~A of an equality constraint do not match."
+			   (car types) (cadr types)))
+	     (setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor"))))))))
 
 (define (stuck-family-app? type)
   (let ((type (prune type)))

@@ -78,9 +78,16 @@
     l))
 
 (define (signature->gtype signature)
-  (let ((g (ast->gtype (signature-context signature)
-		       (signature-type signature)
-		       (signature-mcontext signature))))
+  ;; an explicit forall's order is its variables' (TypeApplications:
+  ;; sub @t with sub :: forall a b. (Coercible b a, ..) => b -> b)
+  (let ((g (if (null? (signature-foralls signature))
+	       (ast->gtype (signature-context signature)
+			   (signature-type signature)
+			   (signature-mcontext signature))
+	       (ast->gtype (signature-context signature)
+			   (signature-type signature)
+			   (signature-mcontext signature)
+			   (signature-foralls signature)))))
     (setf (gtype-scoped g) (signature-foralls signature))
     g))
 

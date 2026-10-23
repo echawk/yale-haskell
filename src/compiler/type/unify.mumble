@@ -34,6 +34,10 @@
 	   'OK)
 	  ((and (ntyvar? type1) (family-app? type2)
 		(or (ntyvar-read-only? type1)
+		    ;; (an enclosing signature's scoped variable is rigid:
+		    ;; Agda's SubstArg a ~ t in a local signature, t the
+		    ;; enclosing one's)
+		    (scoped-ntyvar? type1)
 		    (occurs-in-type type1 type2)
 		    (not (eq? (reduce-family-app type2) 'stuck))))
 	   ;; a variable and a type family application that reduces, or
