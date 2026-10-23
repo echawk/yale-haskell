@@ -129,7 +129,17 @@
 	      (compute-function-strictness var val stack)))
 	))))
 
+;;; The traces begun for the function being analyzed, and their bound:
+;;; each call of a function of the group not finished yet walks its body
+;;; again with the call's arguments, which in a large mutually recursive
+;;; group (curry-frontend's KindCheck) grows exponentially.  Past the
+;;; bound, a call is taken to force nothing: no argument is found strict
+;;; through it, which is always safe.
+(define *strictness-traces* 0)
+(define *strictness-trace-limit* 20000)
+
 (define (compute-function-strictness var val stack)
+  (setf *strictness-traces* 0)
   (let* ((vars  (flic-lambda-vars val))
 	 (env   (add-var-binding-n vars (map (function list) vars)
 				   (init-var-env)))
@@ -249,7 +259,10 @@
 	   ;; We're already tracing this call.  Return true to
 	   ;; terminate the fixpoint iteration.
 	   '#t)
+	  ((> *strictness-traces* *strictness-trace-limit*)
+	   '#f)
 	  (else
+	   (incf *strictness-traces*)
 	   ;; Otherwise, begin a new trace instance.
 	   ;; Add stuff to the saved var-env to map references to
 	   ;; the argument variables to the strictness terms for
