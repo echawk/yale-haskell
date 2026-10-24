@@ -42,6 +42,7 @@
 (define (write-compiled-code-file filename code code-quality chunk-size)
   (let ((phase-start-time (get-run-time))
         (forms            (flatten-forms code)))
+    (warn-oversized-forms forms)
     (dynamic-let ((*magic-chunk-size*
 		   (or chunk-size (dynamic *magic-chunk-size*)))
 		  (*code-quality*
@@ -87,6 +88,23 @@
 ;;; and local function).
 
 (define *max-chunk-functions* 1000)
+
+;;; A single form beyond SBCL's limit cannot be split here: it is named on
+;;; standard error, before the Lisp compiler fails on it.
+(define (warn-oversized-forms forms)
+  (dolist (f forms)
+    (let ((w (form-weight f)))
+      (when (> w 1800)
+	(lisp:format lisp:*error-output*
+		     "~&; a form of ~A functions: ~A~%" w (oversized-form-name f))))))
+
+(define (oversized-form-name f)
+  (cond ((and (pair? f) (memq (car f) '(define lisp:defun lisp:defparameter)))
+	 (let ((n (cadr f))) (if (pair? n) (car n) n)))
+	((and (pair? f) (eq? (car f) 'begin) (pair? (cdr f)))
+	 (oversized-form-name (cadr f)))
+	((pair? f) (car f))
+	(else f)))
 
 (define (forms-weight forms)
   (let ((n  0))
