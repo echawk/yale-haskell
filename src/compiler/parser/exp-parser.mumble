@@ -397,6 +397,12 @@
 	(record-splice (make splice (exp e))))))
     (splice-var
      (save-parser-context (record-splice (make splice (exp (var->ast))))))
+    ;; QuasiQuotes: [q|text|] is the splice $(quoteExp q "text")
+    ((no-advance quasi-quote)
+     (save-parser-context
+      (let ((args *token-args*))
+	(advance-token)
+	(record-splice (make splice (exp (quasi-quote-exp '|quoteExp| args)))))))
     ;; typed Template Haskell: $$(c) and $$c splice unTypeCode c
     (typed-splice-paren
      (save-parser-context
@@ -1089,6 +1095,19 @@
 ;;; becomes (th/quote.mumble).
 
 (define *in-quote?* '#f)
+
+;;; QuasiQuotes: Language.Haskell.TH.Quote's quoteExp (quotePat, ...) of
+;;; the quoter applied to the quote's text (ARGS: quoter and text).
+(define (quasi-quote-exp field args)
+  (make app
+	(fn (make app
+		  (fn (generated-var-ref
+		       (string->symbol
+			(string-append "Language.Haskell.TH.Quote."
+				       (symbol->string field)))))
+		  (arg (make var-ref (name (string->symbol (car args)))
+			     (infix? '#f) (var *undefined-def*)))))
+	(arg (make string-const (value (cadr args))))))
 
 (define (record-splice s)
   (when (not (dynamic *in-quote?*))

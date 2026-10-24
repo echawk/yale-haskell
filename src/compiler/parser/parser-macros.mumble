@@ -273,7 +273,8 @@
 	       integer string char)
   (aexp-start no-advance varid conid \( \[ literal name-quote type-name-quote
 	      splice-paren splice-var open-exp-quote open-pat-quote open-type-quote
-	      open-decs-quote open-typed-quote typed-splice-paren typed-splice-var)
+	      open-decs-quote open-typed-quote typed-splice-paren typed-splice-var
+	      quasi-quote)
   ))
 
 ;;; The format of token-case is

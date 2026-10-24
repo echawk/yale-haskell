@@ -69,6 +69,7 @@
 		      (format '#f "module ~A where~%~
                                    import qualified Language.Haskell.TH.Syntax~%~
                                    import qualified Language.Haskell.TH.YaleSplice~%~
+                                   import qualified Language.Haskell.TH.Quote~%~
                                    splice_expression :: Language.Haskell.TH.Syntax.Q ~A~%~
                                    splice_expression = splice_expression~%~
                                    splice_text :: [Char]~%~

@@ -360,13 +360,14 @@
 (define *decl-splices* '())
 
 (define (at-decl-splice?)
-  (and (language-extension? "TemplateHaskell")
+  (or (eq-token? 'quasi-quote)   ; [q|text|] at the top level: quoteDec
+   (and (language-extension? "TemplateHaskell")
        (or (eq-token? 'splice-paren)
 	   (eq-token? 'splice-var)
 	   ;; (or an expression starting with a bracket: Agda's
 	   ;; [] <$ mapM_ (qAddDependentFile . dataPath) dataFiles)
 	   (and (or (eq-token? 'varid) (eq-token? '\[) (eq-token? '\())
-		(naked-splice-ahead?)))))
+		(naked-splice-ahead?))))))
 
 (define (naked-splice-ahead?)
   (let ((col *current-col*)
@@ -389,6 +390,10 @@
 
 (define (parse-decl-splice-exp)
   (token-case
+   ((no-advance quasi-quote)
+    (let ((args *token-args*))
+      (advance-token)
+      (quasi-quote-exp '|quoteDec| args)))
    (splice-paren
     (let ((e (parse-exp)))
       (require-token \) (signal-missing-token "`)'" "a splice"))

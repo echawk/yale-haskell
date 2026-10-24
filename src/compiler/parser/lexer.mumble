@@ -324,8 +324,12 @@
 	 (emit-token '\,))
     (#\; (advance-char)
 	 (emit-token '\;))
-    (#\[ (let ((kind (quote-bracket-here?)))
+    (#\[ (let ((kind (quote-bracket-here?))
+	       (qq (quasi-quote-here?)))
 	   (cond
+	    (qq
+	     ;; QuasiQuotes: [quoter|text|]
+	     (lex-quasi-quote qq))
 	    ((eq? kind 'open-typed-quote)
 	     ;; [||
 	     (advance-char) (advance-char) (advance-char)
@@ -1076,6 +1080,56 @@
 		(#\d 'open-decs-quote)
 		(else '#f)))
 	     (else '#f))))
+
+;;; QuasiQuotes: at [, the length of the quoter's name when [quoter|
+;;; follows (quoter a variable, perhaps qualified, M.q; not e, p, t or d
+;;; under TemplateHaskell, its quotes), else #f.  The characters looked at
+;;; are put back in front of the port.
+(define (quasi-quote-here?)
+  (and (language-extension? "QuasiQuotes")
+       (or (char-alphabetic? *peek-char*) (char=? *peek-char* #\_))
+       (let ((buf '())
+	     (bar? '#f))
+	 (do ((c (lisp:read-char *port* '#f '#f) (lisp:read-char *port* '#f '#f)))
+	     ((or (not c)
+		  (not (or (char-alphabetic? c) (char-numeric? c)
+			   (memv c '(#\_ #\' #\.)))))
+	      (when c
+		(push c buf)
+		(setf bar? (char=? c #\|))))
+	   (push c buf))
+	 (setf *port* (lisp:make-concatenated-stream
+		       (lisp:make-string-input-stream (list->string (reverse buf)))
+		       *port*))
+	 (and bar?
+	      (let ((name (cons *peek-char* (reverse (cdr buf)))))  ; (not the |)
+		(and (not (char=? (car (last name)) #\.))
+		     ;; a varid's: its last part starts with a small letter
+		     (let ((last-part (lisp:position #\. name :from-end '#t)))
+		       (char-lower-case? (if last-part
+					     (list-ref name (1+ last-part))
+					     (car name))))
+		     (not (and (null? (cdr name))
+			       (memv (car name) '(#\e #\p #\t #\d))
+			       (or (language-extension? "TemplateHaskell")
+				   (language-extension? "TemplateHaskellQuotes"))))
+		     (length name)))))))
+
+;;; [quoter|text|]: the token quasi-quote, its quoter and text.
+(define (lex-quasi-quote name-length)
+  (advance-char)  ; [
+  (let ((name '())
+	(text '()))
+    (dotimes (i name-length)
+      (push *char* name)
+      (advance-char))
+    (advance-char)  ; |
+    (do () ((or *at-eof?* (and (char=? *char* #\|) (char=? *peek-char* #\]))))
+      (push *char* text)
+      (advance-char))
+    (advance-char)
+    (advance-char)
+    (emit-token 'quasi-quote (list->string (reverse name)) (list->string (reverse text)))))
 
 ;;; typed Template Haskell: $$ that starts a typed splice, as $ does
 (define (typed-splice-here?)

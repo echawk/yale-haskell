@@ -663,9 +663,11 @@
 	  (if (language-extension? "RecursiveDo") '(|Control.Monad.Fix|) '())
 	  (if (language-extension? "MagicHash") '(|GHC.Exts|) '())
 	  ;; the fragments that run splices import it (th/splices.mumble)
+	  ;; (and Language.Haskell.TH.Quote, for a quasi-quote's quoteExp)
 	  (if (or (language-extension? "TemplateHaskell")
-		  (language-extension? "TemplateHaskellQuotes"))
-	      '(|Language.Haskell.TH.YaleSplice|)
+		  (language-extension? "TemplateHaskellQuotes")
+		  (language-extension? "QuasiQuotes"))
+	      '(|Language.Haskell.TH.YaleSplice| |Language.Haskell.TH.Quote|)
 	      '())))
 
 (define (scan-module-header file)
