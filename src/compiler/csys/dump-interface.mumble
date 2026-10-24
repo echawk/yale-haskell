@@ -104,17 +104,49 @@
   (lisp:mapcan
    (lambda (f)
      (if (and (pair? f) (eq? (car f) 'define) (pair? (cdr f)) (pair? (cadr f))
-	      (> (form-weight f) *max-function-weight*))
+	      (or (> (form-weight f) *max-function-weight*)
+		  (> (form-size f) *max-function-size*)))
 	 (let ((helpers '()))
-	   (let ((new `(define ,(cadr f)
-			 ,@(map (lambda (b)
-				  (lift-delays b (lambda-list-vars (cdr (cadr f))) '()
-					       (car (cadr f))
-					       (lambda (h) (push h helpers))))
-				(cddr f)))))
-	     (append (reverse helpers) (list new))))
+	   (let ((new (dynamic-let ((*lift-branches?*
+				     (> (form-size f) *max-function-size*)))
+			`(define ,(cadr f)
+			   ,@(map (lambda (b)
+				    (lift-delays b (lambda-list-vars (cdr (cadr f))) '()
+						 (car (cadr f))
+						 (lambda (h) (push h helpers))))
+				  (cddr f))))))
+	     ;; (a helper still too big is split in turn)
+	     (append (split-oversized-forms (reverse helpers)) (list new))))
 	 (list f)))
    forms))
+
+;;; A definition whose code would pass SBCL's reach for a conditional
+;;; branch (+-1 MB on arm64: Agda's InteractionTop.interpret, "-262154
+;;; is not of type (SIGNED-BYTE 19)"): its big branches -- an if's arms,
+;;; a return-from's value, a case's clause bodies -- become top-level
+;;; functions too, as its thunks do.  Measured in conses of the generated code.
+(define *max-function-size* 20000)
+(define *branch-lift-size* 300)
+(define *lift-branches?* '#f)
+
+(define (form-size x)
+  (let ((n 0))
+    (do ((l x (cdr l))) ((not (pair? l)) n)
+      (setf n (+ n 1 (form-size (car l)))))))
+
+;;; E lifted into a helper when it is big and liftable, else E walked.
+(define (lift-branch e env fenv name emit . min-size)
+  (if (and (dynamic *lift-branches?*)
+	   (pair? e)
+	   (> (form-size e) (if (null? min-size) *branch-lift-size* (car min-size))))
+      (let ((free (liftable-free-vars e env fenv)))
+	(if (eq? free 'no)
+	    (lift-delays e env fenv name emit)
+	    (let ((helper (string->symbol
+			   (format '#f "~A%lift~A" name (incf *lift-counter*)))))
+	      (funcall emit `(define (,helper ,@free) ,e))
+	      `(,helper ,@free))))
+      (lift-delays e env fenv name emit)))
 
 (define (lambda-list-vars ll)
   (lisp:remove-if (lambda (x) (or (not (symbol? x))
@@ -136,6 +168,21 @@
 (define (lift-delays x env fenv name emit)
   (cond ((not (pair? x)) x)
 	((memq (car x) '(quote lisp:quote)) x)
+	((and (memq (car x) '(if lisp:if)) (pair? (cdr x)) (pair? (cddr x)))
+	 `(,(car x) ,(lift-delays (cadr x) env fenv name emit)
+	   ,@(map (lambda (b) (lift-branch b env fenv name emit)) (cddr x))))
+	;; a case's clauses: each body, however small, a function of its
+	;; own, as the clauses of a big dispatch make the code big
+	((and (memq (car x) '(case lisp:case)) (pair? (cdr x)))
+	 `(,(car x) ,(lift-delays (cadr x) env fenv name emit)
+	   ,@(map (lambda (clause)
+		    (if (and (pair? clause) (pair? (cdr clause)) (null? (cddr clause)))
+			(list (car clause) (lift-branch (cadr clause) env fenv name emit 12))
+			(lift-delays clause env fenv name emit)))
+		  (cddr x))))
+	((and (memq (car x) '(return-from lisp:return-from)) (pair? (cdr x))
+	      (pair? (cddr x)))
+	 `(,(car x) ,(cadr x) ,(lift-branch (caddr x) env fenv name emit)))
 	((and (eq? (car x) 'delay) (pair? (cdr x)))
 	 (let ((free (liftable-free-vars (cadr x) env fenv)))
 	   (if (eq? free 'no)
@@ -229,10 +276,11 @@
 ;;; standard error, before the Lisp compiler fails on it.
 (define (warn-oversized-forms forms)
   (dolist (f forms)
-    (let ((w (form-weight f)))
-      (when (> w 1800)
+    (let ((w (form-weight f))
+	  (n (form-size f)))
+      (when (or (> w 1800) (> n *max-function-size*))
 	(lisp:format lisp:*error-output*
-		     "~&; a form of ~A functions: ~A~%" w (oversized-form-name f))))))
+		     "~&; a form of ~A functions, ~A conses: ~A~%" w n (oversized-form-name f))))))
 
 (define (oversized-form-name f)
   (cond ((and (pair? f) (memq (car f) '(define lisp:defun lisp:defparameter)))
