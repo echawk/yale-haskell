@@ -217,6 +217,7 @@ module Language.Haskell.TH.Syntax (
 import Prelude
 import Data.Data hiding (Fixity(..))
 import Data.IORef
+import qualified Control.Exception
 import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Fix (MonadFix(..))
@@ -353,7 +354,10 @@ instance Quasi IO where
   qReifyModule _        = badIO "reifyModule"
   qReifyConStrictness _ = badIO "reifyConStrictness"
   qLocation             = badIO "currentLocation"
-  qRecover _ _          = badIO "recover" -- Maybe we could fix this?
+  -- (the handler when the action fails: an exception, as fail and
+  -- reported errors are here)
+  qRecover handler act  = act `Control.Exception.catch` \e ->
+                            const handler (e :: Control.Exception.SomeException)
   -- (the compile's directory: MicroCabal compiles in the package's)
   qGetPackageRoot       = return "."
   -- (there is no recompilation checking to tell)
@@ -363,8 +367,9 @@ instance Quasi IO where
   qAddForeignFilePath _ _ = badIO "addForeignFilePath"
   qAddModFinalizer _    = badIO "addModFinalizer"
   qAddCorePlugin _      = badIO "addCorePlugin"
-  qGetQ                 = badIO "getQ"
-  qPutQ _               = badIO "putQ"
+  -- (no state kept between splices: getQ finds nothing)
+  qGetQ                 = return Nothing
+  qPutQ _               = return ()
   qIsExtEnabled _       = badIO "isExtEnabled"
   qExtsEnabled          = badIO "extsEnabled"
   qPutDoc _ _           = badIO "putDoc"

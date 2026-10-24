@@ -1,6 +1,7 @@
 -- Control.Monad.Trans.Maybe (transformers)
 module Control.Monad.Trans.Maybe (
     MaybeT(MaybeT, runMaybeT), mapMaybeT, hoistMaybe,
+    maybeToExceptT, exceptToMaybeT,
     liftCallCC, liftCatch, liftListen, liftPass
   ) where
 
@@ -11,6 +12,7 @@ import PreludeModern
 import Monad (MonadPlus(mzero, mplus))
 import Control.Monad.Trans.Class
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Except (ExceptT(ExceptT), runExceptT)
 
 newtype MaybeT m a = MaybeT { runMaybeT :: m (Maybe a) }
 
@@ -86,3 +88,10 @@ instance Traversable f => Traversable (MaybeT f) where
 instance MonadFix m => MonadFix (MaybeT m) where
   mfix f = MaybeT (mfix (runMaybeT . f . maybe bomb id))
     where bomb = error "mfix (MaybeT): inner computation returned Nothing"
+
+-- transformers': between MaybeT and ExceptT
+maybeToExceptT :: Functor m => e -> MaybeT m a -> ExceptT e m a
+maybeToExceptT e (MaybeT m) = ExceptT (fmap (maybe (Left e) Right) m)
+
+exceptToMaybeT :: Functor m => ExceptT e m a -> MaybeT m a
+exceptToMaybeT m = MaybeT (fmap (either (const Nothing) Just) (runExceptT m))
