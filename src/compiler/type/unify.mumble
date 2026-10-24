@@ -442,6 +442,13 @@
 	  ;; a family application not reduced yet may be anything ([Item
 	  ;; t] against [Char], Agda's toHtml (List1.toList s))
 	  ((and (family-app? type) (eq? (reduce-family-app type) 'stuck)) '#t)
+	  ;; so may an application of a variable not known yet ((Name, t
+	  ;; Type) against (Name, Dom' Term Type), Agda's addContext .
+	  ;; distributeF)
+	  ((and (ntyapp? type)
+		(let ((head (prune (ntyapp-fun type))))
+		  (and (ntyvar? head) (not (ntyvar-read-only? head)))))
+	   '#t)
 	  ((ntycon? pattern)
 	   (let ((pattern (expand-ntype-synonym pattern))
 		 (type (if (ntycon? type) (expand-ntype-synonym type) type)))
