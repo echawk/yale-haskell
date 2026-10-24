@@ -615,7 +615,31 @@
 		(unify t1 t2))
 	      ;; still undecided: kept for a later try (a bounded number)
 	      (when (< (length *deferred-family-equalities*) 500)
-		(push p *deferred-family-equalities*))))))))
+		(push p *deferred-family-equalities*)))))
+      ;; two undecided equalities with the same family application on
+      ;; one side make their other sides equal (t ~ AbsOfRef (t, Elim)
+      ;; and AbsOfRef (t, Elim) ~ Expr give t ~ Expr: Agda's foldM (curry
+      ;; toAbstract) f elims)
+      (when (and (not progress?) (join-family-equalities))
+	(setf progress? '#t)))))
+
+(define (join-family-equalities)
+  (let ((seen '())
+	(joined? '#f))
+    (dolist (p *deferred-family-equalities*)
+      (mlet (((app other)
+	      (let ((t1 (prune (car p))) (t2 (prune (cdr p))))
+		(cond ((family-app? t1) (values t1 t2))
+		      ((family-app? t2) (values t2 t1))
+		      (else (values '#f '#f))))))
+	(when app
+	  (let ((before (lisp:find-if (lambda (s) (ntype-identical? (car s) app)) seen)))
+	    (if (and before (not (ntype-identical? (cdr before) other)))
+		(begin
+		  (unify (cdr before) other)
+		  (setf joined? '#t))
+		(push (cons app other) seen))))))
+    joined?))
 
 (define (data-family-app? type)
   (and (family-app? type) (eq? (synonym-family? (ntycon-tycon type)) 'data)))
