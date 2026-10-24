@@ -97,6 +97,25 @@ From the pragmas and a first reading:
   Haskell splice (`embedFile` of a CSS file for HTML output, file-embed);
   Hackage packages extra, set-extra, file-embed, network-uri, binary.
 
+## Testing KiCS2 faithfully: the other Curry tools (2026-10-24)
+
+Today the only reference is the distribution's GHC-built `kics2c`, and
+only for the Haskell it writes.  Program results and KiCS2's own tests
+need more of the Curry toolchain.  On this machine SWI-Prolog 10.0.2,
+Go 1.27.2 and OpenJDK 25 are already installed (Homebrew, `/usr/bin`).
+
+| Tool | What it is | Needs | What it gives us |
+|---|---|---|---|
+| **CPM** (`cypm`, the Curry Package Manager) | A Curry program: sources in the distribution's `currytools/cpm` | a Curry system to compile it: Yale's kics2c + Yale (as kics2's own `make` does with GHC) | `cypm install curry-check` and the other packages KiCS2's testsuite and tools use; a large real Curry program as a test in itself |
+| **curry-check** | A CPM package: runs a module's properties (EasyCheck) and unit tests | CPM, network access to the package index | `testsuite/test.sh` (LanguageTests, TypeclassTests, SpecialTests): KiCS2's own test suite, which skips itself without it |
+| **PAKCS** | Curry compiled to Prolog | SWI-Prolog (present) or SICStus | an independent oracle: the same Curry program's values under a different implementation, for the benchmarks and for SearchSMM-like searches |
+| **Curry2Go** | Curry compiled to Go, with fair parallel search | Go (present) | a second oracle, and one whose search is breadth-first and fair: it gives values for NDNums and BFSvsPar, which loop under KiCS2's depth-first search |
+
+Order: build CPM with Yale (it doubles as a stress test), then
+curry-check, then the testsuite; install PAKCS beside it for comparing
+outputs (`run-curry.sh` and `pakcs :eval` on the same goals).  The tools
+go in `ref/` or `build/`, untracked, as the distribution does.
+
 ## Steps
 
 1. **curry-frontend** with MicroCabal's Yale backend (a local project

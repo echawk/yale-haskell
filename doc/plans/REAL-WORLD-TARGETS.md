@@ -219,6 +219,22 @@ a GHC-built Agda's).
 1. Stress tests: FFI-heavy bindings (C, Python, Java; inline-java in
    FUTURE-TARGETS.md) and recent libraries that use many modern GHC
    language features, choosing those that are language rather than GHC
-   internals, so that Yale can implement them.
+   internals, so that Yale can implement them.  Not started as of
+   2026-10-24 (the FFI has wrappers and exports, doc/FFI.md, but no
+   binding package of this kind has been built).
+   - **A real xmonad** (the goal: Linux users building their own
+     xmonad with Yale): the `X11` package (Xlib through `.hsc` files,
+     `tools/microcabal/yale-hsc2hs`, and C stubs), then xmonad's
+     executable and xmonad-contrib, which uses many extensions.  It
+     can be tried here first against XQuartz (`/opt/X11/lib`) under an
+     Xvfb or Xephyr display; Linux is the real target.  Needs: the
+     binding's structs (`Event`, `WindowAttributes`) through
+     `Storable`/`peekByteOff`, X error handler callbacks (`wrapper`
+     imports), `forkProcess`/`executeFile` for spawning, and the X
+     event loop's blocking `nextEvent`.
+   - **Java through JNI**: the `jni` package from inline-java (C API
+     calls, a JVM created from Haskell); OpenJDK 25 is installed.  Its
+     callbacks from JVM threads need foreign threads calling into
+     Yale's runtime.
 2. KiCS2, the Kiel Curry System (Curry compiled to Haskell): sketch what
    it needs first, then build it.
