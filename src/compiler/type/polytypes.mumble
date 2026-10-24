@@ -162,11 +162,17 @@
 ;;; With the classes' multi-parameter superclasses, transitively (Vector v a
 ;;; gives MVector (Mutable v) a; tdecl/class.mumble's mp-super-template).
 (define (polytype-mcontext-instance g tyvars)
-  (let* ((given (map (lambda (c)
-		       (tuple (tuple-2-1 c)
-			      (map (lambda (ty) (copy-polytype-body ty tyvars))
-				   (tuple-2-2 c))))
-		     (gtype-mcontext g)))
+  (let* ((given (append
+		 (map (lambda (c)
+			(tuple (tuple-2-1 c)
+			       (map (lambda (ty) (copy-polytype-body ty tyvars))
+				    (tuple-2-2 c))))
+		      (gtype-mcontext g))
+		 ;; and those of its one-parameter classes, from their
+		 ;; multi-parameter superclasses on (DeBruijn (SubstArg b) of
+		 ;; Subst b, Agda's bind': util/signature.mumble's
+		 ;; one-parameter-mp-superclasses)
+		 (polytype-one-parameter-mp-supers g tyvars)))
 	 (result given)
 	 (work given)
 	 (n 0))
@@ -291,3 +297,26 @@
 	  (type (prune (car types))))
       (when (and (polytype? type) (var-pat? pat))
 	(setf (var-type (var-ref-var (var-pat-var pat))) type)))))
+
+;;; The multi-parameter superclasses of G's one-parameter classes at TYVARS
+;;; (Subst b gives DeBruijn (SubstArg b)), with those of their own
+;;; superclasses, as (class . ntypes).
+(define (polytype-one-parameter-mp-supers g tyvars)
+  (let ((result '()))
+    (dolist2 (classes (gtype-context g)) (tv tyvars)
+      (dolist (c classes)
+	(when (class? c)
+	  (dolist (s (append (class-mp-mp-supers c)
+			     (lisp:mapcan (lambda (super)
+					    (if (class? super)
+						(lisp:copy-list (class-mp-mp-supers super))
+						'()))
+					  (class-super* c))))
+	    (let ((types (map (lambda (p) (instantiate-mp-super-template/ntype p (list tv)))
+			      (tuple-2-2 s))))
+	      (when (not (lisp:some (lambda (r)
+				      (and (eq? (tuple-2-1 r) (tuple-2-1 s))
+					   (mp-types-equal? (tuple-2-2 r) types)))
+				    result))
+		(push (tuple (tuple-2-1 s) types) result)))))))
+    (reverse result)))
