@@ -158,7 +158,8 @@
 		 (mp-generalizable-constraints (dynamic *placeholders*)))
 	 ;; We should probably also emit a warning about inherently
 	 ;; ambiguous decls.
-	   (when (and (or overloaded-tyvars mp-constraints)
+	   (when (and (or overloaded-tyvars mp-constraints
+			  (pending-flexible-constraint? all-tyvars))
 		      (apply-pattern-binding-rule? decls))
 		 (setf overloaded-tyvars
 		       (lisp:remove-if (function non-generic?)
@@ -304,7 +305,8 @@
 	(dolist (tyvar all-tyvars)
 	  (when (ntyvar-context tyvar)
 	     (push tyvar overloaded-tyvars)))
-	(when (and (or overloaded-tyvars mp-constraints)
+	(when (and (or overloaded-tyvars mp-constraints
+		       (pending-flexible-constraint? all-tyvars))
 		   (apply-pattern-binding-rule? (list decl)))
 	 ;; the restriction keeps the constrained type variables
 	 ;; monomorphic, those of a constraint on an application
@@ -696,6 +698,19 @@
 	   (not (null? (ntyvar-app-contexts tv)))
 	   (memq tv in-apps)))
      (lisp:remove-duplicates (append tyvars in-apps)))))
+
+;;; Whether a pending constraint is at a type constructor applied to some
+;;; of TYVARS (Subst (Pattern' x), its instance not chosen yet): the
+;;; restriction applies to it as to a context on x (Agda's ceq = ConP ..
+;;; $ applySubst rho2 ..., x fixed by a later binding).
+(define (pending-flexible-constraint? tyvars)
+  (lisp:some (lambda (p)
+	       (and (not (mp-placeholder? p))
+		    (let ((type (prune (placeholder-tyvar p))))
+		      (and (ntycon? type)
+			   (lisp:some (lambda (v) (memq v tyvars))
+				      (collect-tyvars type))))))
+	     (dynamic *placeholders*)))
 
 ;;; All that the restriction keeps monomorphic: the constrained type
 ;;; variables of the binding's type, and every type variable of the
