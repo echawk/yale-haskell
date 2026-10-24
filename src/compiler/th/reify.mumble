@@ -28,9 +28,23 @@
 	   (let ((frag (dynamic *splice-fragment*)))
 	     (or (and frag (reify-find keys (module-symbol-table frag)))
 		 ;; the Prelude's core names (Int, Maybe) are not in a
-		 ;; module's own table (top/symbol-table.mumble)
+		 ;; module's own table (top/symbol-table.mumble): resolved
+		 ;; as the fragment resolves names
+		 (and frag
+		      (walk-modules (list frag)
+			(lambda ()
+			  (lisp:some (lambda (k)
+				       (let ((d (resolve-toplevel-name k)))
+					 (and d (not (eq? d *undefined-def*)) d)))
+				     keys))))
 		 (reify-find keys *prelude-core-symbols*)
-		 (reify-builtin occ))))
+		 (reify-builtin occ)
+		 ;; the Prelude's (the fragment imports the module's imports,
+		 ;; not the implicit Prelude: Maybe is PreludeCore's)
+		 (lisp:some (lambda (mname)
+			      (let ((m (table-entry *modules* mname)))
+				(and m (reify-find keys (module-symbol-table m)))))
+			    '(|PreludeModern| |Prelude| |PreludeCore|)))))
 	  ((string-starts? "GHC.Internal." modname)
 	   (or (reify-builtin occ)
 	       (reify-find keys *core-symbols*)))

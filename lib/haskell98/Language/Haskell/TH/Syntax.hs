@@ -3260,7 +3260,8 @@ reifyIO n@(Name occ flavour) = do
     [SList [SAtom "unsupported", SStr what]] ->
       fail ("reify " ++ showName n ++ ": " ++ what ++ " are not supported yet")
     [e] | Just i <- sexpInfo e -> return i
-    [] -> fail ("reify: " ++ showName n ++ " is not in scope here")
+    [] -> fail ("reify: " ++ showName n ++ " is not in scope here"
+                ++ (if null m then "" else " (looked for in module " ++ m ++ ")"))
     _ -> fail ("reify " ++ showName n ++ ": cannot read " ++ s)
   where
     (ns, m) = case flavour of
