@@ -499,11 +499,16 @@
 
 (define (parse-import)
  (save-parser-context
-  (let ((qualified? (parse-import-qualified)))
+  (let* ((source? (and (eq-token? 'source-pragma) (begin (advance-token) '#t)))
+	 (qualified? (parse-import-qualified)))
   ;; PackageImports (GHC): import "pkg" M; the package is ignored
   (when (eq-token? 'string) (advance-token))
   (token-case
    (modid (let* ((mod (token->symbol))
+		 ;; (the lexer's SOURCE token follows the module name)
+		 (_0 (when (eq-token? 'source-pragma)
+		       (advance-token)
+		       (setf source? '#t)))
 		 ;; ImportQualifiedPost (GHC): import M qualified as X
 		 (_ (when (parse-import-qualified) (setf qualified? '#t)))
 		 (as-name (parse-import-as))
@@ -529,7 +534,8 @@
 					 (else '()))))
 	      (make import-decl (module-name mod) (mode mode) (specs specs)
 		                (renamings renamings)
-				(qualified? qualified?) (as-name as-name)))))
+				(qualified? qualified?) (as-name as-name)
+				(source? source?)))))
    (else
     (signal-missing-token "<modid>" "import declaration"))))))
 

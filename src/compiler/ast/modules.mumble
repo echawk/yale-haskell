@@ -206,6 +206,10 @@
    ;; and N is the qualifier (as-name; default the module name)
    (qualified? (type bool) (default '#f))
    (as-name (type (maybe symbol)) (default '#f))
+   ;; import {-# SOURCE #-} M: M's .hs-boot file declares no fixities
+   ;; (Agda's do not), so M's operators have the default fixity here
+   ;; (prec/prec-parse.mumble's pp-get-var-fixity)
+   (source? (type bool) (default '#f))
    ;; place to put corresponding module-ast; filled in by import/export.
    (module (type module) (uninitialized? #t))
    ))

@@ -281,9 +281,25 @@
 	 (error "Bad op ~s in pp-parse." op))))
 
 (define (pp-get-var-fixity def)
-  (if (eq? (var-fixity def) '#f)
+  (if (or (eq? (var-fixity def) '#f) (source-imported-only? def))
       default-fixity
       (var-fixity def)))
+
+;;; Whether DEF's module is imported here only with {-# SOURCE #-}: then
+;;; its .hs-boot file's (lack of) fixity declarations apply, as in GHC
+;;; (Agda's "a" <+> pretty pol <> ".", <+> infixl 6 in TypeChecking.Pretty
+;;; but default in its boot file).
+(define (source-imported-only? def)
+  (let ((m (def-module def))
+	(imports (module-imports *module*)))
+    (and m
+	 (not (eq? m (module-name *module*)))
+	 (lisp:some (lambda (i) (and (eq? (import-decl-module-name i) m)
+				     (import-decl-source? i)))
+		    imports)
+	 (not (lisp:some (lambda (i) (and (eq? (import-decl-module-name i) m)
+					  (not (import-decl-source? i))))
+			 imports)))))
 
 (define (pp-get-con-fixity def)
   (if (eq? (con-fixity def) '#f)
