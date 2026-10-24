@@ -24,6 +24,7 @@ traverse_ f t = foldr (\x k -> f x *> k) (pure ()) t
 
 for_ :: (Foldable t, Applicative f) => t a -> (a -> f b) -> f ()
 for_ t f = traverse_ f t
+{-# for_ :: Inline #-}
 
 sequenceA_ :: (Foldable t, Applicative f) => t (f a) -> f ()
 sequenceA_ t = foldr (\m k -> m *> k) (pure ()) t
@@ -33,6 +34,8 @@ asum t = foldr (<|>) empty t
 
 forM_ :: (Foldable t, Monad m) => t a -> (a -> m b) -> m ()
 forM_ t f = mapM_ f t
+-- (inlined, so that forM_ [1 .. n] fuses into a loop: bench/modern/ioref)
+{-# forM_ :: Inline #-}
 
 msum :: (Foldable t, MonadPlus m) => t (m a) -> m a
 msum t = foldr mplus mzero t

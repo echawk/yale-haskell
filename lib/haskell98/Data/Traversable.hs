@@ -12,6 +12,7 @@ for t f = traverse f t
 
 forM :: (Traversable t, Monad m) => t a -> (a -> m b) -> m (t b)
 forM t f = mapM f t
+{-# forM :: Inline #-}
 
 -- The state applicatives of mapAccumL and mapAccumR
 newtype StateL s a = StateL (s -> (s, a))
