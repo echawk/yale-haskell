@@ -10,6 +10,14 @@ import PreludeCore(Char)
 -- or "" when there is none.  The namespace is "v", "d", "tc" or "" (any).
 primTHReify :: String -> String -> String -> IO String
 
+-- primTHQuery what arg: about the splice running (reify.mumble's
+-- prim.th-query): "location" (file, module and line, one per line),
+-- "extensions" (the module's, one per line), "lookup-type" and
+-- "lookup-value" (the module and occurrence of the name ARG refers to, or
+-- "").
+primTHQuery :: String -> String -> IO String
+
 {-#
 primTHReify :: LispName("prim.th-reify")
+primTHQuery :: LispName("prim.th-query")
 #-}

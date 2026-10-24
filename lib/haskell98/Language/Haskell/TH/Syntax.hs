@@ -243,7 +243,7 @@ import Foreign.C.Types
 import GHC.Generics (Generic)
 import GHC.Lexeme (startsVarSym, startsVarId)
 import Language.Haskell.TH.LanguageExtensions
-import THPrims (primTHReify)
+import THPrims (primTHReify, primTHQuery)
 
 -----------------------------------------------------
 --
@@ -344,7 +344,13 @@ instance Quasi IO where
   qReport True  msg = hPutStrLn stderr ("Template Haskell error: " ++ msg)
   qReport False msg = hPutStrLn stderr ("Template Haskell error: " ++ msg)
 
-  qLookupName _ _       = badIO "lookupName"
+  qLookupName isType s  = do
+    r <- primTHQuery (if isType then "lookup-type" else "lookup-value") s
+    return $ case lines r of
+      [ns, m, o] -> Just (Name (mkOccName o)
+                               (NameG (case ns of { "tc" -> TcClsName; "d" -> DataName; _ -> VarName })
+                                      (mkPkgName "main") (mkModName m)))
+      _ -> Nothing
   qReify                = reifyIO
   -- (not looked up yet: as for a name without a fixity declaration)
   qReifyFixity _        = return Nothing
@@ -361,7 +367,12 @@ instance Quasi IO where
   qReifyAnnotations _   = badIO "reifyAnnotations"
   qReifyModule _        = badIO "reifyModule"
   qReifyConStrictness _ = badIO "reifyConStrictness"
-  qLocation             = badIO "currentLocation"
+  qLocation             = do
+    r <- primTHQuery "location" ""
+    let (f, m, l) = case lines r of
+          [f', m', l'] -> (f', m', case reads l' of { [(n, "")] -> n; _ -> 1 })
+          _ -> ("<splice>", "Main", 1)
+    return (Loc f "main" m (l, 1) (l, 1))
   -- (the handler when the action fails: an exception, as fail and
   -- reported errors are here)
   qRecover handler act  = act `Control.Exception.catch` \e ->
@@ -378,8 +389,11 @@ instance Quasi IO where
   -- (no state kept between splices: getQ finds nothing)
   qGetQ                 = return Nothing
   qPutQ _               = return ()
-  qIsExtEnabled _       = badIO "isExtEnabled"
-  qExtsEnabled          = badIO "extsEnabled"
+  qIsExtEnabled e       = fmap (elem e) qExtsEnabled
+  qExtsEnabled          = do
+    r <- primTHQuery "extensions" ""
+    let names = lines r
+    return [e | e <- [minBound .. maxBound], show e `elem` names]
   qPutDoc _ _           = badIO "putDoc"
   qGetDoc _             = badIO "getDoc"
 

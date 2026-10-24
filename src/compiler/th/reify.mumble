@@ -20,6 +20,44 @@
 	(let ((def (reify-lookup ns modname occ)))
 	  (if def (reify-def def) "")))))
 
+;;; The splice running (splices.mumble's run-splice).
+(define *current-splice* '#f)
+
+(define (prim.th-query what arg)
+  (let ((parent (dynamic *splice-parent*))
+	(s (dynamic *current-splice*)))
+    (cond ((string=? what "location")
+	   (format '#f "~A~%~A~%~A"
+		   (if s (source-file-of s) "<splice>")
+		   (if parent (module-name parent) "Main")
+		   (let ((l (and s (source-line-of s)))) (if (integer? l) l 1))))
+	  ((string=? what "extensions")
+	   (lisp:format lisp:nil "~{~A~^~%~}" (if parent (module-extensions parent) '())))
+	  ((or (string=? what "lookup-type") (string=? what "lookup-value"))
+	   (mlet (((qocc modname) (split-qualified-name (string->symbol arg))))
+	     ;; (an unqualified name is neither split: #f #f)
+	     (let* ((occ (if qocc (symbol->string qocc) arg))
+		    (ns (cond ((string=? what "lookup-type") "tc")
+			      ((and (> (string-length occ) 0)
+				    (char-upper-case? (string-ref occ 0)))
+			       "d")
+			      (else "v")))
+		    (def (or (and parent (eq? modname '#f)
+				  (reify-same-module-def ns occ parent))
+			     (reify-lookup ns (if modname (symbol->string modname) "") occ))))
+	       (if (and def (not (eq? def *undefined-def*)))
+		   (format '#f "~A~%~A~%~A" ns
+			   (if (def-module def) (def-module def) (module-name parent))
+			   occ)
+		   ""))))
+	  (else ""))))
+
+;;; A definition of the module whose splice runs, by name (lookupName):
+;;; its types and constructors are only parsed, so none; #f.
+(define (reify-same-module-def ns occ mod)
+  (declare (ignore ns occ mod))
+  '#f)
+
 ;;; Definitions in scope (imported, or global by module)
 
 (define (reify-lookup ns modname occ)
