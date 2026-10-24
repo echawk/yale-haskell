@@ -276,6 +276,27 @@
 						(simple-tyvar-list (synonym-decl-simple sd)))
 					   (reify-ast-type (synonym-decl-body sd)))))
 			    (module-synonyms mod))))
+	;; a variable defined at the top level (QuickCheck's quickCheckAll
+	;; asks for its prop_s): its type as its signature gives it, else a
+	;; type variable
+	(and (or (string=? ns "v") (string=? ns ""))
+	     (not (and (> (string-length occ) 0) (char-upper-case? (string-ref occ 0))))
+	     (lisp:some (lambda (d)
+			  (and (valdef? d)
+			       (memq sym (map (function var-ref-name)
+					      (collect-pattern-vars (valdef-lhs d))))
+			       (lisp:format lisp:nil "(var ~A ~A)"
+				       (same-module-name mod "v" occ)
+				       (let ((sd (lisp:find-if
+						  (lambda (x)
+						    (and (signdecl? x)
+							 (memq sym (map (function var-ref-name)
+									(signdecl-vars x)))))
+						  (module-decls mod))))
+					 (if sd
+					     (reify-ast-type (signature-type (signdecl-signature sd)))
+					     "(var \"t\")")))))
+			(module-decls mod)))
 	(and (not (string=? ns "v")) (not (string=? ns "tc"))
 	     (lisp:some (lambda (dd)
 			  (lisp:some (lambda (c)

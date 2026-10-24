@@ -1,0 +1,10 @@
+=== prop_reverse from tests/haskell98/th/quickcheck-all.hs:6 ===
++++ OK, passed 100 tests.
+
+=== prop_append from tests/haskell98/th/quickcheck-all.hs:9 ===
++++ OK, passed 100 tests.
+
+=== prop_plus_zero from tests/haskell98/th/quickcheck-all.hs:12 ===
++++ OK, passed 100 tests.
+
+True
