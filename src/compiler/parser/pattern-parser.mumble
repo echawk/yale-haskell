@@ -156,6 +156,10 @@
 	      (token-case
 		(\, (**pcon/tuple (cons pat (parse-pat-list '\)))))
 		(\) pat)
+		((no-advance \;)
+		 (if (language-extension? "OrPatterns")
+		     (or-pattern (cons pat (parse-or-pattern-rest)))
+		     (signal-missing-token "`)' or `,'" "pattern")))
 		(else
 		 (signal-missing-token "`)' or `,'" "pattern")))))))
      (\[ (token-case
@@ -360,6 +364,31 @@
    (\) (if (eqv? depth 0) '#t (scan-to-close-paren (1- depth))))
    (eof '#f)
    (else (advance-token) (scan-to-close-paren depth))))
+
+;;; OrPatterns (GHC 9.12): (p1; p2; ...), its alternatives binding no
+;;; variables, is the view pattern ((\v -> case v of p1 -> True; ...; _
+;;; -> False) -> True).
+
+(define (parse-or-pattern-rest)
+  (token-case
+   (\; (let ((p (parse-pat))) (cons p (parse-or-pattern-rest))))
+   (\) '())
+   (else (signal-missing-token "`)' or `;'" "or-pattern") '())))
+
+(define (or-pattern alts)
+  (let ((v (string->symbol (format '#f "or%~A" (incf *view-pattern-count*))))
+	(name (string->symbol (format '#f "view%~A" (incf *view-pattern-count*))))
+	(true (core-symbol "True")))
+    (push (list name
+		(make lambda (pats (list (**pat v)))
+		      (body (**case (**var v)
+				    (append
+				     (map (lambda (p) (**alt/simple p (**con/def true))) alts)
+				     (list (**alt/simple (**wildcard-pat)
+							 (**con/def (core-symbol "False"))))))))
+		(**pcon/def true '()))
+	  *view-patterns*)
+    (make var-pat (var (generated-var-ref name)))))
 
 ;;; ViewPatterns (GHC): (e -> pat).  The pattern becomes a new variable
 ;;; v, and (pat, e) is recorded on *view-patterns*; the clause, case

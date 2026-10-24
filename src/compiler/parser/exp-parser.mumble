@@ -133,7 +133,7 @@
 	   (views (take-view-patterns)))
       (require-token -> (signal-missing-token "`->'" "lambda expression"))
       (let ((exp (parse-exp)))
-	(make lambda (pats pats)
+	(make lambda (pats (strict-patterns pats))
 	      ;; view patterns: case () of _ | p <- e v -> body
 	      (body (if (null? views)
 			exp

@@ -673,6 +673,7 @@
   (append (if (language-extension? "OverloadedStrings") '(|Data.String|) '())
 	  (if (language-extension? "OverloadedLists") '(|GHC.IsList|) '())
 	  (if (language-extension? "RecursiveDo") '(|Control.Monad.Fix|) '())
+	  (if (language-extension? "OverloadedLabels") '(|GHC.OverloadedLabels|) '())
 	  (if (language-extension? "MagicHash") '(|GHC.Exts|) '())
 	  ;; the fragments that run splices import it (th/splices.mumble)
 	  ;; (and Language.Haskell.TH.Quote, for a quasi-quote's quoteExp)
@@ -789,6 +790,9 @@
 	 (scan-modid (cdr ts)))
 	((and (eq? (car (car ts)) 'varid)
 	      (string=? (cadr (car ts)) "qualified"))
+	 (scan-modid (cdr ts)))
+	;; PackageImports (import "pkg" M) and import {-# SOURCE #-} M
+	((memq (car (car ts)) '(string source-pragma))
 	 (scan-modid (cdr ts)))
 	((eq? (car (car ts)) 'conid)
 	 (string->symbol (cadr (car ts))))

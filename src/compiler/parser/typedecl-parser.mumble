@@ -318,15 +318,25 @@
 ;;; Yale's `atype {-#STRICT#-}'.  Returns (tuple atype annotations).
 
 (define (at-strictness-flag?)
-  (and (eq? *token* 'varsym)
-       (string=? (car *token-args*) "!")))
+  (or (and (eq? *token* 'varsym)
+	   (string=? (car *token-args*) "!"))
+      ;; a lazy field, ~t, where fields are strict by default (StrictData)
+      (and (at-laziness-flag?)
+	   (or (language-extension? "StrictData")
+	       (language-extension? "Strict")))))
+
+(define (at-laziness-flag?)
+  (or (eq? *token* '\~)
+      (and (eq? *token* 'varsym) (string=? (car *token-args*) "~"))))
 
 (define (parse-strict-atype)
-  (advance-token)  ; past the !
-  (let* ((atype (parse-atype))
-	 (anns (parse-constr-annotations)))
-    (tuple atype (cons (make annotation-value (name '|STRICT|) (args '()))
-		       anns))))
+  (let ((lazy? (at-laziness-flag?)))
+    (advance-token)  ; past the ! or ~
+    (let* ((atype (parse-atype))
+	   (anns (parse-constr-annotations)))
+      (tuple atype (cons (make annotation-value
+			       (name (if lazy? '|LAZY| '|STRICT|)) (args '()))
+			 anns)))))
 
 (define (parse-prefix-constr)
   (token-case

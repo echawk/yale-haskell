@@ -194,6 +194,17 @@
 	   (var (parse-apat)))
       (parse-infix-def var start-line))))
 
+;;; Strict (GHC): a function's and a lambda's argument patterns are
+;;; strict, as if banged, but those marked lazy (~p).
+(define (strict-patterns pats)
+  (if (language-extension? "Strict")
+      (map (lambda (p)
+	     (if (or (is-type? 'irr-pat p) (is-type? 'bang-pat p))
+		 p
+		 (make bang-pat (pattern p))))
+	   pats)
+      pats))
+
 (define (add-rhs pat args infix? start-line)
   (let* ((views (take-view-patterns))
 	 (rhs0 (parse-rhs))
@@ -203,7 +214,7 @@
 	 (rhs (add-view-pattern-guards views rhs0 decls0))
 	 (decls (if (null? views) decls0 '()))
 	 (single (make single-fun-def
-		       (args args)
+		       (args (strict-patterns args))
 		       (rhs-list rhs)
 		       (where-decls decls)
 		       (infix? infix?)))

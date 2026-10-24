@@ -20,10 +20,25 @@
 
 (define (parse-type-1)
   (let ((type (parse-type-operators (parse-btype))))
-    (token-case
-      (->
-       (**tycon/def (core-symbol "Arrow") (list type (parse-type))))
-      (else type))))
+    (cond ((linear-arrow-here?)
+	   ;; LinearTypes (GHC): a %1 -> b, a %m -> b and a ⊸ b are a -> b;
+	   ;; multiplicities are not checked
+	   (let ((percent? (string=? (car *token-args*) "%")))
+	     (advance-token)
+	     (when percent?
+	       (parse-atype)
+	       (require-token -> (signal-missing-token "`->'" "linear arrow")))
+	     (**tycon/def (core-symbol "Arrow") (list type (parse-type)))))
+	  (else
+	   (token-case
+	     (->
+	      (**tycon/def (core-symbol "Arrow") (list type (parse-type))))
+	     (else type))))))
+
+(define (linear-arrow-here?)
+  (and (eq? *token* 'varsym)
+       (mem-string (car *token-args*) '("%" "⊸"))
+       (language-extension? "LinearTypes")))
 
 
 ;;; TypeOperators (GHC): t1 :+: t2, t1 + t2 is the type constructor
@@ -90,6 +105,7 @@
 (define (type-operator-here?)
   (and (memq *token* '(consym varsym))
        (not (mem-string (car *token-args*) '("." "!" "~" "*" ":")))
+       (not (linear-arrow-here?))
        (language-extension? "TypeOperators")))
 
 ;;; DataKinds (GHC): type-level lists.  '[] and '[t1, ..., tn], or

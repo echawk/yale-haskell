@@ -86,9 +86,16 @@ MonoLocalBinds are probed too.
 ### 1. Supported as GHC does it
 
 Syntax: LambdaCase, TupleSections, MultiWayIf, BangPatterns,
+StrictData and Strict (2026-10-24: fields, and function and lambda
+arguments, strict but those marked `~`; Strict's let and where bindings
+stay lazy), LinearTypes (`%1 ->`, `%m ->`, `⊸`; multiplicities not
+checked), ExtendedLiterals (`42#Int8`), MultilineStrings and
+OrPatterns (GHC 9.12; an or-pattern is a view pattern), OverloadedLabels
+(`#x` is `fromLabel @"x"`), TypeData (a data type whose constructors are
+promoted),
 BinaryLiterals, NumericUnderscores, HexFloatLiterals, NumDecimals,
 NegativeLiterals/LexicalNegation, ImportQualifiedPost, PackageImports
-(package ignored), BlockArguments, EmptyCase, EmptyDataDecls,
+(package ignored; since 2026-10-24 also when finding the imported module), BlockArguments, EmptyCase, EmptyDataDecls,
 EmptyDataDeriving, PostfixOperators, ParallelListComp,
 MonadComprehensions, ViewPatterns, RecursiveDo (one rec group for an
 `mdo`), PatternSynonyms (across modules since 2026-10-12: the resolved

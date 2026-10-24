@@ -19,7 +19,12 @@
 	     (derived-classes '())
 	     (tyvars-referenced '())
 	     (all-con-vars '())
-	     (all-strict? (process-alg-strictness-annotation annotations))
+	     ;; StrictData (and Strict): every field of a data type is
+	     ;; strict but those marked ~
+	     (all-strict? (or (process-alg-strictness-annotation annotations)
+			      (and (not (data-decl-newtype? data-decl))
+				   (or (module-extension? "StrictData")
+				       (module-extension? "Strict")))))
 	     (constr-defs
 	      (map (lambda (constr)
 		     (with-slots constr (constructor types exist-tyvars) constr
@@ -200,10 +205,12 @@
   (let ((res all-strict?))
     (dolist (a anns)
        (cond ((annotation-value? a)
-	      (if (and (eq? (annotation-value-name a) '|STRICT|)
-		       (null? (annotation-value-args a)))
-		  (setf res '#t)
-		  (signal-unknown-annotation a)))
+	      (cond ((and (eq? (annotation-value-name a) '|STRICT|)
+			  (null? (annotation-value-args a)))
+		     (setf res '#t))
+		    ((eq? (annotation-value-name a) '|LAZY|)
+		     (setf res '#f))
+		    (else (signal-unknown-annotation a))))
 	     (else (signal-unknown-annotation a))))
     res))
 

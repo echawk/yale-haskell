@@ -160,6 +160,14 @@
    ((no-advance satisfies at-role-annotation?)
     (skip-to-decl-end)
     (terminate-topdecl mod-ast in-layout? 'topdecl))
+   ;; TypeData (GHC): type data T = C1 | C2 declares C1 and C2 for types
+   ;; only; here a data type, its constructors promoted (DataKinds)
+   ((no-advance satisfies at-type-data?)
+    (advance-token) (advance-token)
+    (let ((data-decl (parse-type-decl '#f)))
+      (setf *mp-derivings* '())
+      (push-decl-list data-decl (module-algdatas mod-ast)))
+    (terminate-topdecl mod-ast in-layout? 'topdecl))
    (|type| (let ((synonym-decl (parse-synonym-decl)))
 	     (push-decl-list synonym-decl (module-synonyms mod-ast)))
 	   (terminate-topdecl mod-ast in-layout? 'topdecl))
@@ -453,7 +461,7 @@
   (setf *family-decls* '())
   (setf *family-data-decls* '())
   (setf *family-equations* '())
-  (when (language-extension? "DataKinds")
+  (when (or (language-extension? "DataKinds") (language-extension? "TypeData"))
     (add-promoted-constructors mod-ast))
   (when (language-extension? "DuplicateRecordFields")
     (add-duplicate-record-fields mod-ast))
@@ -467,6 +475,12 @@
   ;; RecursiveDo: rec and mdo call Control.Monad.Fix.mfix
   (when (language-extension? "RecursiveDo")
     (push (make import-decl (module-name '|Control.Monad.Fix|) (mode 'all)
+		(specs '()) (renamings '()) (qualified? '#t) (as-name '#f))
+	  (module-imports mod-ast)))
+  ;; OverloadedLabels: #x calls GHC.OverloadedLabels.fromLabel
+  (when (and (language-extension? "OverloadedLabels")
+	     (not (eq? (module-name mod-ast) '|GHC.OverloadedLabels|)))
+    (push (make import-decl (module-name '|GHC.OverloadedLabels|) (mode 'all)
 		(specs '()) (renamings '()) (qualified? '#t) (as-name '#f))
 	  (module-imports mod-ast)))
   ;; OverloadedLists: list literals call GHC.IsList.fromList
@@ -504,6 +518,10 @@
 
 (define (signal-empty-module)
   (parser-error 'empty-module "Module definition is empty."))
+
+(define (at-type-data?)
+  (and (eq-token? '|type|) (eq? (peek-1-type) '|data|)
+       (language-extension? "TypeData")))
 
 (define (parse-import)
  (save-parser-context
