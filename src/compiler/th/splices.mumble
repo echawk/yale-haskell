@@ -98,7 +98,12 @@
       (eval (modules->lisp-code (list frag)))
       ;; run it: reify asks the fragment and the module (reify.mumble)
       (let ((var (table-entry (module-symbol-table frag) '|splice_text|)))
-	(setf text (haskell-string->string (force (eval (fullname var)))))))
+	(setf text (haskell-string->string (force (eval (fullname var)))))
+	;; then the declarations addTopDecls added: they join the module
+	(let* ((tvar (table-entry (module-symbol-table frag) '|splice_top|))
+	       (top (haskell-string->string (force (eval (fullname tvar))))))
+	  (when (not (string=? top ""))
+	    (merge-spliced-decls mod (parse-spliced-decls top mod s))))))
     (remove-module-from-symbol-table frag)
     (when (memq 'splices (dynamic *printers*))
       (format '#t "~&Splice at line ~A of ~A:~%~A~%"
@@ -115,7 +120,9 @@
                                    splice_expression :: Language.Haskell.TH.Syntax.Q ~A~%~
                                    splice_expression = splice_expression~%~
                                    splice_text :: [Char]~%~
-                                   splice_text = Language.Haskell.TH.YaleSplice.~A splice_expression~%"
+                                   splice_text = Language.Haskell.TH.YaleSplice.~A splice_expression~%~
+                                   splice_top :: [Char]~%~
+                                   splice_top = Language.Haskell.TH.YaleSplice.spliceTopDeclsText splice_text~%"
 			      name
 			      (case kind
 				(exp "Language.Haskell.TH.Syntax.Exp")

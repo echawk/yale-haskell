@@ -65,6 +65,9 @@ module Language.Haskell.TH.Syntax (
     cmpEq,
     compareBytes,
     counter,
+    -- (Yale: what addTopDecls and addModFinalizer leave for the splice
+    -- runner, Language.Haskell.TH.YaleSplice)
+    yaleTopDecls, yaleModFinalizers,
     defaultFixity,
     eqBytes,
     extsEnabled,
@@ -394,9 +397,9 @@ instance Quasi IO where
   -- (there is no recompilation checking to tell)
   qAddDependentFile _   = return ()
   qAddTempFile _        = badIO "addTempFile"
-  qAddTopDecls _        = badIO "addTopDecls"
+  qAddTopDecls ds       = atomicModifyIORef' yaleTopDecls (\old -> (old ++ ds, ()))
   qAddForeignFilePath _ _ = badIO "addForeignFilePath"
-  qAddModFinalizer _    = badIO "addModFinalizer"
+  qAddModFinalizer act  = atomicModifyIORef' yaleModFinalizers (\old -> (old ++ [act], ()))
   qAddCorePlugin _      = badIO "addCorePlugin"
   -- (no state kept between splices: getQ finds nothing)
   qGetQ                 = return Nothing
@@ -424,6 +427,18 @@ badIO op = do   { qReport True ("Can't do `" ++ op ++ "' in the IO monad")
 counter :: IORef Uniq
 {-# NOINLINE counter #-}
 counter = unsafePerformIO (newIORef 0)
+
+-- The declarations addTopDecls adds and the actions addModFinalizer
+-- leaves, taken by the splice runner (Language.Haskell.TH.YaleSplice)
+-- once the splice has run: the declarations join the module, and the
+-- finalizers run then rather than at the end of the module.
+yaleTopDecls :: IORef [Dec]
+{-# NOINLINE yaleTopDecls #-}
+yaleTopDecls = unsafePerformIO (newIORef [])
+
+yaleModFinalizers :: IORef [Q ()]
+{-# NOINLINE yaleModFinalizers #-}
+yaleModFinalizers = unsafePerformIO (newIORef [])
 
 
 -----------------------------------------------------

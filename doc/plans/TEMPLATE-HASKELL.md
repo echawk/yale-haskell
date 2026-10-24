@@ -54,9 +54,12 @@ from 3.3-3.6 below:
   (one-parameter classes), location, lookupName, isExtEnabled and
   extsEnabled work in IO (THPrims's primTHQuery);
 - QuickCheck's $(quickCheckAll) (Test.QuickCheck.All) and a makeLenses
-  generator (tests/haskell98/th/make-lenses.hs) run.
-The rest (reifyRoles, reifyAnnotations, addTopDecls, the module's own
-classes and instances in reify) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
+  generator (tests/haskell98/th/make-lenses.hs) run;
+- addTopDecls adds declarations to the module (their newName names
+  printed with their uniques, so two splices' do not clash), and
+  addModFinalizer's actions run once the splice has.
+The rest (reifyRoles, reifyAnnotations, the module's own classes and
+instances in reify) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
 Haskell's pipeline, which files change, and where the hard parts are,
 so that the work can be split into milestones that each end in passing
 tests.
