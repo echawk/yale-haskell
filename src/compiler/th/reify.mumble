@@ -309,7 +309,11 @@
 					   (map (function symbol->string)
 						(simple-tyvar-list (synonym-decl-simple sd)))
 					   (reify-ast-type (synonym-decl-body sd)))))
-			    (module-synonyms mod))))
+			    (module-synonyms mod))
+		 (lisp:some (lambda (cd)
+			      (and (memq (class-ref-name (class-decl-class cd)) (list sym csym))
+				   (reify-class-decl cd occ mod)))
+			    (module-classes mod))))
 	;; a variable defined at the top level (QuickCheck's quickCheckAll
 	;; asks for its prop_s): its type as its signature gives it, else a
 	;; type variable
@@ -342,6 +346,40 @@
 						     mod "tc" (simple-occ (data-decl-simple dd))))))
 				     (data-decl-constrs dd)))
 			(module-algdatas mod))))))
+
+;;; A class of the module, from its declaration: its methods' types as
+;;; their signatures give them, its instances the module's.
+(define (reify-class-decl cd occ mod)
+  (let ((name (class-ref-name (class-decl-class cd))))
+    (lisp:format lisp:nil "(class ~A (~{~S~^ ~}) (~{~A~^ ~}) (~{~A~^ ~}) (~{~A~^ ~}))"
+	    (same-module-name mod "tc" occ)
+	    (map (function symbol->string)
+		 (if (null? (class-decl-class-vars cd))
+		     (list (class-decl-class-var cd))
+		     (class-decl-class-vars cd)))
+	    (map (lambda (c)
+		   (lisp:format lisp:nil "(s ~S)"
+			   (remove-con-prefix/maybe
+			    (symbol->string (class-ref-name (context-class c))))))
+		 (class-decl-super-classes cd))
+	    (lisp:mapcan (lambda (d)
+			   (if (signdecl? d)
+			       (map (lambda (v)
+				      (lisp:format lisp:nil "(~A ~A)"
+					      (same-module-name mod "v" (symbol->string (var-ref-name v)))
+					      (reify-ast-type (signature-type (signdecl-signature d)))))
+				    (signdecl-vars d))
+			       '()))
+			 (class-decl-decls cd))
+	    (lisp:mapcan (lambda (i)
+			   (if (and (eq? (class-ref-name (instance-decl-class i)) name)
+				    (null? (instance-decl-types i)))
+			       (list (reify-ast-type (instance-decl-simple i)))
+			       '()))
+			 (module-instances mod)))))
+
+(define (remove-con-prefix/maybe s)
+  (if (has-con-prefix? s) (remove-con-prefix s) s))
 
 ;;; A field's type, (strict TYPE) when it has a bang.
 (define (strict-field type strict?)

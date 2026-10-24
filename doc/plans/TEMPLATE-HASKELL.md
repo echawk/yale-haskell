@@ -62,8 +62,9 @@ from 3.3-3.6 below:
   the parameter) and reifyConStrictness (from the fields' bangs, which
   reify now gives) answer; a constructor's name quote ('C) of the module
   running the splice works.
-The rest (reifyAnnotations, the module's own classes and instances in
-reify) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
+- reify answers for the module's own classes too (from their
+  declarations), with the module's instances of them.
+The rest (reifyAnnotations) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
 Haskell's pipeline, which files change, and where the hard parts are,
 so that the work can be split into milestones that each end in passing
 tests.

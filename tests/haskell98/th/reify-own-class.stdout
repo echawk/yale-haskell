@@ -1,0 +1,4 @@
+ClassI (ClassD [AppT (ConT Show) (VarT a)] Main.Pretty [PlainTV a BndrReq] [] [SigD Main.pretty (AppT (AppT ArrowT (VarT a)) (ConT String)),SigD Main.prettyList (AppT (AppT ArrowT (AppT ListT (VarT a))) (ConT String))]) [InstanceD Nothing [] (AppT (ConT Main.Pretty) (ConT T)) [],InstanceD Nothing [] (AppT (ConT Main.Pretty) (ConT Bool)) []]
+instance Main.Pretty T
+instance Main.Pretty Bool
+1
