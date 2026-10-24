@@ -490,7 +490,9 @@
   (setf (single-fun-def-where-decls object)
 	(scope-ast/decl-list (single-fun-def-where-decls object) env))
   (setf (single-fun-def-rhs-list object)
-	(scope-ast/list (single-fun-def-rhs-list object) env))
+	(force-strict-bindings/rhs-list
+	 (single-fun-def-where-decls object)
+	 (scope-ast/list (single-fun-def-rhs-list object) env)))
   object)
 
 ;;; PATS without view-pats: (new-pats . views), each view-pat replaced by
@@ -587,8 +589,51 @@
 (define-walker-method scope let (object env)
   (setf env (add-local-declarations (let-decls object) env))
   (setf (let-decls object) (scope-ast/decl-list (let-decls object) env))
-  (setf (let-body object) (scope-ast-1 (let-body object) env))
+  (setf (let-body object)
+	(force-strict-bindings (let-decls object) (scope-ast-1 (let-body object) env)))
   object)
+
+;;; Strict (GHC): a local binding p = e without arguments is !p = e,
+;;; unless lazy (~p).
+(define (strict-local-bindings decls)
+  (when (module-extension? "Strict")
+    (dolist (d decls)
+      (when (and (valdef? d)
+		 (not (is-type? 'bang-pat (valdef-lhs d)))
+		 (not (is-type? 'irr-pat (valdef-lhs d)))
+		 (lisp:every (lambda (def) (null? (single-fun-def-args def)))
+			     (valdef-definitions d)))
+	(setf (valdef-lhs d) (make bang-pat (pattern (valdef-lhs d))))))))
+
+;;; BangPatterns: let !p = e in b, and !p = e in a where, evaluate e
+;;; first: b is v `seq` b, v the variable of p, or one made for it
+;;; (v@p).  (Only its outermost constructor is evaluated: the match of
+;;; p's inner patterns is still lazy.)
+(define (force-strict-bindings decls body)
+  (strict-local-bindings decls)
+  (let ((vars '()))
+    (dolist (d decls)
+      (when (and (valdef? d)
+		 (is-type? 'bang-pat (valdef-lhs d))
+		 (lisp:every (lambda (def) (null? (single-fun-def-args def)))
+			     (valdef-definitions d)))
+	(let ((inner (bang-pat-pattern (valdef-lhs d))))
+	  (if (is-type? 'var-pat inner)
+	      (push (var-ref-var (var-pat-var inner)) vars)
+	      (let ((v (create-temp-var 'bang)))
+		(setf (bang-pat-pattern (valdef-lhs d))
+		      (make as-pat (var (**var/def v)) (pattern inner)))
+		(push v vars))))))
+    (dolist (v vars)
+      (setf body (**app (**var/def (prelude-seq)) (**var/def v) body)))
+    body))
+
+(define (force-strict-bindings/rhs-list decls rhs-list)
+  (strict-local-bindings decls)
+  (when (lisp:some (lambda (d) (and (valdef? d) (is-type? 'bang-pat (valdef-lhs d)))) decls)
+    (dolist (r rhs-list)
+      (setf (guarded-rhs-rhs r) (force-strict-bindings decls (guarded-rhs-rhs r)))))
+  rhs-list)
 
 
 ;;; The bindings of a pattern guard's quals scope over the later quals
@@ -636,7 +681,9 @@
       (setf (alt-where-decls a)
 	    (scope-ast/decl-list (alt-where-decls a) env))
       (setf (alt-rhs-list a)
-	    (scope-ast/list (alt-rhs-list a) env))))
+	    (force-strict-bindings/rhs-list
+	     (alt-where-decls a)
+	     (scope-ast/list (alt-rhs-list a) env)))))
   object)
 
 

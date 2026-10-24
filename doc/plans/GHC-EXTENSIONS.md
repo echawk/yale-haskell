@@ -88,7 +88,7 @@ MonoLocalBinds are probed too.
 Syntax: LambdaCase, TupleSections, MultiWayIf, BangPatterns,
 StrictData and Strict (2026-10-24: fields, and function and lambda
 arguments, strict but those marked `~`; Strict's let and where bindings
-stay lazy), LinearTypes (`%1 ->`, `%m ->`, `⊸`; multiplicities not
+are strict too), LinearTypes (`%1 ->`, `%m ->`, `⊸`; multiplicities not
 checked), ExtendedLiterals (`42#Int8`), MultilineStrings and
 OrPatterns (GHC 9.12; an or-pattern is a view pattern), OverloadedLabels
 (`#x` is `fromLabel @"x"`), TypeData (a data type whose constructors are
