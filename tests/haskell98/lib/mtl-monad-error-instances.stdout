@@ -1,0 +1,5 @@
+Right (Just 6)
+Right "caught identityT"
+Right (1,["kept"])
+Just 'm'
+io
