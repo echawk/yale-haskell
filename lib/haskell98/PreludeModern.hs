@@ -99,8 +99,13 @@ instance Applicative Maybe where
   pure = Just
   Just f <*> m = fmap f m
   Nothing <*> _ = Nothing
+  -- (its own liftA2: the class default goes through fmap and <*>,
+  -- bench/modern/foldable's traverse in Maybe)
+  liftA2 f (Just a) (Just b) = Just (f a b)
+  liftA2 _ _ _ = Nothing
   {-# pure :: Inline #-}
   {-# (<*>) :: Inline #-}
+  {-# liftA2 :: Inline #-}
 
 instance Alternative Maybe where
   empty = Nothing
@@ -113,6 +118,7 @@ instance MonadFail Maybe where
 instance Applicative [] where
   pure x = [x]
   fs <*> xs = [f x | f <- fs, x <- xs]
+  liftA2 f xs ys = [f x y | x <- xs, y <- ys]
 
 instance Alternative [] where
   empty = []
@@ -124,6 +130,7 @@ instance MonadFail [] where
 instance Applicative IO where
   pure = return
   f <*> a = f >>= \g -> a >>= \x -> return (g x)
+  liftA2 f a b = a >>= \x -> b >>= \y -> return (f x y)
   a *> b = a >> b
 
 instance Alternative IO where
@@ -141,6 +148,8 @@ instance Applicative (Either e) where
   pure = Right
   Left e  <*> _ = Left e
   Right f <*> r = fmap f r
+  liftA2 _ (Left e) _ = Left e
+  liftA2 f (Right a) r = fmap (f a) r
 
 instance Monad (Either e) where
   return = Right
