@@ -1,6 +1,6 @@
 # Plan: Template Haskell
 
-Status (2026-10-18): milestones 1 (the library, DeriveLift), 2
+Status (2026-10-24): milestones 1 (the library, DeriveLift), 2
 (expression splices of imported functions), 3 (quotes: [| |], [e| |],
 [p| |], [t| |], name quotes) and 4 (declaration splices, [d| |], reify
 of types, constructors and imported variables) are done.  They depart
@@ -29,8 +29,20 @@ from 3.3-3.6 below:
   variables are not supported yet;
 - [d| |]'s bindings keep their names (mkName), its data types, synonyms
   and instances are read as written.
-The rest (QuasiQuotes, reify of classes and same-module values, typed
-TH) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
+- QuasiQuotes (milestone 5) work in expressions and at the top level:
+  the lexer reads [q|text|] as one token (looking ahead past the
+  quoter's name and putting the characters back), and the parser makes
+  it the splice $(quoteExp q "text"), or quoteDec at the top level.
+  Patterns and types have no splices yet, so quotePat and quoteType are
+  not used;
+- typed TH ([|| ||], $$) runs on the untyped (YaleSplice's
+  yaleTypedQuote and yaleTypedSplice);
+- in the IO monad (where splices run), recover catches the failure,
+  getQ finds nothing, putQ is ignored, and reifyFixity answers Nothing;
+  reify of a name of one of GHC's modules not loaded here (GHC.Types.Int)
+  finds the built-in definition.
+The rest (pattern and type splices, reify of classes and same-module
+values, the Quasi operations still missing in IO) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
 Haskell's pipeline, which files change, and where the hard parts are,
 so that the work can be split into milestones that each end in passing
 tests.
