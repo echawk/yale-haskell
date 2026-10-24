@@ -342,12 +342,12 @@
 		      (class-instances class)))))
 
 (define (process-instantiated-tyvar tycon p deferred decls)
-  (let ((given (and (not (instance-for-placeholder? tycon p))
-		    (given-app-dict-params p tycon decls))))
-    (if (not (null? given))
-	;; no instance at the type, but the enclosing binding's signature
-	;; gives it (a flexible given, StringLike Text in ListLike's
-	;; class, its instance in a later module)
+  (let ((given (given-class-params p tycon decls)))
+    (if given
+	;; the enclosing binding's signature gives it (a flexible given:
+	;; StringLike Text in ListLike's class, its instance in a later
+	;; module; Hilite (RenamingTo m) in Agda's FromAbstract, before
+	;; the instances for RenamingTo, as GHC prefers givens)
 	(begin
 	  (setf (placeholder-exp p)
 		(if (dict-placeholder? p)

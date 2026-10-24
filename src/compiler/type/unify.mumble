@@ -325,6 +325,14 @@
 ;;; decl is found, contexts are propagated to the component types.
 
 (define (propagate-single-class type class)
+  (if (given-app-constraint? class type)
+      ;; given as is by the signature being checked (a flexible given,
+      ;; Hilite (RenamingTo m) in Agda's FromAbstract): no instance is
+      ;; chosen, even the only one for the type constructor
+      'OK
+      (propagate-single-class/instance type class)))
+
+(define (propagate-single-class/instance type class)
   (let* ((instance (lookup-instance/type (ntycon-tycon type) class type))
 	 (args (and instance
 		    (or (instance-head-matches? instance type)
@@ -394,6 +402,9 @@
 
 (define (unify-with-only-instance-head instance type)
   (and (not (null? (instance-head-args instance)))
+       ;; not when an enclosing signature has a flexible given of the
+       ;; class (Hilite (RenamingTo m) =>): the type may be the given's
+       (not (enclosing-signature-gives? (instance-class instance)))
        (null? (cdr (lisp:remove-if-not
 		    (lambda (i) (eq? (instance-algdata i) (instance-algdata instance)))
 		    (class-instances (instance-class instance)))))
@@ -402,6 +413,19 @@
 	      (begin
 		(unify pattern type)
 		(instance-head-matches? instance type))))))
+
+(define (enclosing-signature-gives? class)
+  (lisp:some
+   (lambda (d)
+     (and (valdef? d)
+	  (lisp:some
+	   (lambda (vr)
+	     (let ((sig (var-signature (var-ref-var vr))))
+	       (and (gtype? sig)
+		    (lisp:some (lambda (c) (eq? (tuple-2-1 c) class))
+			       (gtype-mcontext sig)))))
+	   (collect-pattern-vars (valdef-lhs d)))))
+   (dynamic *enclosing-decls*)))
 
 (define (head-could-match? pattern type pvars)
   (let ((type (prune type)))
