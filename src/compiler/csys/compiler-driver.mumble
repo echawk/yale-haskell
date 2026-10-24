@@ -370,9 +370,13 @@
 	  ((eq? (ucache-status cunit) 'loading)
 	   ;; mutually recursive modules (GHC's .hs-boot files, Agda's):
 	   ;; the units of the cycle become one (merge-unit-cycle)
-	   (if (mergeable-unit-cycle? filename)
-	       (lisp:throw cunit (cycle-units filename))
-	       (signal-circular-unit filename)))
+	   ;; (by the unit's own name: FILENAME may be a file merged into it
+	   ;; earlier, not on the stack of units being loaded, which would
+	   ;; then be taken whole)
+	   (let ((name (ucache-ufile cunit)))
+	     (if (mergeable-unit-cycle? name)
+		 (lisp:throw cunit (cycle-units name))
+		 (signal-circular-unit filename))))
 	  (else
 	   (load-compilation-unit-aux cunit cflags))
 	  )))
