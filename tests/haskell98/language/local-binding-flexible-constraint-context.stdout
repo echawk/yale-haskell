@@ -1,0 +1,1 @@
+Just "DefP \"hcomp\" [Named (DotP 1),Named (VarP (DBPatVar 0)),Named (VarP (DBPatVar 1))]"
