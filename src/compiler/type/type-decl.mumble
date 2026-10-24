@@ -131,7 +131,7 @@
        (setf (dynamic *non-generic-tyvars*) old-ng)
        (setf (dynamic *given-mp-constraints*) '())
        (let ((sig-contexts (check-user-signatures all-vars)))
-	 (restrict-stuck-family-tyvars all-vars)
+	 (restrict-stuck-family-tyvars all-vars decls)
 	 (apply-mono-local-binds all-vars (map (function var-type) all-vars))
 	 (improve-mp-placeholders/given (dynamic *placeholders*)
 					(dynamic *given-mp-constraints*))
@@ -278,7 +278,7 @@
 	    (type-mismatch decl "main must have an IO type" lhs-type io))))
       (setf (dynamic *given-mp-constraints*) '())
       (check-user-signatures all-vars)
-      (restrict-stuck-family-tyvars all-vars)
+      (restrict-stuck-family-tyvars all-vars (list decl))
       (apply-mono-local-binds all-vars (list lhs-type))
       ;; multi-parameter constraints (mp-classes.mumble): improve by
       ;; functional dependencies, then those to generalize over, when
@@ -459,7 +459,21 @@
 (define (non-generic-free? tv)
   (not (non-generic? tv)))
 
-(define (restrict-stuck-family-tyvars vars)
+;;; Whether no instance of P's class matches TYPE, a type constructor
+;;; applied, but several could once its variables are known.
+(define (undecided-generic-flexible-instance? p type)
+  (let ((type (expand-ntype-synonym type)))
+    (and (ntycon? type)
+	 (algdata? (ntycon-tycon type))
+	 (let* ((class (if (dict-placeholder? p)
+			   (dict-placeholder-class p)
+			   (method-var-class (method-placeholder-method p))))
+		(instance (lookup-instance/type (ntycon-tycon type) class type)))
+	   (and instance
+		(not (instance-head-matches? instance type))
+		(some-instance-head-could-match? instance type))))))
+
+(define (restrict-stuck-family-tyvars vars decls)
   (when (not (some (function var-signature) vars))
     ;; a class at a family application (Show (Item l), from IsList's
     ;; toList): a flexible constraint, as a multi-parameter one, which
@@ -467,7 +481,15 @@
     (setf (dynamic *placeholders*)
 	  (map (lambda (p)
 		 (let ((type (and (not (mp-placeholder? p)) (prune (placeholder-tyvar p)))))
-		   (if (and type (ntycon? type) (family-app? (expand-ntype-synonym type))
+		   (if (and type (ntycon? type)
+			    (or (family-app? (expand-ntype-synonym type))
+				;; or at a type whose flexible instance its
+				;; variables are yet to choose (ReportS [a],
+				;; Agda's local impossibleSort)
+				;; (a function binding: a restricted one keeps
+				;; them for a later binding to fix)
+				(and (not (apply-pattern-binding-rule? decls))
+				     (undecided-generic-flexible-instance? p type)))
 			    (lisp:some (function non-generic-free?) (collect-tyvars type)))
 		       (let ((q (**mp-placeholder
 				 (if (dict-placeholder? p)
