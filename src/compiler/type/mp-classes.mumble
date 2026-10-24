@@ -412,12 +412,27 @@
 	     ;; t given: Agda's local sub at SubstWith t a, a t): nothing
 	     ;; to unify
 	     (setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor"))))
+	    ((given-type-equality? (car types) (cadr types))
+	     ;; the same equality given, even one that cannot hold (an
+	     ;; instance's method whose own context has TypeOf Term ~ (),
+	     ;; Agda's inferInternal': GHC's inaccessible code)
+	     (setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor"))))
 	    ((not (and (not (null? eager?))
 		       (lisp:some (function stuck-family-app?) types)))
 	     (type-unify (car types) (cadr types)
 	       (type-error "The types ~A and ~A of an equality constraint do not match."
 			   (car types) (cadr types)))
 	     (setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor"))))))))
+
+;;; Whether the enclosing signatures give T1 ~ T2 (either way round).
+(define (given-type-equality? t1 t2)
+  (lisp:some (lambda (g)
+	       (and (class? (car g))
+		    (type-equality-class? (car g))
+		    (pair? (cdr g)) (pair? (cddr g))
+		    (or (and (mp-type-equal? (cadr g) t1) (mp-type-equal? (caddr g) t2))
+			(and (mp-type-equal? (cadr g) t2) (mp-type-equal? (caddr g) t1)))))
+	     (dynamic *given-mp-constraints*)))
 
 (define (stuck-family-app? type)
   (let ((type (prune type)))
