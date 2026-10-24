@@ -7,8 +7,8 @@
 -- which Show shows.  A program's own exception types (instance Exception
 -- T, with the default methods) are thrown as a condition holding the
 -- value as a Dynamic (Typeable is built in), so catch, try and catches
--- find them by type, as in base.  ExitCode is not an exception (exitWith
--- is not caught).
+-- find them by type, as in base.  ExitCode is an Exception, for handlers
+-- that rethrow it (Agda's main), but exitWith is not caught.
 module Control.Exception (
     SomeException(SomeException), IOException, ErrorCall(ErrorCall), ArithException(..),
     AsyncException(..), AssertionFailed(AssertionFailed),
@@ -28,6 +28,7 @@ import PreludeIO (IOError(..))
 import BasePrims
 import Data.Typeable (Typeable)
 import Data.Dynamic (toDyn, fromDynamic)
+import System.Exit (ExitCode)
 
 data SomeException = SomeException Exc
 
@@ -203,6 +204,9 @@ instance Show AssertionFailed where
   showsPrec _ (AssertionFailed s) = showString s
 
 instance Exception AssertionFailed
+
+-- (exitWith exits at once: only a thrown ExitCode is caught as one)
+instance Exception ExitCode
 
 handle :: Exception e => (e -> IO a) -> IO a -> IO a
 handle = flip catch
