@@ -5,6 +5,8 @@
 
 (define *phase* '#f)
 (define *abort-phase* '#f)         ; abort when this phase completes
+(define *phase-error-count* 0)    ; the phase's errors (halt-compilation)
+(define *max-phase-errors* 500)
 (define *abort-compilation*
   (lambda ()
     (error "No error continuation defined here!")))
@@ -23,7 +25,8 @@
     (lisp:force-output lisp:*error-output*)))
 
 (define-local-syntax (phase-body phase-name body printer)
-  `(dynamic-let ((*phase*       ',phase-name))
+  `(dynamic-let ((*phase*       ',phase-name)
+		 (*phase-error-count* 0))
      (trace-compile "~&  ~A~%" ',phase-name)
      (when (memq ',phase-name (dynamic *printers*))
        (format '#t "~%Phase ~a:~%" ',phase-name)
@@ -118,8 +121,17 @@
   (notify-error)
   (funcall (dynamic *abort-compilation*)))
 
+;;; A phase error ends the compile once the phase is over, or at once
+;;; when the phase has reported *max-phase-errors* (one error repeated
+;;; without end, each time at a new type variable: a no-instance error in
+;;; a loop, Agda's FromAbstract once, ran for hours).
 (define (halt-compilation)
-  (setf (dynamic *abort-phase*) (dynamic *phase*)))
+  (setf (dynamic *abort-phase*) (dynamic *phase*))
+  (incf (dynamic *phase-error-count*))
+  (when (> (dynamic *phase-error-count*) *max-phase-errors*)
+    (format *error-output-port* "~&Too many errors in phase ~A: compilation stopped.~%"
+	    (dynamic *phase*))
+    (abort-compilation)))
 
 
 ;;; Here are the actual phase bodies
