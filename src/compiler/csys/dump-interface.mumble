@@ -114,7 +114,9 @@
 
 (define (form-weight form)
   (cond ((not (pair? form)) 0)
-	((memq (car form) '(lambda lisp:lambda))
+	;; (delay e) is (make-thunk (lambda () e)): a function too, as is
+	;; every thunk the code makes
+	((memq (car form) '(lambda lisp:lambda delay))
 	 (1+ (form-weight (cdr form))))
 	((memq (car form) '(labels flet lisp:labels lisp:flet))
 	 (+ (if (pair? (cdr form)) (length (cadr form)) 0)
