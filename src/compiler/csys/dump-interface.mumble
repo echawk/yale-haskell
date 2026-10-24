@@ -41,7 +41,7 @@
 
 (define (write-compiled-code-file filename code code-quality chunk-size)
   (let ((phase-start-time (get-run-time))
-        (forms            (flatten-forms code)))
+        (forms            (split-oversized-forms (flatten-forms code))))
     (warn-oversized-forms forms)
     (dynamic-let ((*magic-chunk-size*
 		   (or chunk-size (dynamic *magic-chunk-size*)))
@@ -88,6 +88,142 @@
 ;;; and local function).
 
 (define *max-chunk-functions* 1000)
+
+;;; A function definition with more functions than a component may hold
+;;; (Agda's prettyTCM of TypeError, some 3000 thunks): each outermost
+;;; (delay e) in it becomes a call of a new top-level function that makes
+;;; the thunk, given the local variables e uses, so that the thunks'
+;;; code is in other components.  A delay whose locals are not all known
+;;; (bound by a form not followed here, a local function's name, a block
+;;; it leaves) stays.  Locals are the uninterned symbols codegen makes.
+
+(define *max-function-weight* 1500)
+(define *lift-counter* 0)
+
+(define (split-oversized-forms forms)
+  (lisp:mapcan
+   (lambda (f)
+     (if (and (pair? f) (eq? (car f) 'define) (pair? (cdr f)) (pair? (cadr f))
+	      (> (form-weight f) *max-function-weight*))
+	 (let ((helpers '()))
+	   (let ((new `(define ,(cadr f)
+			 ,@(map (lambda (b)
+				  (lift-delays b (lambda-list-vars (cdr (cadr f))) '()
+					       (car (cadr f))
+					       (lambda (h) (push h helpers))))
+				(cddr f)))))
+	     (append (reverse helpers) (list new))))
+	 (list f)))
+   forms))
+
+(define (lambda-list-vars ll)
+  (lisp:remove-if (lambda (x) (or (not (symbol? x))
+				  (memq x '(lisp:&optional lisp:&rest lisp:&key lisp:&aux))))
+		  (if (list? ll) ll '())))
+
+(define (local-symbol? x)
+  (and (symbol? x) (eq? (lisp:symbol-package x) '#f)))
+
+(define (let-form? x)
+  (memq x '(let let* lisp:let lisp:let*)))
+
+(define (lambda-form? x)
+  (memq x '(lambda lisp:lambda)))
+
+(define (local-fn-form? x)
+  (memq x '(labels flet lisp:labels lisp:flet)))
+
+(define (lift-delays x env fenv name emit)
+  (cond ((not (pair? x)) x)
+	((memq (car x) '(quote lisp:quote)) x)
+	((and (eq? (car x) 'delay) (pair? (cdr x)))
+	 (let ((free (liftable-free-vars (cadr x) env fenv)))
+	   (if (eq? free 'no)
+	       `(delay ,(lift-delays (cadr x) env fenv name emit))
+	       (let ((helper (string->symbol
+			      (format '#f "~A%lift~A" name (incf *lift-counter*)))))
+		 (funcall emit `(define (,helper ,@free) (delay ,(cadr x))))
+		 `(,helper ,@free)))))
+	((and (lambda-form? (car x)) (pair? (cdr x)))
+	 `(,(car x) ,(cadr x)
+	   ,@(map (lambda (b) (lift-delays b (append (lambda-list-vars (cadr x)) env)
+					   fenv name emit))
+		  (cddr x))))
+	((and (let-form? (car x)) (pair? (cdr x)) (list? (cadr x)))
+	 (let ((env1 env)
+	       (seq? (memq (car x) '(let* lisp:let*))))
+	   (let ((bindings
+		  (map (lambda (b)
+			 (if (and (pair? b) (pair? (cdr b)))
+			     (let ((nb (list (car b)
+					     (lift-delays (cadr b) (if seq? env1 env)
+							  fenv name emit))))
+			       (setf env1 (cons (car b) env1))
+			       nb)
+			     (begin (setf env1 (cons (if (pair? b) (car b) b) env1)) b)))
+		       (cadr x))))
+	     `(,(car x) ,bindings
+	       ,@(map (lambda (b) (lift-delays b env1 fenv name emit)) (cddr x))))))
+	((and (local-fn-form? (car x)) (pair? (cdr x)) (list? (cadr x)))
+	 (let ((fenv1 (append (map (lambda (d) (if (pair? d) (car d) d)) (cadr x)) fenv)))
+	   `(,(car x)
+	     ,(map (lambda (d)
+		     (if (and (pair? d) (pair? (cdr d)))
+			 `(,(car d) ,(cadr d)
+			   ,@(map (lambda (b) (lift-delays b (append (lambda-list-vars (cadr d)) env)
+							   fenv1 name emit))
+				  (cddr d)))
+			 d))
+		   (cadr x))
+	     ,@(map (lambda (b) (lift-delays b env fenv1 name emit)) (cddr x)))))
+	(else
+	 (let ((res '()) (l x))
+	   (do () ((not (pair? l)))
+	     (push (lift-delays (car l) env fenv name emit) res)
+	     (setf l (cdr l)))
+	   (append (reverse res) l)))))
+
+;;; The locals in scope (ENV) that E uses, or 'no when E uses a local not
+;;; known to be bound, a local function, or leaves a block or tag.
+(define (liftable-free-vars e env fenv)
+  (let ((bound (form-binders e '()))
+	(free '())
+	(ok? '#t))
+    (lisp:labels ((walk (y)
+		     (cond ((pair? y)
+			    (when (memq (car y) '(return-from lisp:return-from go lisp:go
+						  return lisp:return))
+			      (setf ok? '#f))
+			    (do ((l y (cdr l))) ((not (pair? l)))
+			      (walk (car l))))
+			   ((local-symbol? y)
+			    (cond ((memq y fenv) (setf ok? '#f))
+				  ((memq y bound))
+				  ((memq y env) (when (not (memq y free)) (push y free)))
+				  (else (setf ok? '#f))))
+			   ((and (symbol? y) (memq y fenv)) (setf ok? '#f)))))
+      (walk e))
+    (if ok? (reverse free) 'no)))
+
+;;; The locals E binds, by the forms lift-delays follows.
+(define (form-binders e acc)
+  (cond ((not (pair? e)) acc)
+	((memq (car e) '(quote lisp:quote)) acc)
+	(else
+	 (when (and (pair? (cdr e)) (list? (cadr e)))
+	   (cond ((lambda-form? (car e))
+		  (setf acc (append (lambda-list-vars (cadr e)) acc)))
+		 ((let-form? (car e))
+		  (dolist (b (cadr e))
+		    (setf acc (cons (if (pair? b) (car b) b) acc))))
+		 ((local-fn-form? (car e))
+		  (dolist (d (cadr e))
+		    (when (pair? d)
+		      (setf acc (cons (car d) acc))
+		      (when (pair? (cdr d))
+			(setf acc (append (lambda-list-vars (cadr d)) acc))))))))
+	 (do ((l e (cdr l))) ((not (pair? l)) acc)
+	   (setf acc (form-binders (car l) acc))))))
 
 ;;; A single form beyond SBCL's limit cannot be split here: it is named on
 ;;; standard error, before the Lisp compiler fails on it.
