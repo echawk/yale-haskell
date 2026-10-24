@@ -42,6 +42,7 @@
 		 ;; built-in definitions, then what the splice sees
 		 (reify-builtin occ)
 		 (reify-find keys *core-symbols*)
+		 (reify-find keys *prelude-core-symbols*)
 		 (let ((frag (dynamic *splice-fragment*)))
 		   (and frag (reify-find keys (module-symbol-table frag))))))))))
 
