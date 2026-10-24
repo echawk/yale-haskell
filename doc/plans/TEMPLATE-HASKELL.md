@@ -58,8 +58,12 @@ from 3.3-3.6 below:
 - addTopDecls adds declarations to the module (their newName names
   printed with their uniques, so two splices' do not clash), and
   addModFinalizer's actions run once the splice has.
-The rest (reifyRoles, reifyAnnotations, the module's own classes and
-instances in reify) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
+- reifyRoles (phantom or representational by whether a field mentions
+  the parameter) and reifyConStrictness (from the fields' bangs, which
+  reify now gives) answer; a constructor's name quote ('C) of the module
+  running the splice works.
+The rest (reifyAnnotations, the module's own classes and instances in
+reify) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
 Haskell's pipeline, which files change, and where the hard parts are,
 so that the work can be split into milestones that each end in passing
 tests.

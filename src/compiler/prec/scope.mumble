@@ -200,7 +200,13 @@
 			  (module-synonyms mod))
 	       (lisp:some (lambda (cd) (memq (class-ref-name (class-decl-class cd)) (list name c)))
 			  (module-classes mod)))))
-	((char=? kind #\d) (defined-in-module? (add-con-prefix/symbol name) mod))
+	;; (a constructor's name has its prefix already: parse-name-quote's
+	;; con->symbol)
+	((char=? kind #\d)
+	 (defined-in-module? (if (has-con-prefix? (symbol->string name))
+				 name
+				 (add-con-prefix/symbol name))
+			     mod))
 	(else (defined-in-module? name mod))))
 
 (define (splice-parent-def name mod)
@@ -1291,7 +1297,7 @@
 					   (else '|mkNameG_v|))))
 		  (**string "main")
 		  (**string (symbol->string (module-name (dynamic *splice-parent*))))
-		  (**string text)))
+		  (**string (if (has-con-prefix? text) (remove-con-prefix text) text))))
 	  ((eq? def 'equality)
 	   ;; ''(~), which has no definition here
 	   (**app (**var/def (th-def '|mkNameG_tc|))

@@ -378,10 +378,47 @@ instance Quasi IO where
           headCon (TupleT k) = Just (show k)
           headCon ArrowT     = Just "->"
           headCon _          = Nothing
-  qReifyRoles _         = badIO "reifyRoles"
+  -- (a data type's parameter is phantom when no constructor's field
+  -- mentions it, else representational, even under a type variable
+  -- (GHC: nominal in f a); anything else's nominal)
+  qReifyRoles n         = do
+    i <- reifyIO n
+    return $ case i of
+      TyConI (DataD _ _ tvs _ cons _)    -> map (dataRole cons) tvs
+      TyConI (NewtypeD _ _ tvs _ con _)  -> map (dataRole [con]) tvs
+      TyConI (TySynD _ tvs _)            -> map (const NominalR) tvs
+      ClassI (ClassD _ _ tvs _ _) _      -> map (const NominalR) tvs
+      _                                  -> []
+    where dataRole cons tv
+            | tvName' tv `elem` namesIn cons = RepresentationalR
+            | otherwise                     = PhantomR
+          tvName' (PlainTV v _)    = v
+          tvName' (KindedTV v _ _) = v
+          namesIn :: Data a => a -> [Name]
+          namesIn x = maybe [] (: []) (cast x) ++ concat (gmapQ namesIn x)
   qReifyAnnotations _   = badIO "reifyAnnotations"
   qReifyModule _        = badIO "reifyModule"
-  qReifyConStrictness _ = badIO "reifyConStrictness"
+  -- (a field with a bang is strict, as GHC decides without -O)
+  qReifyConStrictness n = do
+    i <- reifyIO n
+    p <- case i of
+      DataConI _ _ parent -> reifyIO parent
+      _ -> fail ("reifyConStrictness " ++ showName n ++ ": not a constructor")
+    let cons = case p of
+          TyConI (DataD _ _ _ _ cs _)   -> cs
+          TyConI (NewtypeD _ _ _ _ c _) -> [c]
+          _                             -> []
+    case [bs | c <- cons, (c', bs) <- conBangs c, nameBase c' == nameBase n] of
+      (bs : _) -> return (map decided bs)
+      []       -> fail ("reifyConStrictness " ++ showName n ++ ": not found")
+    where conBangs (NormalC c bts)      = [(c, map fst bts)]
+          conBangs (RecC c vbts)        = [(c, [b | (_, b, _) <- vbts])]
+          conBangs (InfixC (b1, _) c (b2, _)) = [(c, [b1, b2])]
+          conBangs (ForallC _ _ c)      = conBangs c
+          conBangs (GadtC cs bts _)     = [(c, map fst bts) | c <- cs]
+          conBangs (RecGadtC cs vbts _) = [(c, [b | (_, b, _) <- vbts]) | c <- cs]
+          decided (Bang _ SourceStrict) = DecidedStrict
+          decided _                     = DecidedLazy
   qLocation             = do
     r <- primTHQuery "location" ""
     let (f, m, l) = case lines r of
@@ -3288,7 +3325,8 @@ qualifiedNameG ns modu occ = mkNameG ns "main" modu occ
 --           | (unsupported "what")
 --   DEC   ::= (data NAME (TV ...) (CON ...)) | (newtype NAME (TV ...) CON)
 --           | (syn NAME (TV ...) TYPE)
---   CON   ::= (normal NAME TYPE ...) | (rec NAME (NAME TYPE) ...)
+--   CON   ::= (normal NAME FIELD ...) | (rec NAME (NAME FIELD) ...)
+--   FIELD ::= TYPE | (strict TYPE)
 --   NAME  ::= (g v|d|tc "module" "occ") | (s "occ")
 --   TYPE  ::= (con NAME) | (var "a") | (app TYPE TYPE) | (arrow) | (list)
 --           | (tuple N) | (forall (TV ...) (TYPE ...) TYPE)
@@ -3369,13 +3407,19 @@ sexpTv _ = Nothing
 
 sexpCon :: SExp -> Maybe Con
 sexpCon (SList (SAtom "normal" : n : ts)) =
-  do { n' <- sexpName n; ts' <- mapM sexpType ts
-     ; return (NormalC n' [(noBang, t) | t <- ts']) }
+  do { n' <- sexpName n; ts' <- mapM sexpField ts
+     ; return (NormalC n' ts') }
 sexpCon (SList (SAtom "rec" : n : fs)) =
   do { n' <- sexpName n; fs' <- mapM field fs; return (RecC n' fs') }
-  where field (SList [f, t]) = do { f' <- sexpName f; t' <- sexpType t; return (f', noBang, t') }
+  where field (SList [f, t]) = do { f' <- sexpName f; (b, t') <- sexpField t; return (f', b, t') }
         field _ = Nothing
 sexpCon _ = Nothing
+
+-- a field's type, (strict t) when it has a bang
+sexpField :: SExp -> Maybe (Bang, Type)
+sexpField (SList [SAtom "strict", t]) =
+  fmap (\t' -> (Bang NoSourceUnpackedness SourceStrict, t')) (sexpType t)
+sexpField t = fmap (\t' -> (noBang, t')) (sexpType t)
 
 noBang :: Bang
 noBang = Bang NoSourceUnpackedness NoSourceStrictness

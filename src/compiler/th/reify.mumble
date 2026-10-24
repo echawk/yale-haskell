@@ -197,7 +197,10 @@
   (let* ((g (con-signature con))
 	 (fields (arrow-argument-types (gtype-type g)))
 	 (names (con-tyvar-names g tyvars))
-	 (types (map (lambda (ty) (reify-ntype ty names)) fields))
+	 (types (map (lambda (ty s) (strict-field (reify-ntype ty names) s))
+		     fields
+		     (let ((s (con-slot-strict? con)))
+		       (if (null? s) (map (lambda (f) (declare (ignore f)) '#f) fields) s))))
 	 (labels (con-field-labels con)))
     (if (and (not (null? labels)) (every (lambda (l) l) labels))
 	(lisp:format lisp:nil "(rec ~A~{ ~A~})" (reify-name con "d")
@@ -340,6 +343,10 @@
 				     (data-decl-constrs dd)))
 			(module-algdatas mod))))))
 
+;;; A field's type, (strict TYPE) when it has a bang.
+(define (strict-field type strict?)
+  (if strict? (lisp:format lisp:nil "(strict ~A)" type) type))
+
 (define (simple-occ simple)
   (let ((s (symbol->string (tycon-name simple))))
     (if (has-con-prefix? s) (remove-con-prefix s) s)))
@@ -359,7 +366,11 @@
 (define (reify-constr c mod)
   (let ((name (same-module-name mod "d" (remove-con-prefix
 					 (symbol->string (con-ref-name (constr-constructor c))))))
-	(types (map (lambda (tt) (reify-ast-type (tuple-2-1 tt))) (constr-types c))))
+	(types (map (lambda (tt)
+		       (strict-field (reify-ast-type (tuple-2-1 tt))
+				     (lisp:some (lambda (a) (eq? (annotation-value-name a) '|STRICT|))
+						(tuple-2-2 tt))))
+		     (constr-types c))))
     (if (null? (constr-field-labels c))
 	(lisp:format lisp:nil "(normal ~A~{ ~A~})" name types)
 	(lisp:format lisp:nil "(rec ~A~{ ~A~})" name
