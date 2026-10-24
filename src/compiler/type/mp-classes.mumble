@@ -1162,8 +1162,9 @@
 
 (define (resolve-mp-by-instance p inst bindings deferred decls)
   ;; instance contexts nest only so deep; deeper is a loop, as after a
-  ;; type error in improvement
-  (if (> (dynamic *mp-resolve-depth*) 40)
+  ;; type error in improvement (200, GHC's reduction depth: Agda's
+  ;; icodeN' PragmaOptions recurses once per field, some 70)
+  (if (> (dynamic *mp-resolve-depth*) 200)
       (begin
 	(phase-error 'mp-instance-loop
 	  "Resolving the constraint ~A loops through instance contexts."
