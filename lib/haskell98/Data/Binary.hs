@@ -204,6 +204,22 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f)
   put (a, b, c, d, e, f) = put a >> put b >> put c >> put d >> put e >> put f
   get = do { a <- get; b <- get; c <- get; d <- get; e <- get; f <- get
            ; return (a, b, c, d, e, f) }
+instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f, Binary g)
+      => Binary (a, b, c, d, e, f, g) where
+  put (a, b, c, d, e, f, g) = put a >> put b >> put c >> put d >> put e >> put f >> put g
+  get = do { a <- get; b <- get; c <- get; d <- get; e <- get; f <- get; g <- get; return (a, b, c, d, e, f, g) }
+instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f, Binary g, Binary h)
+      => Binary (a, b, c, d, e, f, g, h) where
+  put (a, b, c, d, e, f, g, h) = put a >> put b >> put c >> put d >> put e >> put f >> put g >> put h
+  get = do { a <- get; b <- get; c <- get; d <- get; e <- get; f <- get; g <- get; h <- get; return (a, b, c, d, e, f, g, h) }
+instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f, Binary g, Binary h, Binary i)
+      => Binary (a, b, c, d, e, f, g, h, i) where
+  put (a, b, c, d, e, f, g, h, i) = put a >> put b >> put c >> put d >> put e >> put f >> put g >> put h >> put i
+  get = do { a <- get; b <- get; c <- get; d <- get; e <- get; f <- get; g <- get; h <- get; i <- get; return (a, b, c, d, e, f, g, h, i) }
+instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f, Binary g, Binary h, Binary i, Binary j)
+      => Binary (a, b, c, d, e, f, g, h, i, j) where
+  put (a, b, c, d, e, f, g, h, i, j) = put a >> put b >> put c >> put d >> put e >> put f >> put g >> put h >> put i >> put j
+  get = do { a <- get; b <- get; c <- get; d <- get; e <- get; f <- get; g <- get; h <- get; i <- get; j <- get; return (a, b, c, d, e, f, g, h, i, j) }
 
 instance Binary a => Binary (NonEmpty a) where
   put = put . NE.toList
