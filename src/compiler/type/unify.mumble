@@ -91,6 +91,14 @@
 		 ((and (ntyvar? type2) (not (ntyvar-read-only? type2))
 		       (scoped-ntyvar? type1) (not (scoped-ntyvar? type2)))
 		  (unify-1 type2 type1))
+		 ;; (one that has dictionary parameters already, a signature's
+		 ;; variable once generalized, is kept: its parameters are
+		 ;; found through it, ce of Agda's prettyAs met by an
+		 ;; equality solved after)
+		 ((and (ntyvar? type2) (not (ntyvar-read-only? type2))
+		       (not (null? (ntyvar-dict-params type1)))
+		       (null? (ntyvar-dict-params type2)))
+		  (unify-1 type2 type1))
 		 (else
 		  (instantiate-tyvar type1 type2)
 		  (let ((classes (ntyvar-context type1))

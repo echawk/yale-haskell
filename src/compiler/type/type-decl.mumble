@@ -131,6 +131,7 @@
        (setf (dynamic *non-generic-tyvars*) old-ng)
        (setf (dynamic *given-mp-constraints*) '())
        (let ((sig-contexts (check-user-signatures all-vars)))
+	 (retry-family-equalities/given)
 	 (restrict-stuck-family-tyvars all-vars decls)
 	 (apply-mono-local-binds all-vars (map (function var-type) all-vars))
 	 (improve-mp-placeholders/given (dynamic *placeholders*)
@@ -278,6 +279,7 @@
 	    (type-mismatch decl "main must have an IO type" lhs-type io))))
       (setf (dynamic *given-mp-constraints*) '())
       (check-user-signatures all-vars)
+      (retry-family-equalities/given)
       (restrict-stuck-family-tyvars all-vars (list decl))
       (apply-mono-local-binds all-vars (list lhs-type))
       ;; multi-parameter constraints (mp-classes.mumble): improve by
@@ -473,6 +475,15 @@
 		(not (instance-head-matches? instance type))
 		(some-instance-head-could-match? instance type))))))
 
+;;; The family equalities left undecided, tried again once the signatures
+;;; give their equalities (ConOfAbs a ~ [ce] of Agda's prettyAs decides
+;;; ConOfAbs a ~ [t], t of map pretty), before the binding is
+;;; generalized and t found ambiguous.
+(define (retry-family-equalities/given)
+  (when (and (not (null? *deferred-family-equalities*))
+	     (not (null? (dynamic *given-mp-constraints*))))
+    (retry-family-equalities)))
+
 (define (restrict-stuck-family-tyvars vars decls)
   (when (not (some (function var-signature) vars))
     ;; a class at a family application (Show (Item l), from IsList's
@@ -578,7 +589,14 @@
     (gadt-soft-unify var)
     (dolist (tyvar sig-vars)
       (setf (ntyvar-read-only? tyvar) '#f))
+    (setf (lisp:gethash var *checked-signature-vars*) sig-vars)
     sig-vars))
+
+;;; The instance variables each signature was checked with: the instance
+;;; generalize-overloaded-type makes is linked to it, those only its
+;;; context mentions included (ce of Agda's prettyAs, (ConOfAbs a ~
+;;; [ce], Pretty ce) => a -> m Doc, which the body's pretty is at).
+(define *checked-signature-vars* (lisp:make-hash-table :test (function lisp:eq)))
 
 ;;; The instance the body was checked against (existentials.mumble's
 ;;; shared-signature-instance), its variables still distinct variables
@@ -678,6 +696,12 @@
 	  (else
 	   (mlet (((ntype tyvars givens) (instantiate-gtype/mp sig)))
 	     (unify ntype (var-type var))
+	     (let ((checked (lisp:gethash var *checked-signature-vars*)))
+	       (lisp:remhash var *checked-signature-vars*)
+	       (when (and checked (eqv? (length checked) (length tyvars)))
+		 (dolist2 (new tyvars) (old checked)
+		   (when (not (eq? (prune new) (prune old)))
+		     (unify new old)))))
 	     ;; ScopedTypeVariables: those only the context mentions too
 	     (link-scoped-instance-tyvars var tyvars (lambda () '#f))
 	     (forget-scoped-instance-tyvars var)
