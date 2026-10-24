@@ -348,7 +348,14 @@ instance Quasi IO where
   qReify                = reifyIO
   -- (not looked up yet: as for a name without a fixity declaration)
   qReifyFixity _        = return Nothing
-  qReifyType _          = badIO "reifyFixity"
+  -- (a variable's or constructor's type, through reify)
+  qReifyType n          = do
+    i <- reifyIO n
+    case i of
+      VarI _ t _      -> return t
+      DataConI _ t _  -> return t
+      ClassOpI _ t _  -> return t
+      _               -> fail ("reifyType " ++ showName n ++ ": not a value")
   qReifyInstances _ _   = badIO "reifyInstances"
   qReifyRoles _         = badIO "reifyRoles"
   qReifyAnnotations _   = badIO "reifyAnnotations"

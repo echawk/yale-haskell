@@ -26,7 +26,11 @@
   (let ((keys (reify-keys ns occ)))
     (cond ((string=? modname "")
 	   (let ((frag (dynamic *splice-fragment*)))
-	     (and frag (reify-find keys (module-symbol-table frag)))))
+	     (or (and frag (reify-find keys (module-symbol-table frag)))
+		 ;; the Prelude's core names (Int, Maybe) are not in a
+		 ;; module's own table (top/symbol-table.mumble)
+		 (reify-find keys *prelude-core-symbols*)
+		 (reify-builtin occ))))
 	  ((string-starts? "GHC.Internal." modname)
 	   (or (reify-builtin occ)
 	       (reify-find keys *core-symbols*)))
