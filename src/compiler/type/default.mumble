@@ -3,11 +3,18 @@
 (define (maybe-default-ambiguous-tyvar type def module)
   (let ((classes (ntyvar-context type)))
    (and (not (null? classes)) ; this happens only during cleanup after an error
-    (let ((non-standard? '#f)
-	  (numeric? '#f))
+    ;; OverloadedStrings (GHC): IsString is defaultable too, and String a
+    ;; default after the module's (Agda's throwError "..." in an ExceptT
+    ;; e that exceptToMaybeT drops)
+    (let* ((strings? (and (let ((m (table-entry *modules* module)))
+			       (and m (mem-string "OverloadedStrings" (module-extensions m))))
+			  (lisp:some (function is-string-class?) classes)))
+	   (non-standard? '#f)
+	   (numeric? strings?))
       (dolist (class classes)
 	(cond ((eq? (class-kind class) 'numeric)
 	       (setf numeric? '#t))
+	      ((and strings? (is-string-class? class)))
 	      ((not (eq? (class-kind class) 'standard))
 	       (setf non-standard? '#t))))
       (cond ((or non-standard? (not numeric?))
@@ -18,7 +25,11 @@
 	     '#f)
 	    (else
 	     (find-default-type type classes classes
-			(tuple-2-2 (assq module *default-decls*)))))))))
+			(append (tuple-2-2 (assq module *default-decls*))
+				(if strings? (list *string-type*) '())))))))))
+
+(define (is-string-class? class)
+  (eq? (def-name class) '|IsString|))
 
 (define (find-default-type tyvar classes all-classes defaults)
   (cond ((null? defaults)
