@@ -83,6 +83,16 @@
 (define (process-placeholder-1 p deferred decls)
   (process-placeholder-at p (prune (placeholder-tyvar p)) deferred decls))
 
+;;; Whether no instance of P's class matches TYPE yet, but one could once
+;;; its arguments' variables, an enclosing binding's, are known.
+(define (undecided-flexible-instance? p type)
+  (and (algdata? (ntycon-tycon type))
+       (mp-type-non-generic? type)
+       (let ((instance (lookup-instance/type (ntycon-tycon type) (placeholder-class p) type)))
+	 (and instance
+	      (not (instance-head-matches? instance type))
+	      (some-instance-head-could-match? instance type)))))
+
 (define (process-placeholder-at p type deferred decls)
   (let ((expanded (if (ntycon? type)
 		      (prune (expand-ntype-synonym type))
@@ -123,6 +133,12 @@
 		    (process-instantiated-tyvar (expand-ntype-synonym type)
 						p deferred decls))
 		   (else (cons p deferred)))))
+	  ((and (ntycon? type) (undecided-flexible-instance? p (expand-ntype-synonym type)))
+	   ;; several flexible instances (Subst (Pattern' A), Subst (Pattern'
+	   ;; B)) its arguments, an enclosing binding's variables, are still
+	   ;; to choose between (Agda's dotSub in LHS.Unify): left for the
+	   ;; enclosing binding
+	   (cons p deferred))
 	  ((ntycon? type)
 	   (process-instantiated-tyvar
 	    (expand-ntype-synonym type) p deferred decls))
