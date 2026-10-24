@@ -55,6 +55,9 @@
 	       (stand?    (and (pair? (tuple-2-2 d)) (eq? (car (tuple-2-2 d)) '%stand)))
 	       (stand-args (if stand? (caddr (tuple-2-2 d)) '()))
 	       (stand-ctx (if stand? (cadddr (tuple-2-2 d)) '()))
+	       (stand-mp (if (and stand? (> (length (tuple-2-2 d)) 4))
+			     (list-ref (tuple-2-2 d) 4)
+			     '()))
 	       (target    (if (or via? stand?) (cadr (tuple-2-2 d)) (tuple-2-2 d)))
 	       (alg       (synonym-algdata
 			   (if (algdata? target)
@@ -107,9 +110,52 @@
 		       (setf (instance-tyvars inst)
 			     (lisp:remove-duplicates (lisp:mapcan (function ast-tyvar-names) args)))
 		       (setf (instance-context inst) stand-ctx)))))
+		((and stand? (or (pair? stand-ctx) (pair? stand-mp))
+		      (standalone-newtype-deriving? alg (class-ref-class class-ref) stand-args))
+		 ;; GeneralizedNewtypeDeriving with the declared context and
+		 ;; head: deriving instance (Monad m, Null (m Doc)) => Null
+		 ;; (AbsToConT m Doc), Agda's
+		 (add-standalone-newtype-instance alg class-ref stand-args stand-ctx stand-mp))
 		(else
 		 (setf insts (derive-instance alg (class-ref-class class-ref) insts)))))))
     insts))
+
+;;; Whether a standalone deriving of CLASS for the newtype ALG at ARGS is
+;;; through its field type (as derive-instance would choose, at the end of
+;;; its cases).
+(define (standalone-newtype-deriving? alg class args)
+  (and (haskell98?)
+       (algdata-newtype? alg)
+       (eqv? (length args) (length (algdata-tyvars alg)))
+       (eqv? (class-tyvar-arity class 4) 0)
+       (or (module-extension? "GeneralizedNewtypeDeriving")
+	   (module-extension? "GeneralisedNewtypeDeriving"))
+       (not (module-extension? "DeriveAnyClass"))
+       (not (memq class (list (core-symbol "Eq") (core-symbol "Ord")
+			      (core-symbol "Text") (core-symbol "Show")
+			      (core-symbol "Read") (core-symbol "Binary")
+			      (core-symbol "Ix") (core-symbol "Enum")
+			      (core-symbol "Bounded") *printer-class*)))
+       (not (typeable-class? class))
+       (not (constructor-class-derivable? class))
+       (not (generic-class? class))
+       (not (lift-class? class))
+       (not (data-class? class))
+       (not (memq (def-name class) '(|NFData|)))))
+
+;;; The instance as if written: each method the field type's, coerced, at
+;;; the declared head ARGS, with the declared context.
+(define (add-standalone-newtype-instance alg class-ref args ctx mctx)
+  (let ((inst (instance->def (make instance-decl (context ctx) (class class-ref)
+				   (simple (**tycon/def alg args)) (decls '())
+				   (mcontext mctx)))))
+    (when inst
+      (let* ((field (car (con-types (car (algdata-constrs alg)))))
+	     (via (substitute-tyvars-simultaneously field (algdata-tyvars alg) args)))
+	(setf (instance-decls inst)
+	      (via-method-decls (class-ref-class class-ref) via (**tycon/def alg args)))
+	(setf (instance-scoped-tyvars? inst) '#t)
+	(push inst (module-instance-defs *module*))))))
 
 ;;; For a synonym S a1 .. ak = T t1 .. tn applied to ARGS (S u1 .. um, m
 ;;; >= k), with a ti not a type variable: T's arguments, t1 .. tn with the
