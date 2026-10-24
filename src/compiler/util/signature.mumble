@@ -464,7 +464,7 @@
 ;;; applied to all their parameters, to a variable or a data type
 ;;; (generic-data's Show (ConIdNamed' n t) is a family's, kept).
 (define (reducible-context-type? class type depth)
-  (resolve-type type)
+  (resolve-type-1 type '() '#t)  ; (a monad's partial application: MonadC TCM)
   (cond ((<= depth 0) '#f)
 	((tyvar? type) '#t)
 	((not (tycon? type)) '#f)
@@ -495,7 +495,7 @@
 
 ;;; TYPE with the synonyms (not families) at its head expanded.
 (define (expand-plain-synonyms type depth)
-  (resolve-type type)
+  (resolve-type-1 type '() '#t)  ; (a monad's partial application: MonadC TCM)
   (if (and (> depth 0) (tycon? type) (synonym? (tycon-def type))
 	   (not (synonym-family? (tycon-def type)))
 	   (synonym-body (tycon-def type))
@@ -504,7 +504,7 @@
       type))
 
 (define (reduce-context-type class type)
-  (resolve-type type)
+  (resolve-type-1 type '() '#t)  ; (a monad's partial application: MonadC TCM)
   (cond ((tyvar? type)
 	 (list (make context (class (**class/def class)) (tyvar (tyvar-name type)))))
 	((and (tycon? type) (synonym? (tycon-def type)))
