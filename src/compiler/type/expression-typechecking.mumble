@@ -479,7 +479,16 @@
 ;;; A section of a variable, (op v) or (v op), is \x -> op x v (or
 ;;; op v x): an application, so that a polytype argument (RankNTypes:
 ;;; Agda's (^. l), l a lens) is checked as one (polytypes.mumble).
-;;; (v is a variable: nothing is evaluated twice.)
+;;; (v is a variable: nothing is evaluated twice.)  So is a section of an
+;;; operator with a polytype argument, whatever the operand: (^. l1 . l2),
+;;; Agda's (the operand is evaluated at each call).
+
+(define (section-as-lambda? op exp)
+  (or (var-ref? exp)
+      (and (var-ref? op)
+	   (var? (var-ref-var op))
+	   (gtype? (var-type (var-ref-var op)))
+	   (gtype-has-polytypes? (var-type (var-ref-var op))))))
 
 (define (section-var-lambda op left right)
   (let ((x (create-temp-var "SEC")))
@@ -487,7 +496,7 @@
 		  (**app op (if left left (**var/def x)) (if right right (**var/def x))))))
 
 (define-type-checker section-l
- (if (var-ref? (section-l-exp object))
+ (if (section-as-lambda? (section-l-op object) (section-l-exp object))
   (type-rewrite (section-var-lambda (section-l-op object) '#f (section-l-exp object)))
   (type-check section-l op op-type
     (type-check section-l exp exp-type
@@ -503,7 +512,7 @@
 	    (return-type object (**arrow a-type c-type)))))))))
 
 (define-type-checker section-r
- (if (var-ref? (section-r-exp object))
+ (if (section-as-lambda? (section-r-op object) (section-r-exp object))
   (type-rewrite (section-var-lambda (section-r-op object) (section-r-exp object) '#f))
   (type-check section-r op op-type
     (type-check section-r exp exp-type
