@@ -19,6 +19,23 @@
 (define (trace-compile?)
   (not (eq? (getenv "YALE_HASKELL_TRACE") '#f)))
 
+;;; YALE_HASKELL_TRACE_HEAP set too: each phase's live heap after a full
+;;; collection, and the bytes it allocated, to find where a compile's
+;;; memory goes.
+(define *trace-heap-bytes-consed* 0)
+
+(define (trace-heap-note)
+  (if (not (getenv "YALE_HASKELL_TRACE_HEAP"))
+      ""
+      #+sbcl
+      (let* ((consed (sb-ext:get-bytes-consed))
+	     (delta (- consed *trace-heap-bytes-consed*)))
+	(setf *trace-heap-bytes-consed* consed)
+	(sb-ext:gc :full lisp:t)
+	(lisp:format lisp:nil ", allocated ~,1F MB, live ~,1F MB"
+		     (/ delta 1048576.0) (/ (sb-kernel:dynamic-usage) 1048576.0)))
+      #-sbcl ""))
+
 (define (trace-compile format-string . args)
   (when (trace-compile?)
     (apply (function lisp:format) lisp:*error-output* format-string args)
@@ -41,7 +58,8 @@
 	     `((when (memq ',phase-name (dynamic *printers*))
 		 (funcall ,printer result)
 		 (force-output))))
-       (trace-compile "~&  ~A: ~A s~%" ',phase-name (- current-time phase-start-time))
+       (trace-compile "~&  ~A: ~A s~A~%" ',phase-name (- current-time phase-start-time)
+		      (trace-heap-note))
        (when (memq 'phase-time *printers*)
 	 (let ((elapsed-time (- current-time phase-start-time)))
 	   (format '#t "~&~A complete: ~A seconds~%"

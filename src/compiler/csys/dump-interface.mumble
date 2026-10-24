@@ -41,7 +41,9 @@
 
 (define (write-compiled-code-file filename code code-quality chunk-size)
   (let ((phase-start-time (get-run-time))
-        (forms            (split-oversized-forms (flatten-forms code))))
+        (forms            (let ((f (split-oversized-forms (flatten-forms code))))
+			    (when (getenv "YALE_HASKELL_TRACE_HEAP") (trace-code-profile f))
+			    f)))
     (warn-oversized-forms forms)
     (dynamic-let ((*magic-chunk-size*
 		   (or chunk-size (dynamic *magic-chunk-size*)))
@@ -59,6 +61,8 @@
 		 ,@(map (lambda (f) `(load ,f))
 			(write-compiled-code-file-split filename forms)))
 	      ))))
+    (trace-compile "~&  LISP-COMPILE ~A: ~A s~A~%" (filename-name filename)
+		   (- (get-run-time) phase-start-time) (trace-heap-note))
     (when (memq 'phase-time *printers*)
       (let* ((current-time (get-run-time))
 	     (elapsed-time (- current-time phase-start-time)))
@@ -128,6 +132,26 @@
 (define *max-function-size* 20000)
 (define *branch-lift-size* 300)
 (define *lift-branches?* '#f)
+
+;;; YALE_HASKELL_TRACE_HEAP: the code's size in conses and its most
+;;; frequent operators, on standard error.
+(define (trace-code-profile forms)
+  (let ((table (lisp:make-hash-table :test (function lisp:eq)))
+	(total 0))
+    (lisp:labels ((walk (x)
+		    (when (pair? x)
+		      (when (symbol? (car x))
+			(lisp:incf (lisp:gethash (car x) table 0)))
+		      (do ((l x (cdr l))) ((not (pair? l)))
+			(setf total (1+ total))
+			(walk (car l))))))
+      (dolist (f forms) (walk f)))
+    (let ((pairs '()))
+      (lisp:maphash (lambda (k v) (push (cons k v) pairs)) table)
+      (setf pairs (lisp:sort pairs (function lisp:>) :key (function cdr)))
+      (lisp:format lisp:*error-output* "~&  CODE: ~A conses;~{ ~A~}~%" total
+		   (map (lambda (p) (lisp:format lisp:nil "~A ~A" (car p) (cdr p)))
+			(list-head pairs (min 15 (length pairs))))))))
 
 (define (form-size x)
   (let ((n 0))
