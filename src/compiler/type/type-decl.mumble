@@ -494,7 +494,12 @@
 			 ;; binding's, which can (a derived Read's helpers)
 			 (and (ntyapp? type)
 			      (ntyvar? (prune (ntyapp-fun type)))
-			      (not (some (function var-toplevel?) vars)))))
+			      (not (some (function var-toplevel?) vars))
+			      ;; (one on the binding's own variables only is
+			      ;; generalized, as at the top level: Agda's
+			      ;; fields ys = [pluralS ys "field"], its
+			      ;; IsString (m Doc), used at two types)
+			      (some (function non-generic?) (collect-tyvars type)))))
 	    (dolist (v (collect-tyvars type))
 	      (when (not (memq v tyvars))
 		(push v tyvars))))))

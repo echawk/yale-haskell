@@ -639,7 +639,22 @@
 				  (and (eq? (tuple-2-1 c) class)
 				       (mp-types-equal? (tuple-2-2 c) types)))
 				res)))
-	    (push (tuple class types) res)))))
+	    (push (tuple class types) res))))
+      ;; a one-parameter class at an application of a type variable
+      ;; (IsString (m Doc), Agda's), as a multi-parameter constraint
+      ;; (FlexibleContexts' inferred context)
+      (when (and (or (dict-placeholder? p) (method-placeholder? p))
+		 (eq? (placeholder-exp p) '#f))
+	(let ((type (prune (placeholder-tyvar p)))
+	      (class (placeholder-class p)))
+	  (when (and (ntyapp? type)
+		     (ntyvar? (prune (ntyapp-fun type)))
+		     (mp-type-generic? type)
+		     (not (some (lambda (c)
+				  (and (eq? (tuple-2-1 c) class)
+				       (mp-types-equal? (tuple-2-2 c) (list type))))
+				res)))
+	    (push (tuple class (list type)) res)))))
     (nreverse res)))
 
 ;;; The tyvars of the constraints.

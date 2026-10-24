@@ -346,7 +346,8 @@ instance Quasi IO where
 
   qLookupName _ _       = badIO "lookupName"
   qReify                = reifyIO
-  qReifyFixity _        = badIO "reifyFixity"
+  -- (not looked up yet: as for a name without a fixity declaration)
+  qReifyFixity _        = return Nothing
   qReifyType _          = badIO "reifyFixity"
   qReifyInstances _ _   = badIO "reifyInstances"
   qReifyRoles _         = badIO "reifyRoles"

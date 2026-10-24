@@ -32,7 +32,14 @@
 	       (reify-find keys *core-symbols*)))
 	  (else
 	   (let ((m (table-entry *modules* (string->symbol modname))))
-	     (and m (reify-find keys (module-symbol-table m))))))))
+	     (or (and m (reify-find keys (module-symbol-table m)))
+		 ;; a module not loaded here, or one whose name only GHC's
+		 ;; library has (GHC.Types.Int, GHC.Maybe.Maybe): the
+		 ;; built-in definitions, then what the splice sees
+		 (reify-builtin occ)
+		 (reify-find keys *core-symbols*)
+		 (let ((frag (dynamic *splice-fragment*)))
+		   (and frag (reify-find keys (module-symbol-table frag))))))))))
 
 (define (reify-keys ns occ)
   (let ((v (string->symbol occ))
