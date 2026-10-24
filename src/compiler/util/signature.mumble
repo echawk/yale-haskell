@@ -387,11 +387,15 @@
 ;;; tdecl/class.mumble's mp-super-template at the context's types.
 
 (define (instantiate-mp-super-template p types)
-  (if (integer? p)
-      (list-ref types p)
-      (**tycon/def (car p)
-		   (map (lambda (a) (instantiate-mp-super-template a types))
-			(cdr p)))))
+  (cond ((integer? p) (list-ref types p))
+	((eq? (car p) '%app)
+	 (**tyapp (instantiate-mp-super-template (cadr p) types)
+		  (map (lambda (a) (instantiate-mp-super-template a types))
+		       (cddr p))))
+	(else
+	 (**tycon/def (car p)
+		      (map (lambda (a) (instantiate-mp-super-template a types))
+			   (cdr p))))))
 
 (define (ast-types-equal? t1 t2)
   (cond ((and (tyvar? t1) (tyvar? t2)) (eq? (tyvar-name t1) (tyvar-name t2)))

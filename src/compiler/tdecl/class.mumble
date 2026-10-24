@@ -110,7 +110,8 @@
 
 ;;; A superclass argument as a template over the class's type variables:
 ;;; a variable's position, or (tycon-def . argument templates) for a type
-;;; constructor or family applied to such (Mutable v); #f otherwise.
+;;; constructor or family applied to such (Mutable v), or (%app f a ..)
+;;; for an application of such (m Doc); #f otherwise.
 ;;; util/signature.mumble's instantiate-mp-super-template undoes it.
 
 ;;; A method signature's equalities on the class's variables whose types
@@ -160,6 +161,13 @@
 	   (and (not (eq? (tycon-def ty) *undefined-def*))
 		(every (lambda (a) (not (eq? a '#f))) args)
 		(cons (tycon-def ty) args))))
+	;; a variable applied, (%app fun-template arg-template ..): m Doc of
+	;; class (IsString (m Doc), ..) => MonadWarning m, Agda's
+	((tyapp? ty)
+	 (let ((parts (map (lambda (a) (mp-super-template a class-vars))
+			   (cons (tyapp-fun ty) (tyapp-args ty)))))
+	   (and (every (lambda (a) (not (eq? a '#f))) parts)
+		(cons '%app parts))))
 	(else '#f)))
 
 (define (signal-mp-superclasses-unsupported class)

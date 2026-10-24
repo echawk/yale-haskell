@@ -541,10 +541,14 @@
 
 ;;; tdecl/class.mumble's mp-super-template at ntypes.
 (define (instantiate-mp-template/ntype p types)
-  (if (integer? p)
-      (list-ref types p)
-      (**ntycon (car p) (map (lambda (a) (instantiate-mp-template/ntype a types))
-			     (cdr p)))))
+  (cond ((integer? p) (list-ref types p))
+	((eq? (car p) '%app)
+	 (apply-ntype (instantiate-mp-template/ntype (cadr p) types)
+		      (map (lambda (a) (instantiate-mp-template/ntype a types))
+			   (cddr p))))
+	(else
+	 (**ntycon (car p) (map (lambda (a) (instantiate-mp-template/ntype a types))
+				(cdr p))))))
 
 (define (improve-mp-placeholders placeholders)
   (let ((mps '()))
