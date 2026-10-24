@@ -291,10 +291,15 @@
 
 (define (monad-implied-dict class param-vars)
   (let ((wrapped  (prelude-modern-def '|WrappedMonad|)))
-    (when (or (not (monad-implied-class? class)) (eq? wrapped '#f))
-      (error "No dictionary for class ~A." (def-name class)))
-    (**app (dict-ref-code (lookup-instance wrapped class))
-	   (dict-reference-code (implying-class class) param-vars))))
+    (if (or (not (monad-implied-class? class)) (eq? wrapped '#f))
+	(begin
+	  ;; (an internal error, at the definition being typed)
+	  (phase-error 'no-dictionary
+	    "Internal error: no dictionary for class ~A among ~A."
+	    (def-name class) (map (lambda (p) (def-name (tuple-2-1 p))) param-vars))
+	  (**abort "no dictionary"))
+	(**app (dict-ref-code (lookup-instance wrapped class))
+	       (dict-reference-code (implying-class class) param-vars)))))
 
 (define (placeholder->method p param-vars decls)
   (let* ((method (method-placeholder-method p))
