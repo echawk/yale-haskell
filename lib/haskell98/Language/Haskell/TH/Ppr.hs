@@ -21,6 +21,9 @@ import GHC.Show  ( showMultiLineString )
 import GHC.Lexeme( isVarSymChar )
 import Data.Ratio ( numerator, denominator )
 import Data.Foldable ( toList )
+import System.IO.Unsafe ( unsafePerformIO )
+import Foreign.ForeignPtr ( withForeignPtr )
+import Foreign.Storable ( peekByteOff )
 import qualified Data.List.NonEmpty as NE
 import Prelude hiding ((<>))
 
@@ -317,7 +320,9 @@ pprLit _ (CharL c)       = text (show c)
 pprLit _ (CharPrimL c)   = text (show c) <> char '#'
 pprLit _ (StringL s)     = pprString s
 pprLit _ (StringPrimL s) = pprString (bytesToString s) <> char '#'
-pprLit _ (BytesPrimL {}) = pprString "<binary data>"
+-- (Yale Haskell: the bytes as a primitive string literal, which a splice's
+-- text is parsed back from; GHC prints "<binary data>")
+pprLit _ (BytesPrimL b) = pprString (map (chr . fromIntegral) (bytesList b)) <> char '#'
 pprLit i (RationalL rat)
   | withoutFactor 2 (withoutFactor 5 $ denominator rat) /= 1
   -- if the denominator has prime factors other than 2 and 5
@@ -1097,3 +1102,7 @@ unboxedSumBars d alt arity = hashParens $
 -- Text containing the vertical bar character.
 bar :: Doc
 bar = char '|'
+
+bytesList :: Bytes -> [Word8]
+bytesList (Bytes fp off n) = unsafePerformIO $ withForeignPtr fp $ \p ->
+  mapM (\i -> peekByteOff p (fromIntegral off + i)) [0 .. fromIntegral n - 1]

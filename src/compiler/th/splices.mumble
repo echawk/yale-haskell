@@ -159,7 +159,7 @@
 
 ;;; The code is parsed at the splice's line, for its error messages.
 (define (parse-splice-text text mod file line kind)
-  (dynamic-let ((*language-extensions* (module-extensions mod)))
+  (dynamic-let ((*language-extensions* (splice-text-extensions mod)))
     (parse-from-string (string-append
 			(make-string (if (integer? line) (1- line) 0) #\newline)
 			text)
@@ -174,7 +174,7 @@
 
 (define (parse-spliced-decls text mod s)
   (let ((line (source-line-of s)))
-    (car (dynamic-let ((*language-extensions* (module-extensions mod)))
+    (car (dynamic-let ((*language-extensions* (splice-text-extensions mod)))
 	   (parse-from-string
 	    (string-append (make-string (if (integer? line) (1- line) 0) #\newline)
 			   (format '#f "module ~A where~%~A~%" (module-name mod) text))
@@ -192,6 +192,14 @@
 	(append (module-standalone-derivings mod) (module-standalone-derivings new)))
   (setf (module-type-equations mod)
 	(append (module-type-equations mod) (module-type-equations new))))
+
+;;; A splice's printed code is read with the module's extensions and
+;;; MagicHash, for the primitive literals pprint writes ("..."#, from aeson's
+;;; deriveJSON's BytesPrimL).
+(define (splice-text-extensions mod)
+  (if (member "MagicHash" (module-extensions mod))
+      (module-extensions mod)
+      (cons "MagicHash" (module-extensions mod))))
 
 (define (source-file-of ast)
   (let ((sp (ast-node-line-number ast)))
