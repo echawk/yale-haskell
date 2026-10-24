@@ -41,8 +41,17 @@ from 3.3-3.6 below:
   getQ finds nothing, putQ is ignored, and reifyFixity answers Nothing;
   reify of a name of one of GHC's modules not loaded here (GHC.Types.Int)
   finds the built-in definition.
-The rest (pattern and type splices, reify of classes and same-module
-values, the Quasi operations still missing in IO) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
+- pattern splices expand in the scope phase (prec-parse.mumble's
+  massage-pattern); a type splice's type becomes a synonym Splice%N over
+  its variables (th/splices.mumble), so quotePat and quoteType work too;
+- aeson's deriveJSON (Data.Aeson.TH, through th-abstraction) derives
+  ToJSON and FromJSON for an enumeration and a record with options;
+  that needed reifyType, reify of the Prelude's types by plain and by
+  GHC's module names, and splice text read with MagicHash (pprint writes
+  a BytesPrimL as "..."#).
+The rest (reify of classes and same-module values, location, lookupName,
+reifyInstances and isExtEnabled in IO, quickCheckAll, makeLenses) is
+design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
 Haskell's pipeline, which files change, and where the hard parts are,
 so that the work can be split into milestones that each end in passing
 tests.
