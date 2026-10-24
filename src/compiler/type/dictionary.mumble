@@ -86,9 +86,12 @@
 ;;; Whether no instance of P's class matches TYPE yet, but one could once
 ;;; its arguments' variables, an enclosing binding's, are known.
 (define (undecided-flexible-instance? p type)
+  (undecided-flexible-instance/class? (placeholder-class p) type))
+
+(define (undecided-flexible-instance/class? class type)
   (and (algdata? (ntycon-tycon type))
        (mp-type-non-generic? type)
-       (let ((instance (lookup-instance/type (ntycon-tycon type) (placeholder-class p) type)))
+       (let ((instance (lookup-instance/type (ntycon-tycon type) class type)))
 	 (and instance
 	      (not (instance-head-matches? instance type))
 	      (some-instance-head-could-match? instance type)))))
@@ -460,6 +463,13 @@
 	  (let ((p (**dict-placeholder class ntype edecls var)))
 	    (setf deferred (process-placeholder p deferred decls))
 	    (setf dict (**app dict p))))
+	 ((and (ntycon? ntype) (undecided-flexible-instance/class? class ntype))
+	  ;; an instance's context at a type whose flexible instance is
+	  ;; not chosen yet (Subst (Pattern' x) of Subst [NamedArg
+	  ;; (Pattern' x)], Agda's ceq): left for the enclosing binding
+	  (let ((p (**dict-placeholder class ntype edecls var)))
+	    (setf dict (**app dict p))
+	    (push p deferred)))
 	 ((ntycon? ntype)
 	  (mlet ((alg (ntycon-tycon ntype))
 		 (instance (lookup-instance/type alg class ntype))
