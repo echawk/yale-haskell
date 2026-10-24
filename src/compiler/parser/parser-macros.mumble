@@ -267,10 +267,11 @@
   (k no-advance integer)
   (+k no-advance satisfies at-+k?)
   (-n no-advance satisfies at--n?)
-  (apat-start no-advance varid conid literal _ \( \[ \~)
+  (apat-start no-advance varid conid literal _ \( \[ \~
+	      splice-paren splice-var quasi-quote)
   (pat-start no-advance - apat-start)
   (atype-start no-advance tycon tyvar \( \[ promoted-tick name-quote
-	       integer string char)
+	       integer string char splice-paren splice-var quasi-quote)
   (aexp-start no-advance varid conid \( \[ literal name-quote type-name-quote
 	      splice-paren splice-var open-exp-quote open-pat-quote open-type-quote
 	      open-decs-quote open-typed-quote typed-splice-paren typed-splice-var

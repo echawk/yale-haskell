@@ -520,7 +520,15 @@
 	     type))))
 
 (define (quote-tyvar name)
-  (thc '|VarT| (thf '|mkName| (**string (symbol->string name)))))
+  (let ((spliced (assq name *quoted-type-splices*)))
+    (if spliced
+	;; $(e) or $t inside the quote (th/splices.mumble's
+	;; type-splice-tycon): the type e gives
+	(quote-bind (dynamic-let ((*scoping-quote?* '#f)
+				  (*quote-splice-env* (dynamic *quote-env*))
+				  (*quote-splice-boundary* (dynamic *quote-env*)))
+		      (scope-ast-1 (cdr spliced) (dynamic *quote-env*))))
+	(thc '|VarT| (thf '|mkName| (**string (symbol->string name)))))))
 
 (define (quote-type ty)
   (cond ((tyvar? ty) (quote-tyvar (tyvar-name ty)))

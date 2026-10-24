@@ -323,7 +323,10 @@
   (include exp)
   (slots
    (exp (type exp))
-   (expansion (type (maybe exp)) (default '#f))))
+   ;; (an exp, or for a pattern's a pattern)
+   (expansion (type t) (default '#f))
+   ;; exp (Q Exp), or pat (Q Pat): a pattern's (splice-pat)
+   (kind (type symbol) (default 'exp))))
 
 ;;; TemplateHaskell: a quote, [| e |], [p| p |] or [t| t |] (kind exp,
 ;;; pat or type).  The scope phase replaces it by code that builds the

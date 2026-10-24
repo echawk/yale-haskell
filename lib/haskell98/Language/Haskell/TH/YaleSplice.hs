@@ -7,7 +7,7 @@
 -- syntax; other global names stay qualified with their original module,
 -- which the compiler resolves even where that module is not imported.
 module Language.Haskell.TH.YaleSplice (
-    spliceExpText, spliceDecsText, yaleTypedQuote, yaleTypedSplice
+    spliceExpText, splicePatText, spliceTypeText, spliceDecsText, yaleTypedQuote, yaleTypedSplice
   ) where
 
 import Data.Data
@@ -26,6 +26,12 @@ yaleTypedSplice = unTypeCode
 
 spliceExpText :: Q Exp -> String
 spliceExpText q = unsafePerformIO (fmap (pprint . everywhere builtinName) (unQ q))
+
+splicePatText :: Q Pat -> String
+splicePatText q = unsafePerformIO (fmap (pprint . everywhere builtinName) (unQ q))
+
+spliceTypeText :: Q Type -> String
+spliceTypeText q = unsafePerformIO (fmap (pprint . everywhere builtinName) (unQ q))
 
 spliceDecsText :: Q [Dec] -> String
 spliceDecsText q = unsafePerformIO (fmap (pprint . everywhere builtinName) (unQ q))

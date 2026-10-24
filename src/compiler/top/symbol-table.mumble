@@ -570,9 +570,12 @@
       (and (dynamic *quote-decs-module*)
 	   (quoted-decs-def name (dynamic *quote-decs-module*)))
       (and (or (dynamic *th-global-names?*)
-	       ;; declaration splices' code is the module's own
+	       ;; declaration splices' code is the module's own, and type
+	       ;; splices' types are synonyms of it (th/splices.mumble)
 	       (and (dynamic *module*)
-		    (not (null? (module-decl-splices (dynamic *module*))))))
+		    (or (not (null? (module-decl-splices (dynamic *module*))))
+			(lisp:some (lambda (s) (eq? (splice-kind s) 'type))
+				   (module-splices (dynamic *module*))))))
 	   (resolve-th-global-name name))))
 
 (define (resolve-toplevel-name-0 name)

@@ -91,6 +91,9 @@
 	(cons con (parse-pat/list))))
      (else '())))
 
+(define (pattern-splice e)
+  (make splice-pat (splice (record-splice (make splice (exp e) (kind 'pat))))))
+
 (define (parse-apat)
  (if (at-bang?)
      (begin (advance-token)
@@ -131,6 +134,17 @@
 		      (make var-pat (var (generated-var-ref name))))
 		    (make const-pat (value value)))))
      (_ (make wildcard-pat))
+     ;; TemplateHaskell: a pattern splice; QuasiQuotes: [q|text|], the
+     ;; splice $(quotePat q "text")
+     (splice-paren
+      (let ((e (parse-exp)))
+	(require-token \) (signal-missing-token "`)'" "a splice"))
+	(pattern-splice e)))
+     (splice-var (pattern-splice (var->ast)))
+     ((no-advance quasi-quote)
+      (let ((args *token-args*))
+	(advance-token)
+	(pattern-splice (quasi-quote-exp '|quotePat| args))))
      (\( (token-case
            (\) (**pcon/def (core-symbol "UnitConstructor") '()))
 	   (\, (**pcon/def (tuple-constructor (parse-tuple-con-commas 2)) '()))

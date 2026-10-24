@@ -26,14 +26,55 @@
 ;;; module's types from their declarations (reify.mumble).
 
 (define *splice-counter* 0)
+
+;;; A type splice: the type constructor Splice%N standing in its place,
+;;; and (splice . tycon) on *type-splices* (parser/type-parser.mumble).
+;;; Run, it becomes the synonym Splice%N v1 .. vn = its type, over the
+;;; type's variables, and the stand-in is applied to them.
+(define *type-splice-counter* 0)
+(define *type-splices* '())
+
+(define *quoted-type-splices* '())   ; (name . exp): one inside a [t| |]
+
+(define (type-splice-tycon e)
+  (if (dynamic *in-quote?*)
+      ;; inside a quote: the quote's code binds e's type there
+      ;; (th/quote.mumble's quote-type)
+      (let ((name (string->symbol (format '#f "Splice%~A" (incf *type-splice-counter*)))))
+	(push (cons name e) *quoted-type-splices*)
+	(make tyvar (name name)))
+      (type-splice-tycon-1 e)))
+
+(define (type-splice-tycon-1 e)
+  (let* ((s (record-splice (make splice (exp e) (kind 'type))))
+	 (name (string->symbol (format '#f "Splice%~A" (incf *type-splice-counter*))))
+	 (tc (make tycon (name name) (def *undefined-def*) (args '()))))
+    (push (cons s tc) *type-splices*)
+    tc))
+
+(define (define-type-splice s type mod)
+  (let* ((entry (assq s *type-splices*))
+	 (tc (cdr entry))
+	 (vars (lisp:remove-duplicates (ast-tyvar-names type) :from-end '#t)))
+    (setf (tycon-args tc) (map (lambda (v) (make tyvar (name v))) vars))
+    (setf (module-synonyms mod)
+	  (append (module-synonyms mod)
+		  (list (make synonym-decl
+			      (simple (make tycon (name (tycon-name tc))
+					    (def *undefined-def*)
+					    (args (map (lambda (v) (make tyvar (name v)))
+						       vars))))
+			      (body type)))))))
 (define *splice-fragment* '#f)   ; the fragment running a splice (reify.mumble)
 
 (define (expand-splices mods)
   (dolist (m mods)
     (dolist (s (module-splices m))
       (setf (splice-expansion s)
-	    (parse-splice-text (run-splice s m 'exp) m (source-file-of s)
-			       (source-line-of s))))
+	    (parse-splice-text (run-splice s m (splice-kind s)) m (source-file-of s)
+			       (source-line-of s) (splice-kind s)))
+      (when (eq? (splice-kind s) 'type)
+	(define-type-splice s (splice-expansion s) m)))
     ;; declaration splices: their declarations join the module's
     (dolist (s (module-decl-splices m))
       (merge-spliced-decls m (parse-spliced-decls (run-splice s m 'decs) m s)))))
@@ -75,10 +116,16 @@
                                    splice_text :: [Char]~%~
                                    splice_text = Language.Haskell.TH.YaleSplice.~A splice_expression~%"
 			      name
-			      (if (eq? kind 'exp)
-				  "Language.Haskell.TH.Syntax.Exp"
-				  "[Language.Haskell.TH.Syntax.Dec]")
-			      (if (eq? kind 'exp) "spliceExpText" "spliceDecsText"))
+			      (case kind
+				(exp "Language.Haskell.TH.Syntax.Exp")
+				(pat "Language.Haskell.TH.Syntax.Pat")
+				(type "Language.Haskell.TH.Syntax.Type")
+				(else "[Language.Haskell.TH.Syntax.Dec]"))
+			      (case kind
+				(exp "spliceExpText")
+				(pat "splicePatText")
+				(type "spliceTypeText")
+				(else "spliceDecsText")))
 		      (function parse-module-list)
 		      file)))))
     (setf (module-imports frag)
@@ -111,12 +158,16 @@
 	    (splice-exp s)))))
 
 ;;; The code is parsed at the splice's line, for its error messages.
-(define (parse-splice-text text mod file line)
+(define (parse-splice-text text mod file line kind)
   (dynamic-let ((*language-extensions* (module-extensions mod)))
     (parse-from-string (string-append
 			(make-string (if (integer? line) (1- line) 0) #\newline)
 			text)
-		       (function parse-exp) file)))
+		       (case kind
+			 (pat (function parse-pat))
+			 (type (function parse-type))
+			 (else (function parse-exp)))
+		       file)))
 
 ;;; A declaration splice's declarations: TEXT parsed as a module's body,
 ;;; at the splice's line.

@@ -148,6 +148,17 @@
 
 (define (parse-atype)
   (token-case
+    ;; TemplateHaskell: a type splice; QuasiQuotes: [q|text|], the splice
+    ;; $(quoteType q "text") (th/splices.mumble's type-splice-tycon)
+    (splice-paren
+     (let ((e (parse-exp)))
+       (require-token \) (signal-missing-token "`)'" "a splice"))
+       (type-splice-tycon e)))
+    (splice-var (type-splice-tycon (var->ast)))
+    ((no-advance quasi-quote)
+     (let ((args *token-args*))
+       (advance-token)
+       (type-splice-tycon (quasi-quote-exp '|quoteType| args))))
     (tyvar (tyvar->ast))
     ;; PartialTypeSignatures (GHC): _
     ((no-advance satisfies at-type-wildcard?)

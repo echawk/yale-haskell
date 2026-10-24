@@ -39,6 +39,13 @@
 	  pp-pat-list pp-pat-plus pp-pat-negated)
   collect-pattern-vars-processor)
 
+;;; A pattern splice binds its expansion's variables (once run:
+;;; th/splices.mumble; none before).
+
+(define-walker-method collect-pattern-vars splice-pat (object vars-so-far)
+  (let ((e (splice-expansion (splice-pat-splice object))))
+    (if e (collect-pattern-vars-1 e vars-so-far) vars-so-far)))
+
 ;;; con { field = pat, ... } binds the variables of its field patterns.
 
 (define-walker-method collect-pattern-vars record-pat (object vars-so-far)

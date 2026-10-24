@@ -92,7 +92,10 @@
 ;;;  ** This is a crock - the scope walker needs fixing.
 
 (define (massage-pattern pat)
-  (cond ((is-type? 'as-pat pat)
+  (cond ((is-type? 'splice-pat pat)
+	 ;; TemplateHaskell: the pattern the splice gave (th/splices.mumble)
+	 (massage-pattern (splice-expansion (splice-pat-splice pat))))
+	((is-type? 'as-pat pat)
 	 (setf (as-pat-pattern pat) (massage-pattern (as-pat-pattern pat)))
 	 pat)
 	((is-type? 'irr-pat pat)

@@ -218,6 +218,12 @@
    (fn (type var-ref))
    (pattern (type pattern))))
 
+(define-struct splice-pat  ;; $(e), $x or [q|text|] in a pattern (TemplateHaskell,
+  (include apat)            ;; QuasiQuotes): the pattern its splice gives
+  (predicate splice-pat?)   ;; (th/splices.mumble), in its place in the
+  (slots                    ;; scope phase (prec-parse.mumble)
+   (splice (type splice))))
+
 (define-struct var-pat  ;; v
   (include apat)
   (predicate var-pat?)
