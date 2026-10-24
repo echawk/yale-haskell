@@ -403,7 +403,14 @@
 	  (dolist (f (ucache-source-files other))
 	    (when (not (mem-string f (ucache-source-files c)))
 	      (setf (ucache-source-files c)
-		    (append (ucache-source-files c) (list f)))))))
+		    (append (ucache-source-files c) (list f)))))
+	  ;; (and the units an earlier merge made OTHER: C of a cycle B, C
+	  ;; merged into B, then B into A; Agda's Scope.Flat, compiled
+	  ;; again as its own unit)
+	  (when (not (eq? other c))
+	    (dolist (r *unit-cache*)
+	      (when (eq? (cdr r) other)
+		(setf (cdr r) c))))))
       (install-compilation-unit u c)))
   (setf (ucache-status c) 'available))
 
