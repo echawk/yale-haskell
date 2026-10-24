@@ -170,7 +170,7 @@
 		(gadt-result result)))))
 
 ;;; A GADT constructor whose result is T applied to distinct variables,
-;;; its other variables existential (and its context on those only), is an
+;;; its other variables existential (its context on any of them), is an
 ;;; existential constructor: K :: C b => b -> (O -> F c) -> T a is forall b
 ;;; c. C b => K b (O -> F c) of T a, typed as one (Agda's
 ;;; ImpliesPragmaOption), not as a GADT match.  #f otherwise.
@@ -182,7 +182,12 @@
     (and (every (function tyvar?) (tycon-args result))
 	 (null? (find-duplicates rvars))
 	 (pair? exist)
-	 (every (lambda (c) (memq (context-tyvar c) exist)) context)
+	 ;; (a context on the result's variables too: given by a match,
+	 ;; existentials.mumble's existential-pcon; NFData opts of Agda's
+	 ;; BackendWithOpts)
+	 (every (lambda (c) (or (memq (context-tyvar c) exist)
+				(memq (context-tyvar c) rvars)))
+		context)
 	 (let* ((fresh (map (lambda (v) (string->symbol (format '#f "~A%e" v))) exist))
 		(renaming (append (map (lambda (r s) (tuple (tyvar-name r) (tyvar-name s)))
 				       (tycon-args result) (tycon-args simple))

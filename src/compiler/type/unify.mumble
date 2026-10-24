@@ -280,7 +280,10 @@
 		  ;; or a given constraint family's constraint gives them
 		  ;; (All Show '[a]: mp-classes.mumble's cfam-given-classes)
 		  (context-implies? (append (ntyvar-context type) (cfam-given-classes type)
-					    (given-classes-at-reduced type))
+					    (given-classes-at-reduced type)
+					    ;; or a match on a constructor whose
+					    ;; context gives it (existentials.mumble)
+					    (pattern-local-given-classes type))
 				    classes))
 	      'OK ; no need for context propagation here
 	      (begin 

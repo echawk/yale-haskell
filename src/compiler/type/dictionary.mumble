@@ -178,6 +178,18 @@
 		   (else
 		    (signal-unresolved-app-constraint type p)
 		    deferred))))
+	  ;; given by a match on a constructor whose context has it (its
+	  ;; result's NFData o, Agda's BackendWithOpts: existentials.mumble)
+	  ((and (ntyvar? type)
+		(not (dict-params-give? (placeholder-class p) (ntyvar-dict-params type)))
+		(pattern-local-given-gives? (placeholder-class p) type))
+	   (let ((given (pattern-local-given-params type)))
+	     (setf (placeholder-exp p)
+		   (if (dict-placeholder? p)
+		       (dict-reference-code (dict-placeholder-class p) given)
+		       (let ((m (method-placeholder-method p)))
+			 (method-reference-code m (method-var-class m) given)))))
+	   deferred)
 	  ;; a one-parameter class given as a multi-parameter constraint at
 	  ;; the variable (an instance method's own Monad m, after the
 	  ;; instance's context: tdecl/instance.mumble's
@@ -617,3 +629,9 @@
 			   (list (tuple (mp-param-class param) (mp-param-var param)))
 			   '()))
 		     (valdef-mp-dict-params decl)))))
+
+;;; Whether a match gives CLASS (or a subclass of it) at TYPE.
+(define (pattern-local-given-gives? class type)
+  (lisp:some (lambda (g) (or (eq? (tuple-2-1 g) class)
+			     (memq class (class-super* (tuple-2-1 g)))))
+	     (pattern-local-given-params type)))

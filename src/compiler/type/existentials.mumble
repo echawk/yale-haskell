@@ -38,7 +38,8 @@
 (define (existential-pcon con)
   (mlet (((type tyvars) (instantiate-gtype/newvars (con-signature con))))
     (let ((pats '())
-	  (by-tyvar '()))
+	  (by-tyvar '())
+	  (universal (con-result-tyvars type)))
       (dolist (e (con-existential con))
 	(let* ((tv (list-ref tyvars (tuple-2-2 e)))
 	       (d (create-temp-var
@@ -47,9 +48,16 @@
 	  (setf (var-force-strict? d) '#t)
 	  (setf (var-type d) (**ntyvar))
 	  (push (**var-pat/def d) pats)
-	  (if entry
-	      (setf (cdr entry) (cons (tuple (tuple-2-1 e) d) (tuple-2-2 entry)))
-	      (push (tuple tv (list (tuple (tuple-2-1 e) d))) by-tyvar))))
+	  (cond ((memq tv universal)
+		 ;; a constraint on the result's variable (K :: NFData o =>
+		 ;; .. -> T o, Agda's BackendWithOpts): given in the match,
+		 ;; the variable still the scrutinee's
+		 (push (list tv (tuple-2-1 e) d (car (dynamic *enclosing-decls*)))
+		       *pattern-local-givens*))
+		(entry
+		 (setf (cdr entry) (cons (tuple (tuple-2-1 e) d) (tuple-2-2 entry))))
+		(else
+		 (push (tuple tv (list (tuple (tuple-2-1 e) d))) by-tyvar)))))
       (dolist (b by-tyvar)
 	(let ((tv (tuple-2-1 b)))
 	  (setf (ntyvar-read-only? tv) '#t)
@@ -57,6 +65,33 @@
 	  (push (tuple (car (dynamic *enclosing-decls*)) (tuple-2-2 b))
 		(ntyvar-dict-params tv))))
       (values type (reverse pats)))))
+;;; The constraints a match gives on the scrutinee's own type variables
+;;; (a GADT-syntax constructor's NFData o, its result T o): (tyvar class
+;;; dictionary-var decl) ..., consulted by unify.mumble's read-only check
+;;; and dictionary.mumble.  The dictionary is bound only in the match's
+;;; clause, where GHC lets the constraint be used.
+(define *pattern-local-givens* '())
+
+(define (pattern-local-given-classes type)
+  (let ((type (prune type)))
+    (lisp:mapcan (lambda (g) (if (eq? (prune (car g)) type) (list (cadr g)) '()))
+		 *pattern-local-givens*)))
+
+;;; (class . dictionary var) given at TYPE, for dict-reference-code; '().
+(define (pattern-local-given-params type)
+  (let ((type (prune type)))
+    (lisp:mapcan (lambda (g) (if (eq? (prune (car g)) type) (list (tuple (cadr g) (caddr g))) '()))
+		 *pattern-local-givens*)))
+
+;;; The type variables a constructor type's result applies its type to.
+(define (con-result-tyvars type)
+  (let ((res (prune type)))
+    (do () ((not (and (ntycon? res) (eq? (ntycon-tycon res) (core-symbol "Arrow")))))
+      (setf res (prune (cadr (ntycon-args res)))))
+    (if (ntycon? res)
+	(lisp:remove-if-not (function ntyvar?) (map (function prune) (ntycon-args res)))
+	'())))
+
 ;;; GADTs (GHC), the way RankNTypes are here: what GHC accepts runs,
 ;;; but less is checked.  A GADT constructor (parser/typedecl-parser
 ;;; .mumble's make-gadt-constr, con-gadt?) has its declared type, so a
