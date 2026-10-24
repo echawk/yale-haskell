@@ -49,9 +49,14 @@ from 3.3-3.6 below:
   that needed reifyType, reify of the Prelude's types by plain and by
   GHC's module names, and splice text read with MagicHash (pprint writes
   a BytesPrimL as "..."#).
-The rest (reify of classes and same-module values, location, lookupName,
-reifyInstances and isExtEnabled in IO, quickCheckAll, makeLenses) is
-design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
+- reify answers for classes (methods, superclasses, instances) and the
+  module's own variables (their signatures' types); reifyInstances
+  (one-parameter classes), location, lookupName, isExtEnabled and
+  extsEnabled work in IO (THPrims's primTHQuery);
+- QuickCheck's $(quickCheckAll) (Test.QuickCheck.All) and a makeLenses
+  generator (tests/haskell98/th/make-lenses.hs) run.
+The rest (reifyRoles, reifyAnnotations, addTopDecls, the module's own
+classes and instances in reify) is design.  This guide says what Template Haskell (TH) is, how its parts map onto Yale
 Haskell's pipeline, which files change, and where the hard parts are,
 so that the work can be split into milestones that each end in passing
 tests.
