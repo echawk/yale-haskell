@@ -107,6 +107,28 @@
 (define (split-oversized-forms forms)
   (lisp:mapcan
    (lambda (f)
+     (if (oversized-value-form? f)
+	 ;; a top-level value (a CAF) whose expression is too big: the
+	 ;; expression is a function's body, split as one
+	 (let ((helper (string->symbol
+			(format '#f "~A%init~A" (oversized-form-name (cadr f))
+				(incf *lift-counter*)))))
+	   (append (split-oversized-forms (list `(define (,helper) ,(caddr f))))
+		   (list `(,(car f) ,(cadr f) (,helper)))))
+	 (split-oversized-form f)))
+   forms))
+
+(define (oversized-value-form? f)
+  (and (pair? f) (pair? (cdr f)) (pair? (cddr f)) (null? (cdddr f))
+       (or (memq (car f) '(setf lisp:setf))
+	   (and (eq? (car f) 'define) (symbol? (cadr f))))
+       (pair? (caddr f))
+       (or (> (form-size (caddr f)) *max-function-size*)
+	   (> (form-weight (caddr f)) *max-function-weight*))))
+
+(define (split-oversized-form f)
+  (lisp:mapcan
+   (lambda (f)
      (if (and (pair? f) (eq? (car f) 'define) (pair? (cdr f)) (pair? (cadr f))
 	      (or (> (form-weight f) *max-function-weight*)
 		  (> (form-size f) *max-function-size*)))
@@ -122,7 +144,7 @@
 	     ;; (a helper still too big is split in turn)
 	     (append (split-oversized-forms (reverse helpers)) (list new))))
 	 (list f)))
-   forms))
+   (list f)))
 
 ;;; A definition whose code would pass SBCL's reach for a conditional
 ;;; branch (+-1 MB on arm64: Agda's InteractionTop.interpret, "-262154
@@ -307,7 +329,9 @@
 		     "~&; a form of ~A functions, ~A conses: ~A~%" w n (oversized-form-name f))))))
 
 (define (oversized-form-name f)
-  (cond ((and (pair? f) (memq (car f) '(define lisp:defun lisp:defparameter)))
+  (cond ((and (pair? f) (memq (car f) '(setf lisp:setf)) (pair? (cdr f)))
+	 (oversized-form-name (cadr f)))
+	((and (pair? f) (memq (car f) '(define lisp:defun lisp:defparameter)))
 	 (let ((n (cadr f))) (if (pair? n) (car n) n)))
 	((and (pair? f) (eq? (car f) 'begin) (pair? (cdr f)))
 	 (oversized-form-name (cadr f)))
