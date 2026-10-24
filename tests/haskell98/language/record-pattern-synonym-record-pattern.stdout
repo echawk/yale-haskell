@@ -1,0 +1,3 @@
+iface
+(["w1","w2"],3,"A.agda")
+iface 3 A.agda

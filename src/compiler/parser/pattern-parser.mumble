@@ -623,14 +623,19 @@
 	(else (signal-missing-token "`}'" "record pattern synonym"))))
 
 ;;; f x = case x of P v1 .. vn -> vi, for field f of record synonym P.
+;;; (The vi are renamed apart from the fields: vi named f would be taken
+;;; for the selector itself, Agda's crInterface.)
 (define (record-synonym-selector name fields f)
   (**define f '(|x%rsyn|)
 	    (**case (**var '|x%rsyn|)
 		    (list (**alt/simple
 			   (make pcon (name name) (con *undefined-def*)
-				 (pats (map (lambda (g) (**pat g)) fields))
+				 (pats (map (lambda (g) (**pat (record-synonym-var g))) fields))
 				 (infix? '#f))
-			   (**var f))))))
+			   (**var (record-synonym-var f)))))))
+
+(define (record-synonym-var f)
+  (string->symbol (string-append (symbol->string f) "%rsyn")))
 
 (define (parse-pattern-synonym-params)
   (if (eq-token? 'varid)
@@ -828,6 +833,14 @@
 	((is-type? 'view-pat p)
 	 (make view-pat (fn (copy-var-ref (view-pat-fn p)))
 	       (pattern (copy-pattern (view-pat-pattern p) env))))
+	;; C { f = p }, in a record pattern synonym's pattern (Agda's
+	;; CheckResult)
+	((is-type? 'record-pat p)
+	 (make record-pat (con (copy-pattern (record-pat-con p) env))
+	       (fields (map (lambda (f)
+			      (tuple (copy-var-ref (tuple-2-1 f))
+				     (copy-pattern (tuple-2-2 f) env)))
+			    (record-pat-fields p)))))
 	(else p)))
 
 (define (copy-var-ref r)
