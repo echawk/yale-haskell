@@ -110,6 +110,11 @@
 ;;; vars' types (lhs types).  Returns the scoped bindings to add for the
 ;;; group's bodies (from the vars' own forall signatures).
 
+;;; The signatures scoped-signatures drops, by variable: their polytype
+;;; arguments are still polytypes (created :: Lens' St X -> Int -> m X, m
+;;; the enclosing binding's, Agda's metasCreatedBy).
+(define *dropped-scoped-signatures* (lisp:make-hash-table :test (function lisp:eq)))
+
 (define (scoped-signatures vars types)
   (let ((added '()))
     (dolist2 (v vars) (ty types)
@@ -123,6 +128,8 @@
 		 (mlet (((inst own) (instantiate-gtype/scoped+ sig)))
 		   (type-unify ty inst '#f)
 		   (setf added (append own added)))
+		 ;; (kept for its polytype arguments: polytypes.mumble)
+		 (setf (lisp:gethash v *dropped-scoped-signatures*) sig)
 		 (setf (var-signature v) '#f))
 		(else
 		 (mlet (((inst alist tyvars) (scoped-signature-instance sig)))

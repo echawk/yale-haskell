@@ -68,7 +68,8 @@
 	'())))
 
 (define (polytype-arguments decl var lhs-type)
-  (let ((sig (var-signature var)))
+  (let ((sig (or (var-signature var)
+		 (lisp:values (lisp:gethash var *dropped-scoped-signatures*)))))
     (if (or (eq? sig '#f) (not (gtype-has-polytypes? sig)))
 	'()
 	(mlet (((inst _) (instantiate-gtype/newvars sig)))
