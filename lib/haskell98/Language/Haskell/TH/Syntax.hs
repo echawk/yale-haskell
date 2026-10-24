@@ -362,7 +362,19 @@ instance Quasi IO where
       DataConI _ t _  -> return t
       ClassOpI _ t _  -> return t
       _               -> fail ("reifyType " ++ showName n ++ ": not a value")
-  qReifyInstances _ _   = badIO "reifyInstances"
+  -- (the class's instances whose head matches the type's constructor)
+  qReifyInstances cls ts = do
+    i <- reifyIO cls
+    case (i, ts) of
+      (ClassI _ insts, [t]) ->
+        return [d | d@(InstanceD _ _ (AppT _ h) _) <- insts, headCon h == headCon t]
+      _ -> return []
+    where headCon (AppT f _) = headCon f
+          headCon (ConT c)   = Just (nameBase c)
+          headCon ListT      = Just "[]"
+          headCon (TupleT k) = Just (show k)
+          headCon ArrowT     = Just "->"
+          headCon _          = Nothing
   qReifyRoles _         = badIO "reifyRoles"
   qReifyAnnotations _   = badIO "reifyAnnotations"
   qReifyModule _        = badIO "reifyModule"
@@ -3314,6 +3326,14 @@ sexpInfo (SList [SAtom "datacon", n, t, p]) =
   do { n' <- sexpName n; t' <- sexpType t; p' <- sexpName p; return (DataConI n' t' p') }
 sexpInfo (SList [SAtom "var", n, t]) =
   do { n' <- sexpName n; t' <- sexpType t; return (VarI n' t' Nothing) }
+sexpInfo (SList [SAtom "class", n, SList tvs, SList supers, SList methods, SList insts]) =
+  do { n' <- sexpName n; vs <- mapM sexpTv tvs; ss <- mapM sexpName supers
+     ; ms <- mapM method methods; is <- mapM sexpType insts
+     ; let tvTypes = [VarT (mkName v) | SStr v <- tvs]
+     ; return (ClassI (ClassD [foldl AppT (ConT s) tvTypes | s <- ss] n' vs [] ms)
+                      [InstanceD Nothing [] (AppT (ConT n') t) [] | t <- is]) }
+  where method (SList [m, t]) = do { m' <- sexpName m; t' <- sexpType t; return (SigD m' t') }
+        method _ = Nothing
 sexpInfo _ = Nothing
 
 sexpDec :: SExp -> Maybe Dec

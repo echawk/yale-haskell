@@ -138,7 +138,7 @@
 	 (lisp:format lisp:nil "(datacon ~A ~A ~A)" (reify-name def "d")
 		 (reify-gtype (con-signature def) '())
 		 (reify-name (con-alg def) "tc")))
-	((class? def) "(unsupported \"classes\")")
+	((class? def) (reify-class def))
 	((var? def)
 	 (let ((type (or (var-signature def) (var-type def))))
 	   (if (gtype? type)
@@ -149,6 +149,37 @@
 (define (reify-name def ns)
   (mlet (((modu occ) (th-global-name def)))
     (lisp:format lisp:nil "(g ~A ~S ~S)" ns modu occ)))
+
+;;; A class: (class NAME (TV ..) (SUPER ..) ((METHOD TYPE) ..) (INSTTYPE ..)),
+;;; an instance's type its type constructor applied to its variables.
+(define (reify-class def)
+  (lisp:format lisp:nil "(class ~A (~{~S~^ ~}) (~{~A~^ ~}) (~{~A~^ ~}) (~{~A~^ ~}))"
+	  (reify-name def "tc")
+	  (if (mp-class? def)
+	      (map (function symbol->string) (class-tyvars def))
+	      (list (symbol->string (class-tyvar def))))
+	  (map (lambda (c) (reify-name c "tc")) (class-super def))
+	  (lisp:mapcan (lambda (m)
+			 (let ((ty (var-type m)))
+			   (if (gtype? ty)
+			       (list (lisp:format lisp:nil "(~A ~A)" (reify-name m "v")
+						  (reify-gtype ty '())))
+			       '())))
+		       (class-method-vars def))
+	  (lisp:mapcan (lambda (inst)
+			 (let ((alg (instance-algdata inst)))
+			   (if (and alg (not (mp-class? def)))
+			       (list (reify-apply
+				      (reify-tycon alg)
+				      (map (lambda (v)
+					     (lisp:format lisp:nil "(var ~S)" (symbol->string v)))
+					   (instance-tyvars inst))))
+			       '())))
+		       ;; (an instance may be listed twice: once per interface
+		       ;; that brought it)
+		       (lisp:remove-duplicates (class-instances def)
+					       :key (function instance-algdata)
+					       :from-end '#t))))
 
 ;;; An algdata's description: its type variables are its own names; each
 ;;; constructor's signature numbers them as they appear in it, so the
