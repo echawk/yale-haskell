@@ -12,6 +12,8 @@ module System.Posix.Types (
 import Data.Int (Int32, Int64)
 import Data.Word (Word8, Word16, Word32, Word64)
 import Foreign.C.Types (CInt)
+import Foreign.Storable (Storable(..))
+import Foreign.Ptr (castPtr)
 
 newtype Fd = Fd CInt deriving (Eq, Ord)
 
@@ -36,6 +38,17 @@ instance Enum Fd where
 instance Integral Fd where
   quotRem (Fd a) (Fd b) = let (q, r) = quotRem a b in (Fd q, Fd r)
   toInteger (Fd a) = toInteger a
+
+-- as its CInt (network's control messages hold descriptors)
+instance Storable Fd where
+  sizeOf (Fd a) = sizeOf a
+  alignment (Fd a) = alignment a
+  peek p = fmap Fd (peek (castPtr p))
+  poke p (Fd a) = poke (castPtr p) a
+
+instance Bounded Fd where
+  minBound = Fd minBound
+  maxBound = Fd maxBound
 
 type CMode = Word32
 type CDev = Int32

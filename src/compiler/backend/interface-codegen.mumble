@@ -215,7 +215,9 @@
 
 (define (codegen-foreign-import-1 var entity)
   (let* ((gtype   (var-signature var))
-	 (types   (gather-arg-types (ffi-expand (gtype-type gtype))))
+	 ;; (a synonym expanded at each arrow: X11's dynamic FunPtr
+	 ;; CXErrorHandler -> CXErrorHandler, a synonym for a function type)
+	 (types   (ffi-gather-arg-types (gtype-type gtype)))
 	 (args    (butlast types))
 	 (res     (car (last types)))
 	 (io?     (and (ntycon? res) (eq? (ntycon-tycon res) (core-symbol "IO"))))
