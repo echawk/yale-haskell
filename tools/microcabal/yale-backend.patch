@@ -114,3 +114,54 @@
    \  --git=URL                     fetch from the Git repo instead of hackage\n\
    \  --dry-run                     do NOT execute the commands, just print\n\
    \  --no-nightly                  use latest versioned snapshot from stackage instead of nightly\n\
+--- a/MicroCabal/Parse.hs
++++ b/MicroCabal/Parse.hs
+@@ -15,8 +15,31 @@
+ --import Debug.Trace
+ 
+ parseCabal :: FilePath -> String -> Cabal
+-parseCabal fn rfile = runP pCabalTop fn $ dropCabalComments rfile
++parseCabal fn rfile = runP pCabalTop fn $ unbraceFields $ dropCabalComments rfile
+ 
++-- A field whose value is in braces, Cabal's alternative to layout
++-- (cryptohash-sha256's description: {, its text from column 0, up to a
++-- line holding only }): its lines indented under the field instead.
++-- Trailing spaces go (double-conversion's ghc-options: -Werror , which
++-- the list parsers took for another item to come).
++unbraceFields :: String -> String
++unbraceFields = unlines . go . map (reverse . dropWhile (== ' ') . reverse) . lines
++  where
++    go [] = []
++    go (l:ls)
++      | Just (ind, name) <- braceField l =
++          let (body, rest) = break ((== "}") . trim) ls
++          in  (ind ++ name ++ ":") : map (\ b -> ind ++ "  " ++ (if null (trim b) then "." else b)) body
++              ++ go (drop 1 rest)
++      | otherwise = l : go ls
++    braceField l =
++      let (ind, r) = span (== ' ') l
++          (name, r') = span (\ c -> c /= ':' && c /= ' ') r
++      in  case trim r' of
++            ':':v | not (null name), trim v == "{" -> Just (ind, name)
++            _ -> Nothing
++    trim = dropWhile (== ' ') . reverse . dropWhile (== ' ') . reverse
++
+ parseYAML :: FilePath -> String -> YAMLValue
+ parseYAML fn s =
+   case parseYaml s of
+@@ -356,6 +379,7 @@
+   <|< Section <$> pKeyWordNC "flag"              <*>    pName <*> pFields
+   <|< Section <$> pKeyWordNC "test-suite"        <*>    pName <*> pFields
+   <|< Section <$> pKeyWordNC "benchmark"         <*>    pName <*> pFields
++  <|< Section <$> pKeyWordNC "custom-setup"      <*> pure "" <*> pFields
+   )
+   where libName = pName <|< pure ""
+ 
+@@ -380,6 +404,7 @@
+   , "cmm-options"                    # pVOptComma
+   , "cpp-options"                    # pVOptComma
+   , "cxx-options"                    # pVOptComma
++  , "cxx-sources"                    # pVOptComma
+   , "default-extensions"             # pVOptComma
+   , "default-language"               # (VItem <$> pItem)
+   , "exposed-modules"                # pVOptComma

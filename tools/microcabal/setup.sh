@@ -3,7 +3,8 @@
 # setup.sh -- make build/microcabal/src: MicroCabal's sources
 # (ref/MicroCabal, `make ref`) with the Yale Haskell backend added
 # (Yale.hs, as MicroCabal.Backend.Yale) and MicroCabal.Main patched to
-# offer it as --yale, the default (yale-backend.patch), plus mcabal.hs,
+# offer it as --yale, the default, and MicroCabal.Parse to read more of
+# Cabal's syntax (yale-backend.patch), plus mcabal.hs,
 # the Main module that runs MicroCabal.Main.  The clone is not changed.
 #
 #   tools/microcabal/setup.sh       (tools/microcabal/mcabal runs it)
