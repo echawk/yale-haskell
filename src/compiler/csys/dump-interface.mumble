@@ -123,6 +123,9 @@
        (or (memq (car f) '(setf lisp:setf))
 	   (and (eq? (car f) 'define) (symbol? (cadr f))))
        (pair? (caddr f))
+       ;; (code: a value with functions in it; an interface's data is
+       ;; split where it is made, add-chunked-table-init)
+       (> (form-weight (caddr f)) 0)
        (or (> (form-size (caddr f)) *max-function-size*)
 	   (> (form-weight (caddr f)) *max-function-weight*))))
 
@@ -527,6 +530,29 @@
 (define (add-dump-init code)
   (push code *dump-slot-init-code*))
 
+;;; The code that fills a table slot of a module, in pieces of at most
+;;; *dump-chunk-entries* entries, each its own form: one form for all of a
+;;; big module's symbol table (Agda's InteractionTop, 152,780 conses)
+;;; passed what SBCL's arm64 code reaches with a conditional branch
+;;; ("-262154 is not of type (SIGNED-BYTE 19)").  (add-dump-init's code
+;;; runs last pushed first: the table is made before it is filled.)
+(define *dump-chunk-entries* 400)
+
+(define (add-chunked-table-init accessor mod-exp code)
+  (dolist (piece (reverse (chunk-list code *dump-chunk-entries*)))
+    (add-dump-init `(let ((table (,@accessor ,mod-exp))) ,@piece)))
+  (add-dump-init `(setf (,@accessor ,mod-exp) (make-table))))
+
+(define (chunk-list l n)
+  (if (null? l)
+      '()
+      (let ((head '()) (i 0))
+	(do () ((or (null? l) (>= i n)))
+	  (push (car l) head)
+	  (setf l (cdr l))
+	  (setf i (1+ i)))
+	(cons (reverse head) (chunk-list l n)))))
+
 
 ;;; Here is the top-level call.
 
@@ -810,8 +836,7 @@
 		    `(setf (table-entry table ',key) ,def))
 		code))))
 	(module-symbol-table module))
-      (add-dump-init `(setf (module-symbol-table ,mod-exp)
-			    (let ((table  (make-table))) ,@code table))))
+      (add-chunked-table-init '(module-symbol-table) mod-exp code))
     ;; TypeFamilies: this module's equations, added to their families
     ;; again when the interface is loaded, in order (a closed family's
     ;; are tried in order; add-dump-init's code runs last pushed first)
@@ -859,11 +884,16 @@
 		`(setf (table-entry table ',key) ,(dump-object val)))
 	    code))
 	(module-export-table module))
-      (add-dump-init `(setf (module-export-table ,mod-exp)
-			    (let ((table  (make-table))) ,@code table))))
+      (add-chunked-table-init '(module-export-table) mod-exp code))
     ;; Dump the instances.
-    (add-dump-init `(setf (module-instance-defs ,mod-exp)
-			  ,(dump-object (module-instance-defs module))))
+    ;; (in pieces: one list of a big module's instances is a form too big
+    ;; for SBCL, as its symbol table's is: add-chunked-table-init)
+    (let ((pieces (chunk-list (module-instance-defs module) *dump-chunk-entries*)))
+      (dolist (piece (reverse pieces))
+	(add-dump-init `(setf (module-instance-defs ,mod-exp)
+			      (append (module-instance-defs ,mod-exp)
+				      ,(dump-object piece)))))
+      (add-dump-init `(setf (module-instance-defs ,mod-exp) '())))
     (add-dump-init `(setf (module-default ,mod-exp)
 			  ,(dump-object (module-default module))))
     (add-dump-init `(setf (module-uses-standard-prelude? ,mod-exp)
