@@ -39,7 +39,13 @@ for p in "$@"; do
     ok=$((ok+1)); echo "ok    $p"
   else
     echo "FAIL  $p"
-    grep -v '^mcabal: \|^$' "$log" | head -3 | cut -c1-200 | sed 's/^/      /'
+    # the first error: warnings, configure's and the compiler's progress
+    # lines left out
+    awk '/Warning in phase/ {skip = 1; next}
+         skip && /^\[|^mcabal: |^yale-haskell: |^Haskell runtime/ {skip = 0}
+         skip {next}
+         /^mcabal: |^checking |^config|^; |^$|^  [A-Z]/ {next}
+         {print}' "$log" | head -3 | cut -c1-200 | sed 's/^/      /'
   fi
 done
 echo "$ok of $total packages built"
