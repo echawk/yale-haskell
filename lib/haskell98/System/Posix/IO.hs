@@ -6,12 +6,14 @@ module System.Posix.IO (
     OpenFileFlags(OpenFileFlags, append, exclusive, noctty, nonBlock, trunc),
     defaultFileFlags, openFd, createFile, closeFd, dup, dupTo,
     FdOption(AppendOnWrite, CloseOnExec, NonBlockingRead, SynchronousWrites),
-    setFdOption, handleToFd, fdToHandle
+    setFdOption, handleToFd, fdToHandle, fdReadBuf, fdWriteBuf
   ) where
 
 import PosixPrims
 import IOBase (Handle(Handle))
 import System.Posix.Types
+import Foreign.Ptr (Ptr)
+import Data.Word (Word8)
 
 stdInput, stdOutput, stdError :: Fd
 stdInput = Fd 0
@@ -67,3 +69,11 @@ handleToFd (Handle h) = fmap fromIntegral (primHandleToFd h)
 -- writing.
 fdToHandle :: Fd -> IO Handle
 fdToHandle (Fd n) = fmap Handle (primFdToHandle (fromIntegral n) 2 ("<fd " ++ show n ++ ">"))
+
+-- At most N bytes read into (written from) the memory at P; the number
+-- read (written)
+fdReadBuf :: Fd -> Ptr Word8 -> ByteCount -> IO ByteCount
+fdReadBuf (Fd fd) p n = fmap fromIntegral (primPosixReadBuf (fromIntegral fd) p (fromIntegral n))
+
+fdWriteBuf :: Fd -> Ptr Word8 -> ByteCount -> IO ByteCount
+fdWriteBuf (Fd fd) p n = fmap fromIntegral (primPosixWriteBuf (fromIntegral fd) p (fromIntegral n))

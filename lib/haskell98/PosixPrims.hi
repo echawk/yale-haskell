@@ -5,6 +5,7 @@ interface PosixPrims where
 
 import PreludeCore(Int,Integer,Bool,String)
 import IOPrims(HandleObj)
+import ForeignPrims(Ptr)
 
 -- a file's status: the host's stat structure
 data FileStatusObj
@@ -30,6 +31,8 @@ primPosixClose       :: Int -> IO ()
 primPosixDup2        :: Int -> Int -> IO Int
 primPosixDup         :: Int -> IO Int
 primPosixSetFdOption :: Int -> Int -> Bool -> IO ()
+primPosixReadBuf     :: Int -> Ptr a -> Int -> IO Int
+primPosixWriteBuf    :: Int -> Ptr a -> Int -> IO Int
 primHandleToFd       :: HandleObj -> IO Int
 primFdToHandle       :: Int -> Int -> String -> IO HandleObj
 primSignalNumber     :: String -> Int
@@ -78,6 +81,8 @@ primPosixClose       :: LispName("prim.posix-close")
 primPosixDup2        :: LispName("prim.posix-dup2")
 primPosixDup         :: LispName("prim.posix-dup")
 primPosixSetFdOption :: LispName("prim.posix-set-fd-option")
+primPosixReadBuf     :: LispName("prim.posix-read-buf")
+primPosixWriteBuf    :: LispName("prim.posix-write-buf")
 primHandleToFd       :: LispName("prim.handle-to-fd")
 primFdToHandle       :: LispName("prim.fd-to-handle")
 primSignalNumber     :: LispName("prim.signal-number")

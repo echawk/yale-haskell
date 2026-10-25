@@ -236,6 +236,13 @@
 (cl:defun prim.posix-dup (fd)
   (with-posix-errors ("dup") (sb-posix:dup fd)))
 
+;;; fdReadBuf, fdWriteBuf: through memory at a Ptr (a system-area pointer)
+(cl:defun prim.posix-read-buf (fd ptr n)
+  (with-posix-errors ("fdReadBuf") (sb-posix:read fd ptr n)))
+
+(cl:defun prim.posix-write-buf (fd ptr n)
+  (with-posix-errors ("fdWriteBuf") (sb-posix:write fd ptr n)))
+
 ;;; setFdOption: 0 AppendOnWrite, 1 CloseOnExec (FD_CLOEXEC is 1), 2 NonBlockingRead,
 ;;; 3 SynchronousWrites.
 (cl:defun prim.posix-set-fd-option (fd option on?)
