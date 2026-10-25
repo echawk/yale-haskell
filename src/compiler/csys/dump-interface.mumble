@@ -798,14 +798,21 @@
 	 ;; lookup-compilation-unit, and its modules would be missed
 	 (let ((u (let ((r (ass-string (car units) *unit-cache*)))
 		    (and r (cdr r)))))
-	   (if (eq? u '#f)
-	       ;; not loaded (its .hu file changed since): nothing to add
-	       (collect-all-modules-1 (cdr units) mods-so-far
-				      (cons (car units) units-seen))
-	       (collect-all-modules-1
-		(append (ucache-imported-units u) (cdr units))
-		(append (ucache-modules u) mods-so-far)
-		(cons (ucache-ufile u) units-seen)))))
+	   (cond ((eq? u '#f)
+		  ;; not loaded (its .hu file changed since): nothing to add
+		  (collect-all-modules-1 (cdr units) mods-so-far
+					 (cons (car units) units-seen)))
+		 ((mem-string (ucache-ufile u) units-seen)
+		  ;; a unit merged from a cycle, reached by another of its
+		  ;; files' names: its modules once (Agda's Main imported its
+		  ;; big unit's hundreds of modules once per file of it)
+		  (collect-all-modules-1 (cdr units) mods-so-far
+					 (cons (car units) units-seen)))
+		 (else
+		  (collect-all-modules-1
+		   (append (ucache-imported-units u) (cdr units))
+		   (append (ucache-modules u) mods-so-far)
+		   (cons (car units) (cons (ucache-ufile u) units-seen)))))))
 	))
 
 (define (collect-prelude-modules)
