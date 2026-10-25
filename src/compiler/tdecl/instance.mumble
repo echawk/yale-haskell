@@ -490,9 +490,11 @@
 	  (when (not (memq method-var methods-used))
 	    (add-new-module-def definition-var
 	      (if (eq? (method-var-default method-var) '#f)
-		  (**abort (format '#f
-			     "No method declared for method ~A in instance ~A ~A."
-			     method-var class (instance-mp-types inst)))
+		  (begin
+		    (signal-missing-method method-var inst)
+		    (**abort (format '#f
+			       "No method declared for method ~A in instance ~A ~A."
+			       method-var class (instance-mp-types inst))))
 		  (**var/def (method-var-default method-var)))))
 	  (add-new-module-signature definition-var signature)))
       (setf (instance-methods inst) new-instance-vars)
@@ -607,6 +609,7 @@
 			((monad-return-default method-var)
 			 (**var/def (monad-return-default method-var)))
 			((eq? (method-var-default method-var) '#f)
+			   (signal-missing-method method-var inst)
 			   (**abort (format '#f
      "No method declared for method ~A in instance ~A(~A)."
                               method-var class algdata)))
@@ -641,6 +644,17 @@
 	  (let ((dict-sig (generate-dictionary-signature inst)))
 	    (add-new-module-signature dictionary dict-sig))
 	  (setf (instance-decls inst) '())))))))
+
+;;; GHC's -Wmissing-methods, for an instance declaration (not a derived
+;;; one): the method has no definition and no default, so calling it is
+;;; an error.
+(define (signal-missing-method method-var inst)
+  (when (explicit-module-instance? inst)
+    (maybe-remember-context inst
+      (haskell-warning 'missing-method
+	"No definition of ~A in the instance ~A ~A, and the class has no default: calling it is a run-time error."
+	method-var (instance-class inst)
+	(or (instance-algdata inst) (instance-mp-types inst))))))
 
 (define (dict-method-ref method-var inst-var inst)
   ;; the method's own context (one- or multi-parameter) stays its

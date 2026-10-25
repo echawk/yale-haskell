@@ -1050,12 +1050,20 @@
 			 "The strict field ~A of ~A is missing in a record construction."
 			 (if field (def-name field) i)
 			 (remove-con-prefix (symbol->string (def-name con)))))
+		     (signal-missing-field field i con)
 		     (**abort
 		      (format '#f "Missing field ~A in record construction ~A"
 			      (if field (def-name field) "")
 			      (remove-con-prefix (symbol->string (def-name con)))))))
 	      args)))
     (reverse args)))
+
+;;; GHC's -Wmissing-fields: the field is an error when used.
+(define (signal-missing-field field i con)
+  (haskell-warning 'missing-field
+    "The field ~A of ~A is missing in a record construction: using it is a run-time error."
+    (if field (def-name field) i)
+    (remove-con-prefix (symbol->string (def-name con)))))
 
 (define (desugar-record-update object)
   (let ((syn (update-record-synonym (record-update-fields object))))
