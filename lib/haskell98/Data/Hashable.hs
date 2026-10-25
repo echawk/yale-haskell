@@ -20,6 +20,7 @@ import Control.Concurrent (ThreadId)
 import Data.Ratio (Ratio, numerator, denominator)
 import Data.Fixed (Fixed(MkFixed))
 import GHC.Generics
+import Data.Typeable (TypeRep)
 
 infixl 0 `hashWithSalt`
 
@@ -131,3 +132,7 @@ instance (Hashable k, Hashable v) => Hashable (Map.Map k v) where
   hashWithSalt s m = hashWithSalt s (Map.toList m)
 instance Hashable a => Hashable (Set.Set a) where
   hashWithSalt s m = hashWithSalt s (Set.toList m)
+
+-- by its name (uniplate's maps of types)
+instance Hashable TypeRep where
+  hashWithSalt salt t = hashWithSalt salt (show t)

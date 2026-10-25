@@ -20,10 +20,19 @@ import Data.Traversable (forM)
 import Data.Foldable (forM_, msum)
 import ControlMonadBase hiding (guard, mapM, mapM_, forM, forM_, sequence,
                                sequence_, msum, replicateM, replicateM_, when,
-                               unless, forever, filterM, zipWithM, zipWithM_)
+                               unless, forever, filterM, zipWithM, zipWithM_,
+                               foldM, foldM_)
 import PreludeModern (Applicative(pure, (<*>), (*>)), liftA2, Alternative(empty), MonadFail,
                       Traversable(mapM, sequence), Foldable(foldr),
                       mapM_, sequence_)
+
+-- over a Foldable, as base's (emojis' foldM over t Int)
+foldM :: (Foldable t, Monad m) => (b -> a -> m b) -> b -> t a -> m b
+foldM f z0 xs = foldr c return xs z0
+  where c x k z = f z x >>= k
+
+foldM_ :: (Foldable t, Monad m) => (b -> a -> m b) -> b -> t a -> m ()
+foldM_ f z xs = foldM f z xs >> return ()
 
 -- over an Applicative, as base's since 4.9
 replicateM :: Applicative m => Int -> m a -> m [a]

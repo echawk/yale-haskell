@@ -116,9 +116,10 @@ byteSwap16#, byteSwap32# :: Word -> Word
 byteSwap16# w = (w `mod` 256) * 256 + (w `div` 256) `mod` 256
 byteSwap32# w = sum [((w `div` (256 ^ k)) `mod` 256) * 256 ^ (3 - k) | k <- [0 .. 3 :: Int]]
 
--- Happy uses it at Bool: (tagToEnum# (n <# m)) :: Bool
-tagToEnum# :: Int -> Bool
-tagToEnum# n = n /= 0
+-- an enumeration's constructor by number: Happy's (tagToEnum# (n <# m)) ::
+-- Bool, unicode-data's Block
+tagToEnum# :: Enum a => Int -> a
+tagToEnum# = toEnum
 
 dataToTag# :: a -> Int
 dataToTag# _ = error "GHC.Exts.dataToTag#: not supported"

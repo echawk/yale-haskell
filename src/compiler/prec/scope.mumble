@@ -1078,12 +1078,13 @@
   (let ((labels (con-field-labels con))
 	(strict (con-slot-strict? con))
 	(args '()))
-    (dotimes (i (con-arity con))
+    (dotimes (i (con-source-arity con))
       (let* ((field (if (null? labels) '#f (list-ref labels i)))
 	     (bind (and field (assq field binds))))
 	(push (cond (bind (tuple-2-2 bind))
 		    (else
-		     (when (and (pair? strict) (list-ref strict i))
+		     (when (and (pair? strict)
+				(list-ref strict (+ i (length (con-existential con)))))
 		       (phase-error 'missing-strict-field
 			 "The strict field ~A of ~A is missing in a record construction."
 			 (if field (def-name field) i)
@@ -1183,7 +1184,7 @@
 	      (complete? '#t))
 	  (dolist (con (algdata-constrs alg))
 	    (if (every (lambda (b) (field-position (tuple-2-1 b) con)) binds)
-		(let ((vars (update-vars (con-arity con))))
+		(let ((vars (update-vars (con-source-arity con))))
 		  (push (**alt/simple
 			 (**pcon/def con (map (function **pat) vars))
 			 (**app/l (**con/def con)
@@ -1203,7 +1204,25 @@
 ;;; With several constructors' alternatives, each new field value is
 ;;; let-bound first: the alternatives share no expression (a shared one
 ;;; would be type checked once for each: Agda's core { lhsPats = .. }).
+;;; With one, it stays in place: a let-bound value is not generalized
+;;; under the monomorphism restriction, and a rank-n field needs it
+;;; polymorphic (tasty's trivialFold { foldSingle = \_ _ -> f }).
 (define (shared-update-binds object)
+  (if (and (not (update-record-synonym (record-update-fields object)))
+	   (<= (update-alternative-count object) 1))
+      '()
+      (shared-update-binds-1 object)))
+
+(define (update-alternative-count object)
+  (let* ((binds (resolve-field-bindings (record-update-fields object)))
+	 (alg (fields-algdata binds)))
+    (if (eq? alg '#f)
+	0
+	(lisp:count-if (lambda (con)
+			 (every (lambda (b) (field-position (tuple-2-1 b) con)) binds))
+		       (algdata-constrs alg)))))
+
+(define (shared-update-binds-1 object)
   (let ((decls '()))
     (setf (record-update-fields object)
 	  (map (lambda (b)
@@ -1353,7 +1372,7 @@
       (setf (pcon-pats pcon)
 	    (let ((labels (con-field-labels con))
 		  (pats '()))
-	      (dotimes (i (con-arity con))
+	      (dotimes (i (con-source-arity con))
 		(let ((bind (and (pair? labels)
 				 (assq (list-ref labels i) binds))))
 		  (push (if bind (tuple-2-2 bind) (**wildcard-pat)) pats)))

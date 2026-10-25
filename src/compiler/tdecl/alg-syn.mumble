@@ -164,7 +164,7 @@
 	    (setf complete? '#f)
 	    (push (**alt/simple
 		   (**pcon/def con
-		     (field-pats i (con-arity con) (**pat '|sel%v|)))
+		     (field-pats i (con-source-arity con) (**pat '|sel%v|)))
 		   (**var '|sel%v|))
 		  alts))))
     (when (not complete?)
@@ -181,6 +181,13 @@
   (do ((j (1- n) (1- j))
        (pats '() (cons (if (eqv? i j) pat (**wildcard-pat)) pats)))
       ((< j 0) pats)))
+
+;;; A constructor's arity in the source: an existential constructor's
+;;; dictionaries are fields before its own (add-existential-fields), which
+;;; a pattern or an application does not write (Box {key :: Int} under
+;;; forall a. Show a =>: uniplate's DataBox).
+(define (con-source-arity con)
+  (- (con-arity con) (length (con-existential con))))
 
 ;;; The argument position of FIELD in constructor CON, or #f.
 
