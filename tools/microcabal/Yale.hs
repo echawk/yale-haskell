@@ -22,7 +22,7 @@
 -- package of their own so that its extensions and cpp-options apply.
 module MicroCabal.Backend.Yale(yaleBackend) where
 import Control.Monad
-import Data.Char (isAlphaNum)
+import Data.Char (isAlphaNum, toLower)
 import Data.List
 import Data.Maybe
 import Data.Version
@@ -74,7 +74,10 @@ builtinPackages =
     -- Haskell's runIO)
     "file-embed",
     -- compatibility packages whose modules base has
-    "fail", "semigroups", "void", "nats", "tagged-compat" ]
+    "fail", "semigroups", "void", "nats", "tagged-compat",
+    -- GHC's for C++ code (double-conversion's): c++ links it
+    -- (buildForeignLibrary)
+    "system-cxx-std-lib" ]
 
 -- The installed packages' database.
 yaleDB :: Env -> FilePath
@@ -163,7 +166,12 @@ stagePackage env db name vers flds = do
     mkdir env (pdir </> "include" </> d)
     copyTree env d (pdir </> "include" </> d)
   applyPatch env name (pdir </> "src")
-  preprocessModules env (pdir </> "src") (map ("-I" ++) incDirs ++ filter ("-D" `isPrefixOf`) (cppOpts ++ extraCpp))
+  -- (hsc2hs's C program: cc-options' -I too, X11's /opt/X11/include,
+  -- and HsFFI.h)
+  hsInc <- maybe [] (\ d -> ["-I" ++ d]) <$> lookupEnv "YALE_MCABAL_INCLUDE"
+  let ccIncs = filter ("-I" `isPrefixOf`) (getFieldStrings flds [] "cc-options")
+  preprocessModules env (pdir </> "src")
+    (map ("-I" ++) incDirs ++ ccIncs ++ hsInc ++ filter ("-D" `isPrefixOf`) (cppOpts ++ extraCpp))
     (libModules flds ++ getFieldStrings flds [] "other-modules")
   writeFile (pdir </> "yale-package") $ unlines
     [ "name: " ++ name
@@ -171,6 +179,9 @@ stagePackage env db name vers flds = do
     , "extensions: " ++ unwords (lang ++ exts)
     , "cpp-options: " ++ unwords (cppOpts ++ extraCpp)
     , "include-dirs: " ++ unwords [ "include" </> d | d <- incDirs ] ]
+  foreignLine <- buildForeignLibrary env pdir name flds
+  unless (null foreignLine) $
+    appendFile (pdir </> "yale-package") (unlines foreignLine)
   return pdir
 
 -- A module whose source is a happy grammar (.y, .ly) or an alex lexer
@@ -312,8 +323,10 @@ libModules flds = getFieldStrings flds [] "exposed-modules" ++
                   getFieldStrings flds [] "other-modules"
 
 yaleBuildLib :: Env -> Section -> Section -> IO ()
-yaleBuildLib env (Section _ _ glob) (Section _ name flds) = do
+yaleBuildLib env (Section _ _ glob) (Section _ name flds0) = do
   let vers = getVersion glob "version"
+  info <- runConfigure env glob name
+  let flds = foldr (\ (k, vs) fs -> addFieldStrings k vs fs) flds0 info
   pdir <- stagePackage env (stageDB env) name vers flds
   mdls <- buildableModules env pdir (libModules flds)
   mkdir env (yaleDB env)
@@ -322,6 +335,71 @@ yaleBuildLib env (Section _ _ glob) (Section _ name flds) = do
    else do
     message env 0 $ "Building library " ++ name ++ " with yale"
     compileModules env [stageDB env, yaleDB env] (stageDB env) name mdls
+
+-- build-type: Configure: the package's configure script, once, before
+-- its sources are staged (X11's and network's make the headers their
+-- .hsc files include: HsX11Config.h, HsNetworkConfig.h), with
+-- $YALE_CONFIGURE_ARGS, and XQuartz's X11 where it is (/opt/X11, macOS).
+-- Returns the fields of the NAME.buildinfo it writes, which Cabal adds
+-- to the library's (X11's cc-options and extra-libraries).
+runConfigure :: Env -> [Field] -> String -> IO [(FieldName, [String])]
+runConfigure env glob name =
+  if fmap (map toLower) (getFieldStringM glob "build-type") /= Just "configure"
+    then return []
+    else do
+      done <- doesFileExist "config.status"
+      unless done $ do
+        args <- maybe "" id <$> lookupEnv "YALE_CONFIGURE_ARGS"
+        xquartz <- doesDirectoryExist "/opt/X11/include"
+        let xargs = if xquartz then " --x-includes=/opt/X11/include --x-libraries=/opt/X11/lib" else ""
+        message env 0 "Running configure"
+        cmd env $ "sh ./configure" ++ xargs ++ " " ++ args
+      let bi = name ++ ".buildinfo"
+      b <- doesFileExist bi
+      if not b then return [] else do
+        text <- readFile bi
+        return [ (map toLower (takeWhile (/= ':') l), words (drop 1 (dropWhile (/= ':') l)))
+               | l <- lines text, ':' `elem` l, not ("--" `isPrefixOf` l) ]
+
+-- FIELD with VALUES added to its own (getFieldStrings takes one field).
+addFieldStrings :: FieldName -> [String] -> [Field] -> [Field]
+addFieldStrings k vs fs =
+  [ f | f@(Field n _) <- fs, n /= k ] ++ [Field k (VItems (getFieldStrings fs [] k ++ vs))]
+
+-- A package's C code: its c-sources (and cxx-sources) compiled with its
+-- include-dirs and cc-options, and linked with its extra-libraries,
+-- extra-lib-dirs, ld-options and frameworks into one shared library,
+-- lib/libHSNAME.so in the package, which Yale Haskell loads with it
+-- (its yale-package's foreign-libraries).  A package with libraries but
+-- no sources gets one too: loading it loads them (X11's Xlib).  Returns
+-- the yale-package's line, or none.
+buildForeignLibrary :: Env -> FilePath -> String -> [Field] -> IO [String]
+buildForeignLibrary env pdir name flds = do
+  let csrcs   = getFieldStrings flds [] "c-sources"
+      cxxsrcs = getFieldStrings flds [] "cxx-sources"
+      libs    = getFieldStrings flds [] "extra-libraries"
+      fworks  = getFieldStrings flds [] "frameworks"
+      incDirs = getFieldStrings flds [] "include-dirs"
+      ccOpts  = getFieldStrings flds [] "cc-options" ++ getFieldStrings flds [] "cxx-options"
+      libDirs = getFieldStrings flds [] "extra-lib-dirs"
+      ldOpts  = getFieldStrings flds [] "ld-options"
+      out     = "lib" </> "libHS" ++ name ++ ".so"
+  if null csrcs && null cxxsrcs && null libs && null fworks then return [] else do
+    hsInc <- maybe [] (\ d -> ["-I" ++ d]) <$> lookupEnv "YALE_MCABAL_INCLUDE"
+    mkdir env (pdir </> "lib")
+    srcs <- if null csrcs && null cxxsrcs
+      then do
+        let stub = pdir </> "lib" </> "stub.c"
+        writeFile stub "/* the package's foreign libraries only */\n"
+        return [stub]
+      else return (csrcs ++ cxxsrcs)
+    message env 0 $ "Building the C code of " ++ name
+    cmd env $ unwords $
+      [if null cxxsrcs then "cc" else "c++", "-shared", "-fPIC", "-w", "-o", pdir </> out] ++
+      hsInc ++ map ("-I" ++) incDirs ++ ccOpts ++ srcs ++
+      map ("-L" ++) libDirs ++ map ("-l" ++) libs ++ ldOpts ++
+      concatMap (\ f -> ["-framework", f]) fworks
+    return ["foreign-libraries: " ++ out]
 
 yaleInstallLib :: Env -> Section -> Section -> IO ()
 yaleInstallLib env (Section _ _ glob) (Section _ name flds) = do

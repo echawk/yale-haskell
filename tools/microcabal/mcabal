@@ -24,6 +24,9 @@ export YALE
 # patches for packages that only GHC was meant to compile (Yale.hs)
 YALE_MCABAL_PATCHES=${YALE_MCABAL_PATCHES:-$here/patches}
 export YALE_MCABAL_PATCHES
+# HsFFI.h, for packages' C sources (Yale.hs)
+YALE_MCABAL_INCLUDE=${YALE_MCABAL_INCLUDE:-$here/include}
+export YALE_MCABAL_INCLUDE
 # hsc2hs's constructs (#{const ..}, #peek, ...) in .hsc modules (Yale.hs)
 YALE_HSC2HS=${YALE_HSC2HS:-$here/yale-hsc2hs}
 export YALE_HSC2HS

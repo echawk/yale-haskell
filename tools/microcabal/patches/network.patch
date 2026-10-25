@@ -1,0 +1,36 @@
+network: no touch# (GHC's IO constructor) for a socket's reference.
+diff -ruN a/Network/Socket/Types.hsc b/Network/Socket/Types.hsc
+--- a/Network/Socket/Types.hsc	2026-10-25 12:29:59
++++ b/Network/Socket/Types.hsc	2026-10-25 12:29:59
+@@ -90,10 +90,12 @@
+ import GHC.Conc (closeFdWith)
+ import System.Posix.Types (Fd)
+ import Control.DeepSeq (NFData (..))
++##ifndef __YALE_HASKELL__
+ import GHC.Exts (touch##)
+ import GHC.IORef (IORef (..))
+ import GHC.STRef (STRef (..))
+ import GHC.IO (IO (..))
++##endif
+ 
+ import qualified Text.Read as P
+ 
+@@ -158,12 +160,18 @@
+ touchSocket (Socket ref _) = touch ref
+ 
+ touch :: IORef a -> IO ()
++##ifdef __YALE_HASKELL__
++-- Yale Haskell: a socket's reference stays alive while it is used (its
++-- weak pointer's finalizer runs only when closed: System.Mem.Weak)
++touch _ = return ()
++##else
+ touch (IORef (STRef mutVar)) =
+   -- Thanks to a GHC issue, this touch# may not be quite guaranteed
+   -- to work. There's talk of replacing the touch# primop with one
+   -- that works better with the optimizer. But this seems to be the
+   -- "right" way to do it for now.
+   IO $ \s -> (## touch## mutVar s, () ##)
++##endif
+ 
+ -- | Get a file descriptor from a 'Socket'. The socket will never
+ -- be closed automatically before @withFdSocket@ completes, but

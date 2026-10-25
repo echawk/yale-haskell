@@ -12,7 +12,11 @@
 ;;;   NAME-VERSION/src/          the package's modules, by module path
 ;;;   NAME-VERSION/include/      its include-dirs, for CPP
 ;;;   NAME-VERSION/yale-package  "key: value" lines: name, version,
-;;;                              extensions, cpp-options, include-dirs
+;;;                              extensions, cpp-options, include-dirs,
+;;;                              foreign-libraries
+;;;   NAME-VERSION/lib/          its C code, a shared library, which is
+;;;                              loaded when the package is found (its
+;;;                              foreign imports' symbols)
 ;;;
 ;;; A package's settings apply to its own modules only, as Cabal applies a
 ;;; package's default-extensions and cpp-options to it: the extensions are
@@ -32,7 +36,8 @@
    (root (type string))               ; its directory, ending in /
    (extensions (type list))           ; strings
    (cpp-options (type list))          ; strings, -DNAME[=VALUE] and others
-   (include-dirs (type list))))       ; absolute, ending in /
+   (include-dirs (type list))         ; absolute, ending in /
+   (foreign-libraries (type list))))  ; absolute file names
 
 (define (installed-packages)
   (when (not *packages*)
@@ -44,7 +49,9 @@
 	(let* ((root  (lisp:namestring dir))
 	       (desc  (string-append root "yale-package")))
 	  (when (file-exists? desc)
-	    (push (read-package-description root desc) *packages*)))))
+	    (let ((p  (read-package-description root desc)))
+	      (load-package-foreign-libraries p)
+	      (push p *packages*))))))
     (setf *packages* (reverse *packages*)))
   *packages*)
 
@@ -86,7 +93,20 @@
 	    (extensions (funcall get "extensions"))
 	    (cpp-options (funcall get "cpp-options"))
 	    (include-dirs (map (lambda (d) (directory-name (string-append root d)))
-			       (funcall get "include-dirs")))))))
+			       (funcall get "include-dirs")))
+	    (foreign-libraries (map (lambda (f) (string-append root f))
+				    (funcall get "foreign-libraries")))))))
+
+;;; A package's shared libraries, loaded when its description is read; one
+;;; that does not load is a warning (its foreign imports fail when called).
+(define (load-package-foreign-libraries p)
+  (dolist (f (package-foreign-libraries p))
+    (lisp:handler-case
+	(lisp:funcall (lisp:find-symbol "LOAD-FOREIGN-LIBRARY" "CFFI") f)
+      (lisp:error (c)
+	(haskell-warning 'foreign-library
+	  "The foreign library ~A of package ~A does not load: ~A"
+	  f (package-name p) c)))))
 
 ;;; The directories searched after the importing file's own.
 (define (module-search-path)
