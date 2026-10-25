@@ -35,9 +35,14 @@
 	  )))
 
 (define-collecting-walker-methods collect-pattern-vars
-  (as-pat irr-pat sig-pat bang-pat view-pat var-pat wildcard-pat const-pat plus-pat pcon list-pat
+  (as-pat irr-pat sig-pat bang-pat var-pat wildcard-pat const-pat plus-pat pcon list-pat
 	  pp-pat-list pp-pat-plus pp-pat-negated)
   collect-pattern-vars-processor)
+
+;;; A view pattern (f -> p) binds p's variables, not f, a function.
+
+(define-walker-method collect-pattern-vars view-pat (object vars-so-far)
+  (collect-pattern-vars-1 (view-pat-pattern object) vars-so-far))
 
 ;;; A pattern splice binds its expansion's variables (once run:
 ;;; th/splices.mumble; none before).

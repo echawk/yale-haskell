@@ -461,10 +461,48 @@
 
 (define-walker-method scope valdef (object env)
   (setf (valdef-module object) *module-name*)
-  (setf (valdef-lhs object) (reject-view-pats (massage-pattern (valdef-lhs object))))
+  (setf (valdef-lhs object) (massage-pattern (valdef-lhs object)))
+  (if (and (pattern-has-view? (valdef-lhs object))
+	   (lisp:every (lambda (f) (null? (single-fun-def-args f)))
+		       (valdef-definitions object)))
+      (match-binding-views! object)
+      (reject-view-pats (valdef-lhs object)))
   (setf (valdef-definitions object)
 	(scope-ast/list (valdef-definitions object) env))
   object)
+
+;;; A top-level pattern binding whose pattern has views (a local one's
+;;; were lifted by lift-binding-views!), base64-bytestring's
+;;; BS decodeFP _ = e: its variables are bound by a case on the value,
+;;; (x, ..) = case (let v = e in v) of pat -> (x, ..), as lazily.
+(define (match-binding-views! object)
+  (let* ((pat   (valdef-lhs object))
+	 (vars  (collect-pattern-vars pat))
+	 (tmp   (string->symbol (format '#f "pat%~A" (incf *view-pattern-count*))))
+	 (inner (**valdef/pat (make var-pat (var (generated-var-ref tmp))) (**var tmp))))
+    (setf (valdef-definitions inner) (valdef-definitions object))
+    (setf (valdef-lhs object)
+	  (**tuple-pat (map (lambda (v) (**var-pat/def (var-ref-var v))) vars)))
+    ;; the case's pattern binds its own variables
+    (dolist (v vars) (setf (var-ref-var v) *undefined-def*))
+    (setf (valdef-definitions object)
+	  (valdef-definitions
+	   (**valdef/pat
+	    (valdef-lhs object)
+	    (**case (**let (list inner) (**var tmp))
+		    (list (**alt/simple
+			   pat
+			   (**tuple/l (map (lambda (v) (**var (var-ref-name v))) vars))))))))))
+
+(define (pattern-has-view? p)
+  (cond ((is-type? 'view-pat p) '#t)
+	((is-type? 'pcon p) (lisp:some (function pattern-has-view?) (pcon-pats p)))
+	((is-type? 'list-pat p) (lisp:some (function pattern-has-view?) (list-pat-pats p)))
+	((is-type? 'as-pat p) (pattern-has-view? (as-pat-pattern p)))
+	((is-type? 'irr-pat p) (pattern-has-view? (irr-pat-pattern p)))
+	((is-type? 'bang-pat p) (pattern-has-view? (bang-pat-pattern p)))
+	((is-type? 'sig-pat p) (pattern-has-view? (sig-pat-pattern p)))
+	(else '#f)))
 
 
 ;;; For a single-fun-def, do the where-decls first, and then walk the
