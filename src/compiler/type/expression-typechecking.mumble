@@ -494,8 +494,41 @@
   (let ((x (create-temp-var "SEC")))
     (**lambda/pat (list (**var-pat/def x))
 		  (**app op (if left left (**var/def x)) (if right right (**var/def x))))))
+;;; When the operand left out is a polytype argument of the operator
+;;; (Agda's insert = (`modifyTCLens` MapS.insert m mv), modifyTCLens ::
+;;; Lens' TCState a -> (a -> a) -> m ()), the section's type is
+;;; (polytype -> result), as GHC types it, and its variable is polymorphic
+;;; in the body: a use (insert stOpenMetaStore) gives a polymorphic
+;;; argument (polytypes.mumble), not an instance with an undecided
+;;; dictionary.  INDEX is the left-out operand's position.  Returns the
+;;; polytype, in a new instance of the operator's type, or #f.
+
+(define (section-polytype-argument op index)
+  (and (var-ref? op)
+       (var? (var-ref-var op))
+       (gtype? (var-type (var-ref-var op)))
+       (gtype-has-polytypes? (var-type (var-ref-var op)))
+       (let* ((inst  (instantiate-gtype/newvars (var-type (var-ref-var op))))
+	      (args  (arrow-argument-types inst)))
+	 (and (> (length args) index)
+	      (let ((p  (prune (list-ref args index))))
+		(and (polytype? p) p))))))
+
+(define (type-check-polytype-section object op left right poly)
+  (let* ((x    (create-temp-var "SEC"))
+	 (lam  (**lambda/pat (list (**var-pat/def x))
+			     (**app op (if left left (**var/def x))
+				    (if right right (**var/def x))))))
+    (setf (var-type x) poly)
+    (dynamic-let ((*polytype-vars* (cons (tuple x poly) (dynamic *polytype-vars*))))
+      (mlet (((body body-type) (dispatch-type-check (lambda-body lam))))
+	(setf (lambda-body lam) body)
+	(return-type (**save-old-exp object lam) (**arrow poly body-type))))))
 
 (define-type-checker section-l
+ (let ((poly  (section-polytype-argument (section-l-op object) 0)))
+ (if poly
+  (type-check-polytype-section object (section-l-op object) '#f (section-l-exp object) poly)
  (if (section-as-lambda? (section-l-op object) (section-l-exp object))
   (type-rewrite (section-var-lambda (section-l-op object) '#f (section-l-exp object)))
   (type-check section-l op op-type
@@ -509,9 +542,12 @@
 	    (type-unify b-type exp-type
                   (type-mismatch object
 		      "Argument type mismatch" b-type exp-type))
-	    (return-type object (**arrow a-type c-type)))))))))
+	    (return-type object (**arrow a-type c-type)))))))))))
 
 (define-type-checker section-r
+ (let ((poly  (section-polytype-argument (section-r-op object) 1)))
+ (if poly
+  (type-check-polytype-section object (section-r-op object) (section-r-exp object) '#f poly)
  (if (section-as-lambda? (section-r-op object) (section-r-exp object))
   (type-rewrite (section-var-lambda (section-r-op object) (section-r-exp object) '#f))
   (type-check section-r op op-type
@@ -525,7 +561,7 @@
 	    (type-unify exp-type a-type
                     (type-mismatch object
 			 "Argument type mismatch" a-type exp-type))
-	    (return-type object (**arrow b-type c-type)))))))))
+	    (return-type object (**arrow b-type c-type)))))))))))
 
 (define-type-checker omitted-guard
   (return-type object *bool-type*))
