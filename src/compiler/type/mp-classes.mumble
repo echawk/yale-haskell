@@ -1203,7 +1203,9 @@
     (process-placeholders new-placeholders deferred decls)))
 
 (define (bind-dictionary-tyvars-by-name dict-var tyvars bindings)
-  (let ((sig (var-signature dict-var)))
+  ;; (an imported instance's dictionary has no signature; its type keeps
+  ;; the names, dump-cse.mumble's dump-gtype/cse)
+  (let ((sig (or (var-signature dict-var) (var-type dict-var))))
     (when (and sig (gtype? sig)
 	       (eqv? (length (gtype-tyvar-names sig)) (length tyvars)))
       (dolist2 (name (gtype-tyvar-names sig)) (tv tyvars)

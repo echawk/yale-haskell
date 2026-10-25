@@ -185,7 +185,11 @@
 (define (dump-gtype/cse g)
   (if (null? (gtype-mcontext g))
       (dump-gtype/cse-1 g)
-      ;; multi-parameter constraints: a new gtype, not shared
+      ;; multi-parameter constraints: a new gtype, not shared, with its
+      ;; type variables' names (an instance dictionary's: a variable no
+      ;; method type mentions, opts in generic-data's GEnum opts (M1 i c
+      ;; f), is bound by name, mp-classes.mumble's
+      ;; bind-dictionary-tyvars-by-name)
       (cse-ref-code
        (remember-dumped-object
 	`(gtype-with-mcontext
@@ -193,7 +197,8 @@
 	  (list ,@(map (lambda (c)
 			 `(cons ,(dump-class/n (tuple-2-1 c))
 				,(cse-ref-code (dump-gtype-list (tuple-2-2 c)))))
-		       (gtype-mcontext g))))))))
+		       (gtype-mcontext g)))
+	  ',(gtype-tyvar-names g))))))
 
 (define (nested-gtype context type . mcontext)
   (let ((g (**gtype context type)))
@@ -202,9 +207,12 @@
       (setf (gtype-mcontext g) (car mcontext)))
     g))
 
-(define (gtype-with-mcontext g mcontext)
-  (make gtype (context (gtype-context g)) (type (gtype-type g))
-	      (mcontext mcontext)))
+(define (gtype-with-mcontext g mcontext . names)
+  (let ((new  (make gtype (context (gtype-context g)) (type (gtype-type g))
+		    (mcontext mcontext))))
+    (when (pair? names)
+      (setf (gtype-tyvar-names new) (car names)))
+    new))
 
 (define (dump-gtype/cse-1 g)
  (cse-ref-code
