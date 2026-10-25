@@ -41,6 +41,8 @@
   (setf *rational-type* (**ntycon (core-symbol "Ratio")
 				  (list *integer-type*)))
   (setf *default-decls* '())
+  ;; (another module's, compiled before in this process, are its own)
+  (setf *deferred-family-equalities* '())
   (dolist (m modules)
     (let ((default-types '()))
       (dolist (d (default-decl-types (module-default m)))

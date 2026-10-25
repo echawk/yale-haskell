@@ -546,6 +546,23 @@
 
 (define *deferred-family-equalities* '())
 
+;;; Kept for a later try, unless it says nothing (the same type on both
+;;; sides) or is kept already: an equality tried again and still undecided
+;;; is kept again, and the copies filled the list (Agda.Syntax.Common's
+;;; NameOf t1 ~ NameOf (t2 t1), compiled before Scope.Base, crowded out
+;;; its AbstractName ~ Item t9, and allNamesInScope was ambiguous).
+(define (defer-family-equality type1 type2)
+  (let ((t1 (prune type1))
+	(t2 (prune type2)))
+    (unless (or (ntype-identical? t1 t2)
+		(lisp:some (lambda (p)
+			     (or (and (ntype-identical? (prune (car p)) t1)
+				      (ntype-identical? (prune (cdr p)) t2))
+				 (and (ntype-identical? (prune (car p)) t2)
+				      (ntype-identical? (prune (cdr p)) t1))))
+			   *deferred-family-equalities*))
+      (push (cons type1 type2) *deferred-family-equalities*))))
+
 (define (unify-family type1 type2)
   (let ((r1 (if (family-app? type1) (reduce-family-app type1) type1))
 	(r2 (if (family-app? type2) (reduce-family-app type2) type2)))
@@ -577,14 +594,14 @@
 	   (unify r1 r2))
 	  ((not (eq? r1 'stuck))
 	   (if (eq? r1 type1)
-	       (push (cons type1 type2) *deferred-family-equalities*)
+	       (defer-family-equality type1 type2)
 	       (unify r1 type2)))
 	  ((not (eq? r2 'stuck))
 	   (if (eq? r2 type2)
-	       (push (cons type1 type2) *deferred-family-equalities*)
+	       (defer-family-equality type1 type2)
 	       (unify type1 r2)))
 	  (else
-	   (push (cons type1 type2) *deferred-family-equalities*)
+	   (defer-family-equality type1 type2)
 	   'OK))))
 
 ;;; Both applications of one family to more arguments than it has, the
@@ -618,7 +635,7 @@
 		(unify t1 t2))
 	      ;; still undecided: kept for a later try (a bounded number)
 	      (when (< (length *deferred-family-equalities*) 500)
-		(push p *deferred-family-equalities*)))))
+		(defer-family-equality t1 t2)))))
       ;; two undecided equalities with the same family application on
       ;; one side make their other sides equal (t ~ AbsOfRef (t, Elim)
       ;; and AbsOfRef (t, Elim) ~ Expr give t ~ Expr: Agda's foldM (curry
