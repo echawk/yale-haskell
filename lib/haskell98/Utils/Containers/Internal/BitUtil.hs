@@ -32,7 +32,7 @@ module Utils.Containers.Internal.BitUtil
     , iShiftRL
     ) where
 
-import Data.Bits (unsafeShiftL, unsafeShiftR, finiteBitSize)
+import Data.Bits (unsafeShiftL, unsafeShiftR, finiteBitSize, (.&.))
 #ifdef __GLASGOW_HASKELL__
 import GHC.Exts (Int(..), uncheckedIShiftRL#)
 #endif
@@ -55,5 +55,11 @@ iShiftRL :: Int -> Int -> Int
 #ifdef __GLASGOW_HASKELL__
 iShiftRL (I# x#) (I# sh#) = I# (uncheckedIShiftRL# x# sh#)
 #else
-iShiftRL x sh = fromIntegral (unsafeShiftR (fromIntegral x :: Word) sh)
+-- Int's bits only: Yale Haskell's Int has 63, Word 64 (minBound >>> 61
+-- was 6, not 2, and IntMap's branchMask wrong: fromList [(97,..),(98,..)]
+-- did not find 98)
+iShiftRL x sh
+  | sh == 0 = x
+  | otherwise = fromIntegral (unsafeShiftR (fromIntegral x .&. intBits) sh)
+  where intBits = fromIntegral (maxBound :: Int) * 2 + 1 :: Word
 #endif

@@ -1405,8 +1405,13 @@ restrictBM t@(Bin p l r) !bm
     px1 = px - 1
     min_ = px .&. px1
     max_ = px .|. px1
-    sh = (wordSize - 1) - max_
-    bm' = (w2i bm `unsafeShiftL` sh) `unsafeShiftR` (sh + min_)
+    -- (on the Word: Yale Haskell's Int has 63 bits, the BitMap 64)
+    width = max_ - min_ + 1
+    ones = if width >= wordSize then complement 0 else (1 `unsafeShiftL` width) - 1 :: Word
+    field = (bm `unsafeShiftR` min_) .&. ones
+    bm' | field == 0 = 0
+        | field == ones = -1
+        | otherwise = 1 :: Int
 restrictBM t@(Tip k _) !bm
   | IntSet.bitmapOf k .&. bm /= 0 = t
   | otherwise = Nil

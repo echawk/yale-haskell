@@ -170,8 +170,12 @@ branchPrefix i1 i2 = Prefix ((i1 .|. i2) .&. m)
     m = unsafeShiftR (minBound :: Int) (countLeadingZeros (i1 `xor` i2))
 {-# INLINE branchPrefix #-}
 
+-- Int's bits only, as an unsigned number: Yale Haskell's Int has 63 bits,
+-- Word 64, and a negative Int sign-extended made treeTreeBranch's
+-- smallest key of the sign branch 2^63, above every non-negative one
+-- (IntSet's union put keys twice and out of order)
 i2w :: Int -> Word
-i2w = fromIntegral
+i2w i = fromIntegral i .&. (fromIntegral (maxBound :: Int) * 2 + 1)
 {-# INLINE i2w #-}
 
 -- Used to compare IntSets and IntMaps
