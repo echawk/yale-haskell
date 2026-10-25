@@ -157,7 +157,15 @@
    )
    where libName = pName <|< pure ""
  
-@@ -380,6 +404,7 @@
+@@ -372,6 +396,7 @@
+   , "autogen-modules"                # pVComma
+   , "build-depends"                  # pVLibs
+   , "build-tool-depends"             # pVLibs  -- ??? pVComma -- XXX
++  , "setup-depends"                  # pVLibs
+   , "build-tools"                    # pVLibs -- XXX
+   , "buildable"                      # (VBool <$> pBoolNL)
+   , "c-sources"                      # pVOptComma
+@@ -380,6 +405,7 @@
    , "cmm-options"                    # pVOptComma
    , "cpp-options"                    # pVOptComma
    , "cxx-options"                    # pVOptComma
