@@ -508,14 +508,24 @@
       (add-new-module-signature dictionary (generate-dictionary-signature inst))
       (setf (instance-decls inst) '()))))
 
-;;; Today's base defaults Monad's return to pure; the Haskell 98 Prelude's
-;;; Monad has no default.  While PreludeModern is loaded, an instance
-;;; without return gets PreludeModern's pure (which needs the type's
-;;; Applicative instance, as base does).  Returns pure's var, or '#f.
+;;; Today's base defaults Monad's return to pure, and MonadPlus's mzero and
+;;; mplus to Alternative's empty and <|>; the Haskell 98 Prelude's Monad
+;;; and MonadPlus have no defaults.  While PreludeModern is loaded, an
+;;; instance without them gets PreludeModern's (which need the type's
+;;; Applicative or Alternative instance, as base does: Control.Arrow's
+;;; instance MonadPlus m => MonadPlus (Kleisli m a)).  Returns the
+;;; default's var, or '#f.
 
 (define (monad-return-default method-var)
-  (and (eq? method-var (core-symbol "return"))
-       (prelude-modern-def '|pure|)))
+  (cond ((eq? method-var (core-symbol "return"))
+	 (prelude-modern-def '|pure|))
+	((not (eq? (def-name (method-var-class method-var)) '|MonadPlus|))
+	 '#f)
+	((eq? (def-name method-var) '|mzero|)
+	 (prelude-modern-def '|empty|))
+	((eq? (def-name method-var) '|mplus|)
+	 (prelude-modern-def '|<\|>|))
+	(else '#f)))
 
 (define (rename-ast-tyvars type new-tyvars)
   (if (null? new-tyvars)
