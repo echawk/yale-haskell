@@ -276,5 +276,8 @@
    ;; ScopedTypeVariables: a derived instance's coerced methods
    ;; (derived-instances.mumble's via-method-decls) name them
    (scoped-tyvars? (type bool) (bit #t) (default #f))
+   ;; a standalone deriving's declared context is its context, not one
+   ;; inferred from the fields (derived/derived-instances.mumble)
+   (declared-context? (type bool) (bit #t) (default #f))
    ))
 

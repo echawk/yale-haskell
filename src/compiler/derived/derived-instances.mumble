@@ -117,8 +117,29 @@
 		 ;; (AbsToConT m Doc), Agda's
 		 (add-standalone-newtype-instance alg class-ref stand-args stand-ctx stand-mp))
 		(else
-		 (setf insts (derive-instance alg (class-ref-class class-ref) insts)))))))
+		 (let ((before insts))
+		   (setf insts (derive-instance alg (class-ref-class class-ref) insts))
+		   ;; (a context on types that are not variables: inference
+		   ;; cannot give it)
+		   (when (and stand? (pair? stand-mp)
+			      (not (eq? insts before)) (pair? insts))
+		     (use-declared-context (car insts) stand-ctx stand-mp))))))))
     insts))
+
+;;; deriving instance (Show (Token s), Show e) => Show (ParseError s e)
+;;; (megaparsec's): the declared context is the instance's, as GHC takes
+;;; it, not one inferred from the fields (Token s, a family application,
+;;; has no instances to look in).
+(define (use-declared-context inst ctx mctx)
+  (dolist (c ctx)
+    (resolve-class (context-class c)))
+  (dolist (c mctx)
+    (resolve-class (mp-context-class c))
+    (dolist (ty (mp-context-types c))
+      (resolve-type-1 ty '() '#t)))
+  (setf (instance-context inst) ctx)
+  (setf (instance-mcontext inst) mctx)
+  (setf (instance-declared-context? inst) '#t))
 
 ;;; Whether a standalone deriving of CLASS for the newtype ALG at ARGS is
 ;;; through its field type (as derive-instance would choose, at the end of
@@ -577,8 +598,10 @@
   (when (and (instance-ok? inst)
 	     (not (constructor-class-derivable? (instance-class inst)))
 	     (not (generic-class? (instance-class inst)))
-	     ;; (one at a flexible head has its standalone context)
-	     (null? (instance-head-args inst)))
+	     ;; (one at a flexible head has its standalone context, as one
+	     ;; with a declared context)
+	     (null? (instance-head-args inst))
+	     (not (instance-declared-context? inst)))
     (propagate-constructor-contexts inst
 			   (algdata-constrs (instance-algdata inst)))))
 

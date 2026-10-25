@@ -46,7 +46,11 @@
 	((tyvar? ty) '#t)
 	((tycon? ty)
 	 (let ((def  (tycon-def ty)))
-	   (cond ((synonym? def)
+	   (cond ((and (synonym? def) (synonym-family? def))
+		  ;; a family application (megaparsec's Token s): the
+		  ;; instance's context has it (a standalone deriving's)
+		  '#t)
+		 ((synonym? def)
 		  (data-field-ok? (expand-synonym ty) alg class (1- depth)))
 		 ((not (algdata? def)) '#f)
 		 ((eq? def (core-symbol "Arrow")) '#f)
