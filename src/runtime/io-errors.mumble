@@ -222,6 +222,19 @@
   (make-io-error (car (vector-ref *io-error-kinds* kind)) location ""
 		 (if has-file? file '#f) (if has-handle? handle '#f)))
 
+;;; primIOErrorLocation, primIOErrorWith: the error's location, and the
+;;; error with another kind, location and description (System.IO.Error's
+;;; ioeSetErrorString, ioeSetLocation, ioeSetErrorType).
+(define (prim.io-error-location err)
+  (or (haskell-io-error-location err) ""))
+
+(define (prim.io-error-description err)
+  (or (haskell-io-error-description err) ""))
+
+(define (prim.io-error-with err kind location description)
+  (make-io-error (car (vector-ref *io-error-kinds* kind)) location description
+		 (haskell-io-error-filename err) (haskell-io-error-handle err)))
+
 ;;; primAnnotateIOError :: IOErrorObj -> String -> Bool -> HandleObj -> Bool -> String -> IOErrorObj
 ;;;   annotateIOError: the location is prefixed to the error's own; the
 ;;;   handle and file name are added where the error has none.

@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/GHC/RTS/
+:o= all
+Flags.hs

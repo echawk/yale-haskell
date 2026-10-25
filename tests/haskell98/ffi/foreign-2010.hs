@@ -4,7 +4,7 @@ module Main where
 
 import Foreign
 import Foreign.C
-import System.IO.Error (isDoesNotExistError, ioeGetFileName, try)
+import System.IO.Error (isDoesNotExistError, ioeGetFileName, tryIOError)
 
 foreign import ccall "stdlib.h getenv" c_getenv :: CString -> IO (Ptr CChar)
 foreign import ccall "unistd.h rmdir" c_rmdir :: CString -> IO CInt
@@ -37,7 +37,7 @@ main = do
   r <- withCString "/no/such/dir" c_rmdir
   e <- getErrno
   print (r, e == eNOENT)
-  res <- try (throwErrnoPathIfMinus1_ "rmdir" "/no/such/dir"
+  res <- tryIOError (throwErrnoPathIfMinus1_ "rmdir" "/no/such/dir"
                 (withCString "/no/such/dir" c_rmdir))
   case res of
     Left err -> print (isDoesNotExistError err, ioeGetFileName err)

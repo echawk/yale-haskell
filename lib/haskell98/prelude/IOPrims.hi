@@ -24,6 +24,9 @@ primIOErrorHasFile    :: IOErrorObj -> Bool
 primIOErrorFile       :: IOErrorObj -> String
 primIOErrorHasHandle  :: IOErrorObj -> Bool
 primIOErrorHandle     :: IOErrorObj -> HandleObj
+primIOErrorLocation   :: IOErrorObj -> String
+primIOErrorDescription :: IOErrorObj -> String
+primIOErrorWith       :: IOErrorObj -> Int -> String -> String -> IOErrorObj
 primMkIOError         :: Int -> String -> Bool -> HandleObj -> Bool -> String -> IOErrorObj
 primAnnotateIOError   :: IOErrorObj -> String -> Bool -> HandleObj -> Bool -> String -> IOErrorObj
 
@@ -65,6 +68,9 @@ primCatchIO           :: LispName("prim.catch-io")
 primThrowIO           :: LispName("prim.throw-io")
 primUserError         :: LispName("prim.user-error")
 primIOErrorKind       :: LispName("prim.io-error-kind")
+primIOErrorLocation   :: LispName("prim.io-error-location")
+primIOErrorDescription :: LispName("prim.io-error-description")
+primIOErrorWith       :: LispName("prim.io-error-with")
 primIOErrorString     :: LispName("prim.io-error-string")
 primIOErrorMessage    :: LispName("prim.io-error-message")
 primIOErrorHasFile    :: LispName("prim.io-error-has-filename")

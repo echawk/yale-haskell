@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/GHC/Stack/
+:o= all
+Types.hs

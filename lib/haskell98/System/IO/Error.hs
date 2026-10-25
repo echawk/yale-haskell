@@ -11,7 +11,9 @@ module System.IO.Error (
     alreadyInUseErrorType, fullErrorType, eofErrorType,
     illegalOperationErrorType, permissionErrorType, userErrorType,
     ioeGetErrorType,
-    ioError, catch, try, catchIOError, tryIOError,
+    ioError, catch, catchIOError, tryIOError, modifyIOError,
+    ioeGetLocation, ioeSetErrorType, ioeSetErrorString, ioeSetLocation,
+    ioeSetHandle, ioeSetFileName,
     -- (Yale's: an IOErrorType by kind number, for GHC.IO.Exception)
     mkIOErrorType
   ) where
@@ -92,3 +94,30 @@ catchIOError = catch
 
 tryIOError :: IO a -> IO (Either IOError a)
 tryIOError = try
+
+ioeGetLocation :: IOError -> String
+ioeGetLocation (IOError e) = primIOErrorLocation e
+
+ioeSetErrorType :: IOError -> IOErrorType -> IOError
+ioeSetErrorType ioe@(IOError e) (IOErrorType k) =
+  IOError (primIOErrorWith e k (ioeGetLocation ioe) (ioeDescription ioe))
+
+ioeSetErrorString :: IOError -> String -> IOError
+ioeSetErrorString ioe@(IOError e) s =
+  IOError (primIOErrorWith e (primIOErrorKind e) (ioeGetLocation ioe) s)
+
+ioeSetLocation :: IOError -> String -> IOError
+ioeSetLocation ioe@(IOError e) loc =
+  IOError (primIOErrorWith e (primIOErrorKind e) loc (ioeDescription ioe))
+
+ioeDescription :: IOError -> String
+ioeDescription (IOError e) = primIOErrorDescription e
+
+ioeSetHandle :: IOError -> Handle -> IOError
+ioeSetHandle ioe h = annotateIOError ioe "" (Just h) Nothing
+
+ioeSetFileName :: IOError -> FilePath -> IOError
+ioeSetFileName ioe f = annotateIOError ioe "" Nothing (Just f)
+
+modifyIOError :: (IOError -> IOError) -> IO a -> IO a
+modifyIOError f io = catchIOError io (\e -> ioError (f e))

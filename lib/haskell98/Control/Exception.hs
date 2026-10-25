@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms, ViewPatterns #-}
 -- Control.Exception (base, a subset), for Yale Haskell's Haskell 98
 -- dialect.  An exception is a Lisp condition (src/base/base-runtime.lisp):
 -- an IOError, an ErrorCall (error, a failed pattern match) or an
@@ -10,7 +11,10 @@
 -- find them by type, as in base.  ExitCode is an Exception, for handlers
 -- that rethrow it (Agda's main), but exitWith is not caught.
 module Control.Exception (
-    SomeException(SomeException), IOException, ErrorCall(ErrorCall), ArithException(..),
+    SomeException(SomeException), IOException, ErrorCall(ErrorCall),
+    pattern ErrorCallWithLocation, ArithException(..),
+    PatternMatchFail(..), RecSelError(..), RecConError(..), RecUpdError(..),
+    NoMethodError(..), TypeError(..),
     AsyncException(..), AssertionFailed(AssertionFailed),
     SomeAsyncException(SomeAsyncException), asyncExceptionToException,
     asyncExceptionFromException, BlockedIndefinitelyOnMVar(..),
@@ -179,6 +183,39 @@ instance Show Deadlock where
   showsPrec _ _ = showString "<<deadlock>>"
 
 instance Exception Deadlock
+
+-- base's ErrorCall with a location; here the location is empty
+pattern ErrorCallWithLocation :: String -> String -> ErrorCall
+pattern ErrorCallWithLocation err loc <- (errorCallParts -> (err, loc))
+  where ErrorCallWithLocation err _ = ErrorCall err
+
+errorCallParts :: ErrorCall -> (String, String)
+errorCallParts (ErrorCall m) = (m, "")
+
+-- The exceptions base's runtime raises for a failed match, a missing
+-- record field or method, a deferred type error: here they are raised
+-- only by throw (the runtime's own are ErrorCalls), and are for
+-- handlers and instances that name them (cmdargs').
+newtype PatternMatchFail = PatternMatchFail String
+newtype RecSelError = RecSelError String
+newtype RecConError = RecConError String
+newtype RecUpdError = RecUpdError String
+newtype NoMethodError = NoMethodError String
+newtype TypeError = TypeError String
+
+instance Show PatternMatchFail where showsPrec _ (PatternMatchFail m) = showString m
+instance Show RecSelError where showsPrec _ (RecSelError m) = showString m
+instance Show RecConError where showsPrec _ (RecConError m) = showString m
+instance Show RecUpdError where showsPrec _ (RecUpdError m) = showString m
+instance Show NoMethodError where showsPrec _ (NoMethodError m) = showString m
+instance Show TypeError where showsPrec _ (TypeError m) = showString m
+
+instance Exception PatternMatchFail
+instance Exception RecSelError
+instance Exception RecConError
+instance Exception RecUpdError
+instance Exception NoMethodError
+instance Exception TypeError
 
 data NonTermination = NonTermination
 

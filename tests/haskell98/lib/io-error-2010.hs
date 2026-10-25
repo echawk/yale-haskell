@@ -12,7 +12,7 @@ main = do
   print (isDoesNotExistError e, ioeGetFileName e, ioeGetErrorType e == doesNotExistErrorType)
   let e2 = annotateIOError (userError "boom") "outer" Nothing (Just "f.txt")
   print (isUserError e2, ioeGetErrorString e2, ioeGetFileName e2)
-  r <- try (ioError (mkIOError eofErrorType "reader" (Just stdin) Nothing))
+  r <- tryIOError (ioError (mkIOError eofErrorType "reader" (Just stdin) Nothing))
   case r of
     Left err -> print (isEOFError err, fmap (== stdin) (ioeGetHandle err))
     Right () -> putStrLn "no error"
