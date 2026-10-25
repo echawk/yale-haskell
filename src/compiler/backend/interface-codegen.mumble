@@ -489,6 +489,13 @@
 		       (lambda (x) `(not (eqv? ,x 0)))))
 		((and result? (eq? tycon (core-symbol "UnitType")))
 		 (list ':void '#f (lambda (x) `(begin ,x 0))))
+		;; UnliftedFFITypes: a byte array is passed as its contents,
+		;; memory that does not move (src/base/primops-runtime.lisp;
+		;; bitvec's omp_popcount, double-conversion's buffers)
+		((and (not result?)
+		      (eq? (def-module tycon) '|GHC.PrimOps|)
+		      (memq (def-name tycon) '(|ByteArray#| |MutableByteArray#|)))
+		 (list ':pointer (lambda (x) `(prim-bytes-sap ,x)) '#f))
 		(else
 		 (let* ((mod   (assq (def-module tycon) *ffi-sized-types*))
 			(entry (and mod (assq (def-name tycon) (cdr mod)))))
