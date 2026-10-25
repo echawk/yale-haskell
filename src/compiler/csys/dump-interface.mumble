@@ -475,12 +475,16 @@
 					(push (lisp:princ-to-string c) wrong)
 					(lisp:muffle-warning c))
 				       ((reportable-lisp-warning? c)
-					(push (lisp:princ-to-string c) other)
+					(push (cons (lisp:princ-to-string c)
+						    (warning-local-variable c))
+					      other)
 					(lisp:muffle-warning c)))))))
 	  (sb-int:with-float-traps-masked (:overflow :invalid :divide-by-zero :inexact)
 	    (compile-file (dynamic *magic-file-to-compile*) temp)))
 	(dolist (m (reverse other))
-	  (signal-lisp-warning m))
+	  (signal-lisp-warning
+	   (car m)
+	   (if (cdr m) (top-level-form-name-using (cdr m) code) '#f)))
 	(when (or (not (null? free)) (not (null? wrong)))
 	  (lisp:ignore-errors (lisp:delete-file temp))
 	  (signal-bad-generated-code free (reverse wrong) code)))
@@ -511,6 +515,14 @@
 	 (lisp:null (lisp:symbol-package (cadr args)))
 	 (cadr args))))
 
+;;; A local variable codegen made that the warning is about, naming the
+;;; definition it is in.
+#+sbcl
+(define (warning-local-variable c)
+  (and (lisp:typep c 'lisp:simple-condition)
+       (lisp:find-if (lambda (a) (and (symbol? a) (lisp:null (lisp:symbol-package a))))
+		     (lisp:simple-condition-format-arguments c))))
+
 #+sbcl
 (define (wrong-argument-count-warning? c)
   (and (lisp:typep c 'lisp:simple-condition)
@@ -523,10 +535,12 @@
        (not (lisp:typep c 'sb-ext:compiler-note))
        (not (string=? (lisp:princ-to-string c) "division by zero"))))
 
-(define (signal-lisp-warning message)
+(define (signal-lisp-warning message name)
   (dynamic-let ((*phase* 'lisp-compile))
     (haskell-warning 'lisp-compile-warning
-      "The Lisp compiler warns about the generated code: ~A" message)))
+      "The Lisp compiler warns about the generated code~A: ~A"
+      (if name (format '#f " (in ~A)" name) "")
+      message)))
 
 (define (signal-bad-generated-code vars wrong code)
   (dynamic-let ((*phase* 'lisp-compile))
