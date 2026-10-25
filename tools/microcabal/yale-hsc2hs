@@ -127,7 +127,7 @@ def construct_code_1(key, body):
         typ, fun = a[0], a[1]
         code = []
         for item in a[2:]:
-            if not item:
+            if not item.strip():
                 continue
             if "=" in item:
                 name, e = [x.strip() for x in item.split("=", 1)]
@@ -178,9 +178,19 @@ def scan_text(text):
         if ch == "#" and (i == 0 or not (text[i - 1].isalnum() or text[i - 1] in "_'#")):
             m = re.match(r"#([A-Za-z_][A-Za-z0-9_]*)\b", text[i:])
             if m and (m.group(1) in KEYWORDS or m.group(1) in LET_NAMES):
-                # #const e: to the end of the line
+                # #const e: to the end of the line, or to a closing
+                # bracket it did not open (network's min n (#const IOV_MAX))
                 end = text.find("\n", i)
                 end = len(text) if end < 0 else end
+                depth = 0
+                for k in range(i + m.end(), end):
+                    if text[k] in "([{":
+                        depth += 1
+                    elif text[k] in ")]}":
+                        if depth == 0:
+                            end = k
+                            break
+                        depth -= 1
                 pieces.append(("text", "".join(cur)))
                 cur = []
                 pieces.append(("construct", m.group(1), text[i + m.end():end]))
@@ -190,6 +200,23 @@ def scan_text(text):
         i += 1
     pieces.append(("text", "".join(cur)))
     return pieces
+
+
+def unclosed_construct(line):
+    k = line.find("#{")
+    while k >= 0:
+        depth = 0
+        for j in range(k + 1, len(line)):
+            if line[j] == "{":
+                depth += 1
+            elif line[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+        else:
+            return True
+        k = line.find("#{", j)
+    return False
 
 
 def translate(src):
@@ -226,12 +253,22 @@ def translate(src):
                 body.append(let_define(full))
             elif hs:
                 body.append('fputs(%s, stdout);' % c_string(full.strip() + "\n"))
-            elif d in ("include", "define", "undef") and not stack:
+            elif d in ("include", "define", "undef") and "hs" not in stack:
+                # before main, as hsc2hs puts them, with the C conditionals
+                # around them (X11's #include <X11/extensions/Xinerama.h>
+                # in an #ifdef: inside main its inline functions are not C)
                 top.append(full.strip())
+            elif d in ("if", "ifdef", "ifndef", "elif", "else", "endif") and "hs" not in stack:
+                top.append(full.strip())
+                body.append(full.strip())
             else:
                 body.append(full.strip())
             i += 1
             continue
+        # a construct #{..} may go on over lines (X11's #{enum KeySym, ..})
+        while unclosed_construct(line) and i + 1 < len(lines):
+            i += 1
+            line = line + "\n" + lines[i]
         for p in scan_text(line + ("\n" if i + 1 < len(lines) else "")):
             if p[0] == "text":
                 if p[1]:
