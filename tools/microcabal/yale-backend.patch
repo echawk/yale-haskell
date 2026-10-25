@@ -116,7 +116,7 @@
    \  --no-nightly                  use latest versioned snapshot from stackage instead of nightly\n\
 --- a/MicroCabal/Parse.hs
 +++ b/MicroCabal/Parse.hs
-@@ -15,8 +15,31 @@
+@@ -15,8 +15,38 @@
  --import Debug.Trace
  
  parseCabal :: FilePath -> String -> Cabal
@@ -137,6 +137,13 @@
 +          let (body, rest) = break ((== "}") . trim) ls
 +          in  (ind ++ name ++ ":") : map (\ b -> ind ++ "  " ++ (if null (trim b) then "." else b)) body
 +              ++ go (drop 1 rest)
++      -- braces around a section's or a conditional's body (entropy's
++      -- else { .. }), whose lines are indented anyway: they go
++      | trim l == "}" = go ls
++      | take 1 (trim l) == "}" =   -- } else {
++          go ((takeWhile (== ' ') l ++ dropWhile (== ' ') (drop 1 (dropWhile (== ' ') l))) : ls)
++      | not (null (trim l)), last (trim l) == '{', ':' `notElem` l =
++          reverse (dropWhile (== ' ') (drop 1 (reverse l))) : go ls
 +      | otherwise = l : go ls
 +    braceField l =
 +      let (ind, r) = span (== ' ') l
@@ -149,7 +156,7 @@
  parseYAML :: FilePath -> String -> YAMLValue
  parseYAML fn s =
    case parseYaml s of
-@@ -356,6 +379,7 @@
+@@ -356,6 +386,7 @@
    <|< Section <$> pKeyWordNC "flag"              <*>    pName <*> pFields
    <|< Section <$> pKeyWordNC "test-suite"        <*>    pName <*> pFields
    <|< Section <$> pKeyWordNC "benchmark"         <*>    pName <*> pFields
@@ -157,7 +164,7 @@
    )
    where libName = pName <|< pure ""
  
-@@ -372,6 +396,7 @@
+@@ -372,6 +403,7 @@
    , "autogen-modules"                # pVComma
    , "build-depends"                  # pVLibs
    , "build-tool-depends"             # pVLibs  -- ??? pVComma -- XXX
@@ -165,7 +172,7 @@
    , "build-tools"                    # pVLibs -- XXX
    , "buildable"                      # (VBool <$> pBoolNL)
    , "c-sources"                      # pVOptComma
-@@ -380,6 +405,7 @@
+@@ -380,6 +412,7 @@
    , "cmm-options"                    # pVOptComma
    , "cpp-options"                    # pVOptComma
    , "cxx-options"                    # pVOptComma
