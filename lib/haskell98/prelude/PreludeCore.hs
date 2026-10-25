@@ -152,6 +152,7 @@ class  (Num a) => Fractional a  where
     fromRational	:: Rational -> a
 
     recip x		=  1 / x
+    x / y		=  x * recip y
 
 class  (Fractional a) => Floating a  where
     pi			:: a
