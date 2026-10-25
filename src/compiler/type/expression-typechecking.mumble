@@ -629,6 +629,22 @@
 			 (**var/def var) new-vars object)))
 	  (return-type object1 ntype)))))
 
+;;; Whether a multi-parameter constraint of MPS has CLASS at TYVAR as a
+;;; superclass: the instance's, not the method's own (RegexLike a b's
+;;; Extract b, in regex-base's instance RegexLike a b => RegexContext a b
+;;; (AllTextSubmatches [] b): matchM's dictionary entry took it as its
+;;; own, and a call of matchM with its MonadFail alone was a function).
+(define (mp-context-entails? mps class tyvar)
+  (lisp:some (lambda (m)
+	       (and (class? (tuple-2-1 m))
+		    (lisp:some (lambda (s)
+				 (and (< (tuple-2-2 s) (length (tuple-2-2 m)))
+				      (eq? (prune (list-ref (tuple-2-2 m) (tuple-2-2 s))) tyvar)
+				      (or (eq? (tuple-2-1 s) class)
+					  (memq class (class-super* (tuple-2-1 s))))))
+			       (class-mp-supers (tuple-2-1 m)))))
+	     mps))
+
 ;;; An instance's method in its dictionary, the instance with a
 ;;; multi-parameter context (instance Step t u => Step [t] u): the method
 ;;; takes its dictionaries in its own signature's order, the instance's
@@ -647,9 +663,10 @@
       (type-unify vtype ntype '#f)
       (dolist (vc vcontexts)
 	(dolist (class (cdr vc))
-	  (if (lisp:some (lambda (oc) (and (eq? (prune (car oc)) (prune (car vc)))
-					   (memq class (cdr oc))))
-			 ocontexts)
+	  (if (or (lisp:some (lambda (oc) (and (eq? (prune (car oc)) (prune (car vc)))
+					       (memq class (cdr oc))))
+			     ocontexts)
+		  (mp-context-entails? omps class (prune (car vc))))
 	      (let ((p (**dict-placeholder class (prune (car vc)) (dynamic *enclosing-decls*) object)))
 		(remember-placeholder p)
 		(push p args))
