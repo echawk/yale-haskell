@@ -144,8 +144,8 @@
 						 (car (cadr f))
 						 (lambda (h) (push h helpers))))
 				  (cddr f))))))
-	     ;; (a helper still too big is split in turn)
-	     (append (split-oversized-forms (reverse helpers)) (list new))))
+	     ;; (the helpers are made bottom up, each from code already split)
+	     (append (reverse helpers) (list new))))
 	 (list f)))
    (list f)))
 
@@ -178,6 +178,52 @@
 		   (map (lambda (p) (lisp:format lisp:nil "~A ~A" (car p) (cdr p)))
 			(list-head pairs (min 15 (length pairs))))))))
 
+;;; (case key (k1 e1) .. (kn en) [(otherwise d)]), the ki integers (or
+;;; lists of one), with more than *max-case-clauses* clauses.
+(define *max-case-clauses* 64)
+
+(define (case-clause-key c)
+  (let ((k (car c)))
+    (cond ((integer? k) k)
+	  ((and (pair? k) (integer? (car k)) (null? (cdr k))) (car k))
+	  (else '#f))))
+
+(define (default-clause? c)
+  (memq (car c) '(otherwise lisp:otherwise t lisp:t _)))
+
+(define (splittable-case? x)
+  (let ((clauses (cddr x)))
+    (and (> (length clauses) *max-case-clauses*)
+	 (lisp:every (lambda (c)
+		       (and (pair? c)
+			    (or (case-clause-key c)
+				(and (default-clause? c) (eq? c (car (lisp:last clauses)))))))
+		     clauses))))
+
+;;; (if (< key k) (case key lower..) (case key upper..)), each half with
+;;; the default clause, recursively.
+(define (split-case x)
+  (let* ((key (cadr x))
+	 (clauses (cddr x))
+	 (default (let ((l (car (lisp:last clauses)))) (and (default-clause? l) l)))
+	 (keyed (lisp:sort (lisp:copy-list (if default (lisp:butlast clauses) clauses))
+			   (function <) :key (function case-clause-key))))
+    (if (symbol? key)
+	(split-case-1 (car x) key keyed default)
+	;; (the key evaluated once)
+	(let ((v (gensym "KEY")))
+	  `(let ((,v ,key)) ,(split-case-1 (car x) v keyed default))))))
+
+(define (split-case-1 op key keyed default)
+  (if (<= (length keyed) *max-case-clauses*)
+      `(,op ,key ,@keyed ,@(if default (list default) '()))
+      (let* ((half (quotient (length keyed) 2))
+	     (lower (list-head keyed half))
+	     (upper (list-tail keyed half)))
+	`(if (lisp:< (the lisp:fixnum ,key) ,(case-clause-key (car upper)))
+	     ,(split-case-1 op key lower default)
+	     ,(split-case-1 op key upper default)))))
+
 (define (form-size x)
   (let ((n 0))
     (do ((l x (cdr l))) ((not (pair? l)) n)
@@ -185,17 +231,21 @@
 
 ;;; E lifted into a helper when it is big and liftable, else E walked.
 (define (lift-branch e env fenv name emit . min-size)
-  (if (and (dynamic *lift-branches?*)
-	   (pair? e)
-	   (> (form-size e) (if (null? min-size) *branch-lift-size* (car min-size))))
-      (let ((free (liftable-free-vars e env fenv)))
-	(if (eq? free 'no)
-	    (lift-delays e env fenv name emit)
-	    (let ((helper (string->symbol
-			   (format '#f "~A%lift~A" name (incf *lift-counter*)))))
-	      (funcall emit `(define (,helper ,@free) ,e))
-	      `(,helper ,@free))))
-      (lift-delays e env fenv name emit)))
+  ;; (bottom up: E's own branches and thunks first, so that a chain of
+  ;; nested ifs is lifted a piece at a time, not copied whole at each
+  ;; level)
+  (let ((e (lift-delays e env fenv name emit)))
+    (if (and (dynamic *lift-branches?*)
+	     (pair? e)
+	     (> (form-size e) (if (null? min-size) *branch-lift-size* (car min-size))))
+	(let ((free (liftable-free-vars e env fenv)))
+	  (if (eq? free 'no)
+	      e
+	      (let ((helper (string->symbol
+			     (format '#f "~A%lift~A" name (incf *lift-counter*)))))
+		(funcall emit `(define (,helper ,@free) ,e))
+		`(,helper ,@free))))
+	e)))
 
 (define (lambda-list-vars ll)
   (lisp:remove-if (lambda (x) (or (not (symbol? x))
@@ -222,6 +272,13 @@
 	   ,@(map (lambda (b) (lift-branch b env fenv name emit)) (cddr x))))
 	;; a case's clauses: each body, however small, a function of its
 	;; own, as the clauses of a big dispatch make the code big
+	((and (memq (car x) '(case lisp:case)) (pair? (cdr x))
+	      (dynamic *lift-branches?*)
+	      (splittable-case? x))
+	 ;; a case of many integer keys: a tree of cases of at most
+	 ;; *max-case-clauses* each, which SBCL compiles in far less memory
+	 ;; (a 3000-way case: 15 GB)
+	 (lift-delays (split-case x) env fenv name emit))
 	((and (memq (car x) '(case lisp:case)) (pair? (cdr x)))
 	 `(,(car x) ,(lift-delays (cadr x) env fenv name emit)
 	   ,@(map (lambda (clause)
@@ -233,12 +290,14 @@
 	      (pair? (cddr x)))
 	 `(,(car x) ,(cadr x) ,(lift-branch (caddr x) env fenv name emit)))
 	((and (eq? (car x) 'delay) (pair? (cdr x)))
-	 (let ((free (liftable-free-vars (cadr x) env fenv)))
+	 ;; (its body's own thunks and branches first, bottom up)
+	 (let* ((body (lift-delays (cadr x) env fenv name emit))
+		(free (liftable-free-vars body env fenv)))
 	   (if (eq? free 'no)
-	       `(delay ,(lift-delays (cadr x) env fenv name emit))
+	       `(delay ,body)
 	       (let ((helper (string->symbol
 			      (format '#f "~A%lift~A" name (incf *lift-counter*)))))
-		 (funcall emit `(define (,helper ,@free) (delay ,(cadr x))))
+		 (funcall emit `(define (,helper ,@free) (delay ,body)))
 		 `(,helper ,@free)))))
 	((and (lambda-form? (car x)) (pair? (cdr x)))
 	 `(,(car x) ,(cadr x)
