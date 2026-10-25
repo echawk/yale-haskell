@@ -23,6 +23,9 @@ class (Monoid w, Monad m) => MonadWriter w m | m -> w where
   tell   :: w -> m ()
   listen :: m a -> m (a, w)
   pass   :: m (a, w -> w) -> m a
+  -- mtl's defaults: writer, or tell
+  writer ~(a, w) = tell w >> return a
+  tell w = writer ((), w)
 
 listens :: MonadWriter w m => (w -> b) -> m a -> m (a, b)
 listens f m = listen m >>= \(a, w) -> return (a, f w)

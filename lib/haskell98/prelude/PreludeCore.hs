@@ -126,6 +126,7 @@ class  (Eq a, Show a) => Num a  where
     fromInteger		:: Integer -> a
 
     x - y		=  x + negate y
+    negate x		=  0 - x
 
 class  (Num a, Ord a) => Real a  where
     toRational		::  a -> Rational

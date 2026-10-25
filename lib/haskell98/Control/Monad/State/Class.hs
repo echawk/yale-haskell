@@ -18,6 +18,10 @@ class Monad m => MonadState s m | m -> s where
   get   :: m s
   put   :: s -> m ()
   state :: (s -> (a, s)) -> m a
+  -- mtl's defaults: get and put, or state
+  get = state (\s -> (s, s))
+  put s = state (\_ -> ((), s))
+  state f = get >>= \s -> let ~(a, s') = f s in put s' >> return a
 
 modify :: MonadState s m => (s -> s) -> m ()
 modify f = state (\s -> ((), f s))

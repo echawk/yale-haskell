@@ -19,6 +19,9 @@ class Monad m => MonadReader r m | m -> r where
   ask    :: m r
   local  :: (r -> r) -> m a -> m a
   reader :: (r -> a) -> m a
+  -- mtl's defaults: ask, or reader
+  ask = reader id
+  reader f = ask >>= \r -> return (f r)
 
 asks :: MonadReader r m => (r -> a) -> m a
 asks f = reader f
