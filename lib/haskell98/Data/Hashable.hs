@@ -2,6 +2,7 @@
 -- the common types.  Hashes are FNV-1 style combinations over the 63-bit
 -- Int; they are not hashable's values (which differ between platforms
 -- and versions anyway), only consistent with Eq.
+{-# LANGUAGE DefaultSignatures, FlexibleContexts, TypeOperators #-}
 module Data.Hashable (Hashable(hashWithSalt, hash), defaultSalt, hashUsing) where
 
 import Data.Bits (xor)
@@ -18,6 +19,7 @@ import Numeric.Natural (Natural)
 import Control.Concurrent (ThreadId)
 import Data.Ratio (Ratio, numerator, denominator)
 import Data.Fixed (Fixed(MkFixed))
+import GHC.Generics
 
 infixl 0 `hashWithSalt`
 
@@ -28,6 +30,33 @@ class Hashable a where
   hashWithSalt :: Int -> a -> Int
   hash :: a -> Int
   hash = hashWithSalt defaultSalt
+  -- hashable's: an instance with no methods hashes the type's Generic
+  -- representation (Agda's instance Hashable LibName)
+  default hashWithSalt :: (Generic a, GHashable (Rep a)) => Int -> a -> Int
+  hashWithSalt salt = ghashWithSalt salt . from
+
+class GHashable f where
+  ghashWithSalt :: Int -> f p -> Int
+
+instance GHashable V1 where
+  ghashWithSalt salt _ = salt
+
+instance GHashable U1 where
+  ghashWithSalt salt U1 = salt
+
+instance Hashable c => GHashable (K1 i c) where
+  ghashWithSalt salt (K1 x) = hashWithSalt salt x
+
+instance GHashable f => GHashable (M1 i t f) where
+  ghashWithSalt salt (M1 x) = ghashWithSalt salt x
+
+instance (GHashable f, GHashable g) => GHashable (f :*: g) where
+  ghashWithSalt salt (x :*: y) = ghashWithSalt (ghashWithSalt salt x) y
+
+-- the constructor's index, then its fields
+instance (GHashable f, GHashable g) => GHashable (f :+: g) where
+  ghashWithSalt salt (L1 x) = ghashWithSalt (combine salt 0) x
+  ghashWithSalt salt (R1 y) = ghashWithSalt (combine salt 1) y
 
 -- FNV-1's step (Int arithmetic wraps)
 combine :: Int -> Int -> Int
