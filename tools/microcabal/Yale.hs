@@ -70,6 +70,9 @@ builtinPackages =
     "ghc-boot-th",
     -- GHC.Compact, its regions the values themselves (Agda's Serialise)
     "ghc-compact",
+    -- GHC.Num.Integer and GHC.Num.Natural, as far as the library has
+    -- them (bitvec's, constraints')
+    "ghc-bignum",
     -- Data.FileEmbed in the library (embedFile through Template
     -- Haskell's runIO)
     "file-embed",
