@@ -8,6 +8,7 @@ module Control.Concurrent (
     ThreadId, myThreadId, forkIO, forkFinally, forkIOWithUnmask, forkOS,
     forkOSWithUnmask, forkOnWithUnmask,
     forkOn, killThread, throwTo, yield, threadDelay, getNumCapabilities,
+    threadWaitRead, threadWaitWrite,
     setNumCapabilities, rtsSupportsBoundThreads, isCurrentThreadBound,
     threadCapability, mkWeakThreadId,
     module Control.Concurrent.MVar, module Control.Concurrent.Chan
@@ -20,6 +21,8 @@ import Data.IORef
 import System.IO (hPutStrLn, stderr)
 import System.IO.Unsafe (unsafePerformIO)
 import ParallelPrims (primNumCapabilities)
+import System.Posix.Types (Fd(..))
+import BasePrims (primWaitFd)
 
 newtype ThreadId = ThreadId Int deriving (Eq, Ord)
 
@@ -92,3 +95,10 @@ threadCapability _ = return (0, False)
 
 mkWeakThreadId :: ThreadId -> IO ThreadId
 mkWeakThreadId = return
+
+-- | Block until the descriptor can be read, or written: there is one
+-- Haskell thread (network's non-blocking sockets wait here).
+threadWaitRead, threadWaitWrite :: Fd -> IO ()
+threadWaitRead (Fd n) = primWaitFd (fromIntegral n) True
+threadWaitWrite (Fd n) = primWaitFd (fromIntegral n) False
+

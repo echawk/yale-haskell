@@ -5,7 +5,7 @@ module GHC.Conc (numCapabilities, getNumCapabilities, setNumCapabilities,
                  getNumProcessors, pseq, par, labelThread,
                  STM, atomically, retry, orElse, throwSTM, catchSTM,
                  unsafeIOToSTM, TVar, newTVar, newTVarIO, readTVar,
-                 readTVarIO, writeTVar,
+                 readTVarIO, writeTVar, closeFdWith,
                  module Control.Concurrent) where
 
 import Control.Concurrent
@@ -13,6 +13,7 @@ import Control.Monad.STM
 import Control.Concurrent.STM (TVar, newTVar, newTVarIO, readTVar, readTVarIO, writeTVar)
 import Control.Parallel (par, pseq)
 import System.IO.Unsafe (unsafePerformIO)
+import System.Posix.Types (Fd(..))
 
 numCapabilities :: Int
 numCapabilities = unsafePerformIO getNumCapabilities
@@ -24,3 +25,7 @@ getNumProcessors = return 1
 -- | A name for the thread in GHC's debugging output; none here.
 labelThread :: ThreadId -> String -> IO ()
 labelThread _ _ = return ()
+
+-- | Close a descriptor with the given action; no thread waits on it.
+closeFdWith :: (Fd -> IO ()) -> Fd -> IO ()
+closeFdWith close fd = close fd

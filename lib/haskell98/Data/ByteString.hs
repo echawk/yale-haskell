@@ -6,7 +6,7 @@ module Data.ByteString (
     intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr',
     sort,
     foldr1, concat, concatMap, any, all, maximum, minimum, replicate,
-    unfoldr, take, takeEnd, drop, dropEnd, splitAt, takeWhile,
+    unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, splitAt, takeWhile,
     takeWhileEnd, dropWhile, dropWhileEnd, span, spanEnd, break, breakEnd,
     breakSubstring, group, groupBy, inits, tails, split, splitWith,
     isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, elem,
@@ -112,6 +112,16 @@ replicate n w = C.replicate n (w2c w)
 
 unfoldr :: (a -> Maybe (Word8, a)) -> a -> ByteString
 unfoldr f = C.unfoldr (\s -> fmap (\(w, s') -> (w2c w, s')) (f s))
+
+-- | At most N bytes, and the seed left (Nothing when F ended it).
+unfoldrN :: Int -> (a -> Maybe (Word8, a)) -> a -> (ByteString, Maybe a)
+unfoldrN n f s0 = go n s0 []
+  where
+    go k s acc
+      | k <= 0 = (C.pack (P.reverse acc), Just s)
+      | otherwise = case f s of
+          Nothing -> (C.pack (P.reverse acc), Nothing)
+          Just (w, s') -> go (k - 1) s' (w2c w : acc)
 
 takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, filter
   :: (Word8 -> Bool) -> ByteString -> ByteString

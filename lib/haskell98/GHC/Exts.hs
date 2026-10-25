@@ -8,6 +8,9 @@ module GHC.Exts (
     Int, Word, Char, Double, Float, Constraint, reallyUnsafePtrEquality#,
     Int#, Word#, Double#, Float#, Char#, Addr#, Int8#, Int16#, Int32#,
     Int64#, Word8#, Word16#, Word32#, Word64#,
+    unpackCString#, unpackAppendCString#, unpackFoldrCString#,
+    unpackCStringUtf8#, unpackAppendCStringUtf8#, unpackFoldrCStringUtf8#,
+    unpackNBytes#, cstringLength#,
     addrLit#, indexInt8OffAddr#, indexInt16OffAddr#, indexInt32OffAddr#,
     indexIntOffAddr#, indexWord8OffAddr#, indexWord16OffAddr#,
     indexWord32OffAddr#, indexCharOffAddr#,
@@ -364,3 +367,44 @@ augment g xs = g (:) xs
 -- 1 when the arguments are the same object (after evaluating them)
 reallyUnsafePtrEquality# :: a -> a -> Int#
 reallyUnsafePtrEquality# x y = if primPtrEq x y then 1 else 0
+
+-- GHC.CString's (ghc-prim; GHC.Exts re-exports them, as base >= 4.15
+-- does: unicode-data's): C strings at an Addr#
+cstrBytes :: Addr# -> [Int]
+cstrBytes a = takeWhile (/= 0) [fromIntegral (indexWord8OffAddr# a i) | i <- [0 ..]]
+
+cstringLength# :: Addr# -> Int
+cstringLength# a = length (cstrBytes a)
+
+unpackCString# :: Addr# -> [Char]
+unpackCString# a = map toEnum (cstrBytes a)
+
+unpackAppendCString# :: Addr# -> [Char] -> [Char]
+unpackAppendCString# a rest = unpackCString# a ++ rest
+
+unpackFoldrCString# :: Addr# -> (Char -> b -> b) -> b -> b
+unpackFoldrCString# a f z = foldr f z (unpackCString# a)
+
+unpackCStringUtf8# :: Addr# -> [Char]
+unpackCStringUtf8# a = decodeUtf8 (cstrBytes a)
+
+unpackAppendCStringUtf8# :: Addr# -> [Char] -> [Char]
+unpackAppendCStringUtf8# a rest = unpackCStringUtf8# a ++ rest
+
+unpackFoldrCStringUtf8# :: Addr# -> (Char -> b -> b) -> b -> b
+unpackFoldrCStringUtf8# a f z = foldr f z (unpackCStringUtf8# a)
+
+-- | The first N bytes, as Latin-1 Chars.
+unpackNBytes# :: Addr# -> Int -> [Char]
+unpackNBytes# a n = [toEnum (fromIntegral (indexWord8OffAddr# a i)) | i <- [0 .. n - 1]]
+
+decodeUtf8 :: [Int] -> [Char]
+decodeUtf8 [] = []
+decodeUtf8 (b : bs)
+  | b < 0x80 = toEnum b : decodeUtf8 bs
+  | b < 0xE0, (c : r) <- bs = toEnum (((b .&. 0x1F) `shiftL` 6) .|. (c .&. 0x3F)) : decodeUtf8 r
+  | b < 0xF0, (c : d : r) <- bs =
+      toEnum (((b .&. 0x0F) `shiftL` 12) .|. ((c .&. 0x3F) `shiftL` 6) .|. (d .&. 0x3F)) : decodeUtf8 r
+  | (c : d : e : r) <- bs =
+      toEnum (((b .&. 0x07) `shiftL` 18) .|. ((c .&. 0x3F) `shiftL` 12) .|. ((d .&. 0x3F) `shiftL` 6) .|. (e .&. 0x3F)) : decodeUtf8 r
+  | otherwise = ['\xFFFD']

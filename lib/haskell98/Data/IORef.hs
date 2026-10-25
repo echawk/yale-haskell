@@ -3,10 +3,11 @@
 -- operations are the plain ones.
 module Data.IORef (
     IORef, newIORef, readIORef, writeIORef, modifyIORef, modifyIORef',
-    atomicModifyIORef, atomicModifyIORef', atomicWriteIORef
+    atomicModifyIORef, atomicModifyIORef', atomicWriteIORef, mkWeakIORef
   ) where
 
 import BasePrims
+import System.Mem.Weak (Weak, mkWeak)
 
 newtype IORef a = IORef (Ref a)
 
@@ -53,3 +54,8 @@ atomicWriteIORef = writeIORef
 {-# atomicModifyIORef :: Inline #-}
 {-# atomicModifyIORef' :: Inline #-}
 {-# atomicWriteIORef :: Inline #-}
+
+-- a weak pointer to the reference (its finalizer runs through finalize,
+-- System.Mem.Weak)
+mkWeakIORef :: IORef a -> IO () -> IO (Weak (IORef a))
+mkWeakIORef ref@(IORef r) fin = mkWeak r ref (Just fin)

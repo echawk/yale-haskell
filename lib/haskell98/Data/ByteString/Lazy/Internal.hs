@@ -6,7 +6,8 @@
 {-# LANGUAGE PatternSynonyms, ViewPatterns #-}
 module Data.ByteString.Lazy.Internal (
     ByteString(LBS), pattern Empty, pattern Chunk, chunk,
-    defaultChunkSize, smallChunkSize, chunkOverhead
+    defaultChunkSize, smallChunkSize, chunkOverhead,
+    foldrChunks, foldlChunks, foldlChunks'
   ) where
 
 import qualified Data.ByteString.Rep as S
@@ -62,3 +63,11 @@ defaultChunkSize, smallChunkSize, chunkOverhead :: Int
 defaultChunkSize = 32 * 1024 - chunkOverhead
 smallChunkSize = 4 * 1024 - chunkOverhead
 chunkOverhead = 16
+
+-- over the chunks (here at most one)
+foldrChunks :: (S.ByteString -> a -> a) -> a -> ByteString -> a
+foldrChunks f z (LBS b) = if b == mempty then z else f b z
+
+foldlChunks, foldlChunks' :: (a -> S.ByteString -> a) -> a -> ByteString -> a
+foldlChunks f z (LBS b) = if b == mempty then z else f z b
+foldlChunks' f z (LBS b) = if b == mempty then z else let r = f z b in r `seq` r

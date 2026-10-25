@@ -15,6 +15,14 @@ data Exc
 -- stored unevaluated
 data Ref a
 
+-- a weak pointer (System.Mem.Weak): SBCL's, to an evaluated key
+data WeakObj
+primWeakPtr        :: a -> IO WeakObj
+primWeakAlive      :: WeakObj -> IO Bool
+
+-- wait until a file descriptor can be read (True) or written (False)
+primWaitFd         :: Int -> Bool -> IO ()
+
 primNewRef         :: a -> IO (Ref a)
 primReadRef        :: Ref a -> IO a
 primWriteRef       :: Ref a -> a -> IO ()
@@ -130,6 +138,9 @@ primKnobContents   :: LispName("prim.knob-contents")
 primKnobSet        :: LispName("prim.knob-set")
 primKnobHandle     :: LispName("prim.knob-handle")
 primNewRef         :: LispName("prim.new-ref"), Strictness("N,S")
+primWeakPtr        :: LispName("prim.weak-ptr"), Strictness("S,S")
+primWaitFd         :: LispName("prim.wait-fd"), Strictness("S,S,S")
+primWeakAlive      :: LispName("prim.weak-alive"), Strictness("S,S")
 primReadRef        :: LispName("prim.read-ref")
 primWriteRef       :: LispName("prim.write-ref"), Strictness("S,N,S")
 primRefEq          :: LispName("prim.ref-eq")

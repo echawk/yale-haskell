@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/GHC/IO/Handle/
+:o= all
+FD.hs

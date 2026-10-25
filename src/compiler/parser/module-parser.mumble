@@ -82,13 +82,18 @@
 	    (parse-export-list)))
    (else '())))
 
+;;; type (~) (parse-entity-1), which an export list leaves out.
+(define (equality-entity? e)
+  (and (is-type? 'entity-var e) (eq? (entity-name e) '|%equality|)))
+
 (define (parse-export-list)
-  (let ((entity (parse-entity 'export)))
+  (let* ((entity (parse-entity 'export))
+	 (this   (if (equality-entity? entity) '() (list entity))))
     (token-case
-     (\) (list entity))
+     (\) this)
      (\, (if (eq-token? '\))
-	     (begin (advance-token) (list entity))   ; H98: a trailing comma
-	     (cons entity (parse-export-list))))
+	     (begin (advance-token) this)   ; H98: a trailing comma
+	     (append this (parse-export-list))))
      (else (signal-missing-token "`)' or ','" "export list")))))
 
 (define (parse-modules/named mod-name exports)
@@ -703,7 +708,14 @@
     ;; (constructor); an operator is the type operator (type-parser.mumble)
     (|type|
      (token-case
-      (\( (if (memq *token* '(consym varsym))
+      (\( (cond
+	    ((eq-token? '\~)
+	     ;; type (~): the equality, built in (base-compat's export
+	     ;; for base >= 4.17); the export list leaves it out
+	     (advance-token)
+	     (require-token \) (signal-missing-token "`)'" "type operator entity"))
+	     (make entity-var (name '|%equality|)))
+	    ((memq *token* '(consym varsym))
 	      ;; (token->symbol advances past the operator)
 	      (let ((name (if (eq? *token* 'varsym)
 			      (let ((n (string->symbol
@@ -712,8 +724,8 @@
 				n)
 			      (token->symbol))))
 		(require-token \) (signal-missing-token "`)'" "type operator entity"))
-		(make entity-con (name name)))
-	      (signal-invalid-syntax "an entity")))
+		(make entity-con (name name))))
+	    (else (signal-invalid-syntax "an entity"))))
       (else (parse-entity context))))
     ;; Haskell 98: `module M' (Haskell 1.2 wrote M..), in an export list
     (|module|

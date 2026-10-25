@@ -12,6 +12,18 @@
 
 (cl:defun prim.ref-eq (a b) (cl:eq a b))
 
+;;; GHC.Conc's threadWaitRead and threadWaitWrite: there is one Haskell
+;;; thread, so they block until the descriptor is ready (network's
+;;; non-blocking sockets).
+(cl:defun prim.wait-fd (fd read?)
+  (sb-sys:wait-until-fd-usable fd (cl:if read? :input :output))
+  cl:nil)
+
+;;; Weak pointers (System.Mem.Weak): whether the key is still alive.
+(cl:defun prim.weak-ptr (key) (sb-ext:make-weak-pointer key))
+(cl:defun prim.weak-alive (w)
+  (cl:nth-value 1 (sb-ext:weak-pointer-value w)))
+
 ;;; Mutable arrays (Data.Array.Base): simple vectors of unevaluated values,
 ;;; or, for an unboxed (element-strict) array whose newArray value is a
 ;;; Bool, a bit vector (see prim.vector-sel in array-prims.mumble).  Of

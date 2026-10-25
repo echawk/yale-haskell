@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/GHC/IO/
+:o= all
+Device.hs
