@@ -462,11 +462,101 @@
       ;; (with IEEE float semantics, as the program runs: the Lisp
       ;; compiler folds a constant 0.0 / 0.0 to NaN, Agda's nan)
       #+sbcl
-      (sb-int:with-float-traps-masked (:overflow :invalid :divide-by-zero :inexact)
-	(compile-file (dynamic *magic-file-to-compile*) temp))
+      (let ((free   '())
+	    (wrong  '())
+	    (other  '()))
+	(lisp:handler-bind ((lisp:warning
+			     (lambda (c)
+			       (let ((v  (undefined-local-variable c)))
+				 (cond (v
+					(push v free)
+					(lisp:muffle-warning c))
+				       ((wrong-argument-count-warning? c)
+					(push (lisp:princ-to-string c) wrong)
+					(lisp:muffle-warning c))
+				       ((reportable-lisp-warning? c)
+					(push (lisp:princ-to-string c) other)
+					(lisp:muffle-warning c)))))))
+	  (sb-int:with-float-traps-masked (:overflow :invalid :divide-by-zero :inexact)
+	    (compile-file (dynamic *magic-file-to-compile*) temp)))
+	(dolist (m (reverse other))
+	  (signal-lisp-warning m))
+	(when (or (not (null? free)) (not (null? wrong)))
+	  (lisp:ignore-errors (lisp:delete-file temp))
+	  (signal-bad-generated-code free (reverse wrong) code)))
       #-sbcl
       (compile-file (dynamic *magic-file-to-compile*) temp)
       (rename-file-replacing temp filename))))
+
+;;; SBCL's full warnings about the generated code.  Two mean the code is
+;;; wrong, the compiler's error, so they stop the compilation here:
+;;;  - a local variable codegen made (an uninterned symbol) used outside
+;;;    the form that binds it: SBCL compiles it as an undefined special
+;;;    variable, which at safety 0 reads as its unbound marker, and the
+;;;    program faults later far away (a dictionary variable outside its
+;;;    lambda: Agda's insertMetaVar before 9dc4bb4);
+;;;  - a call with the wrong number of arguments.
+;;; Any other is reported as a warning naming it, except a constant
+;;; folding's division by zero (the program's own x `div` 0, which
+;;; raises its exception when run).
+
+#+sbcl
+(define (undefined-local-variable c)
+  (let ((args  (and (lisp:typep c 'lisp:simple-condition)
+		    (lisp:simple-condition-format-arguments c))))
+    (and (pair? args)
+	 (eq? (car args) ':variable)
+	 (pair? (cdr args))
+	 (symbol? (cadr args))
+	 (lisp:null (lisp:symbol-package (cadr args)))
+	 (cadr args))))
+
+#+sbcl
+(define (wrong-argument-count-warning? c)
+  (and (lisp:typep c 'lisp:simple-condition)
+       (lisp:search "is called with"
+		    (lisp:princ-to-string (lisp:simple-condition-format-control c)))))
+
+#+sbcl
+(define (reportable-lisp-warning? c)
+  (and (not (lisp:typep c 'lisp:style-warning))
+       (not (lisp:typep c 'sb-ext:compiler-note))
+       (not (string=? (lisp:princ-to-string c) "division by zero"))))
+
+(define (signal-lisp-warning message)
+  (dynamic-let ((*phase* 'lisp-compile))
+    (haskell-warning 'lisp-compile-warning
+      "The Lisp compiler warns about the generated code: ~A" message)))
+
+(define (signal-bad-generated-code vars wrong code)
+  (dynamic-let ((*phase* 'lisp-compile))
+    (fatal-error 'bad-generated-code
+      "Internal error: the generated code is wrong.~%~A~A"
+      (if (null? vars)
+	  ""
+	  (lisp:format '#f "It uses ~{~A~^, ~} outside the form binding it (in ~{~A~^, ~}).~%"
+		  vars
+		  (lisp:remove-duplicates
+		   (map (lambda (v) (top-level-form-name-using v code)) vars))))
+      (if (null? wrong)
+	  ""
+	  (lisp:format '#f "It calls a function with the wrong number of arguments: ~{~A~^; ~}.~%"
+		  wrong)))))
+
+;;; The name of the top-level definition in CODE that mentions VAR.
+(define (top-level-form-name-using var code)
+  (let ((form  (lisp:find-if (lambda (f) (tree-mentions? var f))
+			     (flatten-forms code))))
+    (cond ((not (pair? form)) "?")
+	  ((and (pair? (cdr form)) (pair? (cadr form))) (car (cadr form)))
+	  ((pair? (cdr form)) (cadr form))
+	  (else (car form)))))
+
+(define (tree-mentions? var tree)
+  (cond ((eq? tree var) '#t)
+	((pair? tree) (or (tree-mentions? var (car tree))
+			  (tree-mentions? var (cdr tree))))
+	(else '#f)))
 
 (define-syntax (magic-form-to-compile)
   (dynamic *form-to-compile*))
