@@ -34,12 +34,19 @@ class Monad m => MArray a e m where
   unsafeNewArray_ :: Ix i => (i, i) -> m (a i e)
   unsafeRead      :: Ix i => a i e -> Int -> m e
   unsafeWrite     :: Ix i => a i e -> Int -> e -> m ()
-  -- the representation, for freeze and thaw (not exported)
+  -- the representation, for freeze and thaw (not exported): an array
+  -- type of this module's is a vector; another's (STMonadTrans's
+  -- STArray over STT) is frozen and thawed element by element
+  arrNative       :: a i e -> m Bool          -- the array: only its type
   arrVector       :: a i e -> m (MutArr e)
   arrFromVector   :: (i, i) -> Int -> MutArr e -> m (a i e)
   arrIO           :: a i e -> IO x -> m x     -- the array: only its type
 
   getNumElements a = getBounds a >>= \b -> return (rangeSize b)
+  arrNative _ = return False
+  arrVector _ = error "MArray: arrVector"
+  arrFromVector _ _ _ = error "MArray: arrFromVector"
+  arrIO _ = error "MArray: arrIO"
   newArray_ b = newArray b arrEleBottom
   unsafeNewArray_ b = newArray b arrEleBottom
 
@@ -66,6 +73,7 @@ instance MArray (STArray s) e (ST s) where
   arrVector (STArray _ _ v) = return v
   arrFromVector b n v = return (STArray b n v)
   arrIO _ = unsafeIOToST
+  arrNative _ = return True
   getBounds (STArray b _ _) = return b
   newArray b x = unsafeIOToST (let n = rangeSize b in
                                primNewMutArr n x >>= \v -> return (STArray b n v))
@@ -79,6 +87,7 @@ instance MArray (STUArray s) e (ST s) where
   arrVector (STUArray _ _ v) = return v
   arrFromVector b n v = return (STUArray b n v)
   arrIO _ = unsafeIOToST
+  arrNative _ = return True
   getBounds (STUArray b _ _) = return b
   newArray b x = x `seq` unsafeIOToST (let n = rangeSize b in
                                        primNewUMutArr n x >>= \v -> return (STUArray b n v))
@@ -95,6 +104,7 @@ instance MArray IOUArray e IO where
   arrVector (IOUArray _ _ v) = return v
   arrFromVector b n v = return (IOUArray b n v)
   arrIO _ = id
+  arrNative _ = return True
   getBounds (IOUArray b _ _) = return b
   newArray b x = x `seq` (let n = rangeSize b in
                           primNewUMutArr n x >>= \v -> return (IOUArray b n v))
@@ -111,6 +121,7 @@ instance MArray IOArray e IO where
   arrVector (IOArray _ _ v) = return v
   arrFromVector b n v = return (IOArray b n v)
   arrIO _ = id
+  arrNative _ = return True
   getBounds (IOArray b _ _) = return b
   newArray b x = let n = rangeSize b in
                  primNewMutArr n x >>= \v -> return (IOArray b n v)
@@ -153,23 +164,37 @@ mapArray f a = getBounds a >>= \b -> getElems a >>= \xs -> newListArray b (map f
 -- Array's vector holds the same values as a mutable array's (BasePrims):
 -- freezing and thawing copy it, the unsafe versions share it
 freeze :: (Ix i, MArray a e m) => a i e -> m (Array i e)
-freeze a = getBounds a >>= \b -> arrVector a >>= \v -> arrIO a (primCopyMutArrToArray b v)
+freeze a = arrNative a >>= \native ->
+  if native
+    then getBounds a >>= \b -> arrVector a >>= \v -> arrIO a (primCopyMutArrToArray b v)
+    else getBounds a >>= \b -> getElems a >>= \xs -> return (listArray b xs)
 
 unsafeFreeze :: (Ix i, MArray a e m) => a i e -> m (Array i e)
-unsafeFreeze a = getBounds a >>= \b -> arrVector a >>= \v -> return (primMutArrToArray b v)
+unsafeFreeze a = arrNative a >>= \native ->
+  if native
+    then getBounds a >>= \b -> arrVector a >>= \v -> return (primMutArrToArray b v)
+    else freeze a
 
 thaw :: (Ix i, MArray a e m) => Array i e -> m (a i e)
 thaw arr = result
   where b = bounds arr
-        result = arrIO (resultArray result) (primCopyArrayToMutArr arr) >>= \v ->
+        result = arrNative (resultArray result) >>= \native ->
+          if native
+            then arrIO (resultArray result) (primCopyArrayToMutArr arr) >>= \v ->
                  arrFromVector b (rangeSize b) v
+            else newListArray b (elems arr)
 
 -- only its type is used (arrIO)
 resultArray :: m x -> x
 resultArray _ = error "resultArray"
 
 unsafeThaw :: (Ix i, MArray a e m) => Array i e -> m (a i e)
-unsafeThaw arr = let b = bounds arr in arrFromVector b (rangeSize b) (primArrayToMutArr arr)
+unsafeThaw arr = result
+  where b = bounds arr
+        result = arrNative (resultArray result) >>= \native ->
+          if native
+            then arrFromVector b (rangeSize b) (primArrayToMutArr arr)
+            else thaw arr
 
 runSTArray :: Ix i => ST s (STArray s i e) -> Array i e
 runSTArray st = runST (st >>= unsafeFreeze)
