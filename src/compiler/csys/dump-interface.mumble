@@ -868,6 +868,10 @@
   (setf (instance-head-args inst) head-args)
   inst)
 
+(define (set-instance-newtype-of inst algdata class)
+  (setf (instance-newtype-of inst) (lookup-instance algdata class))
+  inst)
+
 (define (set-instance-mp-slots inst mp-types mcontext)
   (setf (instance-mp-types inst) mp-types)
   (setf (instance-mcontext inst) mcontext)
@@ -1349,6 +1353,15 @@
     (when (not (null? (instance-head-args o)))
       (setf code `(set-instance-head-args ,code
 					  ,(dump-object (instance-head-args o)))))
+    ;; a newtype-derived instance's dictionary is its underlying type's
+    ;; (dict-ref-code casts it: Agda's HasFresh ProblemId, its Enum
+    ;; superclass's a Nat's dictionary)
+    (let ((under  (instance-newtype-of o)))
+      (when (and under (instance-algdata under))
+	(setf code `(set-instance-newtype-of
+		     ,code
+		     ,(dump-object (instance-algdata under))
+		     ,(dump-object (instance-class under))))))
     (if (and (null? (instance-mp-types o)) (null? (instance-mcontext o)))
 	code
 	;; an instance of a multi-parameter class, or with multi-parameter
