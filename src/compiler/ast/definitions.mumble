@@ -279,5 +279,9 @@
    ;; a standalone deriving's declared context is its context, not one
    ;; inferred from the fields (derived/derived-instances.mumble)
    (declared-context? (type bool) (bit #t) (default #f))
+   ;; its head's repeated variables came from equalities (instance-decl's
+   ;; head-equalities?): a use matches them as distinct variables and then
+   ;; unifies what they matched (type/mp-classes.mumble)
+   (head-equalities? (type bool) (bit #t) (default #f))
    ))
 

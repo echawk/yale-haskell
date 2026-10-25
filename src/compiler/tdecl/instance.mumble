@@ -98,7 +98,8 @@
 (define (mp-instance->def inst-decl)
  (recover-errors '#f
   (remember-context inst-decl
-    (with-slots instance-decl (context class types decls mcontext newtype-derived?) inst-decl
+    (with-slots instance-decl (context class types decls mcontext newtype-derived?
+			       head-equalities?) inst-decl
       (dolist (ty types)
 	(resolve-type-1 ty '() '#t))
       (resolve-class class)
@@ -120,6 +121,7 @@
 		     (identical-instance-heads? (instance-mp-types old) types))
 	    (signal-multiple-mp-instance class-def)))
 	(let ((inst (new-mp-instance class-def types tyvars)))
+	  (setf (instance-head-equalities? inst) head-equalities?)
 	  (setf (instance-context inst) context)
 	  (setf (instance-mcontext inst) mcontext)
 	  (setf (instance-decls inst)

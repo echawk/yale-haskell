@@ -146,22 +146,42 @@
 	   (reduce-mp-type (apply-ntype (prune (ntyapp-fun type)) (ntyapp-args type))))
 	  (else type))))
 
+;;; An instance whose head's repeated variables came from equalities in its
+;;; context (instance (a~b, a~c) => Each (a,b,c) ..: microlens', its head
+;;; Each (a,a,a) here) matches as GHC's general head does: a variable met
+;;; again may match another type when one of the two is a variable yet,
+;;; and the chosen instance's pairs are then unified.
+(define *head-equalities?* '#f)
+(define *head-unifications* '())
+
 (define (find-mp-instance-1 instances positions types)
   ;; of the instances whose heads match, the most specific (OVERLAPPING:
   ;; the most type constructors in its head)
-  (let ((best '#f) (best-n -1))
+  (let ((best '#f) (best-n -1) (best-unify '()))
     (dolist (inst instances)
-      (let ((bindings (and (instance-ok? inst)
-			   (not (null? (instance-mp-types inst)))
-			   ;; (bindings start non-empty: '() is #f)
-			   (match-mp-head positions (instance-mp-types inst)
-					  types (list (tuple '|%none| '|%none|))))))
-	(when (not (eq? bindings '#f))
-	  (let ((n (head-specificity (instance-mp-types inst))))
-	    (when (> n best-n)
-	      (setf best (tuple inst bindings))
-	      (setf best-n n))))))
+      (dynamic-let ((*head-equalities?* (instance-head-equalities? inst))
+		    (*head-unifications* '()))
+	(let ((bindings (and (instance-ok? inst)
+			     (not (null? (instance-mp-types inst)))
+			     ;; (bindings start non-empty: '() is #f)
+			     (match-mp-head positions (instance-mp-types inst)
+					    types (list (tuple '|%none| '|%none|))))))
+	  (when (not (eq? bindings '#f))
+	    (let ((n (head-specificity (instance-mp-types inst))))
+	      (when (> n best-n)
+		(setf best (tuple inst bindings))
+		(setf best-unify (dynamic *head-unifications*))
+		(setf best-n n)))))))
+    (dolist (u best-unify)
+      (type-unify (car u) (cdr u) '#f))
     best))
+
+;;; Whether A and B, a repeated head variable's two matches, may be made
+;;; equal (*head-equalities?*); the pair is kept for unifying.
+(define (head-equality-match? a b)
+  (and (dynamic *head-equalities?*)
+       (or (ntyvar? (prune a)) (ntyvar? (prune b)))
+       (begin (push (cons a b) (dynamic *head-unifications*)) '#t)))
 
 ;;; (a repeated variable counts too: (K1 i a) a is more specific than
 ;;; (K1 i a) b)
@@ -224,6 +244,7 @@
 	   (let ((old (assq pattern env)))
 	     (cond ((eq? old '#f) (cons (tuple pattern type) env))
 		   ((mp-type-equal? (tuple-2-2 old) type) env)
+		   ((head-equality-match? (tuple-2-2 old) type) env)
 		   (else '#f))))
 	  ((ntycon? pattern)
 	   (let ((pattern (expand-ntype-synonym pattern))
@@ -276,6 +297,7 @@
   (let ((old (assq sym bindings)))
     (cond ((eq? old '#f) (cons (tuple sym type) bindings))
 	  ((mp-type-equal? (tuple-2-2 old) type) bindings)
+	  ((head-equality-match? (tuple-2-2 old) type) bindings)
 	  (else '#f))))
 
 ;;; An AST type as an ntype, its tyvars by BINDINGS; unbound tyvars get

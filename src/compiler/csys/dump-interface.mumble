@@ -868,6 +868,10 @@
   (setf (instance-head-args inst) head-args)
   inst)
 
+(define (set-instance-head-equalities inst)
+  (setf (instance-head-equalities? inst) '#t)
+  inst)
+
 (define (set-instance-newtype-of inst algdata class)
   (setf (instance-newtype-of inst) (lookup-instance algdata class))
   inst)
@@ -1356,6 +1360,8 @@
     ;; a newtype-derived instance's dictionary is its underlying type's
     ;; (dict-ref-code casts it: Agda's HasFresh ProblemId, its Enum
     ;; superclass's a Nat's dictionary)
+    (when (instance-head-equalities? o)
+      (setf code `(set-instance-head-equalities ,code)))
     (let ((under  (instance-newtype-of o)))
       (when (and under (instance-algdata under))
 	(setf code `(set-instance-newtype-of

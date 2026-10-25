@@ -210,6 +210,9 @@
    ;; instance C i (N f)): its methods are the field type's, coerced
    ;; (tdecl/instance.mumble's mp-newtype-method-decls)
    (newtype-derived? (type bool) (default '#f))
+   ;; its head's repeated variables came from equalities in its context
+   ;; (instance (a~b) => Each (a,b) ..): matched as distinct, then equal
+   (head-equalities? (type bool) (default '#f))
    ))
 
 

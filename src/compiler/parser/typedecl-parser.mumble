@@ -638,7 +638,8 @@
       (let* ((class (class->ast))
 	     ;; one atype, or several for a multi-parameter class
 	     (types (if (haskell98?) (parse-atype-list) (list (parse-type))))
-	     (simple '#f))
+	     (simple '#f)
+	     (head-equalities? (and (not (null? equalities)) (not (null? (cdr types))))))
 	;; equality constraints (instance a ~ Char => IsString [a])
 	(when (and (not (null? equalities)) (not (null? types)))
 	  (mlet (((c m ts) (apply-equalities/instance equalities contexts mcontexts types)))
@@ -693,7 +694,8 @@
 	(make instance-decl (context contexts) (class class)
 	                    (simple (or simple (car types))) (decls decls)
 			    (types (if simple '() types))
-			    (mcontext mcontexts))))
+			    (mcontext mcontexts)
+			    (head-equalities? head-equalities?))))
      (else (signal-missing-token "<tycon>" "instance declaration"))))))
 ;;; TypeFamilies (GHC), type/families.mumble.  The declarations go on
 ;;; these lists, which wrapup-module (module-parser.mumble) moves into the
