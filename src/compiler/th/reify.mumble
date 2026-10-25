@@ -276,7 +276,7 @@
 	 (reify-apply (reify-ast-type (tyapp-fun ty))
 		      (map (function reify-ast-type) (tyapp-args ty))))
 	((tycon? ty)
-	 (let ((def (tycon-def ty)))
+	 (let ((def (reify-resolve-tycon ty)))
 	   (reify-apply
 	    (if (or (eq? def *undefined-def*) (not def))
 		(let ((name (symbol->string (tycon-name ty))))
@@ -290,6 +290,27 @@
 	    (map (function reify-ast-type) (tycon-args ty)))))
 	((forall-type? ty) (reify-ast-type (forall-type-type ty)))
 	(else "(var \"t\")")))
+
+;;; An unresolved type constructor of the splicing module's declarations,
+;;; through the module's imports when it can be (pandoc-types' Meta's
+;;; M.Map Text MetaValue, which aeson's deriveJSON then reifies as
+;;; Data.Map's Map), else unresolved: a type of the module itself.
+(define (reify-resolve-tycon ty)
+  (let ((def (tycon-def ty)))
+    (if (and (or (eq? def *undefined-def*) (not def))
+	     ;; (a qualified name: an unqualified one stays as written)
+	     (lisp:find #\. (symbol->string (tycon-name ty))))
+	(let* ((frag (dynamic *splice-fragment*))
+	       (r (and frag
+		       (walk-modules (list frag)
+			 (lambda () (resolve-toplevel-name (tycon-name ty)))))))
+	  (if (and r (not (eq? r *undefined-def*)) (or (algdata? r) (synonym? r))
+		   ;; (another module's: one of this module's is reified by
+		   ;; its declaration)
+		   (def-module r) (not (eq? (def-module r) *module-name*)))
+	      r
+	      def))
+	def)))
 
 ;;; The module whose splice runs: its types, constructors and synonyms,
 ;;; from their declarations.

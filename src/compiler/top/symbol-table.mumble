@@ -39,13 +39,16 @@
 ;;;      table.  The fixity table is also placed in a global.
 
 (define (walk-modules mods fn)
-  (dolist (mod mods)
-    (dynamic-let ((*module* mod)
-		  (*module-name* (module-name mod))
-		  (*symbol-table* (module-symbol-table mod))
-		  (*fixity-table* (module-fixity-table mod))
-		  (*inverted-symbol-table* (module-inverted-symbol-table mod)))
-       (funcall fn))))
+  ;; (the last call's value: th/reify.mumble looks a name up this way)
+  (let ((result '#f))
+    (dolist (mod mods)
+      (dynamic-let ((*module* mod)
+		    (*module-name* (module-name mod))
+		    (*symbol-table* (module-symbol-table mod))
+		    (*fixity-table* (module-fixity-table mod))
+		    (*inverted-symbol-table* (module-inverted-symbol-table mod)))
+	(setf result (funcall fn))))
+    result))
 
 ;;; create-definition makes a new definition object 
 
