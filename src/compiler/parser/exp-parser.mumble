@@ -241,15 +241,22 @@
   (token-case
     ;; an empty alternative (H98 3.13)
     (\; (parse-alts in-layout?))
-    (pat-start
-     (let ((alt (parse-alt)))
-       (token-case
-	(\; (cons alt (parse-alts in-layout?)))
-	(else (close-layout in-layout?)
-	      (list alt)))))
+    (pat-start (parse-alts-1 in-layout?))
+    ;; BangPatterns: !x -> e (unicode-data's !c' ->)
+    ((no-advance satisfies bang-start?) (parse-alts-1 in-layout?))
     (else
      (close-layout in-layout?)
      '())))
+
+(define (parse-alts-1 in-layout?)
+  (let ((alt (parse-alt)))
+    (token-case
+     (\; (cons alt (parse-alts in-layout?)))
+     (else (close-layout in-layout?)
+	   (list alt)))))
+
+(define (bang-start?)
+  (and (eq-token? 'varsym) (string=? (car *token-args*) "!")))
 
 (define (parse-alt)
  (trace-parser alt
@@ -736,7 +743,8 @@
 	 (decls (parse-decl-list)))
     (token-case
      (|in| (let* ((body (parse-exp))
-		  (let-exp (make let (decls decls) (body body)))
+		  ;; (let ?x = e in .., a statement: an ip-let)
+		  (let-exp (ip-let-or-let decls body))
 		  (qual (make qual-filter (exp let-exp))))
 	     (setf (ast-node-line-number let-exp) line)
 	     (setf (ast-node-line-number qual) line)

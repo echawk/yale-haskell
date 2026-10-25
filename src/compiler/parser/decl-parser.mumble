@@ -379,14 +379,21 @@
 ;;; = it is a default instance, which is not used.
 (define (parse-associated-type)
   (if (associated-default-follows?)
-      (begin (parse-btype)
+      (begin (skip-type-instance-keyword)
+	     (parse-btype)
 	     (require-token = (signal-missing-token "`='" "type default"))
 	     (parse-type))
       (parse-type-family-decl)))
 
+;;; A class's default type instance F a = t may say type instance (barbies'
+;;; GenericN, as GHC allows); instance is a keyword.
+(define (skip-type-instance-keyword)
+  (when (or (eq-token? '|instance|) (at-varid-named? "instance"))
+    (advance-token)))
+
 (define (associated-default-follows?)
   (let* ((saved (save-scanner-state))
-	 (res (begin (when (at-varid-named? "instance") (advance-token))
+	 (res (begin (skip-type-instance-keyword)
 		     (parse-btype)
 		     ;; (not = r | r -> a: TypeFamilyDependencies' result,
 		     ;; nonempty-containers' type NE s = t | t -> s)

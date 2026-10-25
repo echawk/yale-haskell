@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds, FlexibleInstances, MultiParamTypeClasses #-}
 -- GHC.Stack (base).  Yale Haskell keeps no call stacks: HasCallStack is
 -- the empty constraint (a synonym of (), which a context drops:
 -- util/signature.mumble's trivial-constraint?), and every CallStack is
@@ -11,6 +12,7 @@ module GHC.Stack (
   ) where
 
 import Data.List (intercalate)
+import PreludeModern (IP(..))
 
 type HasCallStack = ()
 
@@ -31,6 +33,11 @@ data SrcLoc = SrcLoc
 
 callStack :: CallStack
 callStack = EmptyCallStack
+
+-- ?callStack, which GHC gives a function with HasCallStack (ImplicitParams:
+-- safe-exceptions' throwString): the empty stack
+instance IP "callStack" CallStack where
+  ip = EmptyCallStack
 
 emptyCallStack :: CallStack
 emptyCallStack = EmptyCallStack

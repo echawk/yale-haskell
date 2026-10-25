@@ -574,7 +574,11 @@
 
 (define (parse-import-hiding set-specs)
   (require-token \( (signal-missing-token "`('" "hiding clause"))
-  (funcall set-specs (parse-import-list)))
+  ;; (Haskell 98: hiding () hides nothing, base-compat's for a base whose
+  ;; Prelude has nothing to hide)
+  (if (eq-token? '\))
+      (begin (advance-token) (funcall set-specs '()))
+      (funcall set-specs (parse-import-list))))
 
 ;;; `qualified' and `as' are ordinary identifiers except in these places.
 ;;; The scanner is at `qualified' / after the module name.
