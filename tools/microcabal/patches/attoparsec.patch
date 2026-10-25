@@ -1,0 +1,74 @@
+attoparsec: Data.Attoparsec.Text.Buffer over Yale Haskell's Text, a string of Chars.
+diff -ruN a/Data/Attoparsec/Text/Buffer.hs b/Data/Attoparsec/Text/Buffer.hs
+--- a/Data/Attoparsec/Text/Buffer.hs	2026-10-25 17:09:07
++++ b/Data/Attoparsec/Text/Buffer.hs	2026-10-25 17:09:07
+@@ -38,6 +38,63 @@
+     , dropCodeUnits
+     ) where
+ 
++#ifdef __YALE_HASKELL__
++-- Yale Haskell: a Text is a string of Chars, not an array of code
++-- units, so the buffer is the Text it holds and a code unit is a Char
++-- (every offset comes from this module's functions).
++import Data.List (foldl1')
++import Data.Monoid as Mon (Monoid(..))
++import Data.Semigroup (Semigroup(..))
++import qualified Data.Text as T
++import Data.Text (Text)
++import Data.Text.Unsafe (Iter(..))
++import Prelude hiding (length)
++
++newtype Buffer = Buf Text
++
++instance Show Buffer where
++    showsPrec p = showsPrec p . unbuffer
++
++buffer :: Text -> Buffer
++buffer = Buf
++
++unbuffer :: Buffer -> Text
++unbuffer (Buf t) = t
++
++unbufferAt :: Int -> Buffer -> Text
++unbufferAt s (Buf t) = T.drop s t
++
++instance Semigroup Buffer where
++    Buf a <> Buf b = Buf (a `T.append` b)
++
++instance Monoid Buffer where
++    mempty = Buf T.empty
++    mappend = (<>)
++    mconcat [] = Mon.mempty
++    mconcat xs = foldl1' (<>) xs
++
++pappend :: Buffer -> Text -> Buffer
++pappend (Buf a) t = Buf (a `T.append` t)
++
++length :: Buffer -> Int
++length (Buf t) = T.length t
++
++substring :: Int -> Int -> Buffer -> Text
++substring s l (Buf t) = T.take l (T.drop s t)
++
++lengthCodeUnits :: Text -> Int
++lengthCodeUnits = T.length
++
++dropCodeUnits :: Int -> Buffer -> Text
++dropCodeUnits s (Buf t) = T.drop s t
++
++iter :: Buffer -> Int -> Iter
++iter (Buf t) i = Iter (T.index t i) 1
++
++iter_ :: Buffer -> Int -> Int
++iter_ _ _ = 1
++#else
++
+ import Control.Exception (assert)
+ import Data.List (foldl1')
+ import Data.Monoid as Mon (Monoid(..))
+@@ -232,4 +289,5 @@
+   case writeIntArray# (A.maBA a) 0# gen# s0# of
+     s1# -> (# s1#, () #)
+ 
++#endif
+ #endif
