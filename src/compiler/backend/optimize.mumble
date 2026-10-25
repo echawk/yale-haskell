@@ -462,10 +462,12 @@
 	      (strict-last-binding-floatable? bindings (flic-let-body object)))
 	 ;; let v = (let bs in e) in seq v b  =>  let bs; v = e in seq v b
 	 ;; let v = seq x e in seq v b        =>  seq x (let v = e in seq v b)
+	 ;; (or a case on v in place of seq v b).
 	 ;; v is evaluated first, so this changes neither what is evaluated
 	 ;; nor in what order; what v's value hid (a pair built after a
-	 ;; seq, State's step) is then in reach of seq-constructor and the
-	 ;; selector folds.
+	 ;; seq, State's step; a stream step's Yield, vector's indexed) is
+	 ;; then in reach of seq-constructor, the selector folds and the
+	 ;; constructor test's.
 	 (let* ((v     (car (last bindings)))
 		(val   (var-value v))
 		(outer (butlast bindings)))
@@ -2056,15 +2058,29 @@
 ;;; and v's value a non-recursive let or a seq.
 (define (strict-last-binding-floatable? bindings body)
   (and (pair? bindings)
-       (seq-app? body)
-       (let ((first  (car (flic-app-args body)))
+       (let ((first  (first-forced-exp body))
 	     (v      (car (last bindings))))
-	 (and (is-type? 'flic-ref first)
+	 (and first
+	      (is-type? 'flic-ref first)
 	      (eq? (flic-ref-var first) v)
 	      (let ((val  (var-value v)))
 		(or (and (is-type? 'flic-let val)
 			 (not (flic-let-recursive? val)))
 		    (seq-app? val)))))))
+
+;;; The expression BODY evaluates first: x in seq x b, or in a case on x
+;;; (if is-constructor/K x ..., the test on a constructor's number).
+
+(define (first-forced-exp body)
+  (cond ((seq-app? body) (car (flic-app-args body)))
+	((is-type? 'flic-if body)
+	 (let ((test  (flic-if-test-exp body)))
+	   (cond ((is-type? 'flic-is-constructor test)
+		  (flic-is-constructor-exp test))
+		 ((is-type? 'flic-con-number test)
+		  (flic-con-number-exp test))
+		 (else '#f))))
+	(else '#f)))
 
 ;;; Float-in of a let into the branches of the if that is its body (GHC's
 ;;; FloatIn, here with copying: an if has two branches and the binding is
