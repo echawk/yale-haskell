@@ -1,0 +1,2 @@
+Many [Str "a",Space,Str "b"]
+Many [Para [],Para [Space]]

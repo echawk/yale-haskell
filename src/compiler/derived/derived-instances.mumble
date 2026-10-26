@@ -99,8 +99,24 @@
 		 ;; deriving instance C S, S = T Term: the instance at T Term,
 		 ;; as GHC's (Agda's Ord Level, Level = Level' Term, whose
 		 ;; PlusLevel's Ord is for PlusLevel' Term only)
-		 (let ((before insts))
-		   (setf insts (derive-instance alg (class-ref-class class-ref) insts))
+		 (let ((before insts)
+		       (modules-before (module-instance-defs *module*)))
+		   (dynamic-let ((*standalone-head-args* (synonym-head-args target stand-args)))
+		     (setf insts (derive-instance alg (class-ref-class class-ref) insts)))
+		   ;; (a derived class not among the standard ones goes
+		   ;; straight to the module: pandoc-types' deriving instance
+		   ;; Semigroup Blocks, Blocks = Many Block, beside its
+		   ;; instance Semigroup Inlines)
+		   (when (and (eq? insts before)
+			      (not (eq? (module-instance-defs *module*) modules-before)))
+		     (let ((inst (car (module-instance-defs *module*)))
+			   (args (synonym-head-args target stand-args)))
+		       (dolist (c stand-ctx)
+			 (resolve-class (context-class c)))
+		       (setf (instance-head-args inst) args)
+		       (setf (instance-tyvars inst)
+			     (lisp:remove-duplicates (lisp:mapcan (function ast-tyvar-names) args)))
+		       (setf (instance-context inst) stand-ctx)))
 		   (when (and (not (eq? insts before)) (pair? insts))
 		     (let ((inst (car insts))
 			   (args (synonym-head-args target stand-args)))
@@ -301,8 +317,14 @@
 ;;; A standalone deriving's declared context (find-derivable-instances).
 (define *standalone-context* '#f)
 
+;;; A standalone deriving's head arguments, when it is at a synonym for an
+;;; application (deriving instance C S, S = T t): the instance is at that
+;;; head, so another instance of C for T at another head is no conflict.
+(define *standalone-head-args* '())
+
 (define (add-special-derived-instance alg class strategy)
-  (if (lookup-instance alg class)
+  (if (and (lookup-instance alg class)
+	   (null? (dynamic *standalone-head-args*)))
       (signal-instance-exists alg class)
       (let* (;; a class of type constructors takes T's parameters but the
 	     ;; last n, n the arguments its variable is applied to in its
@@ -514,7 +536,8 @@
   (let* ((field  (car (con-types (car (algdata-constrs alg)))))
 	 (type   (newtype-underlying-type field))
 	 (under  (and type (lookup-instance (tycon-def type) class))))
-    (cond ((lookup-instance alg class)
+    (cond ((and (lookup-instance alg class)
+		(null? (dynamic *standalone-head-args*)))
 	   (signal-instance-exists alg class))
 	  ((or (not under)
 	       (not (null? (instance-context under)))
@@ -571,7 +594,8 @@
 
 (define (add-derivable-instance insts alg cls sp)
   (let ((existing-inst (lookup-instance alg cls)))
-    (cond ((eq? existing-inst '#f)
+    (cond ((or (eq? existing-inst '#f)
+	       (not (null? (dynamic *standalone-head-args*))))
 	   (let ((inst (new-instance cls alg (algdata-tyvars alg))))
 	     (setf (instance-context inst) (algdata-context alg))
 	     (setf (instance-decls inst) '())
