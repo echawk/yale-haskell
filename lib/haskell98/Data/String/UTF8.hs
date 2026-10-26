@@ -18,11 +18,16 @@ import Data.Bits ((.&.), (.|.), shiftL, shiftR)
 import Data.Char (chr, ord)
 import Data.Word (Word8)
 import Data.Int (Int64)
+import qualified Data.String as S
 
 newtype UTF8 string = Str string deriving (Eq, Ord)
 
 instance UTF8Bytes string index => Show (UTF8 string) where
   show = show . toString
+
+-- (utf8-string 1.0.2's)
+instance UTF8Bytes string index => S.IsString (UTF8 string) where
+  fromString = fromString
 
 -- | A container of bytes, indexed by INDEX.
 class (Num index, Integral index) => UTF8Bytes bytestring index

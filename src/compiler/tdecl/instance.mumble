@@ -381,6 +381,11 @@
 		    (with-mp-mp-superclasses
 		     (append-new-mp-contexts
 		      mcontext (one-parameter-mp-superclasses context))))
+	      ;; and its multi-parameter constraints' one-parameter
+	      ;; superclasses, as the dictionary's signature has them
+	      (setf (instance-mcontext inst)
+		    (instance-mcontext-with-mp-supers
+		     (instance-context inst) (instance-mcontext inst)))
 	      (setf (instance-decls inst) decls)
 	      (setf (instance-ok? inst) '#t)
 	      inst))))))))

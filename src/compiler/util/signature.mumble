@@ -253,6 +253,9 @@
 	(if (and (null? (cdr (mp-context-types c)))
 		 (class? class)
 		 (null? (cdr (class-tyvars class)))
+		 ;; Num i at a variable: an instance's multi-parameter
+		 ;; constraint's superclass (instance-mcontext-with-mp-supers)
+		 (not (tyvar? (car (mp-context-types c))))
 		 ;; Monad (m s): kept, a given whose dictionary is a
 		 ;; parameter, as a multi-parameter constraint's is
 		 (not (tyvar-application? (car (mp-context-types c))))
@@ -439,11 +442,44 @@
 			       (and (eq? (context-tyvar ctx) (tyvar-name ty))
 				    (eq? (class-ref-class (context-class ctx))
 					 (tuple-2-1 s))))
-			     (signature-context signature))))
+			     (signature-context signature)))
+		       ;; (an instance's dictionary: in its multi-parameter
+		       ;; context, instance-mcontext-with-mp-supers)
+		       (not (single-mp-context-at? (signature-mcontext signature)
+						   (tuple-2-1 s) ty)))
 	      (setf (signature-context signature)
 		    (append (signature-context signature)
 			    (list (make context (class (**class/def (tuple-2-1 s)))
 					         (tyvar (tyvar-name ty)))))))))))))
+
+;;; An instance's multi-parameter context with its constraints'
+;;; one-parameter superclasses (instance C s Int => D (W s), class Num i
+;;; => C s i: Num Int), each a constraint of one type there, as its
+;;; dictionary's signature has them (add-mp-superclass-contexts), so
+;;; that a use of the instance supplies those dictionaries too
+;;; (type/mp-classes.mumble's instance-mp-dict-args).  At a variable
+;;; too: kept a multi-parameter constraint (reduce-flexible-contexts), a
+;;; method's given (type/dictionary.mumble's given-class-params).
+(define (instance-mcontext-with-mp-supers context mcontext)
+  (let ((result mcontext))
+    (dolist (c mcontext)
+      (let ((class (class-ref-class (mp-context-class c))))
+	(when (class? class)
+	  (dolist (s (class-mp-supers class))
+	    (let ((ty (list-ref (mp-context-types c) (tuple-2-2 s))))
+	      (when (not (single-mp-context-at? result (tuple-2-1 s) ty))
+		(setf result
+		      (append result
+			      (list (**mp-context (**class/def (tuple-2-1 s))
+						  (list ty)))))))))))
+    result))
+
+(define (single-mp-context-at? mcontext class ty)
+  (lisp:some (lambda (c2)
+	       (and (eq? (class-ref-class (mp-context-class c2)) class)
+		    (null? (cdr (mp-context-types c2)))
+		    (ast-types-equal? (car (mp-context-types c2)) ty)))
+	     mcontext))
 
 ;;; An equality constraint (TypeEquality, parser/type-parser.mumble's
 ;;; apply-equalities) is kept only when a side is a type family's

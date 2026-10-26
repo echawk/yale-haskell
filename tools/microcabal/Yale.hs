@@ -286,7 +286,11 @@ compileModules env dbs dir name mdls = do
 buildableModules :: Env -> FilePath -> [String] -> IO [String]
 buildableModules env pdir mdls = do
   inLib <- libraryModules env mdls
-  let mdls' = mdls \\ inLib
+  -- (and one not staged: a hidden module Yale Haskell's library has,
+  -- by its Yale_PKG_ name: renameHiddenModules)
+  mdls' <- filterM (\ m -> or <$> mapM (\ ext -> doesFileExist (pdir </> "src" </> modulePath m ++ ext))
+                                        [".hs", ".lhs", ".hsc", ".x", ".y", ".hs-boot"])
+                   (mdls \\ inLib)
   th <- filterM (usesTH pdir) mdls'
   unless (null th) $
     message env 0 $ "Not compiled (Template Haskell): " ++ unwords th
@@ -429,7 +433,11 @@ renameHiddenFields name flds = map rename flds
 
 renameHiddenModules :: FilePath -> [(String, String)] -> IO ()
 renameHiddenModules _ [] = return ()
-renameHiddenModules src rs = do
+renameHiddenModules src rs0 = do
+  -- (only those staged: not one Yale Haskell's library has, which the
+  -- package's imports then name, time-compat's Data.Time.Calendar.Types)
+  rs <- filterM (\ (old, _) -> or <$> mapM (\ ext -> doesFileExist (src </> modulePath old ++ ext))
+                                          [".hs", ".lhs", ".hs-boot"]) rs0
   forM_ rs $ \ (old, new) ->
     forM_ [".hs", ".lhs", ".hs-boot"] $ \ ext -> do
       b <- doesFileExist (src </> modulePath old ++ ext)
@@ -454,7 +462,11 @@ renameLine rs l =
   let (ind, rest) = span (== ' ') l
       ws = words rest
   in case ws of
-       ("module" : m : _) | Just new <- lookup m rs ->
+       -- (module M( with no blank before the export list: safe's; at the
+       -- left margin, not an export list's module M: cmdargs')
+       ("module" : w : _) | null ind
+                          , (m, _) <- span (\ c -> isAlphaNum c || c `elem` "._'") w
+                          , Just new <- lookup m rs ->
          ind ++ "module " ++ new ++ drop (length ("module " ++ m)) (dropWhile (== ' ') rest)
        ("import" : _) ->
          let (pre, after) = splitImport rest
