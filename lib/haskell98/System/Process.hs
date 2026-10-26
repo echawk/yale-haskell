@@ -11,7 +11,8 @@ module System.Process (
     withCreateProcess, cleanupProcess,
     waitForProcess, getProcessExitCode, terminateProcess,
     showCommandForUser, system, rawSystem,
-    runInteractiveCommand, runInteractiveProcess
+    runInteractiveCommand, runInteractiveProcess,
+    Pid, getPid, createPipe
   ) where
 
 import System.Exit
@@ -22,6 +23,8 @@ import IOPrims (HandleObj)
 import Data.IORef
 import Data.List (intercalate)
 import Control.Exception (bracket, onException)
+import System.Posix.Types (CPid, GroupID, UserID, Fd(..))
+import System.Posix.IO (fdToHandle)
 
 data CmdSpec = ShellCommand String
              | RawCommand FilePath [String]
@@ -43,7 +46,10 @@ data CreateProcess = CreateProcess {
     detach_console     :: Bool,
     create_new_console :: Bool,
     new_session        :: Bool,
-    use_process_jobs   :: Bool
+    use_process_jobs   :: Bool,
+    -- (ignored: the child runs as this process's user and group)
+    child_group        :: Maybe GroupID,
+    child_user         :: Maybe UserID
   }
 
 -- the process, and its exit code once known
@@ -61,7 +67,8 @@ defaultCreateProcess c = CreateProcess {
     std_in = Inherit, std_out = Inherit, std_err = Inherit,
     close_fds = False, create_group = False, delegate_ctlc = False,
     detach_console = False, create_new_console = False,
-    new_session = False, use_process_jobs = False }
+    new_session = False, use_process_jobs = False,
+    child_group = Nothing, child_user = Nothing }
 
 -- the words of a command, joined by NULs for the primitives
 argv :: CmdSpec -> String
@@ -226,3 +233,21 @@ interactive cp = do
   (Just i, Just o, Just r, p) <-
     createProcess cp { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
   return (i, o, r, p)
+
+type Pid = CPid
+
+-- | The process's id (Nothing once it is known to have exited)
+getPid :: ProcessHandle -> IO (Maybe Pid)
+getPid (ProcessHandle p code) = do
+  done <- readIORef code
+  case done of
+    Just _ -> return Nothing
+    Nothing -> fmap (Just . fromIntegral) (primProcessPid p)
+
+-- | A pipe's read and write ends
+createPipe :: IO (Handle, Handle)
+createPipe = do
+  n <- primCreatePipe
+  r <- fdToHandle (Fd (fromIntegral (n `mod` 4294967296)))
+  w <- fdToHandle (Fd (fromIntegral (n `div` 4294967296)))
+  return (r, w)

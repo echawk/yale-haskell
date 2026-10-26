@@ -9,7 +9,8 @@ module System.Console.ANSI (
     clearScreen, clearLine, hClearScreen, hClearLine,
     clearScreenCode, clearLineCode, setCursorPosition, hSetCursorPosition,
     setCursorPositionCode, cursorUp, cursorDown, cursorForward, cursorBackward,
-    hideCursor, showCursor, hHideCursor, hShowCursor
+    hideCursor, showCursor, hHideCursor, hShowCursor,
+    getTerminalSize, hGetTerminalSize
   ) where
 
 import System.IO (Handle, hPutStr, stdout, hIsTerminalDevice)
@@ -110,3 +111,12 @@ hShowCursor h = hPutStr h "\ESC[?25h"
 hideCursor, showCursor :: IO ()
 hideCursor = hHideCursor stdout
 showCursor = hShowCursor stdout
+
+-- The terminal's (rows, columns), which this library does not ask the
+-- terminal for: Nothing, as ansi-terminal answers when it cannot tell
+-- (tasty's console reporter then uses its defaults)
+getTerminalSize :: IO (Maybe (Int, Int))
+getTerminalSize = return Nothing
+
+hGetTerminalSize :: Handle -> IO (Maybe (Int, Int))
+hGetTerminalSize _ = return Nothing

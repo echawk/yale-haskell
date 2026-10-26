@@ -80,6 +80,9 @@ primProcessHandle  :: Proc -> Int -> IO HandleObj
 primWaitProcess    :: Proc -> IO Int
 primProcessRunning :: Proc -> IO Bool
 primTerminateProcess :: Proc -> IO ()
+primProcessPid     :: Proc -> IO Int
+-- a pipe's read and write descriptors, r + w * 2^32
+primCreatePipe     :: IO Int
 primReadProcessFull :: String -> String -> Bool -> String -> String -> Bool
                        -> IO String
 primLastStderr     :: IO String
@@ -175,6 +178,8 @@ primProcessHandle  :: LispName("prim.process-handle")
 primWaitProcess    :: LispName("prim.wait-process")
 primProcessRunning :: LispName("prim.process-running")
 primTerminateProcess :: LispName("prim.terminate-process")
+primProcessPid     :: LispName("prim.process-pid")
+primCreatePipe     :: LispName("prim.create-pipe")
 primReadProcessFull :: LispName("prim.read-process-full")
 primLastStderr     :: LispName("prim.last-stderr")
 primProcessFailed  :: LispName("prim.process-failed")

@@ -5,7 +5,7 @@
 -- (tools/gen/lazy-bytestring.py).
 {-# LANGUAGE PatternSynonyms, ViewPatterns #-}
 module Data.ByteString.Lazy.Internal (
-    ByteString(LBS), pattern Empty, pattern Chunk, chunk,
+    ByteString(LBS, Empty, Chunk), pattern Empty, pattern Chunk, chunk,
     defaultChunkSize, smallChunkSize, chunkOverhead,
     foldrChunks, foldlChunks, foldlChunks'
   ) where

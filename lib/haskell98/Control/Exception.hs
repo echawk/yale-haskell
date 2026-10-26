@@ -24,7 +24,7 @@ module Control.Exception (
     Handler(Handler), catches, catchJust, handleJust, tryJust,
     catch, handle, try, evaluate, throw, throwIO,
     bracket, bracket_, bracketOnError, finally, onException,
-    mask, mask_, uninterruptibleMask, uninterruptibleMask_, assert
+    mask, mask_, uninterruptibleMask, uninterruptibleMask_, assert, throwTo
   ) where
 
 import Prelude hiding (catch)
@@ -33,6 +33,7 @@ import BasePrims
 import Data.Typeable (Typeable)
 import Data.Dynamic (toDyn, fromDynamic)
 import System.Exit (ExitCode)
+import ConcurrentBase (throwTo)
 
 data SomeException = SomeException Exc
 

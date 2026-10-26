@@ -1,4 +1,4 @@
-attoparsec: Data.Attoparsec.Text.Buffer over Yale Haskell's Text, a string of Chars.
+attoparsec (its internal library): Data.Attoparsec.Text.Buffer over Yale Haskell's Text, a string of Chars.
 diff -ruN a/Data/Attoparsec/Text/Buffer.hs b/Data/Attoparsec/Text/Buffer.hs
 --- a/Data/Attoparsec/Text/Buffer.hs	2026-10-25 17:09:07
 +++ b/Data/Attoparsec/Text/Buffer.hs	2026-10-25 17:09:07

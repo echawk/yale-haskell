@@ -19,6 +19,7 @@ module GHC.Exts (
     wordToWord8#, wordToWord16#, wordToWord32#, int32ToWord32#,
     word32ToInt32#, int16ToWord16#, word16ToInt16#, byteSwap16#,
     byteSwap32#, tagToEnum#, dataToTag#, unsafeCoerce#,
+    pdep#, pdep8#, pdep16#, pdep32#, pdep64#, pext#, pext8#, pext16#, pext32#, pext64#,
     (+#), (-#), (*#), quotInt#, remInt#, negateInt#, (==#), (/=#), (<#),
     (<=#), (>#), (>=#), isTrue#, andI#, orI#, xorI#, notI#,
     uncheckedIShiftL#, uncheckedIShiftRA#, uncheckedIShiftRL#,
@@ -409,3 +410,32 @@ decodeUtf8 (b : bs)
   | (c : d : e : r) <- bs =
       toEnum (((b .&. 0x07) `shiftL` 18) .|. ((c .&. 0x3F) `shiftL` 12) .|. ((d .&. 0x3F) `shiftL` 6) .|. (e .&. 0x3F)) : decodeUtf8 r
   | otherwise = ['\xFFFD']
+
+-- BMI2's parallel bit deposit and extract (bitvec's): the low bits of
+-- SRC put at MASK's set bits, and the bits of SRC at MASK's set bits
+-- gathered low
+pdep#, pext# :: Word -> Word -> Word
+pdep# src mask = go src mask 0 0
+  where go s m bit acc
+          | m == 0 = acc
+          | otherwise =
+              let low = m .&. negate m
+                  acc' = if testBit s bit then acc .|. low else acc
+              in go s (m .&. (m - 1)) (bit + 1) acc'
+pext# src mask = go mask 0 0
+  where go m bit acc
+          | m == 0 = acc
+          | otherwise =
+              let low = m .&. negate m
+                  acc' = if src .&. low /= 0 then setBit acc bit else acc
+              in go (m .&. (m - 1)) (bit + 1) acc'
+
+pdep8#, pdep16#, pdep32#, pdep64#, pext8#, pext16#, pext32#, pext64# :: Word -> Word -> Word
+pdep8# s m = pdep# s (m .&. 0xFF)
+pdep16# s m = pdep# s (m .&. 0xFFFF)
+pdep32# s m = pdep# s (m .&. 0xFFFFFFFF)
+pdep64# = pdep#
+pext8# s m = pext# s (m .&. 0xFF)
+pext16# s m = pext# s (m .&. 0xFFFF)
+pext32# s m = pext# s (m .&. 0xFFFFFFFF)
+pext64# = pext#

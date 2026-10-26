@@ -23,11 +23,8 @@ import System.IO.Unsafe (unsafePerformIO)
 import ParallelPrims (primNumCapabilities)
 import System.Posix.Types (Fd(..))
 import BasePrims (primWaitFd)
+import ConcurrentBase (ThreadId(..), throwTo)
 
-newtype ThreadId = ThreadId Int deriving (Eq, Ord)
-
-instance Show ThreadId where
-  show (ThreadId n) = "ThreadId " ++ show n
 
 -- the last thread number given out
 counter :: IORef Int
@@ -66,8 +63,6 @@ forkOn _ = forkIO
 killThread :: ThreadId -> IO ()
 killThread _ = return ()
 
-throwTo :: ThreadId -> e -> IO ()
-throwTo _ _ = return ()
 
 yield :: IO ()
 yield = return ()

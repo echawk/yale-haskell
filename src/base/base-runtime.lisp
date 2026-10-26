@@ -249,6 +249,13 @@
 
 (cl:defun prim.process-running (p) (cl:if (uiop:process-alive-p p) cl:t cl:nil))
 
+(cl:defun prim.process-pid (p) (uiop:process-info-pid p))
+
+;;; createPipe: the read and write ends' descriptors, as r + w * 2^32
+(cl:defun prim.create-pipe ()
+  (cl:multiple-value-bind (r w) (sb-posix:pipe)
+    (cl:+ r (cl:ash w 32))))
+
 (cl:defun prim.terminate-process (p)
   (cl:when (uiop:process-alive-p p) (uiop:terminate-process p))
   0)

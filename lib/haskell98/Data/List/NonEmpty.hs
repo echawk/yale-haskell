@@ -7,7 +7,7 @@ module Data.List.NonEmpty (
     drop, splitAt, iterate, repeat, cycle, insert, scanl, scanr, scanl1,
     scanr1, transpose, xor, unfoldr, some1, (!!), uncons, singleton,
     appendList, prependList, groupBy1, groupWith1, groupAllWith1, inits1,
-    tails1, permutations, permutations1
+    tails1, permutations, permutations1, intersperse
   ) where
 
 import Prelude hiding (map, head, tail, last, init, length, reverse, zip,
@@ -197,3 +197,6 @@ unfoldr f a = case f a of
 
 some1 :: Alternative f => f a -> f (NonEmpty a)
 some1 x = liftA2 (:|) x (many x)
+
+intersperse :: a -> NonEmpty a -> NonEmpty a
+intersperse sep (x :| xs) = x :| concatMap (\y -> [sep, y]) xs
