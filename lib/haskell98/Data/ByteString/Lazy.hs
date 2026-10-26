@@ -3,7 +3,7 @@
 -- The lazy ByteString is its own type (Data.ByteString.Lazy.Internal),
 -- the strict one underneath: each function is Data.ByteString's.
 module Data.ByteString.Lazy (
-    ByteString, fromStrict, toStrict, fromChunks, toChunks,
+    ByteString, fromStrict, toStrict, fromChunks, toChunks, foldrChunks, foldlChunks,
     pack, unpack, empty, singleton, cons, snoc, append, head, last, tail, init, uncons, unsnoc, null, length, map, reverse, intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr', sort, foldr1, concat, concatMap, any, all, maximum, minimum, replicate, unfoldr, take, takeEnd, drop, dropEnd, splitAt, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, span, spanEnd, break, breakEnd, breakSubstring, group, groupBy, inits, tails, split, splitWith, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, elem, notElem, find, filter, partition, index, indexMaybe, (!?), elemIndex, elemIndices, findIndex, findIndices, count, zip, zipWith, unzip, copy, putStr, getLine, getContents, interact, readFile, writeFile, appendFile, hPutStr, hPut, hGetLine, hGetContents, hGet, hGetSome, hGetNonBlocking
   ) where
 
@@ -11,7 +11,7 @@ import Prelude ()
 import Prelude (Char, Bool, Int, Integer, Maybe, Ordering, String, IO,
                 FilePath)
 import qualified Data.ByteString as S
-import Data.ByteString.Lazy.Internal (ByteString(LBS))
+import Data.ByteString.Lazy.Internal (ByteString(LBS), foldrChunks, foldlChunks)
 import Data.Int (Int64)
 import Data.Word (Word8)
 import System.IO (Handle)

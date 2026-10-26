@@ -6,10 +6,11 @@ module Control.Concurrent.MVar (
     MVar, newMVar, newEmptyMVar, takeMVar, putMVar, readMVar, swapMVar,
     tryTakeMVar, tryPutMVar, tryReadMVar, isEmptyMVar, withMVar,
     withMVarMasked, modifyMVar_, modifyMVar, modifyMVarMasked_,
-    modifyMVarMasked
+    modifyMVarMasked, mkWeakMVar
   ) where
 
 import Data.IORef
+import System.Mem.Weak (Weak, mkWeak)
 
 newtype MVar a = MVar (IORef (Maybe a))
 
@@ -72,3 +73,8 @@ modifyMVarMasked_ = modifyMVar_
 modifyMVar, modifyMVarMasked :: MVar a -> (a -> IO (a, b)) -> IO b
 modifyMVar m f = do { x <- takeMVar m; (x', y) <- f x; putMVar m x'; return y }
 modifyMVarMasked = modifyMVar
+
+-- a weak pointer to the MVar (its finalizer runs through finalize,
+-- System.Mem.Weak)
+mkWeakMVar :: MVar a -> IO () -> IO (Weak (MVar a))
+mkWeakMVar m fin = mkWeak m m (Just fin)

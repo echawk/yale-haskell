@@ -7,7 +7,7 @@ module Data.List.NonEmpty (
     drop, splitAt, iterate, repeat, cycle, insert, scanl, scanr, scanl1,
     scanr1, transpose, xor, unfoldr, some1, (!!), uncons, singleton,
     appendList, prependList, groupBy1, groupWith1, groupAllWith1, inits1,
-    tails1, permutations, permutations1, intersperse, inits, tails
+    tails1, permutations, permutations1, intersperse, inits, tails, append
   ) where
 
 import Prelude hiding (map, head, tail, last, init, length, reverse, zip,
@@ -206,3 +206,6 @@ inits = fromList . L.inits . F.toList
 
 tails :: F.Foldable f => f a -> NonEmpty [a]
 tails = fromList . L.tails . F.toList
+
+append :: NonEmpty a -> NonEmpty a -> NonEmpty a
+append (x :| xs) (y :| ys) = x :| (xs ++ y : ys)

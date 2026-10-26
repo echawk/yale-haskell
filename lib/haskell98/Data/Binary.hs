@@ -22,6 +22,7 @@ import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import Data.ByteString.Rep (unBS, bsFromString)
 import qualified Data.ByteString.Lazy.Internal as LI
+import qualified Data.ByteString.Short as SBS
 import Data.Int
 import Data.Word
 import Data.Char (chr, ord)
@@ -234,6 +235,10 @@ instance Binary S.ByteString where
 instance Binary L.ByteString where
   put (LI.LBS b) = put (length (unBS b)) >> putByteString b
   get = do { n <- get; s <- getBytesString n; return (LI.LBS (bsFromString s)) }
+
+instance Binary SBS.ShortByteString where
+  put = put . SBS.fromShort
+  get = fmap SBS.toShort get
 
 -- as the text package's instance: the UTF-8 bytes as a ByteString
 instance Binary T.Text where

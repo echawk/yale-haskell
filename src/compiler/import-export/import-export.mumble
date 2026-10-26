@@ -62,8 +62,15 @@
   (let ((all hiding))
     (table-for-each
      (lambda (name group)
-       (declare (ignore name))
-       (cond ((hides-head-only? group all)
+       (cond ((and (memq name *not-in-2010-prelude*)
+		   (eq? (module-name module) '|Prelude|)
+		   (or (dynamic *compiling-package?*)
+		       (and (haskell2010?) (not (module-library? *module*)))))
+	      ;; import Prelude, explicitly, is the 2010 Prelude as the
+	      ;; implicit one is (symbol-table's prelude-symbol-entry): no
+	      ;; catch beside Control.Exception's (tasty-hunit)
+	      '#f)
+	     ((hides-head-only? group all)
 	      (when (in-hiding-list? group hiding)
 		(setf hiding (remove-entity group hiding)))
 	      (import-group-members group all renamings module))
