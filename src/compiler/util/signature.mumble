@@ -436,8 +436,11 @@
 	(dolist (s (class-mp-supers class))
 	  (let ((ty (list-ref (mp-context-types c) (tuple-2-2 s))))
 	    ;; at another type (profunctors' Sieve p (Rep p) gives Functor
-	    ;; (Rep p)): a flexible constraint
+	    ;; (Rep p)): a flexible constraint; not at a type constructor's
+	    ;; application, which an instance gives (MonadState Int (State
+	    ;; Int) of an instance's method: Monad (State Int))
 	    (when (and (not (tyvar? ty))
+		       (not (instance-resolvable-ast-type? ty))
 		       (not (lisp:some
 			     (lambda (c2)
 			       (and (eq? (class-ref-class (mp-context-class c2)) (tuple-2-1 s))
@@ -465,6 +468,13 @@
   ;; and those contexts' own multi-parameter superclasses (MonadParsec e
   ;; s m gives Stream s, which gives Ord (Token s): megaparsec's)
   (add-mp-mp-superclass-contexts signature))
+
+;;; A type constructor's (not a family's) application: its instances give
+;;; a class there.
+(define (instance-resolvable-ast-type? ty)
+  (and (tycon? ty)
+       (begin (resolve-type-1 ty '() '#t) '#t)
+       (not (and (synonym? (tycon-def ty)) (synonym-family? (tycon-def ty))))))
 
 ;;; An instance's multi-parameter context with its constraints'
 ;;; one-parameter superclasses (instance C s Int => D (W s), class Num i
@@ -497,7 +507,8 @@
 			      (list (make context (class (**class/def (tuple-2-1 s)))
 					  (tyvar (tyvar-name ty)))))))
 	      (when (not (or (single-mp-context-at? result (tuple-2-1 s) ty)
-			     (and (tyvar? ty) (memq (tyvar-name ty) head-tyvars))))
+			     (and (tyvar? ty) (memq (tyvar-name ty) head-tyvars))
+			     (instance-resolvable-ast-type? ty)))
 		(setf result
 		      (append result
 			      (list (**mp-context (**class/def (tuple-2-1 s))
