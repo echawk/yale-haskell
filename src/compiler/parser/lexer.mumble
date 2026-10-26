@@ -648,6 +648,9 @@
 	 (advance-char)
 	 (advance-char)
 	 (advance-char)
+	 ;; (first on its line: the next token takes its column)
+	 (when (and *on-new-line?* (not *pragma-line-col*))
+	   (setf *pragma-line-col* (cons *start-line* *start-col*)))
 	 (lex-one-token))
 	(else
 	 (advance-char)

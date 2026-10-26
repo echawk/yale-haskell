@@ -88,6 +88,13 @@ instance Exception SomeException where
   toException = id
   fromException = Just
 
+-- (the exception a match on SomeException e gives: tasty-hunit's
+-- \(SomeException ex) -> displayException ex)
+instance Exception Exc where
+  toException = SomeException
+  fromException (SomeException e) = Just e
+  displayException = primExcMessage
+
 instance Exception IOError where
   toException (IOError obj) = SomeException (primObjToExc obj)
   fromException (SomeException e)

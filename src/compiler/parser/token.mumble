@@ -5,12 +5,22 @@
 
 ;;; Lexer routines for emitting tokens:
 
+;;; The line and column of a pragma that began its line and was skipped
+;;; (lexer.mumble's skip-pragma): the line's first token is at its column
+;;; for the layout ({-# SCC f #-} stmt in a do block, commonmark's).
+(define *pragma-line-col* '#f)
+
 (define (emit-token type . args)
   (cond (*on-new-line?*
-	 (push (list 'line *start-line* *start-col*) *tokens*))
+	 (push (list 'line *start-line*
+		     (if (and *pragma-line-col* (eqv? (car *pragma-line-col*) *start-line*))
+			 (cdr *pragma-line-col*)
+			 *start-col*))
+	       *tokens*))
 	(*save-col?*
 	 (push (list 'col *start-col*) *tokens*)))
   (push (cons type args) *tokens*)
+  (setf *pragma-line-col* '#f)
   (setf *on-new-line?* '#f)
   (setf *save-col?* (or (memq type '(|where| |of| |let| |do| open-decs-quote
 				      ;; MultiWayIf's first | (exp-parser.mumble)
