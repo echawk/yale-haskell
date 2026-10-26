@@ -126,7 +126,16 @@
 	(let ((inst (new-mp-instance class-def types tyvars)))
 	  (setf (instance-head-equalities? inst) head-equalities?)
 	  (setf (instance-context inst) context)
-	  (setf (instance-mcontext inst) mcontext)
+	  ;; with the superclasses its dictionary's signature gives
+	  ;; (util/signature.mumble's instance-mcontext-with-mp-supers):
+	  ;; megaparsec's MonadParsec e s m => MonadParsec e s (StateT st m),
+	  ;; whose methods want Ord (Token s)
+	  (setf (instance-mcontext inst)
+		(instance-mcontext-with-mp-supers
+		 context
+		 (with-mp-mp-superclasses
+		  (append-new-mp-contexts mcontext (one-parameter-mp-superclasses context)))
+		 tyvars))
 	  (setf (instance-decls inst)
 		(if newtype-derived?
 		    (mp-newtype-method-decls class-def types)
