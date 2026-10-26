@@ -1,4 +1,5 @@
--- Control.Concurrent.STM (stm), single-threaded: TVars are IORefs.
+-- Control.Concurrent.STM (stm): TVars and the structures over them
+-- (STMBase has the transactions).
 module Control.Concurrent.STM (
     module Control.Monad.STM,
     TVar, newTVar, newTVarIO, readTVar, readTVarIO, writeTVar, modifyTVar,
@@ -16,37 +17,14 @@ module Control.Concurrent.STM (
   ) where
 
 import Control.Monad.STM
+import STMBase (TVar, newTVar, newTVarIO, readTVar, readTVarIO, writeTVar)
 import Control.Concurrent (forkIO, killThread, threadWaitRead, threadWaitWrite)
 import System.Posix.Types (Fd)
-import Data.IORef
 import Numeric.Natural (Natural)
 
-io :: IO a -> STM a
-io = unsafeIOToSTM
-
-newtype TVar a = TVar (IORef a)
-
-instance Eq (TVar a) where
-  TVar a == TVar b = a == b
-
-newTVar :: a -> STM (TVar a)
-newTVar x = io (fmap TVar (newIORef x))
-
-newTVarIO :: a -> IO (TVar a)
-newTVarIO x = fmap TVar (newIORef x)
-
-readTVar :: TVar a -> STM a
-readTVar (TVar r) = io (readIORef r)
-
-readTVarIO :: TVar a -> IO a
-readTVarIO (TVar r) = readIORef r
-
-writeTVar :: TVar a -> a -> STM ()
-writeTVar (TVar r) x = io (writeIORef r x)
-
 modifyTVar, modifyTVar' :: TVar a -> (a -> a) -> STM ()
-modifyTVar (TVar r) f = io (modifyIORef r f)
-modifyTVar' (TVar r) f = io (modifyIORef' r f)
+modifyTVar v f = readTVar v >>= writeTVar v . f
+modifyTVar' v f = do { x <- readTVar v; writeTVar v $! f x }
 
 stateTVar :: TVar s -> (s -> (a, s)) -> STM a
 stateTVar v f = do

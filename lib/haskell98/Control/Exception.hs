@@ -34,7 +34,8 @@ import BasePrims
 import Data.Typeable (Typeable)
 import Data.Dynamic (toDyn, fromDynamic)
 import System.Exit (ExitCode)
-import ConcurrentBase (throwTo)
+import ConcurrentBase (ThreadId(..), withMaskState)
+import ConcurrentPrims (primThrowTo, primGetMask)
 import System.IO.Unsafe (unsafePerformIO)
 
 data SomeException = SomeException Exc
@@ -133,8 +134,7 @@ handleJust p handler a = catchJust p a handler
 tryJust :: Exception e => (e -> Maybe b) -> IO a -> IO (Either b a)
 tryJust p a = catchJust p (fmap Right a) (return . Left)
 
--- Asynchronous exceptions are never raised (one thread), but programs
--- name and catch them.
+-- Asynchronous exceptions: throwTo's (killThread's ThreadKilled).
 data AsyncException = StackOverflow | HeapOverflow | ThreadKilled | UserInterrupt
   deriving (Eq, Ord)
 
@@ -234,19 +234,28 @@ instance Show NestedAtomically where
 
 instance Exception NestedAtomically
 
--- no asynchronous exceptions are delivered, so nothing to allow
-interruptible :: IO a -> IO a
-interruptible a = a
-
--- (asynchronous exceptions are never masked here)
+-- Asynchronous exceptions (throwTo, killThread): masking state is the
+-- runtime's, per thread (src/base/concurrent-runtime.lisp)
 data MaskingState = Unmasked | MaskedInterruptible | MaskedUninterruptible
   deriving (Eq, Ord, Show)
 
 getMaskingState :: IO MaskingState
-getMaskingState = return Unmasked
+getMaskingState = do
+  m <- primGetMask
+  return (case m of { 0 -> Unmasked; 1 -> MaskedInterruptible; _ -> MaskedUninterruptible })
+
+interruptible :: IO a -> IO a
+interruptible act = do
+  m <- primGetMask
+  if m == 1 then withMaskState 0 act else act
 
 allowInterrupt :: IO ()
-allowInterrupt = return ()
+allowInterrupt = interruptible (return ())
+
+-- the exception, raised in the thread (at once in this one); waits for
+-- nothing
+throwTo :: Exception e => ThreadId -> e -> IO ()
+throwTo (ThreadId n) e = case toException e of SomeException x -> primThrowTo n x
 
 mapException :: (Exception e1, Exception e2) => (e1 -> e2) -> a -> a
 mapException f v = unsafePerformIO (catch (evaluate v) (\ x -> throwIO (f x)))
@@ -281,9 +290,9 @@ onException io what =
   io `catch` \e -> what >> throwIO (e :: SomeException)
 
 bracket :: IO a -> (a -> IO b) -> (a -> IO c) -> IO c
-bracket before after thing = do
+bracket before after thing = mask $ \restore -> do
   a <- before
-  r <- thing a `onException` after a
+  r <- restore (thing a) `onException` after a
   _ <- after a
   return r
 
@@ -291,28 +300,36 @@ bracket_ :: IO a -> IO b -> IO c -> IO c
 bracket_ before after thing = bracket before (const after) (const thing)
 
 bracketOnError :: IO a -> (a -> IO b) -> (a -> IO c) -> IO c
-bracketOnError before after thing = do
+bracketOnError before after thing = mask $ \restore -> do
   a <- before
-  thing a `onException` after a
+  restore (thing a) `onException` after a
 
 finally :: IO a -> IO b -> IO a
-finally a sequel = do
-  r <- a `onException` sequel
+finally a sequel = mask $ \restore -> do
+  r <- restore a `onException` sequel
   _ <- sequel
   return r
 
--- no asynchronous exceptions: masking does nothing
+-- f runs masked; its argument runs an action in the state before
 mask :: ((forall c . IO c -> IO c) -> IO b) -> IO b
-mask f = f id
+mask f = do
+  old <- primGetMask
+  if old == 0
+    then withMaskState 1 (f (withMaskState 0))
+    else f (withMaskState old)
 
 uninterruptibleMask :: ((forall c . IO c -> IO c) -> IO b) -> IO b
-uninterruptibleMask f = f id
+uninterruptibleMask f = do
+  old <- primGetMask
+  if old == 2
+    then f (withMaskState 2)
+    else withMaskState 2 (f (withMaskState old))
 
 mask_ :: IO a -> IO a
-mask_ = id
+mask_ act = mask (\_ -> act)
 
 uninterruptibleMask_ :: IO a -> IO a
-uninterruptibleMask_ = id
+uninterruptibleMask_ act = uninterruptibleMask (\_ -> act)
 
 assert :: Bool -> a -> a
 assert True x  = x

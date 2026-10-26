@@ -1,6 +1,6 @@
--- Data.IORef (base): mutable references in the IO monad.  An IORef is a
--- Lisp cons (BasePrims.hi); there are no threads, so the atomic
--- operations are the plain ones.
+-- Data.IORef (base): mutable references in the IO monad.  An IORef is
+-- the runtime's cell (BasePrims.hi); atomicModifyIORef swaps the new
+-- value in with a compare-and-swap (Control.Concurrent's threads).
 module Data.IORef (
     IORef, newIORef, readIORef, writeIORef, modifyIORef, modifyIORef',
     atomicModifyIORef, atomicModifyIORef', atomicWriteIORef, mkWeakIORef
@@ -31,17 +31,13 @@ modifyIORef' :: IORef a -> (a -> a) -> IO ()
 modifyIORef' ref f = readIORef ref >>= \x -> let x' = f x in x' `seq` writeIORef ref x'
 
 atomicModifyIORef :: IORef a -> (a -> (a, b)) -> IO b
-atomicModifyIORef ref f = do
-  x <- readIORef ref
-  let (x', b) = f x
-  writeIORef ref x'
-  return b
+atomicModifyIORef (IORef r) f = primAtomicModifyRef r f
 
+-- (as base's: the new value and the result evaluated)
 atomicModifyIORef' :: IORef a -> (a -> (a, b)) -> IO b
 atomicModifyIORef' ref f = do
-  x <- readIORef ref
-  case f x of
-    (x', b) -> x' `seq` b `seq` (writeIORef ref x' >> return b)
+  b <- atomicModifyIORef ref (\x -> case f x of v@(x', _) -> x' `seq` v)
+  b `seq` return b
 
 atomicWriteIORef :: IORef a -> a -> IO ()
 atomicWriteIORef = writeIORef

@@ -1,15 +1,16 @@
--- System.Timeout (base).  Yale Haskell has no asynchronous exceptions
--- (a forked thread runs to completion: Control.Concurrent), so a
--- timeout cannot interrupt its action: with a positive bound the action
--- runs to completion and its result is Just; a negative bound is no
--- bound, and a zero one answers Nothing without running the action, as
--- in base.
+-- System.Timeout (base): as base's, a thread that sleeps for the bound
+-- and then throws Timeout to the action's thread (Control.Concurrent's
+-- threads are host threads).  A negative bound is no bound; a zero one
+-- answers Nothing without running the action.
 module System.Timeout (Timeout, timeout) where
 
-import Control.Exception (Exception)
+import Control.Concurrent (myThreadId, forkIOWithUnmask, threadDelay, killThread)
+import Control.Exception (Exception(..), handleJust, bracket, throwTo,
+                          uninterruptibleMask_)
+import Data.Unique (Unique, newUnique)
 
--- | The exception base's timeout throws to its action (never thrown here).
-data Timeout = Timeout deriving Eq
+-- | The exception timeout throws to its action: each call's own.
+newtype Timeout = Timeout Unique deriving Eq
 
 instance Show Timeout where
   show _ = "<<timeout>>"
@@ -17,6 +18,15 @@ instance Show Timeout where
 instance Exception Timeout
 
 timeout :: Int -> IO a -> IO (Maybe a)
-timeout n action
+timeout n f
+  | n < 0 = fmap Just f
   | n == 0 = return Nothing
-  | otherwise = fmap Just action
+  | otherwise = do
+      pid <- myThreadId
+      ex <- fmap Timeout newUnique
+      handleJust (\e -> if e == ex then Just () else Nothing)
+                 (\_ -> return Nothing)
+                 (bracket (forkIOWithUnmask (\unmask ->
+                             unmask (threadDelay n >> throwTo pid ex)))
+                          (uninterruptibleMask_ . killThread)
+                          (\_ -> fmap Just f))

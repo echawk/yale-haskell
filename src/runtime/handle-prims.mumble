@@ -134,6 +134,18 @@
     (raise-io-error/handle 'illegal-operation location
 			   "handle is not seekable" h)))
 
+;;; Threads (Control.Concurrent, src/base/concurrent-runtime.lisp): once
+;;; there are any, a handle's stream is used by one at a time.  One lock
+;;; serves all handles; a string being written is evaluated outside it.
+
+#+sbcl (define *io-lock* (sb-thread:make-mutex :name "Handles"))
+
+(define-syntax (with-io-lock . body)
+  #+sbcl `(if *parallel-active*
+	      (sb-thread:with-recursive-lock (*io-lock*) ,@body)
+	      (begin ,@body))
+  #-sbcl `(begin ,@body))
+
 (define-syntax (with-handle-errors location h . body)
   `(with-host-io-errors ,location (haskell-handle-name ,h)
      ,@body))
@@ -288,7 +300,7 @@
 (define (prim.h-flush h)
   (check-writable h "hFlush")
   (with-handle-errors "hFlush" h
-    (lisp:finish-output (handle-stream h)))
+    (with-io-lock (lisp:finish-output (handle-stream h))))
   0)
 
 ;;; GHC.IO.Handle's hDuplicate: a new handle on the same stream (a
@@ -353,7 +365,7 @@
 (define (prim.h-get-char h)
   (check-readable h "hGetChar")
   (with-handle-errors "hGetChar" h
-    (char->integer (lisp:read-char (handle-stream h)))))
+    (char->integer (with-io-lock (lisp:read-char (handle-stream h))))))
 
 ;;; primHLookAhead :: Handle -> IO Char
 (define (prim.h-look-ahead h)
@@ -367,7 +379,7 @@
 (define (prim.h-get-line h)
   (check-readable h "hGetLine")
   (with-handle-errors "hGetLine" h
-    (let ((line  (lisp:read-line (handle-stream h) '#f ':eof)))
+    (let ((line  (with-io-lock (lisp:read-line (handle-stream h) '#f ':eof))))
       (when (eq? line ':eof)
 	(raise-io-error/handle 'eof "hGetLine" "" h))
       line)))
@@ -386,7 +398,7 @@
   (let ((ch  (if (eq? (haskell-handle-state h) 'closed)
 		 ':eof
 		 (with-handle-errors "hGetContents" h
-		   (lisp:read-char (handle-stream h) '#f ':eof)))))
+		   (with-io-lock (lisp:read-char (handle-stream h) '#f ':eof))))))
     (cond ((eq? ch ':eof)
 	   (unless (or (eq? (haskell-handle-state h) 'closed)
 		       (standard-handle? h))
@@ -408,8 +420,9 @@
 (define (prim.h-put-char h ch)
   (check-writable h "hPutChar")
   (with-handle-errors "hPutChar" h
-    (lisp:write-char ch (handle-stream h))
-    (after-output h (char=? ch #\newline)))
+    (with-io-lock
+      (lisp:write-char ch (handle-stream h))
+      (after-output h (char=? ch #\newline))))
   0)
 
 ;;; primHPutStr :: Handle -> String -> IO ()    (NoConversion)
@@ -418,19 +431,42 @@
 (define (prim.h-put-str h s state)
   (declare (ignore state))
   (check-writable h "hPutStr")
-  (let ((stream    (handle-stream h))
-	(newline?  '#f))
-    (with-handle-errors "hPutStr" h
-      (do ((s1 s (force (cdr s1))))
-	  ((null? s1))
-	(let ((ch  (integer->char (force (car s1)))))
-	  (lisp:write-char ch stream)
-	  (when (char=? ch #\newline)
-	    (setf newline? '#t)
-	    (when (eqv? (haskell-handle-buffering h) 0)
-	      (lisp:force-output stream))))))
-    (after-output h newline?))
+  (if *parallel-active*
+      (h-put-str-chunks h s)
+      (let ((stream    (handle-stream h))
+	    (newline?  '#f))
+	(with-handle-errors "hPutStr" h
+	  (do ((s1 s (force (cdr s1))))
+	      ((null? s1))
+	    (let ((ch  (integer->char (force (car s1)))))
+	      (lisp:write-char ch stream)
+	      (when (char=? ch #\newline)
+		(setf newline? '#t)
+		(when (eqv? (haskell-handle-buffering h) 0)
+		  (lisp:force-output stream))))))
+	(after-output h newline?)))
   (box 0))
+
+;;; With threads: the string evaluated a line (or 512 characters) at a
+;;; time outside the lock, each piece written under it, so that lines
+;;; written by different threads do not mix.
+(define (h-put-str-chunks h s)
+  (let ((buf  (lisp:make-array 512 :element-type 'lisp:character
+			       :fill-pointer 0)))
+    (do ((s1 s))
+	((null? s1))
+      (setf (lisp:fill-pointer buf) 0)
+      (let ((newline?  '#f))
+	(do ()
+	    ((or (null? s1) newline? (eqv? (lisp:fill-pointer buf) 512)))
+	  (let ((ch  (integer->char (force (car s1)))))
+	    (lisp:vector-push ch buf)
+	    (when (char=? ch #\newline) (setf newline? '#t))
+	    (setf s1 (force (cdr s1)))))
+	(with-handle-errors "hPutStr" h
+	  (with-io-lock
+	    (lisp:write-string buf (handle-stream h))
+	    (after-output h newline?)))))))
 
 ;;; Queries
 

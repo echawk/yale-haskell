@@ -22,7 +22,7 @@
 ;;;                       a literal "..."# is copied to memory once;
 ;;;   MutVar# s a         a one-element vector, as Data.IORef's cells;
 ;;;   MVar# s a           a one-element vector, *empty-mvar* when empty
-;;;                       (one thread: taking from an empty one fails);
+;;;                       (Control.Concurrent.MVar's: concurrent-runtime.lisp);
 ;;;   StablePtr# a        an index into a table of objects.
 ;;; Indexes are in elements of the access's size, as GHC's.  A Char is
 ;;; its code, as everywhere in the runtime.  Multi-byte
@@ -172,17 +172,22 @@ operations are strict in it) and return the token."
 (define-typed-access "ADDR" sb-sys:sap-ref-sap 8 identity1 identity1)
 (define-typed-access "STABLE-PTR" sb-sys:sap-ref-64 8 identity1 identity1)
 
-;;; Atomic operations on Int arrays (one thread here, or a lock-free
-;;; compare-and-swap is not needed: the spark pool does not run IO).
+;;; Atomic operations on Int arrays: under one lock (Control.Concurrent's
+;;; threads, src/base/concurrent-runtime.lisp).
+(sb-ext:defglobal **int-array-lock** (sb-thread:make-mutex :name "atomic Int arrays"))
 (cl:defun prim.cas-int-array# (b i old new s)
-  (cl:let* ((sap (prim-bytes-sap b)) (cur (sb-sys:signed-sap-ref-64 sap (cl:* i 8))))
-    (cl:when (cl:= cur old) (cl:setf (sb-sys:signed-sap-ref-64 sap (cl:* i 8)) new))
+  (cl:let ((cur (sb-thread:with-mutex (**int-array-lock**)
+                  (cl:let* ((sap (prim-bytes-sap b)) (cur (sb-sys:signed-sap-ref-64 sap (cl:* i 8))))
+                    (cl:when (cl:= cur old) (cl:setf (sb-sys:signed-sap-ref-64 sap (cl:* i 8)) new))
+                    cur))))
     (state-and s cur)))
 (cl:defmacro define-fetch-op (name op)
   `(cl:defun ,name (b i x s)
-     (cl:let* ((sap (prim-bytes-sap b)) (cur (sb-sys:signed-sap-ref-64 sap (cl:* i 8))))
-       (cl:setf (sb-sys:signed-sap-ref-64 sap (cl:* i 8))
-                (wrap-int64 (,op cur x)))
+     (cl:let ((cur (sb-thread:with-mutex (**int-array-lock**)
+                     (cl:let* ((sap (prim-bytes-sap b)) (cur (sb-sys:signed-sap-ref-64 sap (cl:* i 8))))
+                       (cl:setf (sb-sys:signed-sap-ref-64 sap (cl:* i 8))
+                                (wrap-int64 (,op cur x)))
+                       cur))))
        (state-and s cur))))
 (cl:defun wrap-int64 (n)
   (cl:let ((m (cl:ldb (cl:byte 64 0) n)))
@@ -247,9 +252,9 @@ operations are strict in it) and return the token."
     (cl:replace new a)
     (state-and s new)))
 (cl:defun prim.cas-array# (a i old new s)
-  (cl:let ((cur (cl:svref a i)))
+  (cl:let ((cur (sb-ext:compare-and-swap (cl:svref a i) old new)))
     (cl:if (cl:eq cur old)
-           (cl:progn (cl:setf (cl:svref a i) new) (state3 s 0 new))
+           (state3 s 0 new)
            (state3 s 1 cur))))
 
 ;;; ------------------------------------------------------------------
@@ -260,42 +265,49 @@ operations are strict in it) and return the token."
 (cl:defun prim.write-mut-var# (v x s) (with-state (s) (cl:setf (cl:svref v 0) x)))
 (cl:defun prim.same-mut-var# (a b) (cl:if (cl:eq a b) 1 0))
 (cl:defun prim.cas-mut-var# (v old new s)
-  (cl:let ((cur (cl:svref v 0)))
+  (cl:let ((cur (sb-ext:compare-and-swap (cl:svref v 0) old new)))
     (cl:if (cl:eq cur old)
-           (cl:progn (cl:setf (cl:svref v 0) new) (state3 s 0 new))
+           (state3 s 0 new)
            (state3 s 1 cur))))
+;;; atomicModifyMutVar2# and atomicModifyMutVar_# (GHC.Exts): the new
+;;; value, a thunk, swapped in with a compare-and-swap.  F's result r is
+;;; a pair for the 2# form, whose first component is the new value.
+(cl:defun prim.atomic-modify-mut-var2# (v f s)
+  (cl:loop
+    (cl:let* ((old (cl:svref v 0))
+              (r (delay (force (apply-1 (force f) old))))
+              (new (delay (force (cl:car (force r))))))
+      (cl:when (cl:eq (sb-ext:compare-and-swap (cl:svref v 0) old new) old)
+        (cl:return (state3 s old r))))))
+(cl:defun prim.atomic-modify-mut-var_# (v f s)
+  (cl:loop
+    (cl:let* ((old (cl:svref v 0))
+              (new (delay (force (apply-1 (force f) old)))))
+      (cl:when (cl:eq (sb-ext:compare-and-swap (cl:svref v 0) old new) old)
+        (cl:return (state3 s old new))))))
 
 (cl:defvar *empty-mvar* (cl:make-symbol "EMPTY-MVAR"))
 (cl:defun prim.new-mvar# (s) (state-and s (cl:vector *empty-mvar*)))
 (cl:defun mvar-blocked ()
   (haskell-runtime-error "thread blocked indefinitely in an MVar operation"))
-(cl:defun prim.take-mvar# (v s)
-  (cl:let ((x (cl:svref v 0)))
-    (cl:when (cl:eq x *empty-mvar*) (mvar-blocked))
-    (cl:setf (cl:svref v 0) *empty-mvar*)
-    (state-and s x)))
-(cl:defun prim.read-mvar# (v s)
-  (cl:let ((x (cl:svref v 0)))
-    (cl:when (cl:eq x *empty-mvar*) (mvar-blocked))
-    (state-and s x)))
-(cl:defun prim.put-mvar# (v x s)
-  (cl:unless (cl:eq (cl:svref v 0) *empty-mvar*) (mvar-blocked))
-  (with-state (s) (cl:setf (cl:svref v 0) x)))
+(cl:defun prim.take-mvar# (v s) (state-and s (mvar-take v cl:nil)))
+(cl:defun prim.read-mvar# (v s) (state-and s (mvar-read v cl:nil)))
+(cl:defun prim.put-mvar# (v x s) (with-state (s) (mvar-put v x cl:nil)))
+;;; (the blocking forms wait, with Control.Concurrent's threads:
+;;; src/base/concurrent-runtime.lisp)
 ;;; the try forms answer (# s, 0 or 1, value #)
 (cl:defun prim.try-take-mvar# (v s)
-  (cl:let ((x (cl:svref v 0)))
+  (cl:let ((x (mvar-try-take v)))
     (cl:if (cl:eq x *empty-mvar*)
            (state3 s 0 0)
-           (cl:progn (cl:setf (cl:svref v 0) *empty-mvar*) (state3 s 1 x)))))
+           (state3 s 1 x))))
 (cl:defun prim.try-read-mvar# (v s)
   (cl:let ((x (cl:svref v 0)))
     (cl:if (cl:eq x *empty-mvar*)
            (state3 s 0 0)
            (state3 s 1 x))))
 (cl:defun prim.try-put-mvar# (v x s)
-  (cl:if (cl:eq (cl:svref v 0) *empty-mvar*)
-         (cl:progn (cl:setf (cl:svref v 0) x) (state-and s 1))
-         (state-and s 0)))
+  (state-and s (cl:if (mvar-try-put v x) 1 0)))
 (cl:defun prim.is-empty-mvar# (v s) (state-and s (cl:if (cl:eq (cl:svref v 0) *empty-mvar*) 1 0)))
 (cl:defun prim.same-mvar# (a b) (cl:if (cl:eq a b) 1 0))
 

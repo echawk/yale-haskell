@@ -12,9 +12,19 @@
 
 (cl:defun prim.ref-eq (a b) (cl:eq a b))
 
-;;; GHC.Conc's threadWaitRead and threadWaitWrite: there is one Haskell
-;;; thread, so they block until the descriptor is ready (network's
-;;; non-blocking sockets).
+;;; atomicModifyIORef: thunks for F's pair and its first component, the
+;;; latter swapped in with a compare-and-swap; the pair's second.
+(cl:defun prim.atomic-modify-ref (ref f)
+  (cl:loop
+    (cl:let* ((old (cl:svref ref 0))
+              (r (delay (force (apply-1 f old))))
+              (new (delay (force (cl:car (force r))))))
+      (cl:when (cl:eq (sb-ext:compare-and-swap (cl:svref ref 0) old new) old)
+        (cl:return (delay (force (cl:cdr (force r)))))))))
+
+;;; GHC.Conc's threadWaitRead and threadWaitWrite: the thread blocks
+;;; until the descriptor is ready (network's non-blocking sockets); other
+;;; threads run meanwhile (src/base/concurrent-runtime.lisp).
 (cl:defun prim.wait-fd (fd read?)
   (sb-sys:wait-until-fd-usable fd (cl:if read? :input :output))
   cl:nil)

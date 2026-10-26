@@ -27,6 +27,9 @@ primNewRef         :: a -> IO (Ref a)
 primReadRef        :: Ref a -> IO a
 primWriteRef       :: Ref a -> a -> IO ()
 primRefEq          :: Ref a -> Ref a -> Bool
+-- the new value (f's first component) swapped in with a compare-and-swap;
+-- the second component
+primAtomicModifyRef :: Ref a -> (a -> (a, b)) -> IO b
 -- the same object (GHC.Exts' reallyUnsafePtrEquality#), both evaluated
 primPtrEq          :: a -> a -> Bool
 
@@ -147,6 +150,7 @@ primWeakAlive      :: LispName("prim.weak-alive"), Strictness("S,S")
 primReadRef        :: LispName("prim.read-ref")
 primWriteRef       :: LispName("prim.write-ref"), Strictness("S,N,S")
 primRefEq          :: LispName("prim.ref-eq")
+primAtomicModifyRef :: LispName("prim.atomic-modify-ref"), Strictness("S,S,S")
 primPtrEq          :: LispName("prim.ref-eq"), Strictness("S,S")
 primNewMutArr      :: LispName("prim.new-mut-arr"), Strictness("S,N,S")
 primNewUMutArr     :: LispName("prim.new-unboxed-mut-arr"), Strictness("S,S,S")

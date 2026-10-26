@@ -179,7 +179,7 @@ hPutStr               :: Handle -> String -> IO ()
 hPutStr (Handle h) s  =  primHPutStr h s
 
 hPutStrLn             :: Handle -> String -> IO ()
-hPutStrLn h s         =  hPutStr h s `thenIO_` hPutChar h '\n'
+hPutStrLn h s         =  hPutStr h (s ++ "\n")
 
 hPrint                :: Show a => Handle -> a -> IO ()
 hPrint h x            =  hPutStrLn h (show x)

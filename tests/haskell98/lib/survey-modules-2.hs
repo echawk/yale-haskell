@@ -10,5 +10,6 @@ main = do
   print (getPredicate (contramap length (Predicate even)) "abcd", getPredicate (Predicate even <> Predicate (> 2)) (4 :: Int))
   print (sortBy (getComparison (contramap negate defaultComparison)) [3, 1, 2 :: Int])
   print (runSelect (select (\k -> if k 'a' > k 'b' then 'a' else 'b')) fromEnum)
-  _ <- forkOSWithUnmask (\unmask -> unmask (putStrLn "forked"))
-  return ()
+  d <- newEmptyMVar
+  _ <- forkOSWithUnmask (\unmask -> unmask (putStrLn "forked") >> putMVar d ())
+  takeMVar d

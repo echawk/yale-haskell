@@ -1,9 +1,8 @@
--- Control.Concurrent (base).  Yale Haskell's runtime has one thread:
--- forkIO runs the new thread's action to completion before it returns
--- (an exception in it is reported on stderr, as GHC does, and does not
--- reach the parent).  Programs whose threads only hand results back
--- through MVars or Chans (workers, then a collector) run as with GHC; a
--- thread that waits for another one fails with "blocked indefinitely".
+-- Control.Concurrent (base).  A forked thread is a host thread
+-- (bordeaux-threads: src/base/concurrent-runtime.lisp), and the main
+-- thread's end ends the program, as with GHC's threaded runtime.  An
+-- exception that escapes a thread is reported on stderr (ThreadKilled
+-- silently).
 module Control.Concurrent (
     ThreadId, myThreadId, forkIO, forkFinally, forkIOWithUnmask, forkOS,
     forkOSWithUnmask, forkOnWithUnmask,
@@ -16,43 +15,36 @@ module Control.Concurrent (
 
 import Control.Concurrent.MVar
 import Control.Concurrent.Chan
-import Control.Exception (SomeException, try)
-import Data.IORef
+import Control.Exception (SomeException, AsyncException(ThreadKilled), try,
+                          throwTo, fromException, mask, mask_)
 import System.IO (hPutStrLn, stderr)
-import System.IO.Unsafe (unsafePerformIO)
 import ParallelPrims (primNumCapabilities)
+import ConcurrentPrims (primForkThread, primThreadDelay, primYield)
 import System.Posix.Types (Fd(..))
 import BasePrims (primWaitFd)
-import ConcurrentBase (ThreadId(..), throwTo)
-
-
--- the last thread number given out
-counter :: IORef Int
-counter = unsafePerformIO (newIORef 1)
-
-myThreadId :: IO ThreadId
-myThreadId = return (ThreadId 1)
+import ConcurrentBase (ThreadId(..), myThreadId, withMaskState)
 
 forkIO :: IO () -> IO ThreadId
-forkIO act = do
-  n <- atomicModifyIORef counter (\k -> (k + 1, k + 1))
-  r <- try act
-  case r of
-    Left e -> hPutStrLn stderr ("<thread>: " ++ show (e :: SomeException))
-    Right () -> return ()
-  return (ThreadId n)
+forkIO act = fmap ThreadId (primForkThread (try act >>= report))
+  where
+    report (Left e)
+      | Just ThreadKilled <- fromException e = return ()
+      | otherwise = hPutStrLn stderr ("<thread>: " ++ show (e :: SomeException))
+    report (Right ()) = return ()
 
 forkFinally :: IO a -> (Either SomeException a -> IO ()) -> IO ThreadId
-forkFinally act fin = forkIO (try act >>= fin)
+forkFinally act fin = mask $ \restore -> forkIO (try (restore act) >>= fin)
 
+-- (the new thread starts in its parent's masking state, here masked;
+-- unmask unmasks, as base's unsafeUnmask)
 forkIOWithUnmask :: ((forall a . IO a -> IO a) -> IO ()) -> IO ThreadId
-forkIOWithUnmask f = forkIO (f id)
+forkIOWithUnmask f = mask_ (forkIO (f (withMaskState 0)))
 
 forkOSWithUnmask :: ((forall a . IO a -> IO a) -> IO ()) -> IO ThreadId
-forkOSWithUnmask f = forkIO (f id)
+forkOSWithUnmask = forkIOWithUnmask
 
 forkOnWithUnmask :: Int -> ((forall a . IO a -> IO a) -> IO ()) -> IO ThreadId
-forkOnWithUnmask _ f = forkIO (f id)
+forkOnWithUnmask _ = forkIOWithUnmask
 
 forkOS :: IO () -> IO ThreadId
 forkOS = forkIO
@@ -61,15 +53,14 @@ forkOn :: Int -> IO () -> IO ThreadId
 forkOn _ = forkIO
 
 killThread :: ThreadId -> IO ()
-killThread _ = return ()
-
+killThread t = throwTo t ThreadKilled
 
 yield :: IO ()
-yield = return ()
+yield = primYield
 
--- The thread would sleep; with one thread there is nothing to wait for.
+-- microseconds
 threadDelay :: Int -> IO ()
-threadDelay _ = return ()
+threadDelay = primThreadDelay
 
 -- +RTS -N's (Control.Parallel's sparks use them; threads still run one
 -- at a time)
@@ -80,10 +71,10 @@ setNumCapabilities :: Int -> IO ()
 setNumCapabilities _ = return ()
 
 rtsSupportsBoundThreads :: Bool
-rtsSupportsBoundThreads = False
+rtsSupportsBoundThreads = True
 
 isCurrentThreadBound :: IO Bool
-isCurrentThreadBound = return False
+isCurrentThreadBound = return True
 
 threadCapability :: ThreadId -> IO (Int, Bool)
 threadCapability _ = return (0, False)
@@ -91,8 +82,8 @@ threadCapability _ = return (0, False)
 mkWeakThreadId :: ThreadId -> IO ThreadId
 mkWeakThreadId = return
 
--- | Block until the descriptor can be read, or written: there is one
--- Haskell thread (network's non-blocking sockets wait here).
+-- | Block until the descriptor can be read, or written (network's
+-- non-blocking sockets wait here); other threads run meanwhile.
 threadWaitRead, threadWaitWrite :: Fd -> IO ()
 threadWaitRead (Fd n) = primWaitFd (fromIntegral n) True
 threadWaitWrite (Fd n) = primWaitFd (fromIntegral n) False

@@ -1,14 +1,30 @@
--- ConcurrentBase: Control.Concurrent's ThreadId and throwTo, which
--- Control.Exception exports too (as base's does; unliftio's E.throwTo),
--- in a module both import (Control.Concurrent imports Control.Exception).
-module ConcurrentBase (ThreadId(..), throwTo) where
+-- ConcurrentBase: Control.Concurrent's ThreadId, in a module that
+-- Control.Exception (throwTo) and Control.Concurrent both import.  A
+-- thread is a host thread (src/base/concurrent-runtime.lisp); the main
+-- thread is number 1.
+module ConcurrentBase (ThreadId(..), myThreadId, withMaskState) where
+
+import ConcurrentPrims (primMyThreadId, primGetMask, primSetMask)
+import BasePrims (primCatchAny, primThrowExc)
 
 newtype ThreadId = ThreadId Int deriving (Eq, Ord)
 
 instance Show ThreadId where
   show (ThreadId n) = "ThreadId " ++ show n
 
--- A forked thread has run to completion when forkIO returns (one Haskell
--- thread), so there is no thread to interrupt.
-throwTo :: ThreadId -> e -> IO ()
-throwTo _ _ = return ()
+myThreadId :: IO ThreadId
+myThreadId = fmap ThreadId primMyThreadId
+
+-- the action in masking state M (0 unmasked, 1 masked, 2 uninterruptibly),
+-- then the state before (Control.Exception's mask, and base's
+-- unsafeUnmask: withMaskState 0)
+withMaskState :: Int -> IO a -> IO a
+withMaskState m act = do
+  old <- primGetMask
+  if old == m
+    then act
+    else do
+      primSetMask m
+      r <- primCatchAny act (\e -> primSetMask old >> primThrowExc e)
+      primSetMask old
+      return r

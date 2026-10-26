@@ -27,6 +27,7 @@ import IOPrims
 import PreludeBltinArray(strict1)
 import PreludeCore(Monad(..), Functor(..))
 import PreludeText(reads, lex, shows, showString)
+import PreludeList((++))
 
 {-#Prelude#-}  -- Indicates definitions of compiler prelude symbols
 
@@ -110,7 +111,8 @@ putStr                :: String -> IO ()
 putStr s              =  primHPutStr primStdout s
 
 putStrLn              :: String -> IO ()
-putStrLn s            =  putStr s `thenIO_` putChar '\n'
+-- (one write, as GHC's: a line from one thread is not split by another's)
+putStrLn s            =  putStr (s ++ "\n")
 
 print                 :: (Show a) => a -> IO ()
 print x               =  putStrLn (show x)

@@ -1,0 +1,65 @@
+-- ConcurrentPrims.hi -- Control.Concurrent's primitives: threads, MVars,
+-- asynchronous exceptions and masking, and STM's lock
+-- (src/base/concurrent-runtime.lisp).
+
+interface ConcurrentPrims where
+
+import PreludeCore(Int,Bool)
+import BasePrims(Exc,Ref)
+
+-- a new thread running the action; its number
+primForkThread     :: IO () -> IO Int
+primMyThreadId     :: IO Int
+-- the exception, raised in the thread with that number
+primThrowTo        :: Int -> Exc -> IO ()
+-- microseconds
+primThreadDelay    :: Int -> IO ()
+primYield          :: IO ()
+primThreadFinished :: Int -> IO Bool
+-- 0 unmasked, 1 masked (interruptibly), 2 uninterruptibly; unmasking
+-- raises an exception thrown to the thread meanwhile
+primGetMask        :: IO Int
+primSetMask        :: Int -> IO ()
+
+-- an MVar: a cell, empty or holding the value (stored unevaluated)
+data MVarObj a
+primNewMVar        :: IO (MVarObj a)
+-- the Exc: what a deadlocked thread gets (BlockedIndefinitelyOnMVar)
+primTakeMVar       :: MVarObj a -> Exc -> IO a
+primReadMVar       :: MVarObj a -> Exc -> IO a
+primPutMVar        :: MVarObj a -> a -> Exc -> IO ()
+-- the value, if there is one, into the Ref
+primTryTakeMVar    :: MVarObj a -> Ref a -> IO Bool
+primTryReadMVar    :: MVarObj a -> Ref a -> IO Bool
+primTryPutMVar     :: MVarObj a -> a -> IO Bool
+primIsEmptyMVar    :: MVarObj a -> IO Bool
+primMVarEq         :: MVarObj a -> MVarObj a -> Bool
+
+-- STM: a transaction holds the lock; a retrying one waits (holding it
+-- again after) for another one to commit (the Bool: whether it wrote)
+primSTMLock        :: IO ()
+primSTMUnlock      :: Bool -> IO ()
+primSTMWait        :: Exc -> IO ()
+
+{-#
+primForkThread     :: LispName("prim.fork-thread"), Strictness("N,S")
+primMyThreadId     :: LispName("prim.my-thread-id")
+primThrowTo        :: LispName("prim.throw-to"), Strictness("S,S,S")
+primThreadDelay    :: LispName("prim.thread-delay"), Strictness("S,S")
+primYield          :: LispName("prim.yield")
+primThreadFinished :: LispName("prim.thread-finished"), Strictness("S,S")
+primGetMask        :: LispName("prim.get-mask")
+primSetMask        :: LispName("prim.set-mask"), Strictness("S,S")
+primNewMVar        :: LispName("prim.new-mvar")
+primTakeMVar       :: LispName("prim.take-mvar"), Strictness("S,N,S")
+primReadMVar       :: LispName("prim.read-mvar"), Strictness("S,N,S")
+primPutMVar        :: LispName("prim.put-mvar"), Strictness("S,N,N,S")
+primTryTakeMVar    :: LispName("prim.try-take-mvar"), Strictness("S,S,S")
+primTryReadMVar    :: LispName("prim.try-read-mvar"), Strictness("S,S,S")
+primTryPutMVar     :: LispName("prim.try-put-mvar"), Strictness("S,N,S")
+primIsEmptyMVar    :: LispName("prim.is-empty-mvar"), Strictness("S,S")
+primMVarEq         :: LispName("prim.ref-eq"), Strictness("S,S")
+primSTMLock        :: LispName("prim.stm-lock")
+primSTMUnlock      :: LispName("prim.stm-unlock"), Strictness("S,S")
+primSTMWait        :: LispName("prim.stm-wait"), Strictness("N,S")
+#-}

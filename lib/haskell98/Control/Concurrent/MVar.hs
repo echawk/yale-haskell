@@ -1,7 +1,7 @@
--- Control.Concurrent.MVar (base), single-threaded (Control.Concurrent):
--- an MVar is an IORef holding Maybe a value.  An operation that would
--- block, with no other thread to wake it, fails as GHC's does when every
--- thread is blocked.
+-- Control.Concurrent.MVar (base): the runtime's MVars
+-- (src/base/concurrent-runtime.lisp), which a thread waits on.  A thread
+-- that would wait while every thread waits gets
+-- BlockedIndefinitelyOnMVar.
 module Control.Concurrent.MVar (
     MVar, newMVar, newEmptyMVar, takeMVar, putMVar, readMVar, swapMVar,
     tryTakeMVar, tryPutMVar, tryReadMVar, isEmptyMVar, withMVar,
@@ -9,70 +9,89 @@ module Control.Concurrent.MVar (
     modifyMVarMasked, mkWeakMVar
   ) where
 
-import Data.IORef
+import ConcurrentPrims
+import BasePrims (Exc, primNewRef, primReadRef)
+import Control.Exception (BlockedIndefinitelyOnMVar(..), SomeException(..),
+                          toException, mask, mask_, onException)
 import System.Mem.Weak (Weak, mkWeak)
 
-newtype MVar a = MVar (IORef (Maybe a))
+newtype MVar a = MVar (MVarObj a)
 
 instance Eq (MVar a) where
-  MVar a == MVar b = a == b
+  MVar a == MVar b = primMVarEq a b
 
-blocked :: IO a
-blocked = ioError (userError "thread blocked indefinitely in an MVar operation")
+blocked :: Exc
+blocked = case toException BlockedIndefinitelyOnMVar of SomeException e -> e
 
 newMVar :: a -> IO (MVar a)
-newMVar x = fmap MVar (newIORef (Just x))
+newMVar x = do { m <- newEmptyMVar; putMVar m x; return m }
 
 newEmptyMVar :: IO (MVar a)
-newEmptyMVar = fmap MVar (newIORef Nothing)
+newEmptyMVar = fmap MVar primNewMVar
 
 takeMVar :: MVar a -> IO a
-takeMVar (MVar r) = do
-  v <- readIORef r
-  case v of
-    Just x -> writeIORef r Nothing >> return x
-    Nothing -> blocked
+takeMVar (MVar m) = primTakeMVar m blocked
 
 readMVar :: MVar a -> IO a
-readMVar (MVar r) = readIORef r >>= maybe blocked return
+readMVar (MVar m) = primReadMVar m blocked
 
 putMVar :: MVar a -> a -> IO ()
-putMVar (MVar r) x = do
-  v <- readIORef r
-  case v of
-    Nothing -> writeIORef r (Just x)
-    Just _ -> blocked
+putMVar (MVar m) x = primPutMVar m x blocked
 
 swapMVar :: MVar a -> a -> IO a
-swapMVar m x = do { old <- takeMVar m; putMVar m x; return old }
+swapMVar m x = mask_ (do { old <- takeMVar m; putMVar m x; return old })
 
 tryTakeMVar :: MVar a -> IO (Maybe a)
-tryTakeMVar (MVar r) = do { v <- readIORef r; writeIORef r Nothing; return v }
+tryTakeMVar (MVar m) = do
+  r <- primNewRef undefined
+  ok <- primTryTakeMVar m r
+  if ok then fmap Just (primReadRef r) else return Nothing
 
 tryReadMVar :: MVar a -> IO (Maybe a)
-tryReadMVar (MVar r) = readIORef r
+tryReadMVar (MVar m) = do
+  r <- primNewRef undefined
+  ok <- primTryReadMVar m r
+  if ok then fmap Just (primReadRef r) else return Nothing
 
 tryPutMVar :: MVar a -> a -> IO Bool
-tryPutMVar (MVar r) x = do
-  v <- readIORef r
-  case v of
-    Nothing -> writeIORef r (Just x) >> return True
-    Just _ -> return False
+tryPutMVar (MVar m) x = primTryPutMVar m x
 
 isEmptyMVar :: MVar a -> IO Bool
-isEmptyMVar (MVar r) = fmap (maybe True (const False)) (readIORef r)
+isEmptyMVar (MVar m) = primIsEmptyMVar m
 
 withMVar, withMVarMasked :: MVar a -> (a -> IO b) -> IO b
-withMVar m f = do { x <- takeMVar m; y <- f x; putMVar m x; return y }
-withMVarMasked = withMVar
+withMVar m f = mask $ \restore -> do
+  x <- takeMVar m
+  y <- restore (f x) `onException` putMVar m x
+  putMVar m x
+  return y
+withMVarMasked m f = mask_ $ do
+  x <- takeMVar m
+  y <- f x `onException` putMVar m x
+  putMVar m x
+  return y
 
 modifyMVar_, modifyMVarMasked_ :: MVar a -> (a -> IO a) -> IO ()
-modifyMVar_ m f = takeMVar m >>= f >>= putMVar m
-modifyMVarMasked_ = modifyMVar_
+modifyMVar_ m f = mask $ \restore -> do
+  x <- takeMVar m
+  x' <- restore (f x) `onException` putMVar m x
+  putMVar m x'
+modifyMVarMasked_ m f = mask_ $ do
+  x <- takeMVar m
+  x' <- f x `onException` putMVar m x
+  putMVar m x'
 
 modifyMVar, modifyMVarMasked :: MVar a -> (a -> IO (a, b)) -> IO b
-modifyMVar m f = do { x <- takeMVar m; (x', y) <- f x; putMVar m x'; return y }
-modifyMVarMasked = modifyMVar
+modifyMVar m f = mask $ \restore -> do
+  x <- takeMVar m
+  (x', y) <- restore (f x) `onException` putMVar m x
+  putMVar m x'
+  return y
+modifyMVarMasked m f = mask_ $ do
+  x <- takeMVar m
+  (x', y) <- f x `onException` putMVar m x
+  putMVar m x'
+  return y
 
 -- a weak pointer to the MVar (its finalizer runs through finalize,
 -- System.Mem.Weak)

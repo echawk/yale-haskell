@@ -1,0 +1,14 @@
+late
+5050
+finalizer ran
+thread killed
+masked work done
+thread killed
+1600
+4000
+1000
+[1,2,3,4,5]
+0
+Left thread blocked indefinitely in an MVar operation
+Left thread blocked indefinitely in an STM transaction
+ThreadId 1

@@ -330,20 +330,14 @@ noDuplicate# :: State# s -> State# s
 noDuplicate# s = s
 
 
--- one thread at a time (Control.Parallel's sparks do no IO): a read and
--- a write.  atomicModifyMutVar2# answers the old value and f's result,
+-- the new value swapped in with a compare-and-swap (Control.Concurrent's
+-- threads).  atomicModifyMutVar2# answers the old value and f's result,
 -- whose first component is the new value.
 atomicModifyMutVar2# :: MutVar# s a -> (a -> c) -> State# s -> (State# s, a, c)
-atomicModifyMutVar2# mv f s =
-  case readMutVar# mv s of
-    (s1, old) -> let r = f old
-                 in case writeMutVar# mv (fstOf r) s1 of s2 -> (s2, old, r)
-  where fstOf r = case unsafeCoerce r of (a, _) -> a
+atomicModifyMutVar2# = atomicModifyMutVar2Prim#
 
 atomicModifyMutVar_# :: MutVar# s a -> (a -> a) -> State# s -> (State# s, a, a)
-atomicModifyMutVar_# mv f s =
-  case readMutVar# mv s of
-    (s1, old) -> let new = f old in case writeMutVar# mv new s1 of s2 -> (s2, old, new)
+atomicModifyMutVar_# = atomicModifyMutVar_Prim#
 
 atomicModifyMutVar# :: MutVar# s a -> (a -> b) -> State# s -> (State# s, c)
 atomicModifyMutVar# mv f s =
