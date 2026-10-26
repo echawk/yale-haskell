@@ -118,7 +118,10 @@
 	  (when (and (instance-ok? old)
 		     ;; (overlapping heads are allowed, the most specific
 		     ;; chosen: mp-classes.mumble's find-mp-instance)
-		     (identical-instance-heads? (instance-mp-types old) types))
+		     (identical-instance-heads? (instance-mp-types old) types)
+		     ;; (another module's may be one never imported with this
+		     ;; one: uniplate's Biplate a b in both .Typeable and .Data)
+		     (eq? (def-module (instance-dictionary old)) *module-name*))
 	    (signal-multiple-mp-instance class-def)))
 	(let ((inst (new-mp-instance class-def types tyvars)))
 	  (setf (instance-head-equalities? inst) head-equalities?)
