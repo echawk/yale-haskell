@@ -1,0 +1,117 @@
+unicode-transforms: normalize over the String (Yale Haskell's Text is a string of Chars), with unicode-data's tables.
+diff -ruN a/Data/Text/Normalize.hs b/Data/Text/Normalize.hs
+--- a/Data/Text/Normalize.hs	2026-10-25 21:46:18
++++ b/Data/Text/Normalize.hs	2026-10-25 21:46:41
+@@ -1,3 +1,4 @@
++{-# LANGUAGE CPP #-}
+ -- {-# OPTIONS_GHC -funfolding-fun-discount=90 #-}
+ -- |
+ -- Module      : Data.Text.Normalize
+@@ -21,6 +22,83 @@
+ import Data.Text (Text)
+ import Data.Unicode.Types (NormalizationMode(..))
+ 
++#ifdef __YALE_HASKELL__
++-- Yale Haskell: a Text is a string of Chars, not text's arrays, which
++-- NormalizeStream writes into: the normalization over the String, with
++-- unicode-data's tables (Unicode Standard Annex #15).
++import qualified Data.Text as T
++import Data.Char (chr, ord)
++import Data.List (sortBy)
++import Data.Ord (comparing)
++import Unicode.Char.Normalization
++    (DecomposeMode(..), decompose, isDecomposable, combiningClass,
++     compose, composeStarters)
++
++-- | Perform Unicode normalization on @Text@ according to the specified
++-- normalization mode.
++normalize :: NormalizationMode -> Text -> Text
++normalize mode = T.pack . go . T.unpack
++  where
++    go = case mode of
++      NFD  -> reorder . concatMap (decomp Canonical)
++      NFKD -> reorder . concatMap (decomp Kompat)
++      NFC  -> composeAll . reorder . concatMap (decomp Canonical)
++      NFKC -> composeAll . reorder . concatMap (decomp Kompat)
++
++hangulFirst, hangulLast :: Int
++hangulFirst = 0xAC00
++hangulLast = 0xD7A3
++
++decomp :: DecomposeMode -> Char -> [Char]
++decomp m c
++  | n >= hangulFirst && n <= hangulLast =
++      let i = n - hangulFirst
++          t = 0x11A7 + i `mod` 28
++      in chr (0x1100 + i `div` 588) : chr (0x1161 + (i `mod` 588) `div` 28)
++           : (if t == 0x11A7 then [] else [chr t])
++  | isDecomposable m c = concatMap (decomp m) (decompose m c)
++  | otherwise = [c]
++  where n = ord c
++
++-- each run of combining marks in canonical order (stable)
++reorder :: [Char] -> [Char]
++reorder [] = []
++reorder (c : cs)
++  | combiningClass c == 0 = c : reorder cs
++  | otherwise =
++      let (run, rest) = span ((/= 0) . combiningClass) (c : cs)
++      in sortBy (comparing combiningClass) run ++ reorder rest
++
++-- canonical composition: each character joins the last starter unless a
++-- character between them blocks it
++composeAll :: [Char] -> [Char]
++composeAll [] = []
++composeAll (c : cs) = go c [] cs
++  where
++    go starter acc [] = starter : reverse acc
++    go starter acc (x : xs) =
++      let cx = combiningClass x
++          blocked = case acc of
++            [] -> False
++            (a : _) -> let ca = combiningClass a in ca == 0 || ca >= cx
++      in case (if blocked then Nothing else composePair starter x) of
++           Just r -> go r acc xs
++           Nothing
++             | cx == 0 -> starter : reverse acc ++ go x [] xs
++             | otherwise -> go starter (x : acc) xs
++
++composePair :: Char -> Char -> Maybe Char
++composePair a b
++  | na >= 0x1100 && na <= 0x1112 && nb >= 0x1161 && nb <= 0x1175 =
++      Just (chr (hangulFirst + ((na - 0x1100) * 21 + (nb - 0x1161)) * 28))
++  | na >= hangulFirst && na <= hangulLast && (na - hangulFirst) `mod` 28 == 0
++      && nb >= 0x11A8 && nb <= 0x11C2 =
++      Just (chr (na + (nb - 0x11A7)))
++  | combiningClass b == 0 = composeStarters a b
++  | otherwise = compose a b
++  where na = ord a
++        nb = ord b
++#else
+ -- Internal modules
+ import Data.Unicode.Internal.NormalizeStream
+     ( DecomposeMode(..)
+@@ -38,3 +116,4 @@
+       NFKD -> (unstream Kompat)  . stream
+       NFC  -> (unstreamC Canonical)  . stream
+       NFKC -> (unstreamC Kompat) . stream
++#endif
+diff -ruN a/Data/Unicode/Internal/NormalizeStream.hs b/Data/Unicode/Internal/NormalizeStream.hs
+--- a/Data/Unicode/Internal/NormalizeStream.hs	2026-10-25 21:46:18
++++ b/Data/Unicode/Internal/NormalizeStream.hs	2026-10-25 21:46:41
+@@ -14,6 +14,10 @@
+ --
+ -- Stream based normalization.
+ --
++#ifdef __YALE_HASKELL__
++-- Yale Haskell: not used (Data.Text.Normalize normalizes the String)
++module Data.Unicode.Internal.NormalizeStream () where
++#else
+ module Data.Unicode.Internal.NormalizeStream
+     (
+       UC.DecomposeMode(..)
+@@ -543,3 +547,4 @@
+ 
+   outer arr0 (mlen - 1) s0 0 ComposeNone
+ {-# INLINE [0] unstreamC #-}
++#endif
