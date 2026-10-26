@@ -552,6 +552,9 @@
 	    ;; (an instance wanting what reduction would lose, Show (Token
 	    ;; s) of megaparsec's Show (ParseError s e): kept)
 	    (null? (instance-mcontext inst))
+	    ;; (nor one at a particular head, HasChars [Char] for HasChars
+	    ;; [a]: doctemplates')
+	    (null? (instance-head-args inst))
 	    (or (null? (instance-tyvars inst))
 	       (not (eqv? (length (instance-tyvars inst)) (length (tycon-args type))))
 	       (every (lambda (ic)
