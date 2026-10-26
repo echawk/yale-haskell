@@ -114,6 +114,25 @@
    \  --git=URL                     fetch from the Git repo instead of hackage\n\
    \  --dry-run                     do NOT execute the commands, just print\n\
    \  --no-nightly                  use latest versioned snapshot from stackage instead of nightly\n\
+--- a/MicroCabal/Normalize.hs
++++ b/MicroCabal/Normalize.hs
+@@ -94,4 +94,15 @@
+ inVersionRange v (VOr vr1 vr2) = inVersionRange v vr1 || inVersionRange v vr2
+ inVersionRange v (VAnd vr1 vr2) = inVersionRange v vr1 && inVersionRange v vr2
+ inVersionRange v (VEQSet vs) = v `elem` vs
+-inVersionRange _ vr = error $ "inVersionRange: not implemented " ++ show vr
++-- == 7.4.*: the version's components begin with 7.4
++inVersionRange v (VEQWild w) =
++  take (length (versionBranch w)) (versionBranch v) == versionBranch w
++-- ^>= 1.2.3: >= 1.2.3 && < 1.3
++inVersionRange v (VGEHat w) = v >= w && v < hatBound w
++inVersionRange v (VGEHatSet ws) = any (inVersionRange v . VGEHat) ws
++
++hatBound :: Version -> Version
++hatBound w = case versionBranch w of
++  (a : b : _) -> makeVersion [a, b + 1]
++  [a] -> makeVersion [a, 1]
++  [] -> makeVersion [1]
 --- a/MicroCabal/Parse.hs
 +++ b/MicroCabal/Parse.hs
 @@ -15,8 +15,38 @@
