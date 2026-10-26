@@ -267,8 +267,10 @@
 		 ;; a synonym of a family's)
 		 (not (family-application-ast? (car (mp-context-types c))))
 		 (reducible-context-type? class (car (mp-context-types c)) 20))
-	    (setf added (append (reduce-context-type class (car (mp-context-types c)))
-				added))
+	    ;; (in order: a method's Eq k, Show k are the class method's
+	    ;; dictionaries in that order)
+	    (setf added (append added
+				(reduce-context-type class (car (mp-context-types c)))))
 	    (push c keep))))
     (when (not (null? added))
       (setf (signature-context signature)
