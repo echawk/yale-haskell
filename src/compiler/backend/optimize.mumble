@@ -366,8 +366,25 @@
 (define (leads-back-to? exp var)
   (flic-find (lambda (e)
 	       (and (is-type? 'flic-ref e)
-		    (dictionary-leads-to? (flic-ref-var e) var 4)))
+		    (or (dictionary-leads-to? (flic-ref-var e) var 4)
+			(inline-leads-to? (flic-ref-var e) var 3 '()))))
 	     exp))
+
+;;; Or through other functions marked Inline: free's hoistAlt and
+;;; hoistAltF call each other, and were inlined into each other pass by
+;;; pass (lens ran out of memory).
+(define (inline-leads-to? w var n visited)
+  (or (eq? w var)
+      (and (> n 0)
+	   (var-toplevel? w)
+	   (var-force-inline? w)
+	   (not (memq w visited))
+	   (flic-find (lambda (e)
+			(and (is-type? 'flic-ref e)
+			     (inline-leads-to? (flic-ref-var e) var (1- n)
+					       (cons w visited))))
+		      (var-value w))
+	   '#t)))
 
 (define (dictionary-leads-to? w var n)
   (or (eq? w var)
