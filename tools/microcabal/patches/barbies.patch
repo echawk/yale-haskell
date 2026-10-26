@@ -1,0 +1,25 @@
+barbies: gpure without its equality constraints, which Yale Haskell does
+not give in instances.
+diff -ruN a/Barbies/Generics/Applicative.hs b/Barbies/Generics/Applicative.hs
+--- a/Barbies/Generics/Applicative.hs	2026-10-26 02:29:58
++++ b/Barbies/Generics/Applicative.hs	2026-10-26 02:29:58
+@@ -1,3 +1,4 @@
++{-# LANGUAGE CPP #-}
+ {-# LANGUAGE PolyKinds            #-}
+ {-# LANGUAGE TypeFamilies         #-}
+ module Barbies.Generics.Applicative
+@@ -24,8 +25,14 @@
+     -> repbfg x
+ 
+   gpure
++#ifdef __YALE_HASKELL__
++    -- (equalities on the class's variables are not given here; the
++    -- instances need neither)
++    :: Proxy n
++#else
+     :: (f ~ g, repbf ~ repbg)
+     => Proxy n
++#endif
+     -> Proxy f
+     -> Proxy repbf
+     -> Proxy repbfg

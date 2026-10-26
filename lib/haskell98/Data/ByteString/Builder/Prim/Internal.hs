@@ -2,7 +2,7 @@
 -- or bound, and running it at a pointer.
 module Data.ByteString.Builder.Prim.Internal (
     FixedPrim, BoundedPrim, size, sizeBound, runF, runB,
-    fixedPrim, boundedPrim, toB, liftFixedToBounded, emptyF, emptyB
+    fixedPrim, boundedPrim, boudedPrim, toB, liftFixedToBounded, emptyF, emptyB
   ) where
 
 import Data.ByteString.Builder.Prim
@@ -34,6 +34,10 @@ toB = liftFixedToBounded
 fixedPrim :: Int -> (a -> Ptr Word8 -> IO ()) -> FixedPrim a
 fixedPrim n io = FixedPrim n (\a -> unsafePerformIO (scratch n (\p -> do
   io a p; peekArray n p)))
+
+-- (bytestring's misspelt name for it, deprecated; double-conversion's)
+boudedPrim :: Int -> (a -> Ptr Word8 -> IO (Ptr Word8)) -> BoundedPrim a
+boudedPrim = boundedPrim
 
 boundedPrim :: Int -> (a -> Ptr Word8 -> IO (Ptr Word8)) -> BoundedPrim a
 boundedPrim n io = BoundedPrim n (\a -> unsafePerformIO (scratch n (\p -> do
