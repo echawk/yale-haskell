@@ -88,11 +88,17 @@
 ;;; values share the symbol tables and a constructor operator's do.
 
 (define (type-operator-name)
-  (if (eq? *token* 'varsym)
-      (let ((name (car *token-args*)))
-	(advance-token)
-	(string->symbol (string-append "type%" name)))
-      (token->symbol)))
+  (cond ((eq? *token* 'varsym)
+	 (let ((name (car *token-args*)))
+	   (advance-token)
+	   (string->symbol (string-append "type%" name))))
+	((eq-token? '\`)
+	 ;; t1 `C` t2 (barbies' f `Product` g)
+	 (advance-token)
+	 (let ((name (token->symbol)))
+	   (require-token \` (signal-missing-token "`\``" "infix type constructor"))
+	   name))
+	(else (token->symbol))))
 
 (define (prefix-type-operator?)
   (and (or (type-operator-here?)
@@ -103,10 +109,12 @@
        (eq? (peek-1-type) '\))))
 
 (define (type-operator-here?)
-  (and (memq *token* '(consym varsym))
-       (not (mem-string (car *token-args*) '("." "!" "~" "*" ":")))
-       (not (linear-arrow-here?))
-       (language-extension? "TypeOperators")))
+  (or (and (memq *token* '(consym varsym))
+	   (not (mem-string (car *token-args*) '("." "!" "~" "*" ":")))
+	   (not (linear-arrow-here?))
+	   (language-extension? "TypeOperators"))
+      ;; a type constructor in backquotes, t1 `C` t2: no extension needed
+      (and (haskell98?) (eq-token? '\`) (eq? (peek-1-type) 'conid))))
 
 ;;; DataKinds (GHC): type-level lists.  '[] and '[t1, ..., tn], or
 ;;; [t1, t2, ...] with two or more elements, and t ': ts are built from
