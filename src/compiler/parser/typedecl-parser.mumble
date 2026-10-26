@@ -632,12 +632,18 @@
  (save-parser-context
   (mlet (((assertions equalities) (split-equalities (parse-optional-context)))
 	 ((contexts mcontexts) (split-contexts assertions))
-	 (decls '()))
+	 (decls '())
+	 ;; a parenthesized head: instance (Show a) => (P [a])
+	 ;; (haskell-src-exts)
+	 (paren-head? (and (eq-token? '\() (memq (peek-1-type) '(conid qconid))
+			   (begin (advance-token) '#t))))
     (token-case
      (tycon
       (let* ((class (class->ast))
 	     ;; one atype, or several for a multi-parameter class
 	     (types (if (haskell98?) (parse-atype-list) (list (parse-type))))
+	     (_ (when paren-head?
+		  (require-token \) (signal-missing-token "`)'" "instance head"))))
 	     (simple '#f)
 	     (head-equalities? (and (not (null? equalities)) (not (null? (cdr types))))))
 	;; equality constraints (instance a ~ Char => IsString [a])
