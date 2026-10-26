@@ -1,0 +1,15 @@
+Agda: a dummy term without a call site to name (Yale Haskell's call stacks
+are empty) is named so, not __IMPOSSIBLE__.
+diff -ruN a/Agda/Syntax/Internal.hs b/Agda/Syntax/Internal.hs
+--- a/Agda/Syntax/Internal.hs	2026-10-26 03:37:02
++++ b/Agda/Syntax/Internal.hs	2026-10-26 03:37:02
+@@ -819,7 +819,8 @@
+ 
+ -- | Construct a string representing the call-site that created the dummy thing.
+ dummyLocName :: CallStack -> String
+-dummyLocName cs = maybe __IMPOSSIBLE__ prettyCallSite (headCallSite cs)
++-- (Yale Haskell's call stacks are empty: no call site to name)
++dummyLocName cs = maybe "<no call site>" prettyCallSite (headCallSite cs)
+ 
+ -- | Aux: A dummy term to constitute a dummy term/level/sort/type.
+ dummyTermWith :: DummyTermKind -> CallStack -> Term

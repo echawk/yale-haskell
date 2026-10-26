@@ -100,7 +100,26 @@
 	   (cl:cdr result)
 	   (apply-2 handler (box (cl:cdr result)) (box 'state)))))
 
-(cl:defun prim.throw-exc (c) (cl:error c))
+;;; YALE_HASKELL_TRACE_THROW=TEXT: a backtrace on standard error at each
+;;; throw of an exception whose message contains TEXT (to find where a
+;;; program throws one it later catches, as Agda's __IMPOSSIBLE__).
+(cl:defvar *trace-throw* :unread)
+
+(cl:defun trace-throw-text ()
+  (cl:when (cl:eq *trace-throw* :unread)
+    (cl:setf *trace-throw*
+             (cl:let ((v (uiop:getenv "YALE_HASKELL_TRACE_THROW")))
+               (cl:and v (cl:plusp (cl:length v)) v))))
+  *trace-throw*)
+
+(cl:defun prim.throw-exc (c)
+  (cl:let ((text (trace-throw-text)))
+    (cl:when (cl:and text
+                     (cl:search text (cl:ignore-errors (prim.exc-message c))))
+      (cl:format cl:*error-output* "~&--- throw: ~A~%" (prim.exc-message c))
+      #+sbcl (sb-debug:print-backtrace :count 60 :stream cl:*error-output*)
+      (cl:finish-output cl:*error-output*)))
+  (cl:error c))
 
 ;;; 0 an IOError, 1 an ErrorCall, 2 an arithmetic error, 3 an exception
 ;;; of a program's own type
