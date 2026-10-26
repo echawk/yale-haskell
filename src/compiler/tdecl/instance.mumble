@@ -300,7 +300,12 @@
 	     (tyvar (car tyvars)))
 	(resolve-signature-aux tyvars context)
 	(when (lisp:some (lambda (i) (and (instance-catch-all? i)
-					  (eqv? (length (instance-tyvars i)) (length tyvars))))
+					  (eqv? (length (instance-tyvars i)) (length tyvars))
+					  ;; (another module's may be one never
+					  ;; imported with this one: uniplate's
+					  ;; Uniplate a in both .Typeable and .Data)
+					  (eq? (def-module (instance-dictionary i))
+					       *module-name*)))
 			 (class-instances class-def))
 	  (signal-multiple-instance class-def simple))
 	(let ((inst (make instance (algdata '#f) (tyvars tyvars)
