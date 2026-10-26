@@ -331,7 +331,8 @@ yaleBuildLib env (Section _ _ glob) (Section _ name flds0) = do
   info <- runConfigure env glob name
   let flds = foldr (\ (k, vs) fs -> addFieldStrings k vs fs) flds0 info
   pdir <- stagePackage env (stageDB env) name vers flds
-  mdls <- buildableModules env pdir (libModules flds)
+  renameHiddenModules (pdir </> "src") (hiddenRenames name flds)
+  mdls <- buildableModules env pdir (libModules (renameHiddenFields name flds))
   mkdir env (yaleDB env)
   if null mdls then
     message env 0 $ "Building library " ++ name ++ " with yale skipped, no modules"
@@ -404,8 +405,79 @@ buildForeignLibrary env pdir name flds = do
       concatMap (\ f -> ["-framework", f]) fworks
     return ["foreign-libraries: " ++ out]
 
+-- A package's hidden modules with one-word names (other-modules: Compat)
+-- get names of their own, Yale_PKG_Compat: modules are known by name
+-- alone here, and a program using two packages with a Compat each
+-- (uuid: cryptohash-md5's and cryptohash-sha1's) would have two.  The
+-- package's own imports of one become import Yale_PKG_Compat as Compat,
+-- so its qualified names stay.
+hiddenRenames :: String -> [Field] -> [(String, String)]
+hiddenRenames name flds =
+  [ (m, "Yale_" ++ map (\ c -> if isAlphaNum c then c else '_') name ++ "_" ++ m)
+  | m <- getFieldStrings flds [] "other-modules"
+  , '.' `notElem` m
+  , m `notElem` getFieldStrings flds [] "exposed-modules" ]
+
+renameHiddenFields :: String -> [Field] -> [Field]
+renameHiddenFields name flds = map rename flds
+  where
+    rs = hiddenRenames name flds
+    rename (Field "other-modules" (VItems ms)) =
+      Field "other-modules" (VItems [ fromMaybe m (lookup m rs) | m <- ms ])
+    rename f = f
+
+renameHiddenModules :: FilePath -> [(String, String)] -> IO ()
+renameHiddenModules _ [] = return ()
+renameHiddenModules src rs = do
+  forM_ rs $ \ (old, new) ->
+    forM_ [".hs", ".lhs"] $ \ ext -> do
+      b <- doesFileExist (src </> old ++ ext)
+      when b $ renameFile (src </> old ++ ext) (src </> new ++ ext)
+  files <- sourceFiles src
+  forM_ files $ \ f -> do
+    text <- readFile f
+    let text' = unlines (map (renameLine rs) (lines text))
+    when (text' /= text) $ length text `seq` writeFile f text'
+  where
+    sourceFiles d = do
+      es <- listDirectory d
+      fmap concat $ forM es $ \ e -> do
+        let p = d </> e
+        isDir <- doesDirectoryExist p
+        if isDir then sourceFiles p
+          else return [ p | any (`isSuffixOf` e) [".hs", ".lhs"] ]
+
+-- import [{-# SOURCE #-}] [qualified] OLD ...  and  module OLD ...
+renameLine :: [(String, String)] -> String -> String
+renameLine rs l =
+  let (ind, rest) = span (== ' ') l
+      ws = words rest
+  in case ws of
+       ("module" : m : _) | Just new <- lookup m rs ->
+         ind ++ "module " ++ new ++ drop (length ("module " ++ m)) (dropWhile (== ' ') rest)
+       ("import" : _) ->
+         let (pre, after) = splitImport rest
+         in case span (\ c -> isAlphaNum c || c `elem` "._'") after of
+              (m, more) | Just new <- lookup m rs, nameEnds more ->
+                ind ++ pre ++ new ++ (if " as " `isInfixOf` (" " ++ more ++ " ") then "" else " as " ++ m) ++ more
+              _ -> l
+       _ -> l
+  where
+    nameEnds more = null more || head more `elem` " (\t"
+    -- "import [{-# SOURCE #-} ][qualified ]" (with its spaces), the rest
+    splitImport = go ""
+      where
+        go acc t =
+          let sp = takeWhile (== ' ') t
+              t0 = dropWhile (== ' ') t
+          in case words t0 of
+               (w : _) | w `elem` ["import", "qualified", "{-#", "SOURCE", "#-}"] ->
+                 go (acc ++ sp ++ w) (drop (length w) t0)
+               _ -> (acc ++ sp, t0)
+
 yaleInstallLib :: Env -> Section -> Section -> IO ()
-yaleInstallLib env (Section _ _ glob) (Section _ name flds) = do
+yaleInstallLib env (Section _ _ glob) (Section _ name flds0) = do
+  let flds = renameHiddenFields name flds0
   let vers = getVersion glob "version"
       namever = name ++ "-" ++ showVersion vers
       db = yaleDB env
