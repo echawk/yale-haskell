@@ -10,7 +10,20 @@ module System.Console.ANSI (
     clearScreenCode, clearLineCode, setCursorPosition, hSetCursorPosition,
     setCursorPositionCode, cursorUp, cursorDown, cursorForward, cursorBackward,
     hideCursor, showCursor, hHideCursor, hShowCursor,
-    getTerminalSize, hGetTerminalSize
+    getTerminalSize, hGetTerminalSize,
+    hCursorUp, hCursorDown, hCursorForward, hCursorBackward,
+    cursorUpCode, cursorDownCode, cursorForwardCode, cursorBackwardCode,
+    cursorUpLine, cursorDownLine, hCursorUpLine, hCursorDownLine,
+    cursorUpLineCode, cursorDownLineCode,
+    setCursorColumn, hSetCursorColumn, setCursorColumnCode,
+    clearFromCursorToScreenEnd, clearFromCursorToScreenBeginning,
+    clearFromCursorToLineEnd, clearFromCursorToLineBeginning,
+    hClearFromCursorToScreenEnd, hClearFromCursorToScreenBeginning,
+    hClearFromCursorToLineEnd, hClearFromCursorToLineBeginning,
+    clearFromCursorToScreenEndCode, clearFromCursorToScreenBeginningCode,
+    clearFromCursorToLineEndCode, clearFromCursorToLineBeginningCode,
+    saveCursor, restoreCursor, hSaveCursor, hRestoreCursor,
+    scrollPageUp, scrollPageDown
   ) where
 
 import System.IO (Handle, hPutStr, stdout, hIsTerminalDevice)
@@ -98,11 +111,66 @@ hSetCursorPosition h row col = hPutStr h (setCursorPositionCode row col)
 setCursorPosition :: Int -> Int -> IO ()
 setCursorPosition = hSetCursorPosition stdout
 
-cursorUp, cursorDown, cursorForward, cursorBackward :: Int -> IO ()
-cursorUp n = hPutStr stdout (csi [n] "A")
-cursorDown n = hPutStr stdout (csi [n] "B")
-cursorForward n = hPutStr stdout (csi [n] "C")
-cursorBackward n = hPutStr stdout (csi [n] "D")
+cursorUpCode, cursorDownCode, cursorForwardCode, cursorBackwardCode,
+  cursorUpLineCode, cursorDownLineCode, setCursorColumnCode :: Int -> String
+cursorUpCode n = csi [n] "A"
+cursorDownCode n = csi [n] "B"
+cursorForwardCode n = csi [n] "C"
+cursorBackwardCode n = csi [n] "D"
+cursorUpLineCode n = csi [n] "F"
+cursorDownLineCode n = csi [n] "E"
+setCursorColumnCode col = csi [col + 1] "G"
+
+hCursorUp, hCursorDown, hCursorForward, hCursorBackward, hCursorUpLine,
+  hCursorDownLine, hSetCursorColumn :: Handle -> Int -> IO ()
+hCursorUp h = hPutStr h . cursorUpCode
+hCursorDown h = hPutStr h . cursorDownCode
+hCursorForward h = hPutStr h . cursorForwardCode
+hCursorBackward h = hPutStr h . cursorBackwardCode
+hCursorUpLine h = hPutStr h . cursorUpLineCode
+hCursorDownLine h = hPutStr h . cursorDownLineCode
+hSetCursorColumn h = hPutStr h . setCursorColumnCode
+
+cursorUp, cursorDown, cursorForward, cursorBackward, cursorUpLine,
+  cursorDownLine, setCursorColumn :: Int -> IO ()
+cursorUp = hCursorUp stdout
+cursorDown = hCursorDown stdout
+cursorForward = hCursorForward stdout
+cursorBackward = hCursorBackward stdout
+cursorUpLine = hCursorUpLine stdout
+cursorDownLine = hCursorDownLine stdout
+setCursorColumn = hSetCursorColumn stdout
+
+clearFromCursorToScreenEndCode, clearFromCursorToScreenBeginningCode,
+  clearFromCursorToLineEndCode, clearFromCursorToLineBeginningCode :: String
+clearFromCursorToScreenEndCode = csi [0] "J"
+clearFromCursorToScreenBeginningCode = csi [1] "J"
+clearFromCursorToLineEndCode = csi [0] "K"
+clearFromCursorToLineBeginningCode = csi [1] "K"
+
+hClearFromCursorToScreenEnd, hClearFromCursorToScreenBeginning,
+  hClearFromCursorToLineEnd, hClearFromCursorToLineBeginning,
+  hSaveCursor, hRestoreCursor :: Handle -> IO ()
+hClearFromCursorToScreenEnd h = hPutStr h clearFromCursorToScreenEndCode
+hClearFromCursorToScreenBeginning h = hPutStr h clearFromCursorToScreenBeginningCode
+hClearFromCursorToLineEnd h = hPutStr h clearFromCursorToLineEndCode
+hClearFromCursorToLineBeginning h = hPutStr h clearFromCursorToLineBeginningCode
+hSaveCursor h = hPutStr h "\ESC7"
+hRestoreCursor h = hPutStr h "\ESC8"
+
+clearFromCursorToScreenEnd, clearFromCursorToScreenBeginning,
+  clearFromCursorToLineEnd, clearFromCursorToLineBeginning,
+  saveCursor, restoreCursor :: IO ()
+clearFromCursorToScreenEnd = hClearFromCursorToScreenEnd stdout
+clearFromCursorToScreenBeginning = hClearFromCursorToScreenBeginning stdout
+clearFromCursorToLineEnd = hClearFromCursorToLineEnd stdout
+clearFromCursorToLineBeginning = hClearFromCursorToLineBeginning stdout
+saveCursor = hSaveCursor stdout
+restoreCursor = hRestoreCursor stdout
+
+scrollPageUp, scrollPageDown :: Int -> IO ()
+scrollPageUp n = hPutStr stdout (csi [n] "S")
+scrollPageDown n = hPutStr stdout (csi [n] "T")
 
 hHideCursor, hShowCursor :: Handle -> IO ()
 hHideCursor h = hPutStr h "\ESC[?25l"

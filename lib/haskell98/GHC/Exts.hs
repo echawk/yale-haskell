@@ -19,6 +19,7 @@ module GHC.Exts (
     wordToWord8#, wordToWord16#, wordToWord32#, int32ToWord32#,
     word32ToInt32#, int16ToWord16#, word16ToInt16#, byteSwap16#,
     byteSwap32#, tagToEnum#, dataToTag#, unsafeCoerce#,
+    bitReverse#, bitReverse8#, bitReverse16#, bitReverse32#, bitReverse64#,
     pdep#, pdep8#, pdep16#, pdep32#, pdep64#, pext#, pext8#, pext16#, pext32#, pext64#,
     (+#), (-#), (*#), quotInt#, remInt#, negateInt#, (==#), (/=#), (<#),
     (<=#), (>#), (>=#), isTrue#, andI#, orI#, xorI#, notI#,
@@ -439,3 +440,14 @@ pext8# s m = pext# s (m .&. 0xFF)
 pext16# s m = pext# s (m .&. 0xFFFF)
 pext32# s m = pext# s (m .&. 0xFFFFFFFF)
 pext64# = pext#
+
+-- the low N bits of a word in reverse order (bitvec's)
+bitReverseN :: Int -> Word -> Word
+bitReverseN n w = foldl (\acc i -> if testBit w i then setBit acc (n - 1 - i) else acc) 0 [0 .. n - 1]
+
+bitReverse#, bitReverse8#, bitReverse16#, bitReverse32#, bitReverse64# :: Word -> Word
+bitReverse# = bitReverseN 64
+bitReverse8# = bitReverseN 8
+bitReverse16# = bitReverseN 16
+bitReverse32# = bitReverseN 32
+bitReverse64# = bitReverseN 64

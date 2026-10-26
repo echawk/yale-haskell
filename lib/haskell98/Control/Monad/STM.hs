@@ -9,6 +9,7 @@ module Control.Monad.STM (
 import Prelude hiding (catch)
 import PreludeModern
 import Control.Exception (Exception, throwIO, catch)
+import Monad (MonadPlus)
 
 newtype STM a = STM (IO a)
 
@@ -26,6 +27,13 @@ instance Monad STM where
 
 atomically :: STM a -> IO a
 atomically (STM io) = io
+
+-- (as stm's: empty is retry, <|> is orElse)
+instance Alternative STM where
+  empty = retry
+  (<|>) = orElse
+
+instance MonadPlus STM
 
 retry :: STM a
 retry = STM (ioError (userError "thread blocked indefinitely in an STM transaction"))

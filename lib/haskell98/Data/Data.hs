@@ -527,6 +527,32 @@ instance (Data a, Data b, Data c, Data d, Data e) => Data (a, b, c, d, e) where
     _ -> error "Data.Data.gunfold(tup5)"
   dataTypeOf _ = tuple5DataType
 
+tuple6Constr :: Constr
+tuple6Constr = mkConstr tuple6DataType "(,,,,,)" [] Infix
+tuple6DataType :: DataType
+tuple6DataType = mkDataType "Prelude.(,,,,,)" [tuple6Constr]
+
+instance (Data a, Data b, Data c, Data d, Data e, Data f) => Data (a, b, c, d, e, f) where
+  gfoldl f z (a, b, c, d, e, g) = z (,,,,,) `f` a `f` b `f` c `f` d `f` e `f` g
+  toConstr (_, _, _, _, _, _) = tuple6Constr
+  gunfold k z c = case constrIndex c of
+    1 -> k (k (k (k (k (k (z (,,,,,)))))))
+    _ -> error "Data.Data.gunfold(tup6)"
+  dataTypeOf _ = tuple6DataType
+
+tuple7Constr :: Constr
+tuple7Constr = mkConstr tuple7DataType "(,,,,,,)" [] Infix
+tuple7DataType :: DataType
+tuple7DataType = mkDataType "Prelude.(,,,,,,)" [tuple7Constr]
+
+instance (Data a, Data b, Data c, Data d, Data e, Data f, Data g) => Data (a, b, c, d, e, f, g) where
+  gfoldl f z (a, b, c, d, e, g, h) = z (,,,,,,) `f` a `f` b `f` c `f` d `f` e `f` g `f` h
+  toConstr (_, _, _, _, _, _, _) = tuple7Constr
+  gunfold k z c = case constrIndex c of
+    1 -> k (k (k (k (k (k (k (z (,,,,,,))))))))
+    _ -> error "Data.Data.gunfold(tup7)"
+  dataTypeOf _ = tuple7DataType
+
 nonEmptyConstr :: Constr
 nonEmptyConstr = mkConstr nonEmptyDataType ":|" [] Infix
 nonEmptyDataType :: DataType
