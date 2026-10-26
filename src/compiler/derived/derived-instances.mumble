@@ -139,20 +139,42 @@
 		   ;; cannot give it)
 		   (when (and stand? (pair? stand-mp)
 			      (not (eq? insts before)) (pair? insts))
-		     (use-declared-context (car insts) stand-ctx stand-mp))))))))
+		     (use-declared-context (car insts) stand-ctx stand-mp stand-args))))))))
     insts))
 
 ;;; deriving instance (Show (Token s), Show e) => Show (ParseError s e)
 ;;; (megaparsec's): the declared context is the instance's, as GHC takes
 ;;; it, not one inferred from the fields (Token s, a family application,
 ;;; has no instances to look in).
-(define (use-declared-context inst ctx mctx)
+(define (use-declared-context inst ctx mctx args)
   (dolist (c ctx)
     (resolve-class (context-class c)))
   (dolist (c mctx)
     (resolve-class (mp-context-class c))
     (dolist (ty (mp-context-types c))
       (resolve-type-1 ty '() '#t)))
+  ;; in the instance's variables, the data type's (deriving instance
+  ;; (Functor (f a), ...) => Functor (Sum f g a), data Sum p q a b,
+  ;; bifunctors'): the head's variables, position by position, through
+  ;; fresh names so that a swap (Sum q p) comes out right
+  (let ((fresh '()) (back '()))
+    (dolist2 (a args) (tv (list-head (instance-tyvars inst)
+				     (min (length args) (length (instance-tyvars inst)))))
+      (when (tyvar? a)
+	(let ((g (gentyvar "dc")))
+	  (push (tuple (tyvar-name a) g) fresh)
+	  (push (tuple g tv) back))))
+    (setf ctx (map (lambda (c)
+		     (let* ((r1 (assq (context-tyvar c) fresh))
+			    (r2 (and r1 (assq (tuple-2-2 r1) back))))
+		       (if r2 (**context (context-class c) (tuple-2-2 r2)) c)))
+		   ctx))
+    (setf mctx (map (lambda (c)
+		      (**mp-context (mp-context-class c)
+				    (map (lambda (ty)
+					   (rename-ast-tyvars (rename-ast-tyvars ty fresh) back))
+					 (mp-context-types c))))
+		    mctx)))
   (setf (instance-context inst) ctx)
   (setf (instance-mcontext inst) mctx)
   (setf (instance-declared-context? inst) '#t))
