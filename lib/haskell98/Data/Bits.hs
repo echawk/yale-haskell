@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures #-}
 -- Data.Bits: the Haskell 2010 library module (Report 2010, chapter 14),
 -- for Yale Haskell's Haskell 98 dialect.  Instances for Int (a fixnum:
 -- bitSize is 63 on 64-bit SBCL, and shifts wrap at that width) and
@@ -27,7 +28,9 @@ infixl 5 .|.
 infixl 8 .<<., .>>., !<<., !>>.
 infixl 6 .^.
 
-class Num a => Bits a where
+-- (Eq, as base's: Bits Bool; a type's Num gives the defaults of bit and
+-- testBit)
+class Eq a => Bits a where
   (.&.), (.|.), xor :: a -> a -> a
   complement        :: a -> a
   shift             :: a -> Int -> a
@@ -47,10 +50,12 @@ class Num a => Bits a where
   unsafeShiftL      = shiftL
   unsafeShiftR      = shiftR
 
+  default bit :: Num a => Int -> a
   bit i             = 1 `shiftL` i
   setBit x i        = x .|. bit i
   clearBit x i      = x .&. complement (bit i)
   complementBit x i = x `xor` bit i
+  default testBit :: Num a => a -> Int -> Bool
   testBit x i       = (x .&. bit i) /= 0
   shiftL x i        = shift x i
   shiftR x i        = shift x (negate i)
@@ -104,6 +109,30 @@ class Bits b => FiniteBits b where
 
 instance FiniteBits Int where
   finiteBitSize = bitSize
+
+instance Bits Bool where
+  (.&.)        = (&&)
+  (.|.)        = (||)
+  xor          = (/=)
+  complement   = not
+  shift x 0    = x
+  shift _ _    = False
+  rotate x _   = x
+  bit 0        = True
+  bit _        = False
+  testBit x 0  = x
+  testBit _ _  = False
+  bitSize _    = 1
+  bitSizeMaybe _ = Just 1
+  isSigned _   = False
+  popCount False = 0
+  popCount True  = 1
+  zeroBits     = False
+
+instance FiniteBits Bool where
+  finiteBitSize _ = 1
+  countTrailingZeros x = if x then 0 else 1
+  countLeadingZeros x = if x then 0 else 1
 
 bitDefault :: (Bits a, Num a) => Int -> a
 bitDefault i = 1 `shiftL` i
