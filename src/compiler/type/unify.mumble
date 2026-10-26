@@ -129,7 +129,8 @@
 	((or (family-app? type1) (family-app? type2))
 	 (unify-family type1 type2))
 	((and (ntycon? type1) (ntycon? type2))
-	 (if (eq? (ntycon-tycon type1) (ntycon-tycon type2))
+	 (if (and (eq? (ntycon-tycon type1) (ntycon-tycon type2))
+		  (not (phantom-synonym? (ntycon-tycon type1))))
 	     (unify-args type1 type2)
 	     (unify-expanded type1 type2)))
 	((and (ntyapp? type1) (ntyapp? type2))
@@ -142,6 +143,16 @@
 	 (if (synonym? (ntycon-tycon type1))
 	     (unify-expanded type1 type2)
 	     (unify-app-con type2 type1)))))
+
+;;; A synonym with a parameter its body does not use (cmdargs' type AnyT t
+;;; = Any): AnyT a and AnyT [a] are the same type, so it is expanded rather
+;;; than its arguments unified.
+(define (phantom-synonym? def)
+  (and (synonym? def)
+       (not (synonym-family? def))
+       (synonym-body def)
+       (let ((used (ast-tyvar-names (synonym-body def))))
+	 (lisp:some (lambda (a) (not (memq a used))) (synonym-args def)))))
 
 (define (unify-args type1 type2)
   (if (eqv? (length (ntycon-args type1)) (length (ntycon-args type2)))
