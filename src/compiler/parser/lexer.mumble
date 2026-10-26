@@ -849,7 +849,8 @@
      (emit-token/string 'varid (append prefix (cons #\. (scan-var-con)))))
     (#\.
      ;; M..&. is M's operator .&.; M.. alone stays M followed by ..
-     (if (memv (peek-char-2) '(#\& #\| #\+ #\* #\< #\> #\= #\! #\$ #\% #\^ #\? #\/ #\\ #\~ #\@ #\#))
+     ;; (M..: too, aeson's .: as Template Haskell names it)
+     (if (memv (peek-char-2) '(#\& #\| #\+ #\* #\< #\> #\= #\! #\$ #\% #\^ #\? #\/ #\\ #\~ #\@ #\# #\:))
 	 (begin
 	   (advance-char)
 	   (let ((sym (scan-list-of (symbol presymbol #\:))))
