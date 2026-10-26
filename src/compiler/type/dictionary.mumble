@@ -108,7 +108,7 @@
 	   ;; a type family application not decided yet (TypeFamilies):
 	   ;; given by the enclosing binding's signature (Size (Rep a) =>),
 	   ;; or left for later
-	   (let ((given (given-app-dict-params p type decls))
+	   (let ((given (given-class-params p type decls))
 		 (family (ntycon-tycon (expand-ntype-synonym type))))
 	     (cond ((not (null? given))
 		    (setf (placeholder-exp p)
@@ -136,12 +136,12 @@
 		    (process-instantiated-tyvar (expand-ntype-synonym type)
 						p deferred decls))
 		   (else (cons p deferred)))))
-	  ((and (ntycon? type) (given-app-gives? p type decls))
+	  ((and (ntycon? type) (given-class-params p type decls))
 	   ;; given by the enclosing binding's context at this very type
 	   ;; (megaparsec's (Show (ParseError s e), Show s) => Show (State
 	   ;; s e)), whose instance would want what is not given (Show
 	   ;; (Token s))
-	   (let ((given (given-app-dict-params p type decls)))
+	   (let ((given (given-class-params p type decls)))
 	     (setf (placeholder-exp p)
 		   (if (dict-placeholder? p)
 		       (dict-reference-code (dict-placeholder-class p) given)
@@ -158,8 +158,8 @@
 	   (process-instantiated-tyvar
 	    (expand-ntype-synonym type) p deferred decls))
 	  ((ntyapp? type)
-	   (let ((given (given-app-dict-params p type decls)))
-	     (cond ((not (null? given))
+	   (let ((given (given-class-params p type decls)))
+	     (cond (given
 		    ;; the enclosing binding's signature gives the class
 		    ;; (or a subclass) at this type: Monad (m s)
 		    (setf (placeholder-exp p)
@@ -509,7 +509,7 @@
 	      (setf deferred dv1)))
 	 ((ntyapp? ntype)
 	  (let* ((p (**dict-placeholder class ntype edecls var))
-		 (given (given-app-dict-params p ntype decls))
+		 (given (given-class-params p ntype decls))
 		 (qc (and (null? given) (qc-given-find p class (list ntype) decls))))
 	    (cond ((not (null? given))
 		   ;; given by the enclosing binding (a derived instance's
@@ -649,12 +649,6 @@
 			   (list (tuple (mp-param-class param) (mp-param-var param)))
 			   '()))
 		     (valdef-mp-dict-params decl)))))
-
-;;; Whether the enclosing binding's context gives P's class (or a
-;;; subclass of it) at TYPE.
-(define (given-app-gives? p type decls)
-  (given-type-gives? (placeholder-class p) (placeholder-enclosing-decls p)
-		     type decls))
 
 (define (given-type-gives? class edecls type decls)
   (lisp:some (lambda (g) (or (eq? (tuple-2-1 g) class)
