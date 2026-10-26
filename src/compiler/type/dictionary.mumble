@@ -136,6 +136,18 @@
 		    (process-instantiated-tyvar (expand-ntype-synonym type)
 						p deferred decls))
 		   (else (cons p deferred)))))
+	  ((and (ntycon? type) (given-app-gives? p type decls))
+	   ;; given by the enclosing binding's context at this very type
+	   ;; (megaparsec's (Show (ParseError s e), Show s) => Show (State
+	   ;; s e)), whose instance would want what is not given (Show
+	   ;; (Token s))
+	   (let ((given (given-app-dict-params p type decls)))
+	     (setf (placeholder-exp p)
+		   (if (dict-placeholder? p)
+		       (dict-reference-code (dict-placeholder-class p) given)
+		       (let ((m (method-placeholder-method p)))
+			 (method-reference-code m (method-var-class m) given))))
+	     deferred))
 	  ((and (ntycon? type) (undecided-flexible-instance? p (expand-ntype-synonym type)))
 	   ;; several flexible instances (Subst (Pattern' A), Subst (Pattern'
 	   ;; B)) its arguments, an enclosing binding's variables, are still
@@ -482,6 +494,11 @@
 	  (let ((p (**dict-placeholder class ntype edecls var)))
 	    (setf dict (**app dict p))
 	    (push p deferred)))
+	 ((and (ntycon? ntype) (given-type-gives? class edecls ntype decls))
+	  ;; given by the enclosing binding at this type (megaparsec's
+	  ;; Show (ParseError s e), for a field of type [ParseError s e])
+	  (setf dict (**app dict (dict-reference-code
+				  class (given-type-dict-params edecls ntype decls)))))
 	 ((ntycon? ntype)
 	  (mlet ((alg (ntycon-tycon ntype))
 		 (instance (lookup-instance/type alg class ntype))
@@ -620,7 +637,10 @@
 	 given)))
 
 (define (given-app-dict-params p type decls)
-  (let ((decl (find-enclosing-decl (placeholder-enclosing-decls p) decls)))
+  (given-type-dict-params (placeholder-enclosing-decls p) type decls))
+
+(define (given-type-dict-params edecls type decls)
+  (let ((decl (find-enclosing-decl edecls decls)))
     (if (eq? decl '#f)
 	'()
 	(lisp:mapcan (lambda (param)
@@ -629,6 +649,17 @@
 			   (list (tuple (mp-param-class param) (mp-param-var param)))
 			   '()))
 		     (valdef-mp-dict-params decl)))))
+
+;;; Whether the enclosing binding's context gives P's class (or a
+;;; subclass of it) at TYPE.
+(define (given-app-gives? p type decls)
+  (given-type-gives? (placeholder-class p) (placeholder-enclosing-decls p)
+		     type decls))
+
+(define (given-type-gives? class edecls type decls)
+  (lisp:some (lambda (g) (or (eq? (tuple-2-1 g) class)
+			     (memq class (class-super* (tuple-2-1 g)))))
+	     (given-type-dict-params edecls type decls)))
 
 ;;; Whether a match gives CLASS (or a subclass of it) at TYPE.
 (define (pattern-local-given-gives? class type)

@@ -1,0 +1,6 @@
+St {stIn = "ab", stErrs = [PE (Just 'y')]}
+True
+ok st
+PB {bErrs = PE (Just 'x') :| [FE ()], bPos = PS {psInput = "abc", psOff = 0}}
+True
+ok
