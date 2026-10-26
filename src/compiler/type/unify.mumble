@@ -324,7 +324,11 @@
 		(not (every (lambda (c) (or (given-app-constraint? c type)
 					    ;; C (t a) gives it (its arguments'
 					    ;; constraints found with the dictionary)
-					    (app-catch-all-instance c)))
+					    (app-catch-all-instance c)
+					    ;; the given's at the head, the arguments
+					    ;; still to unify (free's Read (w (CofreeF
+					    ;; f a ..)), w unified before f)
+					    (unify-with-given-app c type)))
 			    classes)))
 	   (setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
 	   (type-error
@@ -416,6 +420,53 @@
 		    (null? (cdr (tuple-2-2 g)))
 		    (mp-type-equal? (car (tuple-2-2 g)) type)))
 	     (dynamic *given-mp-constraints*))))
+
+;;; CLASS at TYPE, an application of a signature's variable whose
+;;; arguments are not all decided yet (unification binds a type's last
+;;; argument first): when one given constraint is at an application of
+;;; that variable whose arguments the type's could be, the type is
+;;; unified with it.  #t if it was.
+(define (unify-with-given-app class type)
+  (let* ((head (prune (ntyapp-fun type)))
+	 (args (ntyapp-args type))
+	 (candidates
+	  (lisp:remove-if-not
+	   (lambda (g)
+	     (and (or (eq? (tuple-2-1 g) class)
+		      (and (class? (tuple-2-1 g))
+			   (memq class (class-super* (tuple-2-1 g)))))
+		  (null? (cdr (tuple-2-2 g)))
+		  (let ((gt (prune (car (tuple-2-2 g)))))
+		    (and (ntyapp? gt)
+			 (eq? (prune (ntyapp-fun gt)) head)
+			 (eqv? (length (ntyapp-args gt)) (length args))
+			 (every (function given-arg-could-match?)
+				args (ntyapp-args gt))))))
+	   (dynamic *given-mp-constraints*))))
+    (and (not (null? candidates))
+	 (null? (cdr candidates))
+	 (not (every (function mp-type-equal?)
+		     args (ntyapp-args (prune (car (tuple-2-2 (car candidates)))))))
+	 (begin
+	   (dolist2 (a args) (ga (ntyapp-args (prune (car (tuple-2-2 (car candidates))))))
+	     (unify a ga))
+	   '#t))))
+
+;;; Whether A could become GA: equal, or equal but for type variables
+;;; still to be decided (not a signature's).
+(define (given-arg-could-match? a ga)
+  (let ((a (prune a)) (ga (prune ga)))
+    (cond ((mp-type-equal? a ga) '#t)
+	  ((and (ntyvar? a) (not (ntyvar-read-only? a))) '#t)
+	  ((and (ntycon? a) (ntycon? ga))
+	   (and (eq? (ntycon-tycon a) (ntycon-tycon ga))
+		(eqv? (length (ntycon-args a)) (length (ntycon-args ga)))
+		(every (function given-arg-could-match?) (ntycon-args a) (ntycon-args ga))))
+	  ((and (ntyapp? a) (ntyapp? ga))
+	   (and (given-arg-could-match? (ntyapp-fun a) (ntyapp-fun ga))
+		(eqv? (length (ntyapp-args a)) (length (ntyapp-args ga)))
+		(every (function given-arg-could-match?) (ntyapp-args a) (ntyapp-args ga))))
+	  (else '#f))))
 
 ;;; A flexible head not matched yet because the type's arguments are still
 ;;; undecided (Map t a against instance C (Map Face a)): when this is the

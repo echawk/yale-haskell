@@ -465,14 +465,18 @@
 ;;; (type/mp-classes.mumble's instance-mp-dict-args).  At a variable
 ;;; too: kept a multi-parameter constraint (reduce-flexible-contexts), a
 ;;; method's given (type/dictionary.mumble's given-class-params).
-(define (instance-mcontext-with-mp-supers context mcontext)
+(define (instance-mcontext-with-mp-supers context mcontext head-tyvars)
   (let ((result mcontext))
     (dolist (c mcontext)
       (let ((class (class-ref-class (mp-context-class c))))
 	(when (class? class)
 	  (dolist (s (class-mp-supers class))
 	    (let ((ty (list-ref (mp-context-types c) (tuple-2-2 s))))
-	      (when (not (single-mp-context-at? result (tuple-2-1 s) ty))
+	      ;; (not at one of the head's variables: the dictionary's
+	      ;; signature has that as an ordinary context, given at the
+	      ;; use like the instance's own: profunctors' Sieve p (Rep p))
+	      (when (not (or (single-mp-context-at? result (tuple-2-1 s) ty)
+			     (and (tyvar? ty) (memq (tyvar-name ty) head-tyvars))))
 		(setf result
 		      (append result
 			      (list (**mp-context (**class/def (tuple-2-1 s))

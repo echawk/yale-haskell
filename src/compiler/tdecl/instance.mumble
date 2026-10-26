@@ -385,7 +385,7 @@
 	      ;; superclasses, as the dictionary's signature has them
 	      (setf (instance-mcontext inst)
 		    (instance-mcontext-with-mp-supers
-		     (instance-context inst) (instance-mcontext inst)))
+		     (instance-context inst) (instance-mcontext inst) tyvars))
 	      (setf (instance-decls inst) decls)
 	      (setf (instance-ok? inst) '#t)
 	      inst))))))))
