@@ -836,8 +836,13 @@
 (define (parse-data-instance newtype?)
   (when (eq-token? '|instance|) (advance-token))
   (let* ((lhs (parse-btype))
+	 ;; F:n by F's unqualified name (data instance U.Vector Bit, bitvec):
+	 ;; a family's instances are found by that prefix (locate-entity)
 	 (name (string->symbol
-		(format '#f "~A:~A" (tycon-name lhs) (incf *family-instance-count*))))
+		(format '#f "~A:~A"
+			(mlet (((base _) (split-qualified-name (tycon-name lhs))))
+			  (or base (tycon-name lhs)))
+			(incf *family-instance-count*))))
 	 (vars (lisp:remove-duplicates
 		(lisp:mapcan (function ast-tyvar-names) (tycon-args lhs))
 		:from-end '#t))
