@@ -345,6 +345,12 @@
 		   (mcontext (forall-type-mcontext type))
 		   (foralls '()))))
     (expand-constraint-synonyms sig)
+    (dolist (c (signature-mcontext sig))
+      (resolve-class (mp-context-class c)))
+    ;; with its multi-parameter constraints' superclasses, as a
+    ;; signature's (texmath's forall st m s. Stream s m Char => ..
+    ;; wants Monad m)
+    (add-mp-superclass-contexts sig)
     (setf (forall-type-context type) (signature-context sig))
     (setf (forall-type-mcontext type) (signature-mcontext sig)))
   (dolist (c (forall-type-mcontext type))
