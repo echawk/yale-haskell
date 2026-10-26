@@ -1,32 +1,25 @@
 quickcheck-instances: no UArray instances (Yale Haskell's UArray is Array).
 diff -ruN a/Test/QuickCheck/Instances/Array.hs b/Test/QuickCheck/Instances/Array.hs
---- a/Test/QuickCheck/Instances/Array.hs	2026-10-25 21:52:18
-+++ b/Test/QuickCheck/Instances/Array.hs	2026-10-25 21:52:25
+--- a/Test/QuickCheck/Instances/Array.hs	2026-10-26 02:37:58
++++ b/Test/QuickCheck/Instances/Array.hs	2026-10-26 02:37:58
 @@ -1,3 +1,4 @@
 +{-# LANGUAGE CPP #-}
  {-# OPTIONS_GHC -fno-warn-orphans #-}
  module Test.QuickCheck.Instances.Array () where
  
-@@ -19,6 +20,22 @@
- instance (Num i, Ix i, Arbitrary i) => Arbitrary1 (Array.Array i) where
-     liftArbitrary = liftA2 makeArray arbitrary . liftArbitrary
-     liftShrink = shrinkArray
-+
-+instance (Num i, Ix i, Arbitrary i, Arbitrary a) => Arbitrary (Array.Array i a) where
-+    arbitrary = arbitrary1
-+    shrink = shrink1
-+
-+instance (Ix i, CoArbitrary i, CoArbitrary a) => CoArbitrary (Array.Array i a) where
-+    coarbitrary arr = coarbitrary (Array.bounds arr, Array.elems arr)
-+
-+
+@@ -28,12 +29,15 @@
+     coarbitrary arr = coarbitrary (Array.bounds arr, Array.elems arr)
+ 
+ 
 +#ifndef __YALE_HASKELL__
 +-- (Yale Haskell: UArray is Array, whose instances are above)
-+
-+#endif
-+
-+
-+shrinkArray
+ instance (Num i, Ix i, Array.IArray Array.UArray a, Arbitrary i, Arbitrary a) => Arbitrary (Array.UArray i a) where
+     arbitrary = liftA2 makeArray arbitrary arbitrary
+     shrink = shrinkArray shrink
  
- instance (Num i, Ix i, Arbitrary i, Arbitrary a) => Arbitrary (Array.Array i a) where
-     arbitrary = arbitrary1
+ instance (Ix i, Array.IArray Array.UArray a, CoArbitrary i, CoArbitrary a) => CoArbitrary (Array.UArray i a) where
+     coarbitrary arr = coarbitrary (Array.bounds arr, Array.elems arr)
++#endif
+ 
+ 
+ shrinkArray
