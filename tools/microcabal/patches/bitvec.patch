@@ -1,0 +1,107 @@
+bitvec: F2Poly without GHC.Num.BigNat (Yale Haskell's Integer is the host's):
+conversions to and from Integer bit by bit.
+diff -ruN a/Data/Bit/F2Poly.hs b/Data/Bit/F2Poly.hs
+--- a/Data/Bit/F2Poly.hs	2026-10-26 07:37:26
++++ b/Data/Bit/F2Poly.hs	2026-10-26 07:37:26
+@@ -40,8 +40,10 @@
+ import qualified Data.Vector.Unboxed.Mutable as MU
+ import GHC.Exts
+ import GHC.Generics
++#ifndef __YALE_HASKELL__
+ import GHC.Num.BigNat
+ import GHC.Num.Integer
++#endif
+ import Numeric
+ 
+ -- | Binary polynomials of one variable, backed
+@@ -82,13 +84,32 @@
+ toF2Poly :: U.Vector Bit -> F2Poly
+ toF2Poly xs = F2Poly $ dropWhileEnd $ castFromWords $ cloneToWords xs
+ 
++#ifdef __YALE_HASKELL__
++-- (Yale Haskell: no GHC.Num.BigNat; the conversions go bit by bit)
+ zero :: F2Poly
++zero = toF2Poly U.empty
++
++one :: F2Poly
++one = toF2Poly (U.singleton (Bit True))
++
++integerToF2Poly :: Integer -> F2Poly
++integerToF2Poly n
++  | n < 0 = throw Underflow
++  | otherwise = toF2Poly (U.fromList (go n))
++  where go 0 = []
++        go m = Bit (odd m) : go (m `div` 2)
++
++f2PolyToInteger :: F2Poly -> Integer
++f2PolyToInteger = foldr (\(Bit b) acc -> 2 * acc + (if b then 1 else 0)) 0 . U.toList . unF2Poly
++#else
++zero :: F2Poly
+ zero = F2Poly $ BitVec 0 0 $
+   ByteArray (unBigNat bigNatZero)
+ 
+ one :: F2Poly
+ one = F2Poly $ BitVec 0 1 $
+   ByteArray (unBigNat bigNatOne)
++#endif
+ 
+ -- -- | A valid t'F2Poly' has offset 0 and no trailing garbage.
+ -- _isValid :: F2Poly -> Bool
+@@ -109,6 +130,9 @@
+   abs    = id
+   signum = const one
+   (*) = coerce ((dropWhileEnd .) . karatsuba)
++#ifdef __YALE_HASKELL__
++  fromInteger = integerToF2Poly
++#else
+   fromInteger !n = case n of
+     IS i#
+       | n < 0     -> throw Underflow
+@@ -116,6 +140,7 @@
+                      $ ByteArray (bigNatFromWord# (int2Word# i#))
+     IP bn# -> F2Poly $ BitVec 0 (I# (word2Int# (integerLog2# n)) + 1) $ ByteArray bn#
+     IN{}   -> throw Underflow
++#endif
+   {-# INLINE fromInteger #-}
+ 
+   {-# INLINE (+)         #-}
+@@ -127,8 +152,12 @@
+ 
+ instance Enum F2Poly where
+   fromEnum = fromIntegral
++#ifdef __YALE_HASKELL__
++  toEnum = integerToF2Poly . toInteger
++#else
+   toEnum (I# i#) = F2Poly $ BitVec 0 (wordSize - I# (word2Int# (clz# (int2Word# i#))))
+                            $ ByteArray (bigNatFromWord# (int2Word# i#))
++#endif
+ 
+ instance Real F2Poly where
+   toRational = fromIntegral
+@@ -136,7 +165,11 @@
+ -- | 'toInteger' converts a binary polynomial, encoded as t'F2Poly',
+ -- to an 'Integer' encoding.
+ instance Integral F2Poly where
++#ifdef __YALE_HASKELL__
++  toInteger = f2PolyToInteger
++#else
+   toInteger xs = integerFromBigNat# (bitsToByteArray (unF2Poly xs))
++#endif
+   quotRem (F2Poly xs) (F2Poly ys) = (F2Poly (dropWhileEnd qs), F2Poly (dropWhileEnd rs))
+     where
+       (qs, rs) = quotRemBits xs ys
+@@ -155,12 +188,14 @@
+ xorBits xs (BitVec _ 0 _) = xs
+ -- GMP has platform-dependent ASM implementations for mpn_xor_n,
+ -- which are impossible to beat by native Haskell.
++#ifndef __YALE_HASKELL__
+ xorBits (BitVec 0 lx (ByteArray xarr)) (BitVec 0 ly (ByteArray yarr)) = case lx `compare` ly of
+   LT -> BitVec 0 ly zs
+   EQ -> dropWhileEnd $ BitVec 0 (lx `min` (sizeofByteArray zs `shiftL` 3)) zs
+   GT -> BitVec 0 lx zs
+   where
+     zs = ByteArray (xarr `bigNatXor` yarr)
++#endif
+ xorBits xs ys = dropWhileEnd $ runST $ do
+   let lx = U.length xs
+       ly = U.length ys

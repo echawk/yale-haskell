@@ -253,9 +253,12 @@
 	(if (and (null? (cdr (mp-context-types c)))
 		 (class? class)
 		 (null? (cdr (class-tyvars class)))
-		 ;; Num i at a variable: an instance's multi-parameter
-		 ;; constraint's superclass (instance-mcontext-with-mp-supers)
-		 (not (tyvar? (car (mp-context-types c))))
+		 ;; Num i at a variable only the context has: an instance's
+		 ;; multi-parameter constraint's superclass
+		 ;; (instance-mcontext-with-mp-supers), kept
+		 (not (and (tyvar? (car (mp-context-types c)))
+			   (not (memq (tyvar-name (car (mp-context-types c)))
+				      (ast-tyvar-names (signature-type signature))))))
 		 ;; Monad (m s): kept, a given whose dictionary is a
 		 ;; parameter, as a multi-parameter constraint's is
 		 (not (tyvar-application? (car (mp-context-types c))))
