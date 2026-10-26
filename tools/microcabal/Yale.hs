@@ -405,18 +405,19 @@ buildForeignLibrary env pdir name flds = do
       concatMap (\ f -> ["-framework", f]) fworks
     return ["foreign-libraries: " ++ out]
 
--- A package's hidden modules with one-word names (other-modules: Compat)
--- get names of their own, Yale_PKG_Compat: modules are known by name
--- alone here, and a program using two packages with a Compat each
--- (uuid: cryptohash-md5's and cryptohash-sha1's) would have two.  The
+-- A package's hidden modules (other-modules: Compat) get names of their
+-- own, Yale_PKG_Compat: modules are known by name alone here, and a
+-- program using two packages with a Compat each (uuid: cryptohash-md5's
+-- and cryptohash-sha1's) would have two; tasty's Control.Concurrent.Async
+-- (Yale_tasty_Control_Concurrent_Async) is async's module's name.  The
 -- package's own imports of one become import Yale_PKG_Compat as Compat,
 -- so its qualified names stay.
 hiddenRenames :: String -> [Field] -> [(String, String)]
 hiddenRenames name flds =
-  [ (m, "Yale_" ++ map (\ c -> if isAlphaNum c then c else '_') name ++ "_" ++ m)
+  [ (m, "Yale_" ++ under name ++ "_" ++ under m)
   | m <- getFieldStrings flds [] "other-modules"
-  , '.' `notElem` m
   , m `notElem` getFieldStrings flds [] "exposed-modules" ]
+  where under = map (\ c -> if isAlphaNum c then c else '_')
 
 renameHiddenFields :: String -> [Field] -> [Field]
 renameHiddenFields name flds = map rename flds
@@ -430,9 +431,9 @@ renameHiddenModules :: FilePath -> [(String, String)] -> IO ()
 renameHiddenModules _ [] = return ()
 renameHiddenModules src rs = do
   forM_ rs $ \ (old, new) ->
-    forM_ [".hs", ".lhs"] $ \ ext -> do
-      b <- doesFileExist (src </> old ++ ext)
-      when b $ renameFile (src </> old ++ ext) (src </> new ++ ext)
+    forM_ [".hs", ".lhs", ".hs-boot"] $ \ ext -> do
+      b <- doesFileExist (src </> modulePath old ++ ext)
+      when b $ renameFile (src </> modulePath old ++ ext) (src </> new ++ ext)
   files <- sourceFiles src
   forM_ files $ \ f -> do
     text <- readFile f
@@ -445,7 +446,7 @@ renameHiddenModules src rs = do
         let p = d </> e
         isDir <- doesDirectoryExist p
         if isDir then sourceFiles p
-          else return [ p | any (`isSuffixOf` e) [".hs", ".lhs"] ]
+          else return [ p | any (`isSuffixOf` e) [".hs", ".lhs", ".hs-boot"] ]
 
 -- import [{-# SOURCE #-}] [qualified] OLD ...  and  module OLD ...
 renameLine :: [(String, String)] -> String -> String
