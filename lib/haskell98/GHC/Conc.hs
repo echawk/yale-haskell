@@ -5,12 +5,12 @@ module GHC.Conc (numCapabilities, getNumCapabilities, setNumCapabilities,
                  getNumProcessors, pseq, par, labelThread,
                  STM, atomically, retry, orElse, throwSTM, catchSTM,
                  unsafeIOToSTM, TVar, newTVar, newTVarIO, readTVar,
-                 readTVarIO, writeTVar, closeFdWith,
+                 readTVarIO, writeTVar, closeFdWith, threadWaitReadSTM, threadWaitWriteSTM,
                  module Control.Concurrent) where
 
 import Control.Concurrent
 import Control.Monad.STM
-import Control.Concurrent.STM (TVar, newTVar, newTVarIO, readTVar, readTVarIO, writeTVar)
+import Control.Concurrent.STM (TVar, newTVar, newTVarIO, readTVar, readTVarIO, writeTVar, threadWaitReadSTM, threadWaitWriteSTM)
 import Control.Parallel (par, pseq)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.Types (Fd(..))

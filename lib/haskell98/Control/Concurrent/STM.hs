@@ -11,10 +11,13 @@ module Control.Concurrent.STM (
     TQueue, newTQueue, newTQueueIO, writeTQueue, readTQueue, tryReadTQueue,
     isEmptyTQueue, flushTQueue, unGetTQueue, peekTQueue, tryPeekTQueue,
     TBQueue, newTBQueue, newTBQueueIO, writeTBQueue, readTBQueue,
-    tryReadTBQueue, flushTBQueue, lengthTBQueue, isEmptyTBQueue, isFullTBQueue
+    tryReadTBQueue, flushTBQueue, lengthTBQueue, isEmptyTBQueue, isFullTBQueue,
+    threadWaitReadSTM, threadWaitWriteSTM
   ) where
 
 import Control.Monad.STM
+import Control.Concurrent (forkIO, killThread, threadWaitRead, threadWaitWrite)
+import System.Posix.Types (Fd)
 import Data.IORef
 import Numeric.Natural (Natural)
 
@@ -169,3 +172,17 @@ isEmptyTBQueue :: TBQueue a -> STM Bool
 isEmptyTBQueue (TBQueue q _ _) = isEmptyTQueue q
 isFullTBQueue :: TBQueue a -> STM Bool
 isFullTBQueue (TBQueue _ c cap) = fmap (>= cap) (readTVar c)
+
+-- GHC.Conc's (Control.Concurrent's in base): an STM action that waits
+-- until the descriptor is ready, and an action that stops waiting.  A
+-- thread waits and sets a TVar.
+threadWaitReadSTM, threadWaitWriteSTM :: Fd -> IO (STM (), IO ())
+threadWaitReadSTM = threadWaitSTM threadWaitRead
+threadWaitWriteSTM = threadWaitSTM threadWaitWrite
+
+threadWaitSTM :: (Fd -> IO ()) -> Fd -> IO (STM (), IO ())
+threadWaitSTM wait fd = do
+  ready <- newTVarIO False
+  t <- forkIO (wait fd >> atomically (writeTVar ready True))
+  return (readTVar ready >>= \ r -> if r then return () else retry,
+          killThread t)

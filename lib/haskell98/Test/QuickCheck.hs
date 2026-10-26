@@ -16,6 +16,7 @@ module Test.QuickCheck (
     Args(Args, maxSuccess, maxSize), stdArgs, Result(..), isSuccess, quickCheckResult, quickCheckWithResult,
     NonNegative(NonNegative, getNonNegative), Positive(Positive, getPositive),
     chooseInt, Arbitrary1(liftArbitrary, liftShrink), arbitrary1, shrink1,
+    Arbitrary2(liftArbitrary2, liftShrink2), arbitrary2, shrink2,
     Function(function), functionMap, (:->), Fun(Fun), applyFun
   ) where
 
@@ -418,6 +419,26 @@ instance Arbitrary1 Maybe where
   liftArbitrary g = frequency [(1, return Nothing), (3, fmap Just g)]
   liftShrink shr (Just x) = Nothing : map Just (shr x)
   liftShrink _ Nothing = []
+
+class Arbitrary2 f where
+  liftArbitrary2 :: Gen a -> Gen b -> Gen (f a b)
+  liftShrink2 :: (a -> [a]) -> (b -> [b]) -> f a b -> [f a b]
+  liftShrink2 _ _ _ = []
+
+arbitrary2 :: (Arbitrary2 f, Arbitrary a, Arbitrary b) => Gen (f a b)
+arbitrary2 = liftArbitrary2 arbitrary arbitrary
+
+shrink2 :: (Arbitrary2 f, Arbitrary a, Arbitrary b) => f a b -> [f a b]
+shrink2 = liftShrink2 shrink shrink
+
+instance Arbitrary2 (,) where
+  liftArbitrary2 ga gb = do { a <- ga; b <- gb; return (a, b) }
+  liftShrink2 sa sb (a, b) = [ (a', b) | a' <- sa a ] ++ [ (a, b') | b' <- sb b ]
+
+instance Arbitrary2 Either where
+  liftArbitrary2 ga gb = oneof [fmap Left ga, fmap Right gb]
+  liftShrink2 sa _ (Left a) = map Left (sa a)
+  liftShrink2 _ sb (Right b) = map Right (sb b)
 
 -- QuickCheck 2's generated functions: here a function and nothing more
 -- (no table to shrink or show)

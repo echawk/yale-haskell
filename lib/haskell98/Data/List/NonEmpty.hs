@@ -5,7 +5,7 @@ module Data.List.NonEmpty (
     zip, zipWith, unzip, nub, groupBy, group, groupWith, groupAllWith,
     group1, filter, partition, takeWhile, dropWhile, span, break, take,
     drop, splitAt, iterate, repeat, cycle, insert, scanl, scanr, scanl1,
-    scanr1, transpose, xor, unfoldr, some1, (!!), uncons, singleton,
+    scanr1, transpose, xor, unfoldr, unfold, some1, (!!), uncons, singleton,
     appendList, prependList, groupBy1, groupWith1, groupAllWith1, inits1,
     tails1, permutations, permutations1, intersperse, inits, tails, append
   ) where
@@ -209,3 +209,7 @@ tails = fromList . L.tails . F.toList
 
 append :: NonEmpty a -> NonEmpty a -> NonEmpty a
 append (x :| xs) (y :| ys) = x :| (xs ++ y : ys)
+
+-- (deprecated in base, unfoldr's other name)
+unfold :: (a -> (b, Maybe a)) -> a -> NonEmpty b
+unfold = unfoldr

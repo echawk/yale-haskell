@@ -6,7 +6,7 @@ module System.Posix.IO (
     OpenFileFlags(OpenFileFlags, append, exclusive, noctty, nonBlock, trunc),
     defaultFileFlags, openFd, createFile, closeFd, dup, dupTo,
     FdOption(AppendOnWrite, CloseOnExec, NonBlockingRead, SynchronousWrites),
-    setFdOption, handleToFd, fdToHandle, fdReadBuf, fdWriteBuf
+    setFdOption, handleToFd, fdToHandle, fdReadBuf, fdWriteBuf, createPipe
   ) where
 
 import PosixPrims
@@ -14,6 +14,7 @@ import IOBase (Handle(Handle))
 import System.Posix.Types
 import Foreign.Ptr (Ptr)
 import Data.Word (Word8)
+import BasePrims (primCreatePipe)
 
 stdInput, stdOutput, stdError :: Fd
 stdInput = Fd 0
@@ -77,3 +78,10 @@ fdReadBuf (Fd fd) p n = fmap fromIntegral (primPosixReadBuf (fromIntegral fd) p 
 
 fdWriteBuf :: Fd -> Ptr Word8 -> ByteCount -> IO ByteCount
 fdWriteBuf (Fd fd) p n = fmap fromIntegral (primPosixWriteBuf (fromIntegral fd) p (fromIntegral n))
+
+-- a pipe's read and write ends (the prim's r + w*2^32)
+createPipe :: IO (Fd, Fd)
+createPipe = do
+  n <- primCreatePipe
+  return (Fd (fromIntegral (n `mod` 4294967296)),
+          Fd (fromIntegral (n `div` 4294967296)))
