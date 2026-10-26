@@ -688,15 +688,48 @@
 		 (eq? (placeholder-exp p) '#f))
 	(let ((type (prune (placeholder-tyvar p)))
 	      (class (placeholder-class p)))
-	  (when (and (ntyapp? type)
-		     (ntyvar? (prune (ntyapp-fun type)))
+	  (when (and (or (and (ntyapp? type)
+			      (ntyvar? (prune (ntyapp-fun type))))
+			 ;; or at a family's application (megaparsec's local
+			 ;; pack: Monoid (Hints (Token s)) wants Ord (Token s))
+			 (and (ntycon? type)
+			      (family-app? (expand-ntype-synonym type))))
 		     (mp-type-generic? type)
 		     (not (some (lambda (c)
 				  (and (eq? (tuple-2-1 c) class)
 				       (mp-types-equal? (tuple-2-2 c) (list type))))
 				res)))
-	    (push (tuple class (list type)) res)))))
+	    (push (tuple class (list type)) res))
+	  ;; a type constructor's instance wanting a class at a family's
+	  ;; application of the binding's variables (Monoid (Hints (Token
+	  ;; s)) of megaparsec's pack wants Ord (Token s)): that
+	  (when (and (ntycon? type) (algdata? (ntycon-tycon type))
+		     (mp-type-generic? type))
+	    (dolist (c (instance-family-requirements class type))
+	      (when (not (some (lambda (r)
+				 (and (eq? (tuple-2-1 r) (tuple-2-1 c))
+				      (mp-types-equal? (tuple-2-2 r) (tuple-2-2 c))))
+			       res))
+		(push c res)))))))
     (nreverse res)))
+
+;;; CLASS's instance at TYPE (a type constructor's application): its
+;;; context's constraints at arguments that are type families'
+;;; applications of type variables, as (class (type)).
+(define (instance-family-requirements class type)
+  ;; (only an instance that is the type constructor's for any arguments:
+  ;; a flexible one may not be chosen yet)
+  (let ((inst (lookup-instance (ntycon-tycon type) class))
+	(res '()))
+    (when (and inst (instance-ok? inst) (null? (instance-head-args inst)))
+      (do-contexts (c (instance-gcontext inst))
+		   (ty (instance-arg-types/checked inst type))
+	(let ((ty (prune ty)))
+	  (when (and (ntycon? ty)
+		     (family-app? (expand-ntype-synonym ty))
+		     (mp-type-generic? ty))
+	    (push (tuple c (list ty)) res)))))
+    res))
 
 ;;; The tyvars of the constraints.
 (define (mp-constraint-tyvars constraints)

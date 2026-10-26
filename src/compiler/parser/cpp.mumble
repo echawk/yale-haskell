@@ -660,15 +660,21 @@
       (do ((i 0))
 	  ((>= i n))
 	(let ((c  (string-ref body i)))
-	  (if (cpp-ident-start? c)
+	  (cond
+	    ;; a comment in the body goes, joining what is on its sides, as
+	    ;; traditional cpp's (reflection's #define CAT(a,b) a/**/b)
+	    ((and (char=? c #\/) (< (1+ i) n) (char=? (string-ref body (1+ i)) #\*)
+		  (lisp:search "*/" body :start2 (+ i 2)))
+	     (setf i (+ (lisp:search "*/" body :start2 (+ i 2)) 2)))
+	    ((cpp-ident-start? c)
 	      (let* ((end   (do ((j i (1+ j)))
 			       ((or (= j n) (not (cpp-ident-char? (string-ref body j))))
 				j)))
 		     (name  (substring body i end))
 		     (pos   (lisp:position name params :test (function string=?))))
 		(write-string (if pos (lisp:nth pos args) name) out)
-		(setf i end))
-	      (begin
+		(setf i end)))
+	    (else
 		(write-char c out)
 		(setf i (1+ i)))))))))
 

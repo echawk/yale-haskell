@@ -106,7 +106,11 @@
   (lisp:some (lambda (n) (mentions-tyvar? ty n)) names))
 
 (define (functor-expand ty)
-  (if (and (tycon? ty) (synonym? (tycon-def ty)))
+  ;; (not a type family's application, which has no body: megaparsec's
+  ;; Token s in a field of Result)
+  (if (and (tycon? ty) (synonym? (tycon-def ty))
+	   (not (synonym-family? (tycon-def ty)))
+	   (synonym-body (tycon-def ty)))
       (functor-expand (expand-synonym ty))
       ty))
 

@@ -27,8 +27,10 @@ main = do
   -- and a thread waiting on an MVar
   done2 <- newEmptyMVar
   never <- newEmptyMVar :: IO (MVar ())
-  t2 <- forkIO (takeMVar never `catch` \e -> putMVar done2 (show (e :: AsyncException)))
-  threadDelay 1000
+  ready2 <- newEmptyMVar
+  t2 <- forkIO ((putMVar ready2 () >> takeMVar never)
+                  `catch` \e -> putMVar done2 (show (e :: AsyncException)))
+  takeMVar ready2
   throwTo t2 ThreadKilled
   takeMVar done2 >>= putStrLn
   -- a masked thread gets the exception when it unmasks (its work does not

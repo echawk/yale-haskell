@@ -39,7 +39,9 @@
 ;;; thrown to it and not yet raised, masking state (0 unmasked, 1 masked
 ;;; interruptibly, 2 uninterruptibly), and whether it has finished.
 (cl:defstruct (hthread (:constructor make-hthread (id thread)))
-  id thread (pending '()) (mask 0) (done cl:nil))
+  id thread (pending '()) (mask 0) (done cl:nil)
+  ;; while it waits: its test of whether it may go on
+  (waiting cl:nil))
 
 (cl:defvar **conc-lock** (bt2:make-lock :name "Haskell threads"))
 (cl:defvar **conc-cv** (bt2:make-condition-variable :name "MVar"))
@@ -47,6 +49,7 @@
 ;;; transaction waits on the condition variable for another one to commit
 (cl:defvar **stm-lock** (bt2:make-lock :name "STM"))
 (cl:defvar **stm-cv** (bt2:make-condition-variable :name "STM"))
+(cl:defvar **stm-commits** 0)   ; transactions that wrote, so far
 
 (cl:defvar **threads**                          ; number -> hthread
   #+sbcl (cl:make-hash-table :synchronized cl:t)
@@ -90,8 +93,18 @@
                           (cl:and waiting (cl:eql (hthread-mask h) 1))))
     (cl:pop (hthread-pending h))))
 
+;;; True in the runtime's own waits (wait-for, prim.thread-delay), which
+;;; take an exception thrown to the thread themselves: an interruption
+;;; there (SBCL runs it inside condition-wait, the lock held again) does
+;;; nothing.
+(cl:defvar *in-runtime-wait* cl:nil)
+
 ;;; In the target thread, at the interruption.
 (cl:defun raise-pending ()
+  (cl:unless *in-runtime-wait*
+    (raise-pending-1)))
+
+(cl:defun raise-pending-1 ()
   (cl:let ((c (without-host-interrupts
                 (bt2:with-lock-held (**conc-lock**)
                   (take-pending (current-hthread) cl:nil)))))
@@ -123,7 +136,7 @@
 (cl:defun prim.set-mask (m)
   (cl:let ((h (current-hthread)))
     (cl:setf (hthread-mask h) m)
-    (cl:when (cl:eql m 0) (raise-pending)))
+    (cl:when (cl:eql m 0) (raise-pending-1)))
   0)
 
 ;;; ------------------------------------------------------------------
@@ -192,8 +205,9 @@
                                  (left (cl:- end (cl:get-internal-real-time))))
                           (cl:when c (cl:return c))
                           (cl:when (cl:<= left 0) (cl:return cl:nil))
-                          (bt2:condition-wait **conc-cv** **conc-lock**
-                                              :timeout (cl:/ left cl:internal-time-units-per-second)))))))
+                          (cl:let ((*in-runtime-wait* cl:t))
+                            (bt2:condition-wait **conc-cv** **conc-lock**
+                                                :timeout (cl:/ left cl:internal-time-units-per-second))))))))
       (cl:when stop (cl:error stop))))
   0)
 
@@ -220,17 +234,30 @@
                     `(cl:if conc?
                             (cl:progn ,@body)
                             (bt2:with-lock-held (**conc-lock**) ,@body))))
-      (under-conc (cl:incf **waiting-threads**))
+      (under-conc (cl:incf **waiting-threads**)
+                  (cl:setf (hthread-waiting self) ready))
       (cl:unwind-protect
            (cl:loop
              (cl:when (cl:funcall ready) (cl:return cl:nil))
              (cl:let ((stop (under-conc
                              (cl:or (take-pending self cl:t)
                                     (cl:and (cl:>= **waiting-threads** **live-threads**)
+                                            (cl:not (waiting-thread-may-go?))
                                             :deadlock)))))
                (cl:when stop (cl:return stop)))
-             (bt2:condition-wait cv lock))
-        (under-conc (cl:decf **waiting-threads**))))))
+             (cl:let ((*in-runtime-wait* cl:t))
+               (bt2:condition-wait cv lock)))
+        (under-conc (cl:decf **waiting-threads**)
+                    (cl:setf (hthread-waiting self) cl:nil))))))
+
+;;; With the lock held: whether a waiting thread may go on, woken and
+;;; not yet run (an MVar it waits on was filled, a transaction committed,
+;;; an exception was thrown to it): then the threads are not deadlocked.
+(cl:defun waiting-thread-may-go? ()
+  (cl:loop for h being the hash-values of **threads**
+           thereis (cl:and (hthread-waiting h)
+                           (cl:or (cl:and (hthread-pending h) (cl:< (hthread-mask h) 2))
+                                  (cl:funcall (hthread-waiting h))))))
 
 ;;; Raise what stopped a wait: BLOCKED (a thunk, the operation's deadlock
 ;;; exception; NIL for the runtime's own error) for a deadlock.
@@ -323,19 +350,20 @@
 ;;; primSTMUnlock :: Bool -> IO ()  (whether the transaction wrote)
 (cl:defun prim.stm-unlock (wrote)
   (without-host-interrupts
-    (cl:when wrote (bt2:condition-broadcast **stm-cv**))
+    (cl:when wrote
+      (cl:incf **stm-commits**)
+      (bt2:condition-broadcast **stm-cv**))
     (bt2:release-lock **stm-lock**))
   0)
 
 ;;; primSTMWait :: Exc -> IO ()  (with the lock held: until a commit;
 ;;; the lock is still held after, also when it raises an exception)
 (cl:defun prim.stm-wait (blocked)
-  (cl:let ((seen cl:nil))
+  (cl:let ((start **stm-commits**))
     (raise-wait-stop
      (without-host-interrupts
        (wait-for **stm-lock** **stm-cv**
-                 ;; once woken: a transaction committed (or a thread
-                 ;; ended, or an exception came: wait-for looks first)
-                 (cl:lambda () (cl:prog1 seen (cl:setf seen cl:t)))))
+                 ;; once another transaction has committed
+                 (cl:lambda () (cl:/= start **stm-commits**))))
      blocked))
   0)

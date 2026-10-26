@@ -455,7 +455,10 @@
 	      (setf (signature-context signature)
 		    (append (signature-context signature)
 			    (list (make context (class (**class/def (tuple-2-1 s)))
-					         (tyvar (tyvar-name ty)))))))))))))
+					         (tyvar (tyvar-name ty))))))))))))
+  ;; and those contexts' own multi-parameter superclasses (MonadParsec e
+  ;; s m gives Stream s, which gives Ord (Token s): megaparsec's)
+  (add-mp-mp-superclass-contexts signature))
 
 ;;; An instance's multi-parameter context with its constraints'
 ;;; one-parameter superclasses (instance C s Int => D (W s), class Num i
@@ -466,7 +469,8 @@
 ;;; too: kept a multi-parameter constraint (reduce-flexible-contexts), a
 ;;; method's given (type/dictionary.mumble's given-class-params).
 (define (instance-mcontext-with-mp-supers context mcontext head-tyvars)
-  (let ((result mcontext))
+  (let ((result mcontext)
+	(at-head '()))
     (dolist (c mcontext)
       (let ((class (class-ref-class (mp-context-class c))))
 	(when (class? class)
@@ -475,13 +479,29 @@
 	      ;; (not at one of the head's variables: the dictionary's
 	      ;; signature has that as an ordinary context, given at the
 	      ;; use like the instance's own: profunctors' Sieve p (Rep p))
+	      (when (and (tyvar? ty) (memq (tyvar-name ty) head-tyvars)
+			 (not (lisp:some
+			       (lambda (ctx)
+				 (and (eq? (context-tyvar ctx) (tyvar-name ty))
+				      (eq? (class-ref-class (context-class ctx))
+					   (tuple-2-1 s))))
+			       (append context at-head))))
+		(setf at-head
+		      (append at-head
+			      (list (make context (class (**class/def (tuple-2-1 s)))
+					  (tyvar (tyvar-name ty)))))))
 	      (when (not (or (single-mp-context-at? result (tuple-2-1 s) ty)
 			     (and (tyvar? ty) (memq (tyvar-name ty) head-tyvars))))
 		(setf result
 		      (append result
 			      (list (**mp-context (**class/def (tuple-2-1 s))
 						  (list ty)))))))))))
-    result))
+    ;; the multi-parameter superclasses of those at the head's variables,
+    ;; as the dictionary's signature has them (add-mp-superclass-contexts)
+    (if (null? at-head)
+	result
+	(with-mp-mp-superclasses
+	 (append-new-mp-contexts result (one-parameter-mp-superclasses at-head))))))
 
 (define (single-mp-context-at? mcontext class ty)
   (lisp:some (lambda (c2)
