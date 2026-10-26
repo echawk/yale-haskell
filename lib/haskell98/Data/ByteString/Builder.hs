@@ -11,6 +11,7 @@ module Data.ByteString.Builder (
     word64HexFixed, int8HexFixed, int16HexFixed, int32HexFixed, int64HexFixed
   ) where
 
+import Data.ByteString.Short (ShortByteString, fromShort)
 import PreludeModern (Semigroup((<>)), Monoid(mempty))
 import Data.ByteString.Rep
 import qualified Data.ByteString.Lazy.Internal as L
@@ -91,9 +92,8 @@ word32Hex w = Builder (showHex w)
 word64Hex :: Word64 -> Builder
 word64Hex w = Builder (showHex w)
 
--- | A ShortByteString (a ByteString here, Data.ByteString.Short).
-shortByteString :: ByteString -> Builder
-shortByteString = byteString
+shortByteString :: ShortByteString -> Builder
+shortByteString = byteString . fromShort
 
 word16Dec :: Word16 -> Builder
 word16Dec n = Builder (shows n)

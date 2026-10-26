@@ -13,6 +13,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Short as BS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Numeric.Natural (Natural)
@@ -136,3 +137,6 @@ instance Hashable a => Hashable (Set.Set a) where
 -- by its name (uniplate's maps of types)
 instance Hashable TypeRep where
   hashWithSalt salt t = hashWithSalt salt (show t)
+
+instance Hashable BS.ShortByteString where
+  hashWithSalt salt = hashWithSalt salt . BS.fromShort
