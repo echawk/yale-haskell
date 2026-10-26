@@ -24,7 +24,8 @@ module Control.Exception (
     Handler(Handler), catches, catchJust, handleJust, tryJust,
     catch, handle, try, evaluate, throw, throwIO,
     bracket, bracket_, bracketOnError, finally, onException,
-    mask, mask_, uninterruptibleMask, uninterruptibleMask_, assert, throwTo
+    mask, mask_, uninterruptibleMask, uninterruptibleMask_, assert, throwTo,
+    MaskingState(..), getMaskingState, allowInterrupt, mapException, ioError
   ) where
 
 import Prelude hiding (catch)
@@ -34,6 +35,7 @@ import Data.Typeable (Typeable)
 import Data.Dynamic (toDyn, fromDynamic)
 import System.Exit (ExitCode)
 import ConcurrentBase (throwTo)
+import System.IO.Unsafe (unsafePerformIO)
 
 data SomeException = SomeException Exc
 
@@ -235,6 +237,19 @@ instance Exception NestedAtomically
 -- no asynchronous exceptions are delivered, so nothing to allow
 interruptible :: IO a -> IO a
 interruptible a = a
+
+-- (asynchronous exceptions are never masked here)
+data MaskingState = Unmasked | MaskedInterruptible | MaskedUninterruptible
+  deriving (Eq, Ord, Show)
+
+getMaskingState :: IO MaskingState
+getMaskingState = return Unmasked
+
+allowInterrupt :: IO ()
+allowInterrupt = return ()
+
+mapException :: (Exception e1, Exception e2) => (e1 -> e2) -> a -> a
+mapException f v = unsafePerformIO (catch (evaluate v) (\ x -> throwIO (f x)))
 
 newtype AssertionFailed = AssertionFailed String
 
