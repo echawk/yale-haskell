@@ -4,13 +4,13 @@
 -- here (Data.ByteString.Short); matching SBS copies the bytes into a new
 -- array, building one copies them back.
 module Data.ByteString.Short.Internal (
-    ShortByteString, pattern SBS, toShort, fromShort, createFromPtr,
+    ShortByteString(SBS), toShort, fromShort, createFromPtr,
     unsafeIndex, length
   ) where
 
 import Prelude hiding (length)
 import qualified Prelude as P
-import Data.ByteString.Short (ShortByteString, pattern SBS, toShort, fromShort, length)
+import Data.ByteString.Short (ShortByteString(SBS), toShort, fromShort, length)
 import Data.ByteString.Rep (unBS, bsFromString, c2w, w2c)
 import Data.Word (Word8)
 import Foreign.Ptr (Ptr, plusPtr)

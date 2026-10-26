@@ -5,7 +5,7 @@
 -- of its own, as bytestring's, so that a class may have instances for
 -- both (digest's CRC32C).
 module Data.ByteString.Short (
-    ShortByteString, pattern SBS, toShort, fromShort, pack, unpack, empty, null, length,
+    ShortByteString(SBS), toShort, fromShort, pack, unpack, empty, null, length,
     index, indexMaybe, (!?), append, concat
   ) where
 

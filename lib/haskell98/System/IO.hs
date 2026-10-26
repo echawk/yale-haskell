@@ -15,7 +15,8 @@ module System.IO (
     readIO, readLn, readFile, writeFile, appendFile,
     hSetFileSize, hTell, hIsTerminalDevice, hSetEcho, hGetEcho, hShow,
     -- base, not the Report
-    openTempFile, openBinaryFile, withBinaryFile, hSetBinaryMode,
+    openTempFile, openBinaryTempFile, openTempFileWithDefaultPermissions,
+    openBinaryTempFileWithDefaultPermissions, openBinaryFile, withBinaryFile, hSetBinaryMode,
     TextEncoding, utf8, utf8_bom, latin1, char8, utf16, utf32, mkTextEncoding,
     localeEncoding, hSetEncoding, hGetEncoding,
     Newline(LF, CRLF), NewlineMode(NewlineMode, inputNL, outputNL),
@@ -93,6 +94,13 @@ openTempFile dir template = do
   path <- primCreateTempFile dir prefix suffix
   h <- openFile path ReadWriteMode
   return (path, h)
+
+-- (the handles are the same here: there is no text mode)
+openBinaryTempFile, openTempFileWithDefaultPermissions,
+  openBinaryTempFileWithDefaultPermissions :: FilePath -> String -> IO (FilePath, Handle)
+openBinaryTempFile = openTempFile
+openTempFileWithDefaultPermissions = openTempFile
+openBinaryTempFileWithDefaultPermissions = openTempFile
 
 splitTemplate :: String -> (String, String)
 splitTemplate t = case break (== '.') (reverse t) of

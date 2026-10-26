@@ -7,7 +7,8 @@ module Data.List.NonEmpty (
     drop, splitAt, iterate, repeat, cycle, insert, scanl, scanr, scanl1,
     scanr1, transpose, xor, unfoldr, unfold, some1, (!!), uncons, singleton,
     appendList, prependList, groupBy1, groupWith1, groupAllWith1, inits1,
-    tails1, permutations, permutations1, intersperse, inits, tails, append
+    tails1, permutations, permutations1, intersperse, inits, tails, append,
+    isPrefixOf
   ) where
 
 import Prelude hiding (map, head, tail, last, init, length, reverse, zip,
@@ -213,3 +214,6 @@ append (x :| xs) (y :| ys) = x :| (xs ++ y : ys)
 -- (deprecated in base, unfoldr's other name)
 unfold :: (a -> (b, Maybe a)) -> a -> NonEmpty b
 unfold = unfoldr
+
+isPrefixOf :: Eq a => [a] -> NonEmpty a -> Bool
+isPrefixOf xs ys = L.isPrefixOf xs (toList ys)

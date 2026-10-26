@@ -6,6 +6,7 @@ module Data.ByteString.Builder (
     doubleDec, floatDec, word8, int8, wordHex, word8Hex, word16Hex,
     word32Hex, word64Hex, shortByteString,
     word16Dec, word32Dec, word64Dec, int16BE, int16LE, int32BE, int32LE,
+    floatBE, floatLE, doubleBE, doubleLE, floatHost, doubleHost,
     int64BE, int64LE, word16BE, word16LE, word32BE, word32LE, word64BE,
     word64LE, doubleHexFixed, word8HexFixed, word16HexFixed, word32HexFixed,
     word64HexFixed, int8HexFixed, int16HexFixed, int32HexFixed, int64HexFixed
@@ -20,6 +21,7 @@ import Data.Int
 import Numeric (showHex)
 import System.IO (Handle, hPutStr)
 import Data.String (IsString(fromString))
+import GHC.Float (castFloatToWord32, castDoubleToWord64)
 
 newtype Builder = Builder (String -> String)
 
@@ -131,6 +133,16 @@ word32LE = bytesLE 4 . toInteger
 word64BE, word64LE :: Word64 -> Builder
 word64BE = bytesBE 8 . toInteger
 word64LE = bytesLE 8 . toInteger
+
+-- IEEE 754 bits (GHC.Float's casts)
+floatBE, floatLE, floatHost :: Float -> Builder
+floatBE = word32BE . castFloatToWord32
+floatLE = word32LE . castFloatToWord32
+floatHost = floatLE
+doubleBE, doubleLE, doubleHost :: Double -> Builder
+doubleBE = word64BE . castDoubleToWord64
+doubleLE = word64LE . castDoubleToWord64
+doubleHost = doubleLE
 
 -- lowercase hexadecimal, all the digits
 hexFixed :: Int -> Integer -> Builder
