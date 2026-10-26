@@ -176,7 +176,8 @@ def scan_text(text):
                 i = j
                 continue
         if ch == "#" and (i == 0 or not (text[i - 1].isalnum() or text[i - 1] in "_'#")):
-            m = re.match(r"#([A-Za-z_][A-Za-z0-9_]*)\b", text[i:])
+            # (hsc2hs allows blanks after the #: network's (# peek ...))
+            m = re.match(r"#[ \t]*([A-Za-z_][A-Za-z0-9_]*)\b", text[i:])
             if m and (m.group(1) in KEYWORDS or m.group(1) in LET_NAMES):
                 # #const e: to the end of the line, or to a closing
                 # bracket it did not open (network's min n (#const IOV_MAX))
