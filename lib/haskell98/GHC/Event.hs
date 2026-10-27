@@ -1,9 +1,12 @@
 -- GHC.Event (base), its timer manager: a timeout is a thread that sleeps
 -- until its deadline, which updateTimeout moves, then runs the action
--- (Control.Concurrent's threads are host threads).
+-- (Control.Concurrent's threads are host threads).  There is no I/O
+-- event manager: getSystemEventManager is Nothing, which programs take
+-- as the non-threaded runtime's (network then waits with timeouts).
 module GHC.Event (
     TimerManager, TimeoutKey, TimeoutCallback, getSystemTimerManager,
-    registerTimeout, updateTimeout, unregisterTimeout
+    registerTimeout, updateTimeout, unregisterTimeout,
+    EventManager, getSystemEventManager
   ) where
 
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
@@ -49,3 +52,8 @@ updateTimeout _ (TimeoutKey _ deadline) us = do
 
 unregisterTimeout :: TimerManager -> TimeoutKey -> IO ()
 unregisterTimeout _ (TimeoutKey t _) = killThread t
+
+data EventManager = EventManager
+
+getSystemEventManager :: IO (Maybe EventManager)
+getSystemEventManager = return Nothing

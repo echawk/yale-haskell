@@ -8,7 +8,8 @@ module Control.Concurrent.STM (
     putTMVar, readTMVar, tryTakeTMVar, tryPutTMVar, isEmptyTMVar,
     swapTMVar, tryReadTMVar, writeTMVar,
     TChan, newTChan, newTChanIO, writeTChan, readTChan, tryReadTChan,
-    isEmptyTChan, unGetTChan, peekTChan, tryPeekTChan,
+    isEmptyTChan, unGetTChan, peekTChan, tryPeekTChan, newBroadcastTChan,
+    newBroadcastTChanIO, dupTChan, cloneTChan,
     TQueue, newTQueue, newTQueueIO, writeTQueue, readTQueue, tryReadTQueue,
     isEmptyTQueue, flushTQueue, unGetTQueue, peekTQueue, tryPeekTQueue,
     TBQueue, newTBQueue, newTBQueueIO, writeTBQueue, readTBQueue,
@@ -67,7 +68,6 @@ isEmptyTMVar :: TMVar a -> STM Bool
 isEmptyTMVar (TMVar v) = fmap (maybe True (const False)) (readTVar v)
 
 newtype TQueue a = TQueue (TVar ([a], [a]))
-type TChan = TQueue
 
 newTQueue :: STM (TQueue a)
 newTQueue = fmap TQueue (newTVar ([], []))
@@ -103,24 +103,89 @@ tryPeekTQueue q = do
 peekTQueue :: TQueue a -> STM a
 peekTQueue q = tryPeekTQueue q >>= maybe retry return
 
+-- A channel as stm's: a linked list of TVars, a read end and a write
+-- end; a duplicate has a read end of its own.
+type TVarList a = TVar (TList a)
+data TList a = TNil | TCons a (TVarList a)
+
+data TChan a = TChan (TVar (TVarList a)) (TVar (TVarList a))
+
+instance Eq (TChan a) where
+  TChan a _ == TChan b _ = a == b
+
 newTChan :: STM (TChan a)
-newTChan = newTQueue
+newTChan = do
+  hole <- newTVar TNil
+  r <- newTVar hole
+  w <- newTVar hole
+  return (TChan r w)
+
 newTChanIO :: IO (TChan a)
-newTChanIO = newTQueueIO
+newTChanIO = atomically newTChan
+
+-- written to only: a reader is made with dupTChan
+newBroadcastTChan :: STM (TChan a)
+newBroadcastTChan = do
+  hole <- newTVar TNil
+  r <- newTVar (error "reading from a TChan created by newBroadcastTChan; use dupTChan first")
+  w <- newTVar hole
+  return (TChan r w)
+
+newBroadcastTChanIO :: IO (TChan a)
+newBroadcastTChanIO = atomically newBroadcastTChan
+
 writeTChan :: TChan a -> a -> STM ()
-writeTChan = writeTQueue
+writeTChan (TChan _ w) a = do
+  listend <- readTVar w
+  newend <- newTVar TNil
+  writeTVar listend (TCons a newend)
+  writeTVar w newend
+
 readTChan :: TChan a -> STM a
-readTChan = readTQueue
+readTChan c = tryReadTChan c >>= maybe retry return
+
 tryReadTChan :: TChan a -> STM (Maybe a)
-tryReadTChan = tryReadTQueue
-isEmptyTChan :: TChan a -> STM Bool
-isEmptyTChan = isEmptyTQueue
-unGetTChan :: TChan a -> a -> STM ()
-unGetTChan = unGetTQueue
+tryReadTChan (TChan r _) = do
+  listhead <- readTVar r
+  h <- readTVar listhead
+  case h of
+    TNil -> return Nothing
+    TCons a rest -> writeTVar r rest >> return (Just a)
+
 peekTChan :: TChan a -> STM a
-peekTChan = peekTQueue
+peekTChan c = tryPeekTChan c >>= maybe retry return
+
 tryPeekTChan :: TChan a -> STM (Maybe a)
-tryPeekTChan = tryPeekTQueue
+tryPeekTChan (TChan r _) = do
+  listhead <- readTVar r
+  h <- readTVar listhead
+  return (case h of { TNil -> Nothing; TCons a _ -> Just a })
+
+unGetTChan :: TChan a -> a -> STM ()
+unGetTChan (TChan r _) a = do
+  listhead <- readTVar r
+  newhead <- newTVar (TCons a listhead)
+  writeTVar r newhead
+
+isEmptyTChan :: TChan a -> STM Bool
+isEmptyTChan (TChan r _) = do
+  listhead <- readTVar r
+  h <- readTVar listhead
+  return (case h of { TNil -> True; TCons _ _ -> False })
+
+-- a reader of what is written from now on
+dupTChan :: TChan a -> STM (TChan a)
+dupTChan (TChan _ w) = do
+  hole <- readTVar w
+  r <- newTVar hole
+  return (TChan r w)
+
+-- a reader of what the channel's reader has still to read, too
+cloneTChan :: TChan a -> STM (TChan a)
+cloneTChan (TChan r w) = do
+  readpos <- readTVar r
+  r' <- newTVar readpos
+  return (TChan r' w)
 
 -- A bounded queue: writeTBQueue retries while it holds its capacity.
 data TBQueue a = TBQueue (TQueue a) (TVar Int) Int

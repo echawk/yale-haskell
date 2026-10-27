@@ -1,0 +1,21 @@
+cereal: no UArray instance (Yale Haskell's UArray is Array).
+diff -ruN a/Data/Serialize.hs b/Data/Serialize.hs
+--- a/Data/Serialize.hs	2026-10-27 03:38:59
++++ b/Data/Serialize.hs	2026-10-27 03:38:59
+@@ -557,6 +557,8 @@
+     put = putIArrayOf put put
+     get = getIArrayOf get get
+ 
++#ifndef __YALE_HASKELL__
++-- (Yale Haskell: UArray is Array, whose instance is above)
+ --
+ -- The IArray UArray e constraint is non portable. Requires flexible instances
+ --
+@@ -564,6 +566,7 @@
+   => Serialize (UArray i e) where
+     put = putIArrayOf put put
+     get = getIArrayOf get get
++#endif
+ 
+ ------------------------------------------------------------------------
+ -- Generic Serialze

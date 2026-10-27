@@ -8,7 +8,7 @@ module Data.List.NonEmpty (
     scanr1, transpose, xor, unfoldr, unfold, some1, (!!), uncons, singleton,
     appendList, prependList, groupBy1, groupWith1, groupAllWith1, inits1,
     tails1, permutations, permutations1, intersperse, inits, tails, append,
-    isPrefixOf
+    isPrefixOf, nubBy
   ) where
 
 import Prelude hiding (map, head, tail, last, init, length, reverse, zip,
@@ -217,3 +217,6 @@ unfold = unfoldr
 
 isPrefixOf :: Eq a => [a] -> NonEmpty a -> Bool
 isPrefixOf xs ys = L.isPrefixOf xs (toList ys)
+
+nubBy :: (a -> a -> Bool) -> NonEmpty a -> NonEmpty a
+nubBy eq (a :| as) = a :| L.nubBy eq (P.filter (\b -> not (eq a b)) as)

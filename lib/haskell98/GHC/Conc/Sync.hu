@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/GHC/Conc/
+:o= all
+Sync.hs

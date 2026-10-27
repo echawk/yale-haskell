@@ -1,0 +1,3 @@
+:output $LIBRARYBIN/Data/Text/Internal/
+:o= all
+Builder.hs
