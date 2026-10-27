@@ -157,7 +157,10 @@
 (define (find-mp-instance-1 instances positions types)
   ;; of the instances whose heads match, the most specific (OVERLAPPING:
   ;; the most type constructors in its head)
-  (let ((best '#f) (best-n -1) (best-unify '()))
+  ;; (two as specific, neither chosen: reflection's catch-all KnownNat n
+  ;; => Reifies n Integer and KnownSymbol n => Reifies n String, apart by
+  ;; kind in GHC, at a variable)
+  (let ((best '#f) (best-n -1) (best-unify '()) (tie? '#f) (best-at -1))
     (dolist (inst instances)
       (dynamic-let ((*head-equalities?* (instance-head-equalities? inst))
 		    (*head-unifications* '()))
@@ -167,14 +170,25 @@
 			     (match-mp-head positions (instance-mp-types inst)
 					    types (list (tuple '|%none| '|%none|))))))
 	  (when (not (eq? bindings '#f))
-	    (let ((n (head-specificity (instance-mp-types inst))))
-	      (when (> n best-n)
-		(setf best (tuple inst bindings))
-		(setf best-unify (dynamic *head-unifications*))
-		(setf best-n n)))))))
-    (dolist (u best-unify)
-      (type-unify (car u) (cdr u) '#f))
-    best))
+	    (let ((n (head-specificity (instance-mp-types inst)))
+		  ;; (as specific at the positions matched: Reifies (Stable w0
+		  ;; w1 a) b is more so than Reifies n Integer)
+		  (at (head-specificity
+		       (map (lambda (i) (list-ref (instance-mp-types inst) i)) positions))))
+	      (cond ((or (> at best-at) (and (eqv? at best-at) (> n best-n)))
+		     (setf best (tuple inst bindings))
+		     (setf best-unify (dynamic *head-unifications*))
+		     (setf best-n n)
+		     (setf best-at at)
+		     (setf tie? '#f))
+		    ((and (eqv? n best-n) (eqv? at best-at) (not (eq? inst (tuple-2-1 best))))
+		     (setf tie? '#t))))))))
+    (if tie?
+	'#f
+	(begin
+	  (dolist (u best-unify)
+	    (type-unify (car u) (cdr u) '#f))
+	  best))))
 
 ;;; Whether A and B, a repeated head variable's two matches, may be made
 ;;; equal (*head-equalities?*); the pair is kept for unifying.
@@ -572,6 +586,16 @@
 	 (**ntycon (car p) (map (lambda (a) (instantiate-mp-template/ntype a types))
 				(cdr p))))))
 
+;;; An instance whose head at a functional dependency's `from' positions
+;;; is bare type variables, among other instances of the class: no
+;;; improvement through it (reflection's KnownNat n => Reifies n Integer
+;;; and KnownSymbol n => Reifies n String, apart from Reifies (D n) Int
+;;; by kind in GHC, which Yale Haskell does not check).
+(define (catch-all-at-positions? inst positions class)
+  (and (not (null? (cdr (class-instances class))))
+       (every (lambda (i) (tyvar? (list-ref (instance-mp-types inst) i)))
+	      positions)))
+
 (define (improve-mp-placeholders placeholders)
   (let ((mps '()))
     (dolist (p placeholders)
@@ -595,7 +619,8 @@
 	(dolist (fd (class-fundeps class))
 	  (let ((found (find-mp-instance-1 (class-instances class) (tuple-2-1 fd)
 					   (map (function reduce-mp-type) types))))
-	    (when found
+	    (when (and found
+		       (not (catch-all-at-positions? (tuple-2-1 found) (tuple-2-1 fd) class)))
 	      (improve-through-instance (tuple-2-1 found) (tuple-2-2 found) types 8
 					(tuple-2-2 fd)))))
 	(dolist (q mps)
@@ -622,7 +647,9 @@
 	  (when (not (null? (class-fundeps class)))
 	    (mlet (((ctypes _) (ast->ntype/bindings/l (mp-context-types c) bindings)))
 	      (let ((found (find-mp-instance class ctypes)))
-		(when found
+		(when (and found
+			   (not (catch-all-at-positions?
+				 (tuple-2-1 found) (mp-determining-positions class) class)))
 		  (improve-through-instance (tuple-2-1 found) (tuple-2-2 found)
 					    ctypes (1- depth)))))))))))
 
@@ -846,6 +873,24 @@
 		 (pair? (cdr g)) (null? (cddr g))
 		 (eq? (prune (cadr g)) tyvar))
 	(push (car g) classes)))
+    classes))
+
+(define (local-given-classes-at-type type)
+  (let ((classes '()))
+    (dolist (param (dynamic *local-mp-params*))
+      (when (and (class? (mp-param-class param))
+		 (null? (cdr (mp-param-types param)))
+		 (mp-type-equal? (car (mp-param-types param)) type))
+	(push (mp-param-class param) classes)))
+    classes))
+
+(define (local-given-classes-at-tyvar tyvar)
+  (let ((classes '()))
+    (dolist (param (dynamic *local-mp-params*))
+      (when (and (class? (mp-param-class param))
+		 (null? (cdr (mp-param-types param)))
+		 (eq? (prune (car (mp-param-types param))) tyvar))
+	(push (mp-param-class param) classes)))
     classes))
 
 (define (cfam-given-classes tyvar)

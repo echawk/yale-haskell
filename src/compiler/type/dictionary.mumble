@@ -107,11 +107,35 @@
 	      (not (instance-head-matches? instance type))
 	      (some-instance-head-could-match? instance type)))))
 
+;;; The dictionary variable a polymorphic argument's context gives P's
+;;; class at TYPE, a type variable or a type (its given-locals), or #f.
+(define (local-given-at-tyvar p type)
+  (let ((class (placeholder-class p)))
+    (lisp:some (lambda (param)
+		 (and (eq? (mp-param-class param) class)
+		      (null? (cdr (mp-param-types param)))
+		      (if (ntyvar? type)
+			  (eq? (prune (car (mp-param-types param))) type)
+			  (mp-type-equal? (car (mp-param-types param)) type))
+		      (mp-param-var param)))
+	       (placeholder-given-locals p))))
+
 (define (process-placeholder-at p type deferred decls)
   (let ((expanded (if (ntycon? type)
 		      (prune (expand-ntype-synonym type))
 		      type)))
-    (cond ((and (ntycon? type) (not (ntycon? expanded)))
+    (cond ((and (or (ntyvar? type) (ntycon? type)) (local-given-at-tyvar p type))
+	   ;; given by a polymorphic argument's context on an outer
+	   ;; variable (KnownNat n => r, base's withKnownNat)
+	   (let ((d (**var/def (local-given-at-tyvar p type))))
+	     (setf (placeholder-exp p)
+		   (if (dict-placeholder? p)
+		       d
+		       (let ((m (method-placeholder-method p)))
+			 (**app (**var/def (tuple-2-2 (assq m (class-selectors (placeholder-class p)))))
+				d)))))
+	   deferred)
+	  ((and (ntycon? type) (not (ntycon? expanded)))
 	   ;; a synonym or family application reducing to a variable or
 	   ;; an application (E (Box a) = a): dispatch on that
 	   (process-placeholder-at p expanded deferred decls))

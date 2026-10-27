@@ -229,9 +229,11 @@
 
 (define (substitute-tyvar/mcontext mcontexts tyvar new)
   (map (lambda (c)
-	 (**mp-context (mp-context-class c)
-		       (map (lambda (ty) (substitute-tyvar ty tyvar new))
-			    (mp-context-types c))))
+	 (copy-mp-context-keep
+	  c
+	  (**mp-context (mp-context-class c)
+			(map (lambda (ty) (substitute-tyvar ty tyvar new))
+			     (mp-context-types c)))))
        mcontexts))
 
 ;;; FlexibleContexts (GHC): C t for a one-parameter class C and a type t
@@ -253,6 +255,7 @@
 	(if (and (null? (cdr (mp-context-types c)))
 		 (class? class)
 		 (null? (cdr (class-tyvars class)))
+		 (not (mp-context-keep? c))
 		 ;; Num i at a variable only the context has: an instance's
 		 ;; multi-parameter constraint's superclass
 		 ;; (instance-mcontext-with-mp-supers), kept
@@ -645,8 +648,13 @@
 	 ;; its own type variables are not free; its context constrains
 	 ;; them, or the outer variables its type mentions (C m => t
 	 ;; without a forall: type FoldFn m a = Monoid m => (e -> m) -> a -> m)
+	 ;; (or outer ones it does not mention: reflection's newtype Gift a
+	 ;; r = Gift (Given a => r), free in the whole type then)
 	 (let ((inner (resolve-forall-mcontext type
-		        (resolve-type-1 (forall-type-type type) '() '#f))))
+		        (append
+			 (lisp:remove-if (lambda (v) (memq v (forall-type-tyvars type)))
+					 (map (function context-tyvar) (forall-type-context type)))
+			 (resolve-type-1 (forall-type-type type) '() '#f)))))
 	   (resolve-signature-aux (append (forall-type-tyvars type) inner)
 				  (forall-type-context type))
 	   (append (lisp:remove-if (lambda (v) (memq v (forall-type-tyvars type)))

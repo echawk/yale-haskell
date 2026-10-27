@@ -1,13 +1,15 @@
 -- GHC.TypeNats (base): type-level naturals, the names and classes only.
 -- Yale Haskell has no type-level literals, so KnownNat has no instances
 -- for them; programs can define instances for their own types.
-{-# LANGUAGE FlexibleInstances, TypeFamilies, TypeOperators, DataKinds, UndecidableInstances, PolyKinds #-}
+{-# LANGUAGE FlexibleInstances, TypeFamilies, TypeOperators, DataKinds, UndecidableInstances, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 module GHC.TypeNats (
     Nat, Natural, KnownNat(natSing), SNat, natVal, fromSNat,
+    withKnownNat, withSomeSNat,
     KnownBits(bitsValue), BitsValue(..), type (+), Div, Mod, CmpNat
   ) where
 
 import Numeric.Natural (Natural)
+import Unsafe.Coerce (unsafeCoerce)
 import PreludeCore (TypeNat, TypeB0, TypeB1, PromotedNil, PromotedCons)
 
 type Nat = Natural
@@ -22,6 +24,16 @@ class KnownNat n where
 
 fromSNat :: SNat n -> Natural
 fromSNat (UnsafeSNat n) = n
+
+-- KnownNat n's dictionary is its one method, natSing (as GHC's): an
+-- SNat n is one (reflection's reifyNat)
+newtype WithKnownNat n r = WithKnownNat (KnownNat n => r)
+
+withKnownNat :: forall n r. SNat n -> (KnownNat n => r) -> r
+withKnownNat sn k = unsafeCoerce (WithKnownNat k :: WithKnownNat n r) sn
+
+withSomeSNat :: forall r. Natural -> (forall n. SNat n -> r) -> r
+withSomeSNat n k = k (UnsafeSNat n)
 
 natVal :: KnownNat n => proxy n -> Natural
 natVal p = fromSNat (sing p)

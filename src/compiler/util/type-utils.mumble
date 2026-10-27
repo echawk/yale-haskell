@@ -173,8 +173,19 @@
 			     (forall-type-tyvars type)))))
 	   (dynamic-let ((*inner-tyvars* (append inner (dynamic *inner-tyvars*))))
 	     (mlet (((body env1) (type->gtype (forall-type-type type) env))
+		    ;; a constraint on an outer variable (C a => r, reflection's
+		    ;; Gift, base's withKnownNat): one of its multi-parameter
+		    ;; ones, whose dictionary its values take too
 		    ((gmcontext env2)
-		     (mcontext->gmcontext/env (forall-type-mcontext type) env1)))
+		     (mcontext->gmcontext/env
+		      (append (forall-type-mcontext type)
+			      (map (lambda (c)
+				     (**mp-context (context-class c)
+						   (list (**tyvar (context-tyvar c)))))
+				   (lisp:remove-if
+				    (lambda (c) (memq (context-tyvar c) (forall-type-tyvars type)))
+				    (forall-type-context type))))
+		      env1)))
 	       (let ((g (**gtype (map (lambda (v)
 					(forall-type-classes type (tuple-2-1 v)))
 				      inner)

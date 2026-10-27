@@ -3,16 +3,18 @@
 -- PreludeCore's TypeSymbol, TypeNat and TypeChar over binary digits
 -- (parser/type-parser.mumble), with KnownSymbol, KnownNat and KnownChar
 -- instances.
-{-# LANGUAGE FlexibleInstances, ExistentialQuantification, TypeFamilies, TypeOperators, DataKinds, PolyKinds #-}
+{-# LANGUAGE FlexibleInstances, ExistentialQuantification, TypeFamilies, TypeOperators, DataKinds, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 module GHC.TypeLits (
     Symbol, Nat, Natural, KnownNat(natSing), natVal, SNat, fromSNat,
     KnownSymbol(symbolSing), symbolVal, SSymbol, fromSSymbol,
+    withKnownNat, withSomeSNat, withKnownSymbol, withSomeSSymbol,
     KnownChar(charSing), charVal, SChar, fromSChar,
     ErrorMessage(..), TypeError, type (+), Div, Mod, CmpNat
   ) where
 
 import Numeric.Natural (Natural)
-import GHC.TypeNats (Nat, KnownNat(natSing), SNat, fromSNat, KnownBits(bitsValue), BitsValue(..), type (+), Div, Mod, CmpNat)
+import Unsafe.Coerce (unsafeCoerce)
+import GHC.TypeNats (Nat, KnownNat(natSing), SNat, fromSNat, withKnownNat, withSomeSNat, KnownBits(bitsValue), BitsValue(..), type (+), Div, Mod, CmpNat)
 import PreludeCore (TypeSymbol, TypeChar, PromotedNil, PromotedCons)
 
 data Symbol
@@ -29,6 +31,15 @@ class KnownSymbol n where
 
 fromSSymbol :: SSymbol s -> String
 fromSSymbol (UnsafeSSymbol s) = s
+
+-- (as withKnownNat: KnownSymbol n's dictionary is an SSymbol n)
+newtype WithKnownSymbol n r = WithKnownSymbol (KnownSymbol n => r)
+
+withKnownSymbol :: forall n r. SSymbol n -> (KnownSymbol n => r) -> r
+withKnownSymbol ss k = unsafeCoerce (WithKnownSymbol k :: WithKnownSymbol n r) ss
+
+withSomeSSymbol :: forall r. String -> (forall s. SSymbol s -> r) -> r
+withSomeSSymbol s k = k (UnsafeSSymbol s)
 
 symbolVal :: KnownSymbol n => proxy n -> String
 symbolVal p = fromSSymbol (sing p)

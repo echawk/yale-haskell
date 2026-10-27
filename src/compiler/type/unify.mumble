@@ -309,6 +309,9 @@
 					    ;; its class's variable, given at it
 					    ;; (mp-context-keep?)
 					    (given-classes-at-tyvar type)
+					    ;; or a polymorphic argument's
+					    ;; context (KnownNat n => r)
+					    (local-given-classes-at-tyvar type)
 					    ;; or a match on a constructor whose
 					    ;; context gives it (existentials.mumble)
 					    (pattern-local-given-classes type))
@@ -327,7 +330,11 @@
 	       ;; looked for when the placeholders are resolved
 	       'OK)
 	      ((ntycon? etype)
-	       (propagate-contexts-1 etype classes))
+	       ;; (but those a polymorphic argument's context gives at the
+	       ;; type: Given Int in reflection's give 5 (given + 1))
+	       (let ((local (local-given-classes-at-type etype)))
+		 (propagate-contexts-1
+		  etype (lisp:remove-if (lambda (c) (memq c local)) classes))))
 	      (else
 	       ;; a family application that reduced to a variable
 	       (propagate-contexts/inner etype classes))))))))
