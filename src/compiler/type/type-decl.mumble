@@ -493,10 +493,11 @@
 ;;; The family equalities left undecided, tried again once the signatures
 ;;; give their equalities (ConOfAbs a ~ [ce] of Agda's prettyAs decides
 ;;; ConOfAbs a ~ [t], t of map pretty), before the binding is
-;;; generalized and t found ambiguous.
+;;; generalized and t found ambiguous.  Also with one-parameter contexts
+;;; only (recursion-schemes' lambek :: (Recursive t, Corecursive t) => t
+;;; -> Base t t, whose Base t t decides embed's type).
 (define (retry-family-equalities/given)
-  (when (and (not (null? *deferred-family-equalities*))
-	     (not (null? (dynamic *given-mp-constraints*))))
+  (when (not (null? *deferred-family-equalities*))
     (retry-family-equalities)))
 
 (define (restrict-stuck-family-tyvars vars decls)

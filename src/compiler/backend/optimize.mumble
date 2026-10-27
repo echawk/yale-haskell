@@ -398,6 +398,12 @@
 		   ((and (is-type? 'flic-app body)
 			 (is-type? 'flic-pack (flic-app-fn body)))
 		    (lisp:some (lambda (a)
+				 ;; a method, or a method of an instance with a
+				 ;; context applied to its dictionaries (free's
+				 ;; FreeT f m <*>, at FreeT f m inside)
+				 (when (and (is-type? 'flic-app a)
+					    (is-type? 'flic-ref (flic-app-fn a)))
+				   (setf a (flic-app-fn a)))
 				 (and (is-type? 'flic-ref a)
 				      (dictionary-leads-to? (flic-ref-var a) var (1- n))))
 			       (flic-app-args body)))

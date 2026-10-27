@@ -914,9 +914,11 @@
 				      ;; instance's types: ListLike's unlines ::
 				      ;; ListLike full s => .. at s = FMList Char)
 				      (map (lambda (c)
-					     (**mp-context (mp-context-class c)
-							   (map (lambda (ty) (substitute-class-tyvars ty inst))
-								(mp-context-types c))))
+					     (copy-mp-context-keep
+					      c
+					      (**mp-context (mp-context-class c)
+							    (map (lambda (ty) (substitute-class-tyvars ty inst))
+								 (mp-context-types c)))))
 					   (signature-mcontext signature)))
 			      (instance-mcontext inst))))))
     (dolist (r renaming)
@@ -939,11 +941,17 @@
 		      (signature-context sig)))
 	(type (substitute-tyvar (signature-type sig) old (**tyvar new)))
 	(mcontext (map (lambda (c)
-			 (**mp-context (mp-context-class c)
-				       (map (lambda (ty)
-					      (substitute-tyvar ty old (**tyvar new)))
-					    (mp-context-types c))))
+			 (copy-mp-context-keep
+			  c
+			  (**mp-context (mp-context-class c)
+					(map (lambda (ty)
+					       (substitute-tyvar ty old (**tyvar new)))
+					     (mp-context-types c)))))
 		       (signature-mcontext sig)))))
+
+(define (copy-mp-context-keep from to)
+  (setf (mp-context-keep? to) (mp-context-keep? from))
+  to)
 
 (define (make-instance-type inst)
   (if (instance-catch-all? inst)

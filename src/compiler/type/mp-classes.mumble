@@ -839,6 +839,15 @@
 	(push (car g) classes)))
     classes))
 
+(define (given-classes-at-tyvar tyvar)
+  (let ((classes '()))
+    (dolist (g (dynamic *given-mp-constraints*))
+      (when (and (class? (car g))
+		 (pair? (cdr g)) (null? (cddr g))
+		 (eq? (prune (cadr g)) tyvar))
+	(push (car g) classes)))
+    classes))
+
 (define (cfam-given-classes tyvar)
   (let ((classes '()))
     (dolist (g (dynamic *given-mp-constraints*))
@@ -1072,14 +1081,33 @@
 	       ;; a one-parameter class given at an application of a type
 	       ;; variable (Monad (m s)), now wanted at a known type:
 	       ;; the type's instance, as for any other dictionary
-	       (let ((type (expand-ntype-synonym (prune (car types)))))
+	       (let* ((type (expand-ntype-synonym (prune (car types))))
+		      (inst (lookup-instance/type (ntycon-tycon type) class type)))
+		 (if (eq? inst '#f)
+		   (begin
+		     (phase-error 'no-instance
+		       "No instance of ~A for ~A." class type)
+		     deferred)
 		 (mlet (((code def1)
 			 (generate-dict-ref
-			  (lookup-instance/type (ntycon-tycon type) class type)
+			  inst
 			  type deferred decls (placeholder-enclosing-decls p)
 			  (placeholder-overloaded-var p))))
 		   (setf (placeholder-exp p) (mp-dict-use p code))
-		   def1)))
+		   def1))))
+	      ((and (null? (cdr types))
+		    (null? (cdr (class-tyvars class)))
+		    (ntyvar? (prune (car types)))
+		    (context-implies? (ntyvar-context (prune (car types))) (list class)))
+	       ;; a method's own constraint on its class's variable
+	       ;; (mp-context-keep?), wanted where the variable's context
+	       ;; has it (recursion-schemes' hoist :: Recursive t => ..,
+	       ;; called in Recursive t's default): as any dictionary there
+	       (let ((d (**dict-placeholder class (prune (car types))
+					    (placeholder-enclosing-decls p)
+					    (placeholder-overloaded-var p))))
+		 (setf (placeholder-exp p) (mp-dict-use p d))
+		 (process-placeholder d deferred decls)))
 	      ((not (eq? found '#f))
 	       (resolve-mp-by-instance p (tuple-2-1 found) (tuple-2-2 found)
 				       deferred decls))

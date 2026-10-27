@@ -1476,8 +1476,13 @@
 		   (mcontext ,(dump-object (signature-mcontext o)))))
 
 (define-walker-method dump mp-context (o)
-  `(**mp-context ,(dump-object (mp-context-class o))
-		 ,(dump-object (mp-context-types o))))
+  (if (mp-context-keep? o)
+      `(let ((c (**mp-context ,(dump-object (mp-context-class o))
+			      ,(dump-object (mp-context-types o)))))
+	 (setf (mp-context-keep? c) '#t)
+	 c)
+      `(**mp-context ,(dump-object (mp-context-class o))
+		     ,(dump-object (mp-context-types o)))))
 
 ;;; All ntyvars should be instantiated at this point
 

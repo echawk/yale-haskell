@@ -184,6 +184,17 @@
 ;;; h b with Rep1 g a, the family applied to more than its arity: the
 ;;; extra arguments are an application, so h is Rep1 g and b is a.
 (define (unify-app-family app fam)
+  (let ((fun (prune (ntyapp-fun app))))
+    (if (and (ntycon? fun) (family-app? fun))
+	;; the function a family application itself (f e, f = Base t',
+	;; with Base e e): the whole equation, Base t' e ~ Base e e, not
+	;; Base t' ~ Base e, which loses e (recursion-schemes' lambek)
+	(unify-family (**ntycon (ntycon-tycon fun)
+				(append (ntycon-args fun) (ntyapp-args app)))
+		      fam)
+	(unify-app-family-1 app fam))))
+
+(define (unify-app-family-1 app fam)
   (let* ((args (ntyapp-args app))
 	 (n (length args))
 	 (fargs (ntycon-args fam))
@@ -191,9 +202,11 @@
 	 (extra (- (length fargs) arity)))
     (if (<= n extra)
 	(begin
-	  (unify-list args (list-tail fargs (- (length fargs) n)))
+	  ;; (the function first: an argument may be an application of
+	  ;; it, t4 (Base t5 t5) with Base t6 (t4 t5), where t4 is Base t6)
 	  (unify (ntyapp-fun app)
-		 (**ntycon (ntycon-tycon fam) (list-head fargs (- (length fargs) n)))))
+		 (**ntycon (ntycon-tycon fam) (list-head fargs (- (length fargs) n))))
+	  (unify-list args (list-tail fargs (- (length fargs) n))))
 	(begin
 	  (unify-list (list-tail args (- n extra)) (list-tail fargs arity))
 	  (unify (apply-ntype (ntyapp-fun app) (list-head args (- n extra)))
@@ -292,6 +305,10 @@
 		  ;; (All Show '[a]: mp-classes.mumble's cfam-given-classes)
 		  (context-implies? (append (ntyvar-context type) (cfam-given-classes type)
 					    (given-classes-at-reduced type)
+					    ;; or a method's own constraint on
+					    ;; its class's variable, given at it
+					    ;; (mp-context-keep?)
+					    (given-classes-at-tyvar type)
 					    ;; or a match on a constructor whose
 					    ;; context gives it (existentials.mumble)
 					    (pattern-local-given-classes type))
@@ -708,19 +725,21 @@
 (define (join-family-equalities)
   (let ((seen '())
 	(joined? '#f))
+    ;; (either side, when both are: Base x x ~ Base t x and Base x x ~
+    ;; Base t t give Base t x ~ Base t t, so x = t: recursion-schemes'
+    ;; lambek = cata (fmap embed))
     (dolist (p *deferred-family-equalities*)
-      (mlet (((app other)
-	      (let ((t1 (prune (car p))) (t2 (prune (cdr p))))
-		(cond ((family-app? t1) (values t1 t2))
-		      ((family-app? t2) (values t2 t1))
-		      (else (values '#f '#f))))))
-	(when app
-	  (let ((before (lisp:find-if (lambda (s) (ntype-identical? (car s) app)) seen)))
-	    (if (and before (not (ntype-identical? (cdr before) other)))
-		(begin
-		  (unify (cdr before) other)
-		  (setf joined? '#t))
-		(push (cons app other) seen))))))
+      (let ((t1 (prune (car p))) (t2 (prune (cdr p))))
+	(dolist (side (list (tuple t1 t2) (tuple t2 t1)))
+	  (let ((app (tuple-2-1 side))
+		(other (tuple-2-2 side)))
+	    (when (and (not joined?) (family-app? app))
+	      (let ((before (lisp:find-if (lambda (s) (ntype-identical? (car s) app)) seen)))
+		(if (and before (not (ntype-identical? (prune (cdr before)) (prune other))))
+		    (begin
+		      (unify (cdr before) other)
+		      (setf joined? '#t))
+		    (push (cons app other) seen))))))))
     joined?))
 
 (define (data-family-app? type)

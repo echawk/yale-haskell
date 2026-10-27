@@ -71,7 +71,11 @@
   (predicate mp-context?)
   (slots
    (class (type class-ref))
-   (types (type (list type)))))
+   (types (type (list type)))
+   ;; a method's constraint on its class's variable (ConstrainedClassMethods,
+   ;; Show t => in class Sized t): its dictionary is the method's
+   ;; parameter at the instance's type (Show [a]), never reduced (Show a)
+   (keep? (type bool) (default '#f))))
 
 
 ;;; Type + context

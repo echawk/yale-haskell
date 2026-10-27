@@ -309,9 +309,25 @@
 			   (lisp:remove-if
 			    (lambda (c) (memq (class-ref-class (mp-context-class c)) supers))
 			    (signature-mcontext signature))))))
-	       (dolist (context (signature-context signature))
-		 (when (memq (context-tyvar context) class-tyvars)
-		   (signal-method-constrains-class-tyvar context))))
+	       ;; another class at the class's variable (recursion-schemes'
+	       ;; gpara :: Corecursive t => .. in class Recursive t): a
+	       ;; constraint of the method's own, as a multi-parameter
+	       ;; context's (the variable is the carrier)
+	       (let ((at-var (lisp:remove-if-not
+			      (lambda (context)
+				(memq (context-tyvar context) class-tyvars))
+			      (signature-context signature))))
+		 (when (not (null? at-var))
+		   (setf (signature-context signature)
+			 (lisp:set-difference (signature-context signature) at-var))
+		   (setf (signature-mcontext signature)
+			 (append (map (lambda (context)
+					(let ((c (**mp-context (context-class context)
+							       (list (**tyvar (context-tyvar context))))))
+					  (setf (mp-context-keep? c) '#t)
+					  c))
+				      at-var)
+				 (signature-mcontext signature))))))
 	     (let* ((eqs (class-variable-equalities signature class-tyvars))
 		    ;; an equality on a class variable (IsBase t ~ b): the
 		    ;; class's constraint at it, BUMP t (IsBase t), so that a
@@ -405,9 +421,19 @@
 	 (new-single '())
 	 (new-multi '()))
     (dolist (c multi)
-      (when (not (lisp:some (lambda (ty)
-			      (lisp:intersection dropped (ast-type-tyvars ty)))
-			    (mp-context-types c)))
+      (if (lisp:some (lambda (ty)
+		       (lisp:intersection dropped (ast-type-tyvars ty)))
+		     (mp-context-types c))
+	  ;; the class's one-parameter superclasses still hold at t n
+	  ;; (free's MonadFree f m: Monad (t n) for the default's join)
+	  (let ((def (class-ref-class (mp-context-class c))))
+	    (when (class? def)
+	      (dolist (s (class-mp-supers def))
+		(let ((ty (list-ref (mp-context-types c) (tuple-2-2 s))))
+		  (dolist (e eqs)
+		    (setf ty (substitute-tyvar ty (tuple-2-1 e) (tuple-2-2 e))))
+		  (dolist (super (cons (tuple-2-1 s) (class-super* (tuple-2-1 s))))
+		    (push (**mp-context (**class/def super) (list ty)) new-multi))))))
 	(push (**mp-context
 	       (mp-context-class c)
 	       (map (lambda (ty)
@@ -514,11 +540,13 @@
 	 (new-sig (**signature new-context new-type)))
     (setf (signature-mcontext new-sig)
 	  (map (lambda (c)
-		 (**mp-context (mp-context-class c)
-			       (map (lambda (ty)
-				      (mlet (((ty1 _) (rename-type-vars ty env2)))
-					ty1))
-				    (mp-context-types c))))
+		 (copy-mp-context-keep
+		  c
+		  (**mp-context (mp-context-class c)
+				(map (lambda (ty)
+				       (mlet (((ty1 _) (rename-type-vars ty env2)))
+					 ty1))
+				     (mp-context-types c)))))
 	       (signature-mcontext signature)))
     (values new-sig env2)))
 

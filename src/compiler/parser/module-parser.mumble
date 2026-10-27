@@ -82,7 +82,7 @@
 	    (parse-export-list)))
    (else '())))
 
-;;; type (~) (parse-entity-1), which an export list leaves out.
+;;; type (~) (parse-entity-1), which an export or import list leaves out.
 (define (equality-entity? e)
   (and (is-type? 'entity-var e) (eq? (entity-name e) '|%equality|)))
 
@@ -601,12 +601,14 @@
   (and (eq? *token* 'varid) (string=? (car *token-args*) name)))
 
 (define (parse-import-list)
-  (let ((import (parse-entity 'import)))
+  (let* ((import (parse-entity 'import))
+	 ;; (and an import list: lens's Data.Type.Equality (type (~~)))
+	 (this (if (equality-entity? import) '() (list import))))
     (token-case
      (\, (if (eq-token? '\))
-	     (begin (advance-token) (list import))   ; H98: a trailing comma
-	     (cons import (parse-import-list))))
-     (\) (list import))
+	     (begin (advance-token) this)   ; H98: a trailing comma
+	     (append this (parse-import-list))))
+     (\) this)
      (else (signal-missing-token "`)' or `,'" "import list")))))
 
 (define (parse-renamings)
@@ -713,9 +715,11 @@
     (|type|
      (token-case
       (\( (cond
-	    ((eq-token? '\~)
+	    ((or (eq-token? '\~)
+		 (and (eq? *token* 'varsym) (string=? (car *token-args*) "~~")))
 	     ;; type (~): the equality, built in (base-compat's export
-	     ;; for base >= 4.17); the export list leaves it out
+	     ;; for base >= 4.17); the export list leaves it out.  So is
+	     ;; the heterogeneous (~~) (Data.Type.Equality's, lens's import)
 	     (advance-token)
 	     (require-token \) (signal-missing-token "`)'" "type operator entity"))
 	     (make entity-var (name '|%equality|)))
