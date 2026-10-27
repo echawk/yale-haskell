@@ -1,0 +1,436 @@
+lvmlib: for today's base and containers: a Semigroup instance for its Monoid Bytes, Applicative instances for its monads; the Prelude's <$> and <> hidden where wl-pprint's are meant; foldr and foldrWithKey for the removed fold and foldWithKey.
+diff -ruN a/Lvm/Asm/Data.hs b/Lvm/Asm/Data.hs
+--- a/Lvm/Asm/Data.hs	2026-10-27 14:11:12
++++ b/Lvm/Asm/Data.hs	2026-10-27 14:11:12
+@@ -11,6 +11,7 @@
+    , Lit(..), Alt(..), Pat(..), Con(..)
+    ) where
+ 
++import Prelude hiding ((<$>), (<>))
+ import Lvm.Common.Byte
+ import Lvm.Common.Id
+ import Lvm.Core.Module
+diff -ruN a/Lvm/Common/Byte.hs b/Lvm/Common/Byte.hs
+--- a/Lvm/Common/Byte.hs	2026-10-27 14:10:33
++++ b/Lvm/Common/Byte.hs	2026-10-27 14:10:33
+@@ -66,6 +66,9 @@
+   Byte lists
+ ----------------------------------------------------------------}
+ 
++instance Semigroup Bytes where
++   (<>) = mappend
++
+ instance Monoid Bytes where
+    mempty  = Nil
+    mappend bs  Nil = bs 
+diff -ruN a/Lvm/Common/IdMap.hs b/Lvm/Common/IdMap.hs
+--- a/Lvm/Common/IdMap.hs	2026-10-27 14:11:34
++++ b/Lvm/Common/IdMap.hs	2026-10-27 14:11:34
+@@ -120,10 +120,10 @@
+ unionMaps = foldr unionMap emptyMap
+ 
+ foldMapWithId :: (Id -> a -> b -> b) -> b -> IdMap a -> b
+-foldMapWithId f z (IdMap m) = IntMap.foldWithKey (f . idFromInt) z m
++foldMapWithId f z (IdMap m) = IntMap.foldrWithKey (f . idFromInt) z m
+ 
+ foldMap :: (a -> b -> b) -> b -> IdMap a -> b
+-foldMap f z (IdMap m) = IntMap.fold f z m
++foldMap f z (IdMap m) = IntMap.foldr f z m
+ 
+ sizeMap :: IdMap a -> Int
+ sizeMap (IdMap m) = IntMap.size m
+diff -ruN a/Lvm/Common/IdSet.hs b/Lvm/Common/IdSet.hs
+--- a/Lvm/Common/IdSet.hs	2026-10-27 14:11:34
++++ b/Lvm/Common/IdSet.hs	2026-10-27 14:11:34
+@@ -38,7 +38,7 @@
+ filterSet p (IdSet s) = IdSet (IntSet.filter (p . idFromInt) s)
+ 
+ foldSet :: (Id -> a ->  a) -> a -> IdSet -> a
+-foldSet f a (IdSet s) = IntSet.fold (f . idFromInt) a s
++foldSet f a (IdSet s) = IntSet.foldr (f . idFromInt) a s
+ 
+ insertSet :: Id -> IdSet -> IdSet
+ insertSet x (IdSet s) = IdSet (IntSet.insert (intFromId x) s)
+diff -ruN a/Lvm/Core/Expr.hs b/Lvm/Core/Expr.hs
+--- a/Lvm/Core/Expr.hs	2026-10-27 14:11:12
++++ b/Lvm/Core/Expr.hs	2026-10-27 14:11:12
+@@ -10,6 +10,7 @@
+    , Alts, Alt(..), Pat(..), Literal(..), Con(..)
+    ) where
+ 
++import Prelude hiding ((<$>), (<>))
+ import Lvm.Common.Byte
+ import Lvm.Common.Id
+ import Lvm.Core.Module
+diff -ruN a/Lvm/Core/Module.hs b/Lvm/Core/Module.hs
+--- a/Lvm/Core/Module.hs	2026-10-27 14:11:12
++++ b/Lvm/Core/Module.hs	2026-10-27 14:11:12
+@@ -16,6 +16,7 @@
+    , public, private
+    ) where
+ 
++import Prelude hiding ((<$>), (<>))
+ import Lvm.Common.Byte
+ import Lvm.Common.Id  
+ import Lvm.Common.IdSet  
+diff -ruN a/Lvm/Core/PrettyId.hs b/Lvm/Core/PrettyId.hs
+--- a/Lvm/Core/PrettyId.hs	2026-10-27 14:11:12
++++ b/Lvm/Core/PrettyId.hs	2026-10-27 14:11:12
+@@ -10,6 +10,7 @@
+    , ppQualCon, ppString 
+    ) where
+ 
++import Prelude hiding ((<$>), (<>))
+ import Data.Char
+ import Lvm.Common.Id
+ import Lvm.Common.IdSet
+diff -ruN a/Lvm/Core/Type.hs b/Lvm/Core/Type.hs
+--- a/Lvm/Core/Type.hs	2026-10-27 14:11:12
++++ b/Lvm/Core/Type.hs	2026-10-27 14:11:12
+@@ -1,146 +1,147 @@
+---------------------------------------------------------------------------------
+--- Copyright 2001-2012, Daan Leijen, Bastiaan Heeren, Jurriaan Hage. This file 
+--- is distributed under the terms of the BSD3 License. For more information, 
+--- see the file "LICENSE.txt", which is included in the distribution.
+---------------------------------------------------------------------------------
+---  $Id: Data.hs 250 2012-08-22 10:59:40Z bastiaan $
+-
+-module Lvm.Core.Type 
+-   ( Type(..), Kind(..)
+-   , addForall, arityFromType
+-   ) where
+-
+-import Lvm.Common.Id
+-import Lvm.Common.IdSet
+-import Text.PrettyPrint.Leijen
+-
+-----------------------------------------------------------------
+--- Types
+-----------------------------------------------------------------
+-data Type = TFun Type Type
+-          | TAp Type Type
+-          | TForall Id Type
+-          | TExist Id Type
+-          | TStrict Type
+-          | TVar Id
+-          | TCon Id
+-          | TAny
+-          | TString String
+-
+-data Kind       = KFun {kind1::Kind, kind2::Kind}
+-                | KStar
+-                | KString {kindString::String}
+-
+--- data SuperKind  = Box
+-
+-arityFromType :: Type -> Int
+-arityFromType tp
+-  = case tp of
+-      TFun    _ t2    -> arityFromType t2 + 1
+-      TAp     _ _     -> 0 -- assumes saturated constructors!
+-      TForall _ t     -> arityFromType t
+-      TExist  _ t     -> arityFromType t
+-      TStrict t       -> arityFromType t
+-      TVar    _       -> 0
+-      TCon    _       -> 0
+-      TAny            -> 0
+-      TString _       -> error "Core.arityFromType: string type"
+-
+-{-
+-arityFromKind :: Kind -> Int
+-arityFromKind kind
+-  = case kind of
+-      KFun k1 _ -> arityFromKind k1 + 1
+-      KStar     -> 0
+-      KString _ -> error "Core.arityFromKind: string kind" -}
+-
+-addForall :: Type -> Type
+-addForall tp
+-  = foldr TForall tp (listFromSet (varsInType tp))
+-
+-varsInType :: Type -> IdSet
+-varsInType tp
+-  = case tp of
+-      TForall a t     -> deleteSet a (varsInType t)
+-      TExist  a t     -> deleteSet a (varsInType t)
+-      TString _       -> emptySet
+-      TFun    t1 t2   -> unionSet (varsInType t1) (varsInType t2)
+-      TAp     t1 t2   -> unionSet (varsInType t1) (varsInType t2)
+-      TStrict t       -> varsInType t
+-      TVar    a       -> singleSet a
+-      TCon    _       -> emptySet
+-      TAny            -> emptySet
+-
+-----------------------------------------------------------------
+--- Pretty printing
+-----------------------------------------------------------------
+-
+-instance Show Type where
+-   show = show . pretty
+-
+-instance Show Kind where
+-   show = show . pretty
+-
+-instance Pretty Type where
+-   pretty = ppType 0
+-
+-instance Pretty Kind where
+-   pretty = ppKind 0
+-
+-ppType :: Int -> Type -> Doc
+-ppType level tp
+-  = parenthesized $
+-    case tp of
+-      TAp (TCon a) t2 | a == idFromString "[]" -> text "[" <> pretty t2 <> text "]" 
+-      TFun    t1 t2   -> ppHi t1 <+> text "->" <+> ppEq t2
+-      TAp     t1 t2   -> ppEq t1 <+> ppHi t2
+-      TForall a t     -> text "forall" <+> pretty a <> text "." <+> ppEq t
+-      TExist  a t     -> text "exist" <+> pretty a <> text "." <+> ppEq t
+-      TStrict t       -> ppHi t <> text "!"
+-      TVar    a       -> pretty a
+-      TCon    a       -> pretty a
+-      TAny            -> text "any"
+-      TString s       -> string s
+-  where
+-    tplevel           = levelFromType tp
+-    parenthesized doc | level <= tplevel  = doc
+-                      | otherwise         = parens doc
+-    ppHi t            | level <= tplevel  = ppType (tplevel+1) t
+-                      | otherwise         = ppType 0 t
+-    ppEq  t           | level <= tplevel  = ppType tplevel t
+-                      | otherwise         = ppType 0 t
+-
+-ppKind :: Int -> Kind -> Doc
+-ppKind level kind
+-  = parenthesized $
+-    case kind of
+-      KFun k1 k2    -> ppHi k1 <+> text "->" <+> ppEq k2
+-      KStar         -> text "*"
+-      KString s     -> string s
+-  where
+-    (klevel,parenthesized)
+-      | level <= levelFromKind kind   = (levelFromKind kind,id)
+-      | otherwise                     = (0,parens)
+-
+-    ppHi = ppKind (if klevel<=0 then 0 else klevel+1)
+-    ppEq = ppKind klevel
+-
+-levelFromType :: Type -> Int
+-levelFromType tp
+-  = case tp of
+-      TString{} -> 1
+-      TForall{} -> 2
+-      TExist{}  -> 2
+-      TFun{}    -> 3
+-      TAp{}     -> 4
+-      TStrict{} -> 5
+-      TVar{}    -> 6
+-      TCon{}    -> 6
+-      TAny      -> 7 
+-
+-levelFromKind :: Kind -> Int
+-levelFromKind kind
+-  = case kind of
+-      KString{} -> 1
+-      KFun{}    -> 2
++--------------------------------------------------------------------------------
++-- Copyright 2001-2012, Daan Leijen, Bastiaan Heeren, Jurriaan Hage. This file 
++-- is distributed under the terms of the BSD3 License. For more information, 
++-- see the file "LICENSE.txt", which is included in the distribution.
++--------------------------------------------------------------------------------
++--  $Id: Data.hs 250 2012-08-22 10:59:40Z bastiaan $
++
++module Lvm.Core.Type 
++   ( Type(..), Kind(..)
++   , addForall, arityFromType
++   ) where
++
++import Prelude hiding ((<$>), (<>))
++import Lvm.Common.Id
++import Lvm.Common.IdSet
++import Text.PrettyPrint.Leijen
++
++----------------------------------------------------------------
++-- Types
++----------------------------------------------------------------
++data Type = TFun Type Type
++          | TAp Type Type
++          | TForall Id Type
++          | TExist Id Type
++          | TStrict Type
++          | TVar Id
++          | TCon Id
++          | TAny
++          | TString String
++
++data Kind       = KFun {kind1::Kind, kind2::Kind}
++                | KStar
++                | KString {kindString::String}
++
++-- data SuperKind  = Box
++
++arityFromType :: Type -> Int
++arityFromType tp
++  = case tp of
++      TFun    _ t2    -> arityFromType t2 + 1
++      TAp     _ _     -> 0 -- assumes saturated constructors!
++      TForall _ t     -> arityFromType t
++      TExist  _ t     -> arityFromType t
++      TStrict t       -> arityFromType t
++      TVar    _       -> 0
++      TCon    _       -> 0
++      TAny            -> 0
++      TString _       -> error "Core.arityFromType: string type"
++
++{-
++arityFromKind :: Kind -> Int
++arityFromKind kind
++  = case kind of
++      KFun k1 _ -> arityFromKind k1 + 1
++      KStar     -> 0
++      KString _ -> error "Core.arityFromKind: string kind" -}
++
++addForall :: Type -> Type
++addForall tp
++  = foldr TForall tp (listFromSet (varsInType tp))
++
++varsInType :: Type -> IdSet
++varsInType tp
++  = case tp of
++      TForall a t     -> deleteSet a (varsInType t)
++      TExist  a t     -> deleteSet a (varsInType t)
++      TString _       -> emptySet
++      TFun    t1 t2   -> unionSet (varsInType t1) (varsInType t2)
++      TAp     t1 t2   -> unionSet (varsInType t1) (varsInType t2)
++      TStrict t       -> varsInType t
++      TVar    a       -> singleSet a
++      TCon    _       -> emptySet
++      TAny            -> emptySet
++
++----------------------------------------------------------------
++-- Pretty printing
++----------------------------------------------------------------
++
++instance Show Type where
++   show = show . pretty
++
++instance Show Kind where
++   show = show . pretty
++
++instance Pretty Type where
++   pretty = ppType 0
++
++instance Pretty Kind where
++   pretty = ppKind 0
++
++ppType :: Int -> Type -> Doc
++ppType level tp
++  = parenthesized $
++    case tp of
++      TAp (TCon a) t2 | a == idFromString "[]" -> text "[" <> pretty t2 <> text "]" 
++      TFun    t1 t2   -> ppHi t1 <+> text "->" <+> ppEq t2
++      TAp     t1 t2   -> ppEq t1 <+> ppHi t2
++      TForall a t     -> text "forall" <+> pretty a <> text "." <+> ppEq t
++      TExist  a t     -> text "exist" <+> pretty a <> text "." <+> ppEq t
++      TStrict t       -> ppHi t <> text "!"
++      TVar    a       -> pretty a
++      TCon    a       -> pretty a
++      TAny            -> text "any"
++      TString s       -> string s
++  where
++    tplevel           = levelFromType tp
++    parenthesized doc | level <= tplevel  = doc
++                      | otherwise         = parens doc
++    ppHi t            | level <= tplevel  = ppType (tplevel+1) t
++                      | otherwise         = ppType 0 t
++    ppEq  t           | level <= tplevel  = ppType tplevel t
++                      | otherwise         = ppType 0 t
++
++ppKind :: Int -> Kind -> Doc
++ppKind level kind
++  = parenthesized $
++    case kind of
++      KFun k1 k2    -> ppHi k1 <+> text "->" <+> ppEq k2
++      KStar         -> text "*"
++      KString s     -> string s
++  where
++    (klevel,parenthesized)
++      | level <= levelFromKind kind   = (levelFromKind kind,id)
++      | otherwise                     = (0,parens)
++
++    ppHi = ppKind (if klevel<=0 then 0 else klevel+1)
++    ppEq = ppKind klevel
++
++levelFromType :: Type -> Int
++levelFromType tp
++  = case tp of
++      TString{} -> 1
++      TForall{} -> 2
++      TExist{}  -> 2
++      TFun{}    -> 3
++      TAp{}     -> 4
++      TStrict{} -> 5
++      TVar{}    -> 6
++      TCon{}    -> 6
++      TAny      -> 7 
++
++levelFromKind :: Kind -> Int
++levelFromKind kind
++  = case kind of
++      KString{} -> 1
++      KFun{}    -> 2
+       KStar{}   -> 3
+\ No newline at end of file
+diff -ruN a/Lvm/Instr/Data.hs b/Lvm/Instr/Data.hs
+--- a/Lvm/Instr/Data.hs	2026-10-27 14:11:12
++++ b/Lvm/Instr/Data.hs	2026-10-27 14:11:12
+@@ -12,6 +12,7 @@
+    , isCATCH, strictResult
+    ) where
+ 
++import Prelude hiding ((<$>), (<>))
+ import Data.Char
+ import Data.Maybe
+ import Lvm.Common.Byte
+diff -ruN a/Lvm/Instr/Resolve.hs b/Lvm/Instr/Resolve.hs
+--- a/Lvm/Instr/Resolve.hs	2026-10-27 14:12:05
++++ b/Lvm/Instr/Resolve.hs	2026-10-27 14:12:05
+@@ -30,6 +30,10 @@
+ instance Functor Resolve where
+   fmap f (R r)      = R (\ctx -> case r ctx of (x,d) -> (f x,d))
+ 
++instance Applicative Resolve where
++  pure x = return x
++  mf <*> mx = mf >>= \f -> mx >>= \x -> return (f x)
++
+ instance Monad Resolve where
+   return x          = R (\(_,_,d) -> (x,d))
+   (R r) >>= f       = R (\ctx@(base,env,_) ->
+diff -ruN a/Lvm/Read.hs b/Lvm/Read.hs
+--- a/Lvm/Read.hs	2026-10-27 14:12:05
++++ b/Lvm/Read.hs	2026-10-27 14:12:05
+@@ -388,6 +388,10 @@
+ instance Functor (Read v) where
+   fmap f (Read r) = Read (\env st1 -> case r env st1 of
+                                         Result x st2 -> Result (f x) st2)
++instance Applicative (Read v) where
++  pure x = return x
++  mf <*> mx = mf >>= \f -> mx >>= \x -> return (f x)
++
+ instance Monad (Read v) where
+   return x        = Read (\_  bs -> Result x bs)
+   (Read r) >>= f  = Read (\rs bs -> case r rs bs of
+diff -ruN a/Lvm/Write.hs b/Lvm/Write.hs
+--- a/Lvm/Write.hs	2026-10-27 14:12:05
++++ b/Lvm/Write.hs	2026-10-27 14:12:05
+@@ -463,6 +463,10 @@
+   fmap f (Emit e)   = Emit (\env st -> case e env st of
+                                          (x,stx) -> (f x,stx))
+ 
++instance Applicative Emit where
++  pure x = return x
++  mf <*> mx = mf >>= \f -> mx >>= \x -> return (f x)
++
+ instance Monad Emit where
+   return x          = Emit (\_   st -> (x,st))
+   (Emit e) >>= f    = Emit (\env st -> case e env st of

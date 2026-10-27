@@ -1,0 +1,16 @@
+lens: no UArray instance of Each (Yale Haskell's UArray is Array).
+diff -ruN a/Control/Lens/Each.hs b/Control/Lens/Each.hs
+--- a/Control/Lens/Each.hs	2026-10-27 14:02:08
++++ b/Control/Lens/Each.hs	2026-10-27 14:02:08
+@@ -231,9 +231,11 @@
+   {-# INLINE each #-}
+ 
+ -- | @'each' :: ('Ix' i, 'IArray' 'UArray' a, 'IArray' 'UArray' b) => 'Traversal' ('Array' i a) ('Array' i b) a b@
++#ifndef __YALE_HASKELL__
+ instance (Ix i, IArray UArray a, IArray UArray b, i ~ j) => Each (UArray i a) (UArray j b) a b where
+   each f arr = array (bounds arr) <$> traverse (\(i,a) -> (,) i <$> f a) (IArray.assocs arr)
+   {-# INLINE each #-}
++#endif
+ 
+ -------------------------------------------------------------------------------
+ -- strict

@@ -61,7 +61,32 @@
       ;; strict -> lazy): all of them, or every instance would match
       (if (null? res)
 	  (gtype-index-list (length (class-tyvars class)))
-	  (nreverse res))))))
+	  ;; and those it takes with them to decide the rest (Top's Embedded
+	  ;; label s t | label s -> t, t -> label: s alone decides nothing,
+	  ;; label s does)
+	  (mp-complete-key class (nreverse res)))))))
+
+(define (mp-complete-key class key)
+  (let ((n (length (class-tyvars class))))
+    (do ((key key))
+	((>= (length (mp-fundep-closure class key)) n) (lisp:sort key (function <)))
+      (let ((closure (mp-fundep-closure class key)))
+	(dotimes (i n)
+	  (when (and (not (memv i closure)) (not (memv i key))
+		     (eqv? (length (mp-fundep-closure class key)) (length closure)))
+	    (setf key (cons i key))))))))
+
+;;; The positions KEY decides through CLASS's functional dependencies.
+(define (mp-fundep-closure class key)
+  (let ((known key) (changed '#t))
+    (do () ((not changed) known)
+      (setf changed '#f)
+      (dolist (fd (class-fundeps class))
+	(when (every (lambda (i) (memv i known)) (tuple-2-1 fd))
+	  (dolist (i (tuple-2-2 fd))
+	    (when (not (memv i known))
+	      (push i known)
+	      (setf changed '#t))))))))
 
 ;;; The positions CLASS's functional dependencies decide, and those its
 ;;; multi-parameter superclasses' decide at its own variables
@@ -1343,6 +1368,18 @@
 		      mps (placeholder-overloaded-var p)))
 	  (setf new-placeholders (dynamic *placeholders*)))))
     (setf (placeholder-exp p) (mp-dict-use p code))
+    ;; the context's constraints with functional dependencies take the
+    ;; enclosing binding's givens first, so that a variable of the
+    ;; instance only its context mentions is decided before the others
+    ;; are looked for (Top's HasBasic (SelectFix t ..) info, t from the
+    ;; given Embedded ClassBasic (s ..) (t ..))
+    (dolist (np new-placeholders)
+      (when (and (mp-placeholder? np)
+		 (not (null? (class-fundeps (mp-placeholder-class np)))))
+	(find-mp-param np (mp-placeholder-class np) (mp-placeholder-types np) decls)))
+    ;; then by instances (Top's HasTI (Select t ..) info, t from Embedded
+    ;; ClassTI (s ..) t through the instances for s)
+    (improve-mp-placeholders new-placeholders)
     (process-placeholders new-placeholders deferred decls)))
 
 (define (bind-dictionary-tyvars-by-name dict-var tyvars bindings)

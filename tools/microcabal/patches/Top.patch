@@ -1,0 +1,62 @@
+Top: for today's base: Functor and Applicative instances for its monads, a Semigroup instance for its Monoid.
+diff -ruN a/Top/Monad/Select.hs b/Top/Monad/Select.hs
+--- a/Top/Monad/Select.hs	2026-10-27 14:17:57
++++ b/Top/Monad/Select.hs	2026-10-27 14:17:57
+@@ -21,6 +21,13 @@
+ 
+ newtype Select t m a = Select (m a)
+ 
++instance Monad m => Functor (Select t m) where
++  fmap f m = m >>= \x -> return (f x)
++
++instance Monad m => Applicative (Select t m) where
++  pure x = return x
++  mf <*> mx = mf >>= \f -> mx >>= \x -> return (f x)
++
+ instance Monad m => Monad (Select t m) where
+    return a       = Select (return a) 
+    Select f >>= g = Select (do x <- f
+@@ -41,6 +48,13 @@
+ -- SelectFix Monad
+ 
+ data SelectFix (t :: (* -> *) -> *) (m :: * -> *) a = SelectFix (m a)
++
++instance Monad m => Functor (SelectFix t m) where
++  fmap f m = m >>= \x -> return (f x)
++
++instance Monad m => Applicative (SelectFix t m) where
++  pure x = return x
++  mf <*> mx = mf >>= \f -> mx >>= \x -> return (f x)
+ 
+ instance Monad m => Monad (SelectFix t m) where
+    return a          = SelectFix (return a)
+diff -ruN a/Top/Monad/StateFix.hs b/Top/Monad/StateFix.hs
+--- a/Top/Monad/StateFix.hs	2026-10-27 14:17:57
++++ b/Top/Monad/StateFix.hs	2026-10-27 14:17:57
+@@ -20,6 +20,13 @@
+ 
+ data StateFixT s m a = Fix { unFix :: StateT (s (StateFixT s m)) m a }
+ 
++instance Monad m => Functor (StateFixT s m) where
++  fmap f m = m >>= \x -> return (f x)
++
++instance Monad m => Applicative (StateFixT s m) where
++  pure x = return x
++  mf <*> mx = mf >>= \f -> mx >>= \x -> return (f x)
++
+ instance Monad m => Monad (StateFixT s m) where 
+    return  = Fix . return
+    m >>= f = Fix (unFix m >>= unFix . f)
+diff -ruN a/Top/Solver.hs b/Top/Solver.hs
+--- a/Top/Solver.hs	2026-10-27 14:18:24
++++ b/Top/Solver.hs	2026-10-27 14:18:24
+@@ -168,6 +168,9 @@
+ evalBasicMonad :: Empty (f () (BasicMonad f)) => BasicMonad f a -> (a, LogEntries)
+ evalBasicMonad = runWriter . flip evalStateFixT empty
+ 
++instance Semigroup LogEntries where
++   LogEntries f <> LogEntries g = LogEntries (f . g)
++
+ instance Monoid LogEntries where
+    mempty = LogEntries id
+    mappend (LogEntries f) (LogEntries g) = LogEntries (f . g)

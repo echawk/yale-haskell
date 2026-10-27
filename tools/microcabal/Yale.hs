@@ -258,6 +258,19 @@ applyPatch env name src = do
         message env 0 $ "Patching " ++ name ++ " with " ++ file
         cmd env $ "patch -s -p1 -d " ++ src ++ " < " ++ file
 
+applyPackagePatch :: Env -> String -> FilePath -> IO ()
+applyPackagePatch env name src = do
+  mdir <- lookupEnv "YALE_MCABAL_PATCHES"
+  case mdir of
+    Nothing -> return ()
+    Just dir -> do
+      let file = dir </> name ++ ".patch"
+      b <- doesFileExist file
+      when b $ do
+        message env 0 $ "Patching the executable with " ++ file
+        _ <- tryCmdOut env $ "patch -s -p1 -N -f -r - -d " ++ src ++ " < " ++ file
+        return ()
+
 -- Copy the directory tree d into dir, without the build directory (a
 -- source directory is often the package's own, which holds it).
 copyTree :: Env -> FilePath -> FilePath -> IO ()
@@ -541,6 +554,9 @@ yaleBuildExe env (Section _ _ glob) (Section _ name flds) = do
       bin     = distDir env </> binYale </> name
   _ <- findMainDir srcDirs mainIs
   pdir <- stagePackage env (stageDB env) (name ++ "-exe") vers flds
+  -- (and the package's own patch, when its modules are the executable's
+  -- too: lvmlib's coreasm; what of it does not apply is left out)
+  applyPackagePatch env (getFieldString glob "name") (pdir </> "src")
   mkdir env (distDir env </> binYale)
   message env 0 $ "Building executable " ++ bin ++ " with yale"
   cmd env $ yaleArgs env [stageDB env, yaleDB env] ++ " build " ++
