@@ -205,8 +205,24 @@
 	   pats)
       pats))
 
+;;; A pattern binding's view patterns, (var-name exp pat) ..., by valdef.
+(define *binding-views* (lisp:make-hash-table :test (function lisp:eq)))
+
 (define (add-rhs pat args infix? start-line)
-  (let* ((views (take-view-patterns))
+  (let* ((views0 (take-view-patterns))
+	 ;; a pattern binding's views bind its variables, for the binding's
+	 ;; scope, not its right-hand side's: let (f -> x, y) = e is let
+	 ;; (v, y) = e; x = f v (scope.mumble's lift-binding-views!)
+	 (binding-views (if (and (null? args) (pair? views0)
+				 (or (not (or (is-type? 'var-ref pat) (is-type? 'var-pat pat)))
+				     ;; (or the pattern is the view: let (f -> x) = e)
+				     (assq (if (is-type? 'var-ref pat)
+					       (var-ref-name pat)
+					       (var-ref-name (var-pat-var pat)))
+					   views0)))
+			    views0
+			    '()))
+	 (views (if (null? binding-views) views0 '()))
 	 (rhs0 (parse-rhs))
 	 (decls0 (parse-where-decls))
 	 ;; the where's bindings go after the views, which they may use
@@ -219,6 +235,8 @@
 		       (where-decls decls)
 		       (infix? infix?)))
 	 (valdef (make valdef (lhs pat) (definitions (list single)))))
+    (when (pair? binding-views)
+      (setf (lisp:gethash valdef *binding-views*) binding-views))
     (setf (ast-node-line-number single) start-line)
     (setf (ast-node-line-number valdef) start-line)
     valdef))

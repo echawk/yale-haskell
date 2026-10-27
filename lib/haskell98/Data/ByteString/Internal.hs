@@ -11,7 +11,7 @@ module Data.ByteString.Internal (
     plusForeignPtr, unsafeWithForeignPtr, memcpy, memset, memcmp, isSpaceWord8,
     unsafePackLenBytes, unsafePackLenChars,
     accursedUnutterablePerformIO, inlinePerformIO, unsafeDupablePerformIO,
-    nullForeignPtr
+    nullForeignPtr, c_strlen
   ) where
 
 import Data.ByteString.Rep (ByteString, unBS, bsFromString, packChars, c2w, w2c)
@@ -22,6 +22,8 @@ import Foreign.Marshal.Array (peekArray, pokeArray)
 import Foreign.Marshal.Utils (copyBytes, fillBytes)
 import Foreign.Storable (peekByteOff)
 import System.IO.Unsafe (unsafePerformIO, unsafeDupablePerformIO)
+import Foreign.C.String (CString)
+import Foreign.C.Types (CSize)
 
 pattern BS :: ForeignPtr Word8 -> Int -> ByteString
 pattern BS fp len <- (toForeignPtr0 -> (fp, len))
@@ -127,3 +129,9 @@ memcmp p q n = go 0
 
 isSpaceWord8 :: Word8 -> Bool
 isSpaceWord8 w = w == 32 || (w >= 9 && w <= 13) || w == 0xA0
+
+-- | bytestring's strlen: the bytes before the first 0 (JHC's atoms).
+c_strlen :: CString -> IO CSize
+c_strlen p = go 0
+  where go n = do b <- peekByteOff p n :: IO Word8
+                  if b == 0 then return (fromIntegral n) else go (n + 1)

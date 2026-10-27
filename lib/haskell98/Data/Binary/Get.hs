@@ -6,7 +6,7 @@ module Data.Binary.Get (
     Get, runGet, runGetOrFail, ByteOffset, Decoder(..), runGetIncremental,
     pushChunk, pushChunks, pushEndOfInput,
     skip, isEmpty, bytesRead, lookAhead, lookAheadM, lookAheadE, label,
-    getByteString, getLazyByteString, getLazyByteStringNul,
+    getByteString, getBytes, getLazyByteString, getLazyByteStringNul,
     getRemainingLazyByteString,
     getWord8, getWord16be, getWord16le, getWord16host, getWord32be,
     getWord32le, getWord32host, getWord64be, getWord64le, getWord64host,
@@ -222,3 +222,7 @@ getDoublebe, getDoublele, getDoublehost :: Get Double
 getDoublebe = fmap word64ToDouble getWord64be
 getDoublele = fmap word64ToDouble getWord64le
 getDoublehost = getDoublele
+
+-- | binary's old name for getByteString (JHC's).
+getBytes :: Int -> Get S.ByteString
+getBytes = getByteString

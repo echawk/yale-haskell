@@ -200,7 +200,7 @@ import Control.Monad (MonadPlus(..))
 import Data.Monoid (Monoid(..))
 import Data.Functor (Functor(..))
 import Utils.Containers.Internal.State (State(..), execState)
-import Data.Foldable (foldr')
+import Data.Foldable (foldr', toList)
 import qualified Data.Foldable as F
 
 import qualified Data.Semigroup as Semigroup
@@ -2380,8 +2380,8 @@ viewRTree (Deep s pr m (Four w x y z)) =
 -- | \(O(n)\). Convert to a list of elements.
 --
 -- @since 0.8.1
-toList :: Seq a -> [a]
-toList = F.toList
+-- (Data.Foldable's, the same entity: a module importing both qualified
+-- as one name, JHC's Seq.toList, sees one toList, as before 0.8.1)
 
 ------------------------------------------------------------------------
 -- Scans

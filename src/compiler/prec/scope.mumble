@@ -271,6 +271,16 @@
 
 (define (lift-binding-views! decls)
   (let ((extra '()))
+    ;; (views the parser kept for a pattern binding: let (f -> x, y) = e)
+    (dolist (d decls)
+      (when (is-type? 'valdef d)
+	(let ((views (lisp:gethash d *binding-views*)))
+	  (when views
+	    (lisp:remhash d *binding-views*)
+	    (dolist (v views)
+	      (push (**valdef/pat (caddr v)
+				  (make app (fn (cadr v)) (arg (generated-var-ref (car v)))))
+		    extra))))))
     (dolist (d decls)
       (when (and (is-type? 'valdef d)
 		 (not (is-type? 'var-pat (valdef-lhs d)))

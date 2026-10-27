@@ -97,9 +97,20 @@
 	   (null? (lookup-instance-1 alg-def (class-instances class-def))))
       ;; at T applied to fewer arguments than it takes (Typeable Maybe)
       (get-typeable-instance alg-def class-def (length (ntycon-args type)))
-      (or (lookup-instance/type-1 alg-def class-def type)
-	  (data-family-instance alg-def class-def)
-	  (catch-all-instance class-def))))
+      (let ((inst (or (lookup-instance/type-1 alg-def class-def type)
+		      (data-family-instance alg-def class-def)
+		      (catch-all-instance class-def))))
+	;; an instance at the type constructor whose head does not match
+	;; (TextLike ShowS, String -> String, at Int -> D) gives way to the
+	;; class's instance at an application (TextLike (m a)), as with GHC's
+	;; overlapping instances (JHC's DocLike)
+	(if (and inst (not (instance-catch-all? inst))
+		 (not (null? (instance-head-args inst)))
+		 (ntycon? type)
+		 (not (instance-head-matches? inst type))
+		 (app-catch-all-instance class-def))
+	    (app-catch-all-instance class-def)
+	    inst))))
 
 (define (data-family-def? def)
   (and (synonym? def) (eq? (synonym-family? def) 'data)))
