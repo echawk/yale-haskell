@@ -416,11 +416,14 @@ buildForeignLibrary env pdir name flds = do
       b <- doesDirectoryExist (pdir </> "src" </> d)
       return (if b then ["-I" ++ (pdir </> "src" </> d)] else [])
     message env 0 $ "Building the C code of " ++ name
+    -- (built under another name and moved into place: a library
+    -- overwritten in place kills the programs that map it, on macOS)
     cmd env $ unwords $
-      [if null cxxsrcs then "cc" else "c++", "-shared", "-fPIC", "-w", "-o", pdir </> out] ++
+      [if null cxxsrcs then "cc" else "c++", "-shared", "-fPIC", "-w", "-o", pdir </> out ++ ".new"] ++
       hsInc ++ incStaged ++ map ("-I" ++) incDirs ++ ccOpts ++ srcs ++
       map ("-L" ++) libDirs ++ map ("-l" ++) libs ++ pkgFlags ++ ldOpts ++
       concatMap (\ f -> ["-framework", f]) fworks
+    cmd env $ "mv -f " ++ (pdir </> out ++ ".new") ++ " " ++ (pdir </> out)
     return ["foreign-libraries: " ++ out]
 
 -- A package's hidden modules (other-modules: Compat) get names of their
@@ -515,7 +518,11 @@ yaleInstallLib env (Section _ _ glob) (Section _ name flds0) = do
   -- files are installed before the library)
   ds <- listDirectory db
   forM_ (filter (isPkgDir name) ds) $ \ d ->
-    if d == namever then rmrf env (db </> d </> "src") else rmrf env (db </> d)
+    if d == namever
+      -- (and its C library: macOS kills a program that maps a signed
+      -- library overwritten in place, an installed agda using zlib's)
+      then rmrf env (db </> d </> "src") >> rmrf env (db </> d </> "lib")
+      else rmrf env (db </> d)
   mkdir env (db </> namever)
   cmd env $ "cp -R " ++ stageDB env </> namever ++ "/. " ++ db </> namever
   -- fill the unit cache for the installed sources
@@ -550,4 +557,7 @@ yaleInstallExe :: Env -> Section -> Section -> IO ()
 yaleInstallExe env _ (Section _ name _) = do
   let binDir = instDir env </> "bin"
   mkdir env binDir
-  cpr env (distDir env </> binYale </> name) (binDir </> name)
+  -- (copied beside it and moved into place, a new file: a program
+  -- overwritten in place is killed when run, on macOS)
+  cpr env (distDir env </> binYale </> name) (binDir </> name ++ ".new")
+  cmd env $ "mv -f " ++ (binDir </> name ++ ".new") ++ " " ++ (binDir </> name)
