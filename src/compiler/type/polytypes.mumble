@@ -42,6 +42,25 @@
 
 (define *polytype-vars* '())   ; (tuple var polytype)
 
+;;; Polymorphic arguments given an equality on an outer variable (lens'
+;;; conjoined :: ((p ~ (->)) => q (a -> b) r) -> ..), in the clause being
+;;; checked: (app . polytype) ..., in a box, or #f.  They are checked last,
+;;; once the clause's type is its signature's (type-decl.mumble's
+;;; single-fun-def), so that the equality's p is the signature's, which the
+;;; other arguments' types have, before functional dependencies inside
+;;; the argument improve them (lens' singular).
+(define *deferred-polytype-args* '#f)
+
+(define (polytype-has-equality? poly)
+  (lisp:some (lambda (c) (and (class? (tuple-2-1 c))
+			      (type-equality-class? (tuple-2-1 c))))
+	     (gtype-mcontext poly)))
+
+(define (check-deferred-polytype-args box)
+  (dolist (d (reverse (car box)))
+    (setf (app-arg (car d))
+	  (type-check-polytype-argument (app-arg (car d)) (cdr d)))))
+
 (define (polytype? type)
   (and (gtype? type) (gtype-nested? type)))
 
@@ -115,6 +134,16 @@
 	   (types (arrow-argument-types type) (cdr types)))
 	  ((or (null? pats) (null? types)))
 	(let ((t1 (prune (car types))))
+	  (when (and (polytype? t1) (constrained-polytype? t1)
+		     (not (var-pat? (car pats)))
+		     (not (is-type? 'wildcard-pat (car pats))))
+	    ;; a constructor pattern for it (Agda's \ [phi,u0] -> .., at
+	    ;; Vars m, forall b. (Subst b, DeBruijn b) => [NamesT m b]):
+	    ;; a variable, whose use in a case gives the instance matched
+	    (let ((v (create-temp-var "poly")))
+	      (setf (lambda-body arg)
+		    (**case (**var/def v) (list (**alt/simple (car pats) (lambda-body arg)))))
+	      (setf (car pats) (**var-pat/def v))))
 	  (when (and (polytype? t1) (var-pat? (car pats)))
 	    (push (tuple (var-ref-var (var-pat-var (car pats))) t1) result)))))
     result))
@@ -258,6 +287,7 @@
 			       (push (**var-pat/def d) dict-pats)
 			       (list (tuple-2-1 c) (tuple-2-2 c) d)))
 			   (polytype-mcontext-instance poly (reverse tyvars)))))
+
       (mlet (((arg1 arg-type)
 	      (dynamic-let ((*polytype-vars*
 			     (append (lambda-polytype-vars arg type)

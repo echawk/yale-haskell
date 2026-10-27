@@ -19,6 +19,22 @@
       (instantiate-polytype type)
       type))
 
+;;; Whether a polymorphic argument being checked is given T1 ~ T2, a type
+;;; variable one side (*local-mp-params*).
+(define (local-type-equality? t1 t2)
+  (and (or (ntyvar? t1) (ntyvar? t2))
+       (lisp:some (lambda (param)
+		    (let ((class (mp-param-class param))
+			  (types (mp-param-types param)))
+		      (and (class? class)
+			   (type-equality-class? class)
+			   (pair? types) (pair? (cdr types))
+			   (or (and (mp-type-equal? (car types) t1)
+				    (mp-type-equal? (cadr types) t2))
+			       (and (mp-type-equal? (car types) t2)
+				    (mp-type-equal? (cadr types) t1))))))
+		  (dynamic *local-mp-params*))))
+
 ;;; The only real tweak here is the read-only bit on type variables.
 ;;; The rule is that a RO tyvar can be unified only with a generic
 ;;; non-RO tyvar which has the same or more general context.
@@ -31,6 +47,11 @@
 
 (define (unify-1 type1 type2)
     (cond ((eq? type1 type2)  ;; this catches variable to variable unify
+	   'OK)
+	  ((and (not (null? (dynamic *local-mp-params*)))
+		(local-type-equality? type1 type2))
+	   ;; an equality a polymorphic argument is given (p ~ (->)): holds
+	   ;; inside it, nothing bound
 	   'OK)
 	  ((and (ntyvar? type1) (family-app? type2)
 		(or (ntyvar-read-only? type1)

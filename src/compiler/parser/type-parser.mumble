@@ -5,13 +5,13 @@
       ;; RankNTypes: forall a. t, or forall a. C a => t, in an argument
       ;; or field
       (let ((tyvars (skip-explicit-forall)))
-	(mlet (((single mp) (split-contexts (parse-optional-context))))
+	(mlet (((single mp) (split-contexts/polytype (parse-optional-context))))
 	  (make forall-type (tyvars tyvars) (context single) (mcontext mp)
 		(type (parse-type)))))
       (if (and (haskell98?) (has-optional-context?))
 	  ;; C a => t without a forall, in an argument or field (GHC):
 	  ;; gcastWith :: (a :~: b) -> ((a ~ b) => r) -> r
-	  (mlet (((single mp) (split-contexts (parse-context))))
+	  (mlet (((single mp) (split-contexts/polytype (parse-context))))
 	    (if (and (null? single) (null? mp))
 		(parse-type)
 		(make forall-type (tyvars '()) (context single) (mcontext mp)
@@ -400,6 +400,20 @@
       (let ((tyvar (token->symbol)))
 	(cons tyvar (parse-more-context-tyvars)))
       '()))
+
+;;; A polytype's: its equalities kept, as TypeEquality constraints, given
+;;; to the argument or field (lens' conjoined :: ((p ~ (->)) => q (a ->
+;;; b) r) -> ..., whose argument needs p to be (->): type/unify.mumble's
+;;; local-type-equality?).
+(define (split-contexts/polytype contexts)
+  (mlet (((single multi) (split-contexts contexts)))
+    (values single
+	    (append multi
+		    (map (lambda (e)
+			   (**mp-context (make class-ref (name '|%TypeEq|)
+					       (class *undefined-def*))
+					 (list (cadr e) (caddr e))))
+			 (lisp:remove-if-not (function equality-assertion?) contexts))))))
 
 ;;; A context's one-parameter and multi-parameter assertions.
 (define (split-contexts contexts)

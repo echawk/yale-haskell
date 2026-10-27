@@ -319,9 +319,13 @@
    (if (constrained-polytype-argument fn-type)
     ;; an argument of a polytype with a context (polytypes.mumble)
     (begin
-      (setf (app-arg object)
-	    (type-check-polytype-argument
-	     (app-arg object) (constrained-polytype-argument fn-type)))
+      (if (and (dynamic *deferred-polytype-args*)
+	       (polytype-has-equality? (constrained-polytype-argument fn-type)))
+	  (push (cons object (constrained-polytype-argument fn-type))
+		(car (dynamic *deferred-polytype-args*)))
+	  (setf (app-arg object)
+		(type-check-polytype-argument
+		 (app-arg object) (constrained-polytype-argument fn-type))))
       (return-type object (cadr (ntycon-args (prune fn-type)))))
     (dynamic-let ((*polytype-vars*
 		   (let ((expected (known-argument-type fn-type)))

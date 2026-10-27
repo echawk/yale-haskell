@@ -380,6 +380,7 @@
 
 (define-type-checker single-fun-def
  (dynamic-let ((*gadt-match* '#f)
+	       (*deferred-polytype-args* (list '()))
 	       (*gadt-refinements* '())
 	       ;; pattern signatures bind type variables for this clause
 	       (*scoped-tyvars* (dynamic *scoped-tyvars*)))
@@ -397,7 +398,7 @@
       ;; checked (existentials.mumble's gadt-link-signature), so that a
       ;; local signature's scoped variables and a GADT's refinement see
       ;; them (nonempty-containers' p0 :: NESet (Set a) in powerSet)
-      (gadt-link-signature arg-types (dynamic *gadt-match*))
+      (let ((sig-result (gadt-link-signature arg-types (dynamic *gadt-match*))))
       (when (dynamic *gadt-match*)
 	(gadt-coerce-rhs-list (single-fun-def-rhs-list object)))
       (dynamic-let ((*gadt-soft-vars*
@@ -414,7 +415,11 @@
         (type-check/unify-list single-fun-def rhs-list rhs-type
            (type-mismatch/list object
 			"Bodies have incompatible types")
-	  (return-type object (**arrow/l-2 arg-types rhs-type)))))))))
+	  (when (not (null? (car (dynamic *deferred-polytype-args*))))
+	    (when (and sig-result (could-unify? rhs-type sig-result 32))
+	      (type-unify rhs-type sig-result '#f))
+	    (check-deferred-polytype-args (dynamic *deferred-polytype-args*)))
+	  (return-type object (**arrow/l-2 arg-types rhs-type))))))))))
 
 
 ;;; These functions are part of the generalization process.

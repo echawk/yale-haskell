@@ -453,6 +453,15 @@
 	     ;; instance's method whose own context has TypeOf Term ~ (),
 	     ;; Agda's inferInternal': GHC's inaccessible code)
 	     (setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor"))))
+	    ((and (dynamic *gadt-soft-decl*)
+		  (not (lisp:some (function stuck-family-app?) types)))
+	     ;; in a clause that matched a GADT constructor, whose refinement
+	     ;; may be what gives it (gcastWith Refl x = x, x :: (a ~ b) =>
+	     ;; r): related part by part when the signature is checked, as
+	     ;; the clause's right-hand sides are (existentials.mumble)
+	     (push (list p (dynamic *gadt-soft-decl*) (car types) (cadr types))
+		   (dynamic *gadt-cast-types*))
+	     (setf (placeholder-exp p) (**con/def (core-symbol "UnitConstructor"))))
 	    ((not (and (not (null? eager?))
 		       (lisp:some (function stuck-family-app?) types)))
 	     (type-unify (car types) (cadr types)
@@ -610,6 +619,10 @@
 (define (improve-mp-loop mps limit)
   (let ((changed '#f))
     (dolist (p mps)
+     ;; (with what its polymorphic argument is given: an equality there,
+     ;; p ~ (->), holds without binding p: unify.mumble)
+     (dynamic-let ((*local-mp-params* (append (mp-placeholder-local-params p)
+					      (dynamic *local-mp-params*))))
       (let* ((class (mp-placeholder-class p))
 	     (types (mp-placeholder-types p))
 	     (before (map (function mp-type-snapshot) types)))
@@ -626,9 +639,11 @@
 	(dolist (q mps)
 	  (when (and (not (eq? p q))
 		     (eq? (mp-placeholder-class q) class))
-	    (improve-by-fundeps class types (mp-placeholder-types q))))
+	    (dynamic-let ((*local-mp-params* (append (mp-placeholder-local-params q)
+						     (dynamic *local-mp-params*))))
+	      (improve-by-fundeps class types (mp-placeholder-types q)))))
 	(when (not (equal? before (map (function mp-type-snapshot) types)))
-	  (setf changed '#t))))
+	  (setf changed '#t)))))
     (when (and changed (> limit 0))
       (improve-mp-loop mps (1- limit)))))
 
