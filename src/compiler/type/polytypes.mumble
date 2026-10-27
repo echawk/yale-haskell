@@ -244,7 +244,20 @@
 				  result))
 	      (let ((new (tuple (tuple-2-1 s) types)))
 		(setf result (append result (list new)))
-		(setf work (append work (list new)))))))))))
+		(setf work (append work (list new)))))))
+	;; a multi-parameter class's one-parameter superclasses, as a
+	;; signature has them (util/signature.mumble's add-mp-superclass-
+	;; contexts), which a field's polytype, resolved before superclasses
+	;; are known, lacks (Top's Heuristic: HasTypeGraph m info gives Show
+	;; info)
+	(when (mp-class? (tuple-2-1 c))
+	  (dolist (s (class-mp-supers (tuple-2-1 c)))
+	    (let ((types (list (list-ref (tuple-2-2 c) (tuple-2-2 s)))))
+	      (when (not (lisp:some (lambda (c2)
+				      (and (eq? (tuple-2-1 c2) (tuple-2-1 s))
+					   (mp-types-equal? (tuple-2-2 c2) types)))
+				    result))
+		(setf result (append result (list (tuple (tuple-2-1 s) types))))))))))))
 
 (define (instantiate-mp-super-template/ntype p types)
   (cond ((integer? p) (list-ref types p))

@@ -1,0 +1,93 @@
+helium: for today's base, containers and network: Functor and Applicative instances for LexerMonad; the Prelude's <$> and <> hidden where wl-pprint's are meant; foldrWithKey for the removed foldWithKey; the logger's connectTo on Network.Socket.
+diff -ruN a/Helium/ModuleSystem/ImportEnvironment.hs b/Helium/ModuleSystem/ImportEnvironment.hs
+--- a/Helium/ModuleSystem/ImportEnvironment.hs	2026-10-27 14:28:24
++++ b/Helium/ModuleSystem/ImportEnvironment.hs	2026-10-27 14:28:24
+@@ -98,7 +98,7 @@
+ getOrderedTypeSynonyms :: ImportEnvironment -> OrderedTypeSynonyms
+ getOrderedTypeSynonyms importEnvironment = 
+    let synonyms = let insertIt name = M.insert (show name)
+-                  in M.foldWithKey insertIt M.empty (typeSynonyms importEnvironment)
++                  in M.foldrWithKey insertIt M.empty (typeSynonyms importEnvironment)
+        ordering = fst (getTypeSynonymOrdering synonyms)
+    in (ordering, synonyms)
+ 
+diff -ruN a/Helium/Parser/LexerMonad.hs b/Helium/Parser/LexerMonad.hs
+--- a/Helium/Parser/LexerMonad.hs	2026-10-27 14:28:24
++++ b/Helium/Parser/LexerMonad.hs	2026-10-27 14:28:24
+@@ -45,6 +45,13 @@
+ returnLM :: a -> LexerMonad a
+ returnLM x = LM (\_ pos brackets -> Right (x, [], pos, brackets))
+ 
++instance Functor LexerMonad where
++    fmap f m = m `bindLM` (returnLM . f)
++
++instance Applicative LexerMonad where
++    pure = returnLM
++    mf <*> mx = mf `bindLM` \f -> mx `bindLM` (returnLM . f)
++
+ instance Monad LexerMonad where
+     (>>=) = bindLM
+     return = returnLM
+diff -ruN a/Helium/StaticAnalysis/Miscellaneous/TypeConstraints.hs b/Helium/StaticAnalysis/Miscellaneous/TypeConstraints.hs
+--- a/Helium/StaticAnalysis/Miscellaneous/TypeConstraints.hs	2026-10-27 14:28:24
++++ b/Helium/StaticAnalysis/Miscellaneous/TypeConstraints.hs	2026-10-27 14:28:24
+@@ -125,7 +125,7 @@
+                     key' = head (filter (==key) (M.keys as)) {- this is the other name -}
+                 in ((tp !::! ts) monos (info monos key key') : cs, fm)
+              Nothing -> (cs, M.insert key tp fm)
+-   in M.foldWithKey op ([], M.empty) bs
++   in M.foldrWithKey op ([], M.empty) bs
+ 
+ (.<=.) :: Show info => Tp -> Sigma Predicates -> info -> TypeConstraint info
+ (tp .<=. ts) info = TC3 (Instantiate tp ts info)
+diff -ruN a/Helium/StaticAnalysis/Miscellaneous/TypesToAlignedDocs.hs b/Helium/StaticAnalysis/Miscellaneous/TypesToAlignedDocs.hs
+--- a/Helium/StaticAnalysis/Miscellaneous/TypesToAlignedDocs.hs	2026-10-27 14:28:24
++++ b/Helium/StaticAnalysis/Miscellaneous/TypesToAlignedDocs.hs	2026-10-27 14:28:24
+@@ -10,6 +10,7 @@
+ 
+ module Helium.StaticAnalysis.Miscellaneous.TypesToAlignedDocs (qualifiedTypesToAlignedDocs, typesToAlignedDocs) where
+ 
++import Prelude hiding ((<$>), (<>))
+ import Data.List     ( transpose )
+ import Top.Types
+ import Text.PrettyPrint.Leijen
+diff -ruN a/Helium/Syntax/UHA_Pretty.hs b/Helium/Syntax/UHA_Pretty.hs
+--- a/Helium/Syntax/UHA_Pretty.hs	2026-10-27 14:28:24
++++ b/Helium/Syntax/UHA_Pretty.hs	2026-10-27 14:28:24
+@@ -5,6 +5,7 @@
+ 
+ -- Below two imports are to avoid clashes of "list" as used by the AG system.
+ -- Effectively, only list from the imported library needs to be qualified.
++import Prelude hiding ((<$>), (<>))
+ import Text.PrettyPrint.Leijen hiding (list)
+ import qualified Text.PrettyPrint.Leijen as PPrint
+ import Data.Char
+diff -ruN a/Helium/Utils/Logger.hs b/Helium/Utils/Logger.hs
+--- a/Helium/Utils/Logger.hs	2026-10-27 14:29:02
++++ b/Helium/Utils/Logger.hs	2026-10-27 14:29:02
+@@ -8,7 +8,7 @@
+ 
+ module Helium.Utils.Logger ( logger, logInternalError ) where
+ 
+-import Network
++import Network.Socket
+ import Control.Concurrent
+ 
+ import Control.Monad
+@@ -226,3 +226,16 @@
+                    threadDelay loggerDELAY
+                    getRetriedLine (j+1)    
+                    
++
++-- network < 3's Network.connectTo, on Network.Socket
++data PortID = PortNumber PortNumber
++
++connectTo :: String -> PortID -> IO Handle
++connectTo host (PortNumber port) = do
++  addrs <- getAddrInfo (Just defaultHints { addrSocketType = Stream }) (Just host) (Just (show port))
++  case addrs of
++    [] -> ioError (userError ("connectTo: no address for " ++ host))
++    (addr:_) -> do
++      sock <- socket (addrFamily addr) Stream defaultProtocol
++      connect sock (addrAddress addr)
++      socketToHandle sock ReadWriteMode

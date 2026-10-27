@@ -341,10 +341,17 @@
 	      (begin 
 		(setf (ntyvar-value (dynamic *instantiated-tyvar*)) '#f)
 		(type-error "Signature context is too general")))
-	  (if (null? (ntyvar-context type))
-	      (setf (ntyvar-context type) classes)
-	      (setf (ntyvar-context type)
-		    (merge-contexts classes (ntyvar-context type)))))
+	  (let ((classes (if (null? (dynamic *local-mp-params*))
+			     classes
+			     ;; (not those a polymorphic argument being checked
+			     ;; is given there: Top's Heuristic field gives
+			     ;; Show info, from HasTypeGraph m info)
+			     (let ((local (local-given-classes-at-tyvar type)))
+			       (lisp:remove-if (lambda (c) (memq c local)) classes)))))
+	    (if (null? (ntyvar-context type))
+		(setf (ntyvar-context type) classes)
+		(setf (ntyvar-context type)
+		      (merge-contexts classes (ntyvar-context type))))))
       (let ((etype  (expand-ntype-synonym type)))
 	(cond ((family-app? etype)
 	       ;; undecided yet (TypeFamilies): the dictionaries are
