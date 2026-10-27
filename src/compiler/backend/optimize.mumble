@@ -1817,10 +1817,14 @@
 	   ;; Inverse of previous case
 	   (record-hack 'if-identity-inverse)
 	   (make-flic-is-constructor (core-symbol "False") test-exp))
-	  ((or (is-type? 'flic-lambda then-exp)
-	       (is-type? 'flic-lambda else-exp))
+	  ((and (is-type? 'flic-lambda then-exp)
+		(is-type? 'flic-lambda else-exp))
 	   ;; Hoist lambdas to surround entire if.  This allows us to
-	   ;; do a better job of saturating them.
+	   ;; do a better job of saturating them.  Only as many arguments
+	   ;; as both take, and only when both are lambdas: with a GADT's
+	   ;; type family the branches' types differ (Agda's opP: \x y ->
+	   ;; .. for In, \y -> .. for Pre, a value for Non), so the other
+	   ;; branch's value may not take another argument.
 	   (record-hack 'if-hoist-lambda)
 	   (multiple-value-bind (vars then-exp else-exp)
 	       (do-if-hoist-lambda then-exp else-exp)
@@ -1853,7 +1857,7 @@
 			 (flic-lambda-vars else-exp)
 			 '())
 		     (cdr else-vars)))
-	((and (null? then-vars) (null? else-vars)) '#f)
+	((or (null? then-vars) (null? else-vars)) '#f)
 	(let ((var  (init-flic-var (create-temp-var 'arg) '#f '#f)))
 	  (push var vars)
 	  (push (make-flic-ref var) then-args)
