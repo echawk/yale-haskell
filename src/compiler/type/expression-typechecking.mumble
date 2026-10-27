@@ -410,7 +410,19 @@
 	(setf (dynamic *instance-tyvars*)
 	      (con-tyvars-in-data-order (con-signature (con-ref-con object)) tyvars))
 	(apply-type-args (con-ref-con object) type-args))
-      (return-type object type))))
+      (if (and (dynamic *gadt-soft-decl*)
+	       (con-gadt? (con-ref-con object))
+	       (gadt-result-refines? type))
+	  ;; a GADT constructor whose result refines its indices, built in
+	  ;; a clause that matched one (lens' Molten (Magma i a), at Magma
+	  ;; i t b a with t ~ b there): typed apart and related to its use
+	  ;; part by part when the signature is checked, as the clause's
+	  ;; right-hand sides are (existentials.mumble's gadt-soft-unify)
+	  (let ((outer (**ntyvar)))
+	    (push (list object (dynamic *gadt-soft-decl*) type outer)
+		  (dynamic *gadt-cast-types*))
+	    (return-type object outer))
+	  (return-type object type)))))
 
 (define-type-checker integer-const
   (cond ((const-overloaded? object)

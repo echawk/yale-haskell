@@ -224,6 +224,20 @@
 	  (when (memq a once)
 	    (type-unify a b '#f)))))))
 
+;;; Whether a constructor type's result refines its type's indices: an
+;;; argument not a plain variable, or a variable twice (Magma :: i -> a
+;;; -> Magma i b b a, lens').
+(define (gadt-result-refines? con-type)
+  (let ((res (prune con-type)))
+    (do () ((not (and (ntycon? res) (eq? (ntycon-tycon res) (core-symbol "Arrow")))))
+      (setf res (prune (cadr (ntycon-args res)))))
+    (and (ntycon? res)
+	 (let ((args (map (function prune) (ntycon-args res))))
+	   (lisp:some (lambda (a)
+			(or (not (ntyvar? a)) (> (lisp:count a args) 1)))
+		      args))
+	 '#t)))
+
 ;;; The positions of a constructor type's result's arguments that are not
 ;;; a plain type variable (Refl :: Equal f (f b) b: 1).
 (define (refined-index-positions con-type)
