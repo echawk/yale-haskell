@@ -1,7 +1,7 @@
 -- Data.ByteString (bytestring): ByteStrings as Word8s; the Char8
 -- functions with the bytes converted (Data.ByteString.Rep).
 module Data.ByteString (
-    ByteString, pack, unpack, empty, singleton, cons, snoc, append, head,
+    ByteString, mapAccumL, mapAccumR, pack, unpack, empty, singleton, cons, snoc, append, head,
     last, tail, init, uncons, unsnoc, null, length, map, reverse,
     intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr',
     sort,
@@ -211,3 +211,7 @@ useAsCStringLen bs k = do
   allocaBytes (max 1 (P.length ws)) (\p -> do
     mapM_ (\(i, w) -> pokeByteOff p i w) (P.zip [0 ..] ws)
     k (p, P.length ws))
+
+mapAccumL, mapAccumR :: (acc -> Word8 -> (acc, Word8)) -> acc -> ByteString -> (acc, ByteString)
+mapAccumL f acc b = case L.mapAccumL f acc (unpack b) of (a, xs) -> (a, pack xs)
+mapAccumR f acc b = case L.mapAccumR f acc (unpack b) of (a, xs) -> (a, pack xs)

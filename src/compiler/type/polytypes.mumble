@@ -51,10 +51,23 @@
 ;;; the argument improve them (lens' singular).
 (define *deferred-polytype-args* '#f)
 
+(define (equality-mcontext-entry? c)
+  (and (class? (tuple-2-1 c))
+       (type-equality-class? (tuple-2-1 c))))
+
 (define (polytype-has-equality? poly)
-  (lisp:some (lambda (c) (and (class? (tuple-2-1 c))
-			      (type-equality-class? (tuple-2-1 c))))
-	     (gtype-mcontext poly)))
+  (lisp:some (function equality-mcontext-entry?) (gtype-mcontext poly)))
+
+;;; A polytype's equalities at its instance with TYVARS, as local givens
+;;; (class types var) for the argument checked against it: they hold there
+;;; (unify.mumble's local-type-equality?), but take no dictionary, so a
+;;; use of a value of the polytype applies it to none (substEq's \r -> r).
+(define (polytype-equalities g tyvars)
+  (map (lambda (c)
+	 (list (tuple-2-1 c)
+	       (map (lambda (ty) (copy-polytype-body ty tyvars)) (tuple-2-2 c))
+	       (create-temp-var "d_eq")))
+       (lisp:remove-if-not (function equality-mcontext-entry?) (gtype-mcontext g))))
 
 (define (check-deferred-polytype-args box)
   (dolist (d (reverse (car box)))
@@ -196,7 +209,9 @@
 			(tuple (tuple-2-1 c)
 			       (map (lambda (ty) (copy-polytype-body ty tyvars))
 				    (tuple-2-2 c))))
-		      (gtype-mcontext g))
+		      ;; (not its equalities: no dictionary, polytype-equalities)
+		      (lisp:remove-if (function equality-mcontext-entry?)
+				      (gtype-mcontext g)))
 		 ;; and those of its one-parameter classes, from their
 		 ;; multi-parameter superclasses on (DeBruijn (SubstArg b) of
 		 ;; Subst b, Agda's bind': util/signature.mumble's
@@ -288,18 +303,19 @@
 			       (list (tuple-2-1 c) (tuple-2-2 c) d)))
 			   (polytype-mcontext-instance poly (reverse tyvars)))))
 
-      (mlet (((arg1 arg-type)
-	      (dynamic-let ((*polytype-vars*
-			     (append (lambda-polytype-vars arg type)
-				     (dynamic *polytype-vars*)))
-			    (*local-mp-params*
-			     (append mp-params (dynamic *local-mp-params*))))
-		(dispatch-type-check arg))))
-	(type-unify arg-type type
-	  (type-mismatch arg
-	    "The argument is not as polymorphic as its type requires"
-	    arg-type type))
-	(**lambda/pat (reverse dict-pats) arg1)))))
+      (dynamic-let ((*polytype-vars*
+		     (append (lambda-polytype-vars arg type)
+			     (dynamic *polytype-vars*)))
+		    (*local-mp-params*
+		     (append mp-params (polytype-equalities poly (reverse tyvars))
+			     (dynamic *local-mp-params*))))
+	(mlet (((arg1 arg-type) (dispatch-type-check arg)))
+	  ;; (with the argument's givens: its equalities hold here too)
+	  (type-unify arg-type type
+	    (type-mismatch arg
+	      "The argument is not as polymorphic as its type requires"
+	      arg-type type))
+	  (**lambda/pat (reverse dict-pats) arg1))))))
 
 ;;; In the application OBJECT, a function of type FN-TYPE: when it is a
 ;;; polytype, its instance with dictionary placeholders applied to the

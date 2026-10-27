@@ -2,7 +2,7 @@
 -- over the packed Text (Data.ByteString.Rep): what Data.Text does
 -- the same way is delegated to it.
 module Data.ByteString.Char8 (
-    ByteString, pack, unpack, empty, singleton, cons, snoc, append, head,
+    ByteString, mapAccumL, mapAccumR, pack, unpack, empty, singleton, cons, snoc, append, head,
     last, tail, init, uncons, unsnoc, null, length, map, reverse,
     intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr,
     foldr', foldr1, concat, concatMap, any, all, maximum, minimum, scanl, sort,
@@ -359,3 +359,7 @@ hGet h n = fmap pack (go n)
 -- | The characters in order.
 sort :: ByteString -> ByteString
 sort = pack . L.sort . unpack
+
+mapAccumL, mapAccumR :: (acc -> Char -> (acc, Char)) -> acc -> ByteString -> (acc, ByteString)
+mapAccumL f acc b = case L.mapAccumL f acc (unpack b) of (a, xs) -> (a, pack xs)
+mapAccumR f acc b = case L.mapAccumR f acc (unpack b) of (a, xs) -> (a, pack xs)
