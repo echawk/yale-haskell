@@ -27,7 +27,8 @@ Ordered roughly by expected payoff.
   inline-java's JNI layer to run is a much harder and more realistic
   test of the FFI than anything in `bench/`.
 - **What it needs:** a JVM on the system; callbacks from a foreign
-  thread (Yale's runtime has one Haskell thread); the `inline-java`
+  thread (Yale's runtime has Haskell threads since 2026-10-26, but a
+  thread the JVM creates is not given one yet); the `inline-java`
   quasi-quoter itself needs QuasiQuotes, so start with the `jni`
   package.  One of the FFI stress tests planned after Agda
   (REAL-WORLD-TARGETS.md, "After Agda").

@@ -223,7 +223,7 @@ internals.
 | process | tools | `readProcess`, `system`, through SBCL's run-program | small |
 | real haskeline | interactive tools | line editing through the REPL's editor (src/compiler/command-interface) | medium |
 | QuickCheck's full API | test suites | the rest of QuickCheck 2: Gen combinators, `quickCheckWith`, labels, `Testable` instances for functions of more arguments | small |
-| stm with threads | concurrent programs | needs the threaded runtime first (GHC-EXTENSIONS.md tier 4) | large |
+| ~~stm with threads~~ | concurrent programs | done 2026-10-26: real threads, STM transactions under a lock (GHC-EXTENSIONS.md) | — |
 
 Programs of the same kind as cubicaltt to try next, each a step up
 (LambdaPi and Mini-TT, suggested here first, now run):

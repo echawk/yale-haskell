@@ -208,10 +208,18 @@ be accepted.
   operations primitives, files read in one piece.  The lazy variants
   are the strict types.  Pointer-level access (Data.ByteString.Unsafe,
   .Internal's ForeignPtr) is not provided.
-- **Control.Concurrent, STM**: one thread.  `forkIO` runs the thread to
-  completion; an MVar or STM operation that would block fails.  Worker
-  threads that report through MVars work (nofib fannkuch-redux,
-  binary-trees).
+- **Control.Concurrent, STM**: real threads (2026-10-26).  `forkIO`
+  starts a host thread (bordeaux-threads; src/base/concurrent-runtime.lisp),
+  and thunk evaluation is thread-safe from then on (the spark machinery
+  below).  MVars and Chans wait; `throwTo`/`killThread` interrupt the
+  target, with `mask`, `uninterruptibleMask` and interruptible waits as
+  in GHC; `threadDelay` sleeps; System.Timeout works; a thread that would
+  wait while every thread waits gets BlockedIndefinitelyOnMVar (or
+  ...OnSTM).  STM transactions run one at a time under a lock, with an
+  undo log for `retry`, `orElse` and `catchSTM`; `retry` waits for a
+  commit.  `atomicModifyIORef` and the CAS primops are atomic, and a
+  handle is used by one thread at a time.  Coarse: one lock for all
+  MVars, one for all transactions, one for all handles.  SBCL only.
 - **Control.Parallel, Control.Parallel.Strategies** (the parallel
   package): real parallelism.  With `+RTS -N[n]` (or `GHCRTS`), `par`
   sparks are evaluated by a pool of lparallel worker threads, and thunk
@@ -220,8 +228,7 @@ be accepted.
   thunks go back to unevaluated, so the error is raised where the value
   is demanded); see src/base/parallel-runtime.lisp.  Without -N, `par`
   does nothing, as with GHC's non-threaded runtime.  SBCL only.  Not
-  there: `forkIO` threads in parallel (they still run one at a time),
-  Control.Monad.Par, ParallelArrays, spark statistics (`+RTS -s`), and a
+  there: Control.Monad.Par, ParallelArrays, spark statistics (`+RTS -s`), and a
   `<<loop>>` report for a thunk that is re-entered after parallel
   evaluation has started (it waits instead).
 - **GHC.Generics**: derived Generic and Generic1 give GHC's
@@ -239,7 +246,6 @@ be accepted.
 | extension | what it needs | size |
 |---|---|---|
 | QuantifiedConstraints | contexts with `forall` in instance heads; dictionary functions as dictionary fields | medium-large |
-| Real concurrency | `forkIO` threads on SBCL threads: blocking MVars and STM, and the IO primitives' shared state (thunk update is thread-safe already, Control.Parallel) | large |
 
 ### 5. Not realistic here
 
@@ -250,7 +256,7 @@ be accepted.
   and typed TH do not yet.  MicroCabal's backend installs a package's
   TH modules without compiling them.
 - **GHC's runtime features**: `+RTS` options, profiling, the GHC event
-  log, `GHC.Stats`, sparks (`par` is ignored), weak pointers with
+  log, `GHC.Stats`, spark statistics, weak pointers with
   finalizers' timing, stable names.
 - **The package ecosystem as Cabal sees it**: Yale Haskell compiles
   source modules.  base, containers, text, bytestring, mtl and the other
@@ -268,14 +274,16 @@ programs hit first are, in order:
    haskeline (without line editing) and process are in lib/haskell98;
    vector, primitive, aeson, optparse-applicative, profunctors,
    regex-tdfa, zlib and about 70 more build from Hackage (doc/PACKAGES.md
-   lists them).  What still stops packages is mostly Template Haskell
-   in exposed modules and C libraries without bindings yet.
+   lists them), packages' C code included (doc/FFI.md).  What still
+   stops packages is mostly Template Haskell in exposed modules and
+   GHC-internal APIs (text's and bytestring's internals, unboxed sums).
 2. **Record update of a duplicated field** (`r { name = x }` with
    `name` in several types) needs the record's type; construction,
    patterns and `r.name` work.
 3. ~~Performance of the String-backed Text and ByteString~~: packed
    since 2026-10-14 (bench/RESULTS.md: textproc 4.5 s -> 0.46 s).
-4. **Concurrency** for servers and parallel programs.
+4. ~~Concurrency~~: real threads since 2026-10-26 (tier 3 above);
+   finer-grained locking would let servers scale.
 
 ## Implementation map
 

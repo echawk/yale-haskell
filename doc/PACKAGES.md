@@ -390,9 +390,13 @@ dated: a package listed there as failing may build now.
   operations threaded by the State# token, so primitive and vector
   build; a package relying on exact unboxed representations or GHC's
   runtime (weak pointers' timing, the RTS) may not.
-- C libraries need their bindings to find the library at load time; boot
-  packages Stackage does not list (integer-gmp) are not fetched;
-  `foreign-library` stanzas raise "foreign-library is not supported".
+- A package's C code (`c-sources`, `cxx-sources`, `extra-libraries`,
+  `frameworks`, `pkgconfig-depends`, a `configure` script) is compiled
+  and linked into `lib/libHSNAME.so`, loaded with the package
+  (doc/FFI.md); the C compiler (`cc`, `c++`) and `pkg-config` come from
+  the system.  Boot packages Stackage does not list (integer-gmp) are
+  not fetched; `foreign-library` stanzas (a Haskell library built as a
+  C shared library) raise "foreign-library is not supported".
 - Mutually recursive modules are compiled as one unit when their files
   import each other; `hs-boot` files are ignored.
 - `Int` is a 63-bit fixnum, not 64-bit (the only deliberate departure

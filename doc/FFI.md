@@ -46,6 +46,20 @@ from a program or the interactive system.
   `Bool` (a C `int`), `Ptr a`, `FunPtr a`, the `Foreign.C.Types`
   synonyms for these, `()` as a result, and an `IO` result.  A pure
   type means the C function is called as a pure function.
+  UnliftedFFITypes: a `ByteArray#` or `MutableByteArray#` argument is
+  passed as a pointer to its contents (they do not move).
+- Packages' C code: MicroCabal's Yale backend compiles a package's
+  `c-sources` and `cxx-sources` with its `include-dirs` and `cc-options`,
+  and links them with its `extra-libraries`, `extra-lib-dirs`,
+  `ld-options`, `frameworks` and `pkgconfig-depends` (through
+  `pkg-config`) into `lib/libHSNAME.so`, which is loaded with the
+  package.  A `build-type: Configure` package's `configure` script runs
+  first.  `.hsc` modules go through `tools/microcabal/yale-hsc2hs`.
+  X11, zlib, network, digest, cryptohash and others build this way
+  (doc/PACKAGES.md).
+- Threads: a foreign call may be made from any Haskell thread
+  (Control.Concurrent's threads are host threads); it blocks only the
+  thread that makes it, as with GHC's threaded runtime.
 - Libraries: all of the Report's: `Foreign`, `Foreign.Ptr`,
   `Foreign.ForeignPtr`, `Foreign.StablePtr`, `Foreign.Storable`,
   `Foreign.Marshal` (`Alloc`, `Array`, `Utils`, `Error`, `Unsafe`),
@@ -80,6 +94,9 @@ from a program or the interactive system.
 - An exception that escapes a callback unwinds through the C frames
   between it and the Haskell code that called C (GHC instead reports it
   and exits).
+- A callback from a thread C created (not a Haskell thread: a JVM's,
+  a GUI toolkit's) is untested; SBCL can run Lisp on such a thread, but
+  the runtime does not yet give it a Haskell thread of its own.
 - Not yet: foreign imports typed at the interactive prompt.
 
 ## How it works
