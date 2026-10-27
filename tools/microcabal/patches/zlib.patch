@@ -1,0 +1,58 @@
+zlib: inflateInit2 and deflateInit2, zlib.h macros, through C functions
+(Yale Haskell's capi imports are ccall ones).
+diff -ruN a/Codec/Compression/Zlib/Stream.hsc b/Codec/Compression/Zlib/Stream.hsc
+--- a/Codec/Compression/Zlib/Stream.hsc	2026-10-26 22:56:41
++++ b/Codec/Compression/Zlib/Stream.hsc	2026-10-26 22:56:41
+@@ -973,12 +973,23 @@
+ ##define SAFTY unsafe
+ ##endif
+ 
++##ifdef __YALE_HASKELL__
++-- (Yale Haskell's capi is ccall: these two are zlib.h macros, through C
++-- functions in hs-zlib.c)
++foreign import ccall unsafe "_hs_zlib_inflateInit2"
++  c_inflateInit2 :: StreamState -> CInt -> IO CInt
++
++foreign import ccall unsafe "_hs_zlib_deflateInit2"
++  c_deflateInit2 :: StreamState
++                 -> CInt -> CInt -> CInt -> CInt -> CInt -> IO CInt
++##else
+ foreign import capi unsafe "zlib.h inflateInit2"
+   c_inflateInit2 :: StreamState -> CInt -> IO CInt
+  
+ foreign import capi unsafe "zlib.h deflateInit2"
+   c_deflateInit2 :: StreamState
+                  -> CInt -> CInt -> CInt -> CInt -> CInt -> IO CInt
++##endif
+ 
+ foreign import capi SAFTY "zlib.h inflate"
+   c_inflate :: StreamState -> CInt -> IO CInt
+diff -ruN a/cbits-extra/hs-zlib.c b/cbits-extra/hs-zlib.c
+--- a/cbits-extra/hs-zlib.c	2026-10-26 22:56:41
++++ b/cbits-extra/hs-zlib.c	2026-10-26 22:56:41
+@@ -7,3 +7,14 @@
+ void _hs_zlib_deflateEnd(z_streamp strm) {
+   deflateEnd(strm);
+ }
++
++/* zlib.h's inflateInit2 and deflateInit2 are macros: functions for
++   Yale Haskell, whose capi imports are ccall ones. */
++int _hs_zlib_inflateInit2(z_streamp strm, int windowBits) {
++  return inflateInit2(strm, windowBits);
++}
++
++int _hs_zlib_deflateInit2(z_streamp strm, int level, int method,
++                          int windowBits, int memLevel, int strategy) {
++  return deflateInit2(strm, level, method, windowBits, memLevel, strategy);
++}
+diff -ruN a/cbits-extra/hs-zlib.h b/cbits-extra/hs-zlib.h
+--- a/cbits-extra/hs-zlib.h	2026-10-26 22:56:41
++++ b/cbits-extra/hs-zlib.h	2026-10-26 22:56:41
+@@ -5,4 +5,7 @@
+ 
+ void _hs_zlib_inflateEnd(z_streamp strm);
+ void _hs_zlib_deflateEnd(z_streamp strm);
++int _hs_zlib_inflateInit2(z_streamp strm, int windowBits);
++int _hs_zlib_deflateInit2(z_streamp strm, int level, int method,
++                          int windowBits, int memLevel, int strategy);
+ #endif

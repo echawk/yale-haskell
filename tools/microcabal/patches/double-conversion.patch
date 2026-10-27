@@ -1,0 +1,61 @@
+double-conversion: the Text builder without text's array internals (Yale
+Haskell's Text holds Chars).
+diff -ruN a/Data/Double/Conversion/Internal/TextBuilder.hs b/Data/Double/Conversion/Internal/TextBuilder.hs
+--- a/Data/Double/Conversion/Internal/TextBuilder.hs	2026-10-26 22:33:40
++++ b/Data/Double/Conversion/Internal/TextBuilder.hs	2026-10-26 22:33:47
+@@ -1,4 +1,4 @@
+-{-# LANGUAGE CPP, MagicHash, Rank2Types, TypeFamilies, TypeOperators #-}
++{-# LANGUAGE CPP, MagicHash, Rank2Types, TypeFamilies, TypeOperators, UnboxedTuples #-}
+ -- |
+ -- Module      : Data.Double.Conversion.TextBuilder
+ -- Copyright   : (c) 2011 MailRank, Inc.
+@@ -24,11 +24,18 @@
+ import Control.Monad.ST (unsafeIOToST)
+ #endif
+ import Data.Double.Conversion.Internal.FFI (ForeignFloating)
+-import qualified Data.Text.Array as A
+-import Data.Text.Internal.Builder (Builder, writeN)
+ import Foreign.C.Types (CDouble, CFloat, CInt)
+ import GHC.Prim (MutableByteArray#)
++#ifdef __YALE_HASKELL__
++import Data.Char (chr)
++import Data.Text.Lazy.Builder (Builder, fromString)
++import GHC.Exts (newByteArray#, readWord8Array#)
++import GHC.IO (IO(IO), unIO, unsafePerformIO)
++#else
++import qualified Data.Text.Array as A
++import Data.Text.Internal.Builder (Builder, writeN)
+ import Control.Monad.ST (runST)
++#endif
+ 
+ convert :: (RealFloat a, RealFloat b, b ~ ForeignFloating a) => String -> CInt
+         -> (forall s. b -> MutableByteArray# s -> IO CInt)
+@@ -36,6 +43,22 @@
+ {-# SPECIALIZE convert :: String -> CInt -> (forall s. CDouble -> MutableByteArray# s -> IO CInt) -> Double -> Builder #-}
+ {-# SPECIALIZE convert :: String -> CInt -> (forall s. CFloat -> MutableByteArray# s -> IO CInt) -> Float -> Builder #-}
+ {-# INLINABLE convert #-}
++#ifdef __YALE_HASKELL__
++-- (Yale Haskell's Text holds Chars: the digits the C code writes into the
++-- array are read back as a String)
++convert func len act val = fromString (unsafePerformIO (IO run))
++  where
++    run s0 = case newByteArray# (fromIntegral len) s0 of
++      (# s1, mba #) -> case unIO (act (realToFrac val) mba) s1 of
++        (# s2, size #)
++          | size == -1 -> error ("Data.Double.Conversion.Text." ++ func ++
++                                 ": conversion failed.")
++          | otherwise -> readAll mba (fromIntegral size - 1) [] s2
++    readAll mba i acc s
++      | i < 0 = (# s, acc #)
++      | otherwise = case readWord8Array# mba i s of
++          (# s', w #) -> readAll mba (i - 1) (chr (fromIntegral w) : acc) s'
++#else
+ convert func len act val = runST $ do 
+ #if MIN_VERSION_text(2,0,0)
+   mTempArr@(A.MutableByteArray tempMArr) <- A.new (fromIntegral len)
+@@ -51,4 +74,5 @@
+   return $ writeN (fromIntegral size) $ \mArr _ -> A.copyI (fromIntegral size) mArr 0 tempArr 0
+ #else
+   return $ writeN (fromIntegral size) $ \mArr _ -> A.copyI mArr 0 tempArr 0 (fromIntegral size)
++#endif
+ #endif

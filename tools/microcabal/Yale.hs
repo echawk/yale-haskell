@@ -402,16 +402,23 @@ buildForeignLibrary env pdir name flds = do
   if null csrcs && null cxxsrcs && null libs && null fworks && null pkgFlags then return [] else do
     hsInc <- maybe [] (\ d -> ["-I" ++ d]) <$> lookupEnv "YALE_MCABAL_INCLUDE"
     mkdir env (pdir </> "lib")
+    -- (the staged copies, which a patch may have changed: zlib's)
+    let staged f = do
+          b <- doesFileExist (pdir </> "src" </> f)
+          return (if b then pdir </> "src" </> f else f)
     srcs <- if null csrcs && null cxxsrcs
       then do
         let stub = pdir </> "lib" </> "stub.c"
         writeFile stub "/* the package's foreign libraries only */\n"
         return [stub]
-      else return (csrcs ++ cxxsrcs)
+      else mapM staged (csrcs ++ cxxsrcs)
+    incStaged <- fmap concat $ forM incDirs $ \ d -> do
+      b <- doesDirectoryExist (pdir </> "src" </> d)
+      return (if b then ["-I" ++ (pdir </> "src" </> d)] else [])
     message env 0 $ "Building the C code of " ++ name
     cmd env $ unwords $
       [if null cxxsrcs then "cc" else "c++", "-shared", "-fPIC", "-w", "-o", pdir </> out] ++
-      hsInc ++ map ("-I" ++) incDirs ++ ccOpts ++ srcs ++
+      hsInc ++ incStaged ++ map ("-I" ++) incDirs ++ ccOpts ++ srcs ++
       map ("-L" ++) libDirs ++ map ("-l" ++) libs ++ pkgFlags ++ ldOpts ++
       concatMap (\ f -> ["-framework", f]) fworks
     return ["foreign-libraries: " ++ out]
