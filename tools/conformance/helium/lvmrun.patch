@@ -1,0 +1,133 @@
+lvmrun 1.0 on a 64-bit macOS: the heap and the code in one reserved region, so that code fixups (32-bit offsets from fixup_base) reach them.
+diff -ruN a/common/misc.h b/common/misc.h
+--- a/common/misc.h	2026-10-27 14:43:15
++++ b/common/misc.h	2026-10-27 14:43:15
+@@ -84,6 +84,10 @@
+ #endif
+ 
+ void garbage_collect(void);
++char *arena_start (void);
++void *arena_malloc (size_t sz);
++void arena_free (void *p);
++void *arena_realloc (void *p, size_t sz);
+ 
+ void sys_exit( int code ) Noreturn;
+ void shut_down( int code ) Noreturn;
+diff -ruN a/core/misc.c b/core/misc.c
+--- a/core/misc.c	2026-10-27 14:43:15
++++ b/core/misc.c	2026-10-27 14:43:15
+@@ -283,12 +283,64 @@
+ 
+ #endif /* USING_MEMMOV */
+ 
++/* One reserved region for the heap and the code: code fixups are 32-bit
++   offsets from fixup_base, and a 64-bit macOS puts small and large
++   allocations terabytes apart. */
++#include <sys/mman.h>
++static char *arena_base = NULL, *arena_next = NULL, *arena_end = NULL;
++
++char *arena_start (void)
++{
++  if (arena_base == NULL) {
++    size_t n = (size_t)1536 << 20;
++    void *m = mmap (NULL, n, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
++    if (m == MAP_FAILED) return NULL;
++    arena_base = arena_next = (char *) m;
++    arena_end = arena_base + n;
++  }
++  return arena_base;
++}
++
++void *arena_malloc (size_t sz)
++{
++  size_t total = (sz + 16 + 15) & ~(size_t)15;
++  char *p;
++  if (arena_start () == NULL || arena_next + total > arena_end) return malloc (sz);
++  p = arena_next;
++  arena_next += total;
++  *(size_t *) p = sz;
++  return p + 16;
++}
++
++static int in_arena (void *p)
++{
++  return arena_base != NULL && (char *) p >= arena_base && (char *) p < arena_end;
++}
++
++void arena_free (void *p)
++{
++  if (p != NULL && !in_arena (p)) free (p);
++}
++
++void *arena_realloc (void *p, size_t sz)
++{
++  size_t old;
++  void *n;
++  if (p == NULL) return arena_malloc (sz);
++  if (!in_arena (p)) return realloc (p, sz);
++  old = *(size_t *) ((char *) p - 16);
++  if (sz <= old) return p;
++  n = arena_malloc (sz);
++  if (n != NULL) memcpy (n, p, old);
++  return n;
++}
++
+ char *aligned_malloc (size_t size, int modulo, void **block)
+ {
+   char *raw_mem;
+   unsigned long aligned_mem;
+   Assert (modulo < Page_bsize);
+-  raw_mem = (char *) malloc (size + Page_bsize);
++  raw_mem = (char *) arena_malloc (size + Page_bsize);
+   if (raw_mem == NULL) return NULL;
+   *block = raw_mem;
+   raw_mem += modulo;                /* Address to be aligned */
+diff -ruN a/core/options.c b/core/options.c
+--- a/core/options.c	2026-10-27 14:43:15
++++ b/core/options.c	2026-10-27 14:43:15
+@@ -602,8 +602,7 @@
+   stat_start_init();
+ 
+ #if defined(FIXUP_OFFSET)
+-  fixup_base = (char*)malloc(sizeof(long));
+-  if (fixup_base) free(fixup_base);
++  fixup_base = arena_start();
+ #endif
+ 
+   argv0 = argv[0];
+diff -ruN a/heap/memory.c b/heap/memory.c
+--- a/heap/memory.c	2026-10-27 14:43:15
++++ b/heap/memory.c	2026-10-27 14:43:15
+@@ -96,7 +96,7 @@
+ */
+ void free_for_heap (char *mem)
+ {
+-  free (Chunk_block (mem));
++  arena_free (Chunk_block (mem));
+ }
+ 
+ /* Take a block of memory as argument, which must be the result of a
+@@ -360,7 +360,7 @@
+ 
+ void * stat_alloc (asize_t sz)
+ {
+-  void * result = malloc (sz);
++  void * result = arena_malloc (sz);
+ 
+   /* malloc() may return NULL if size is 0 */
+   if (result == NULL && sz != 0) raise_out_of_memory (stat_heap_size);
+@@ -372,12 +372,12 @@
+ 
+ void stat_free (void * blk)
+ {
+-  if (blk != NULL) free(blk);
++  arena_free (blk);
+ }
+ 
+ void * stat_resize (void * blk, asize_t sz)
+ {
+-  void * result = realloc (blk, sz);
++  void * result = arena_realloc (blk, sz);
+ 
+   if (result == NULL) raise_out_of_memory (stat_heap_size);
+   return result;
