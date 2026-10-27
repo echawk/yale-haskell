@@ -392,7 +392,14 @@ buildForeignLibrary env pdir name flds = do
       libDirs = getFieldStrings flds [] "extra-lib-dirs"
       ldOpts  = getFieldStrings flds [] "ld-options"
       out     = "lib" </> "libHS" ++ name ++ ".so"
-  if null csrcs && null cxxsrcs && null libs && null fworks then return [] else do
+      -- pkgconfig-depends: zlib >= 1.2 (zlib's): its flags from pkg-config,
+      -- or -lNAME without it
+      pkgs    = [ takeWhile (\ c -> isAlphaNum c || c `elem` "-_.+") (dropWhile (== ' ') d)
+                | d <- getFieldStrings flds [] "pkgconfig-depends" ]
+  pkgFlags <- fmap concat $ forM (filter (not . null) pkgs) $ \ p -> do
+    r <- tryCmdOut env ("pkg-config --cflags --libs " ++ p)
+    return $ maybe ["-l" ++ p] words r
+  if null csrcs && null cxxsrcs && null libs && null fworks && null pkgFlags then return [] else do
     hsInc <- maybe [] (\ d -> ["-I" ++ d]) <$> lookupEnv "YALE_MCABAL_INCLUDE"
     mkdir env (pdir </> "lib")
     srcs <- if null csrcs && null cxxsrcs
@@ -405,7 +412,7 @@ buildForeignLibrary env pdir name flds = do
     cmd env $ unwords $
       [if null cxxsrcs then "cc" else "c++", "-shared", "-fPIC", "-w", "-o", pdir </> out] ++
       hsInc ++ map ("-I" ++) incDirs ++ ccOpts ++ srcs ++
-      map ("-L" ++) libDirs ++ map ("-l" ++) libs ++ ldOpts ++
+      map ("-L" ++) libDirs ++ map ("-l" ++) libs ++ pkgFlags ++ ldOpts ++
       concatMap (\ f -> ["-framework", f]) fworks
     return ["foreign-libraries: " ++ out]
 
