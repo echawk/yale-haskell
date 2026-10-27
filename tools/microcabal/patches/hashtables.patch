@@ -1,0 +1,15 @@
+hashtables: its non-GHC iShiftL and iShiftRL at Int (they called the Word shiftL and shiftRL).
+diff -ruN a/Data/HashTable/Internal/Utils.hs b/Data/HashTable/Internal/Utils.hs
+--- a/Data/HashTable/Internal/Utils.hs	2026-10-27 14:48:49
++++ b/Data/HashTable/Internal/Utils.hs	2026-10-27 14:48:49
+@@ -276,8 +276,8 @@
+ #else
+ shiftL x i    = Data.Bits.shiftL x i
+ shiftRL x i   = shiftR x i
+-iShiftL x i   = shiftL x i
+-iShiftRL x i  = shiftRL x i
++iShiftL x i   = Data.Bits.shiftL x i
++iShiftRL x i  = shiftR x i
+ #endif
+ 
+ 

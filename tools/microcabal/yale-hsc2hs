@@ -192,6 +192,12 @@ def scan_text(text):
                             end = k
                             break
                         depth -= 1
+                if text[i + m.end():end].strip() == "" and m.group(1) in KEYWORDS:
+                    # (nothing for it: a comment's, regex-posix's
+                    # "(#type\n-- regoff_t)@")
+                    cur.append(ch)
+                    i += 1
+                    continue
                 pieces.append(("text", "".join(cur)))
                 cur = []
                 pieces.append(("construct", m.group(1), text[i + m.end():end]))
@@ -266,6 +272,13 @@ def translate(src):
                 body.append(full.strip())
             i += 1
             continue
+        # a construct at the line's start may go on with backslashes
+        # (regex-posix's #enum ExecOption,ExecOption, \)
+        m = re.match(r"#\s*([A-Za-z_][A-Za-z0-9_]*)\b", stripped)
+        if m and (m.group(1) in KEYWORDS or m.group(1) in LET_NAMES):
+            while line.endswith("\\") and i + 1 < len(lines):
+                i += 1
+                line = line[:-1] + " " + lines[i]
         # a construct #{..} may go on over lines (X11's #{enum KeySym, ..})
         while unclosed_construct(line) and i + 1 < len(lines):
             i += 1

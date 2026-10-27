@@ -5,7 +5,8 @@
 -- Data.ByteString.Internal, whose pointers do not exist here (that
 -- module shows these as bytestring's: Data/ByteString/Internal.hs).
 module Data.ByteString.Rep (
-    ByteString(BS), unBS, bsFromString, packChars, c2w, w2c
+    ByteString(BS), unBS, bsFromString, packChars, c2w, w2c,
+    packCString, packCStringLen, useAsCString, useAsCStringLen
   ) where
 
 import PreludeModern (Semigroup((<>)), Monoid(mempty))
@@ -14,6 +15,11 @@ import Data.Word (Word8)
 import qualified Data.Text as T
 import Data.Text.Rep (Text)
 import Control.DeepSeq (NFData(rnf))
+import Foreign.C.String (CString, CStringLen)
+import Foreign.Ptr (Ptr, castPtr, plusPtr)
+import Foreign.Storable (peek, pokeByteOff)
+import Foreign.Marshal.Array (peekArray)
+import Foreign.Marshal.Alloc (allocaBytes)
 
 newtype ByteString = BS Text
 
@@ -52,3 +58,29 @@ w2c = toEnum . fromIntegral
 
 instance NFData ByteString where
   rnf b = b `seq` ()
+
+-- C strings (bytestring's): copies of the bytes (here for Data.ByteString
+-- and Data.ByteString.Char8 both)
+packCString :: CString -> IO ByteString
+packCString p = go (castPtr p) []
+  where go q acc = do w <- peek q
+                      if w == (0 :: Word8) then return (bsFromString (reverse acc))
+                        else go (q `plusPtr` 1) (w2c w : acc)
+
+packCStringLen :: CStringLen -> IO ByteString
+packCStringLen (p, n) = fmap (bsFromString . map w2c) (peekArray n (castPtr p :: Ptr Word8))
+
+useAsCString :: ByteString -> (CString -> IO a) -> IO a
+useAsCString bs k = do
+  let ws = map c2w (unBS bs)
+  allocaBytes (length ws + 1) (\p -> do
+    mapM_ (\(i, w) -> pokeByteOff p i w) (zip [0 ..] (ws ++ [0]))
+    k p)
+
+useAsCStringLen :: ByteString -> (CStringLen -> IO a) -> IO a
+useAsCStringLen bs k = do
+  let ws = map c2w (unBS bs)
+  allocaBytes (max 1 (length ws)) (\p -> do
+    mapM_ (\(i, w) -> pokeByteOff p i w) (zip [0 ..] ws)
+    k (p, length ws))
+

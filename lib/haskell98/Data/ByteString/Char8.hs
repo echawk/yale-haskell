@@ -2,7 +2,7 @@
 -- over the packed Text (Data.ByteString.Rep): what Data.Text does
 -- the same way is delegated to it.
 module Data.ByteString.Char8 (
-    ByteString, mapAccumL, mapAccumR, pack, unpack, empty, singleton, cons, snoc, append, head,
+    ByteString, packCString, packCStringLen, useAsCString, useAsCStringLen, mapAccumL, mapAccumR, pack, unpack, empty, singleton, cons, snoc, append, head,
     last, tail, init, uncons, unsnoc, null, length, map, reverse,
     intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr,
     foldr', foldr1, concat, concatMap, any, all, maximum, minimum, scanl, sort,

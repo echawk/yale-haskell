@@ -175,7 +175,9 @@ stagePackage env db name vers flds = do
   let ccIncs = filter ("-I" `isPrefixOf`) (getFieldStrings flds [] "cc-options")
   preprocessModules env (pdir </> "src")
     (map ("-I" ++) incDirs ++ ccIncs ++ hsInc ++ filter ("-D" `isPrefixOf`) (cppOpts ++ extraCpp))
-    (libModules flds ++ getFieldStrings flds [] "other-modules")
+    -- (not those the library has: old-time's System.Time, whose hsc2hs
+    -- C program wants its configure's header)
+    (filter (`notElem` inLib) (libModules flds ++ getFieldStrings flds [] "other-modules"))
   writeFile (pdir </> "yale-package") $ unlines
     [ "name: " ++ name
     , "version: " ++ showVersion vers

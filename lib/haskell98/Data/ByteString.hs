@@ -188,30 +188,6 @@ zipWith f a b = P.zipWith f (unpack a) (unpack b)
 unzip :: [(Word8, Word8)] -> (ByteString, ByteString)
 unzip ps = (pack (P.map fst ps), pack (P.map snd ps))
 
--- C strings (bytestring's): copies of the bytes
-packCString :: CString -> IO ByteString
-packCString p = go (castPtr p) []
-  where go q acc = do w <- peek q
-                      if w == (0 :: Word8) then return (bsFromString (P.reverse acc))
-                        else go (q `plusPtr` 1) (w2c w : acc)
-
-packCStringLen :: CStringLen -> IO ByteString
-packCStringLen (p, n) = fmap (bsFromString . P.map w2c) (peekArray n (castPtr p :: Ptr Word8))
-
-useAsCString :: ByteString -> (CString -> IO a) -> IO a
-useAsCString bs k = do
-  let ws = P.map c2w (unBS bs)
-  allocaBytes (P.length ws + 1) (\p -> do
-    mapM_ (\(i, w) -> pokeByteOff p i w) (P.zip [0 ..] (ws ++ [0]))
-    k p)
-
-useAsCStringLen :: ByteString -> (CStringLen -> IO a) -> IO a
-useAsCStringLen bs k = do
-  let ws = P.map c2w (unBS bs)
-  allocaBytes (max 1 (P.length ws)) (\p -> do
-    mapM_ (\(i, w) -> pokeByteOff p i w) (P.zip [0 ..] ws)
-    k (p, P.length ws))
-
 mapAccumL, mapAccumR :: (acc -> Word8 -> (acc, Word8)) -> acc -> ByteString -> (acc, ByteString)
 mapAccumL f acc b = case L.mapAccumL f acc (unpack b) of (a, xs) -> (a, pack xs)
 mapAccumR f acc b = case L.mapAccumR f acc (unpack b) of (a, xs) -> (a, pack xs)
