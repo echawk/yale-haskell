@@ -729,6 +729,26 @@
 				  (mp-param-types param) types)))
 	     (mp-placeholder-local-params p)))
 
+(define (local-instance-mp-tyvars placeholders)
+  (let ((res '()))
+    (dolist (p placeholders)
+      (when (and (mp-placeholder? p)
+		 (eq? (mp-placeholder-exp p) '#f)
+		 (not (qc-class? (mp-placeholder-class p)))
+		 (some (function mp-type-generic?) (mp-placeholder-types p))
+		 ;; (not a class with functional dependencies: improvement
+		 ;; decides those)
+		 (null? (class-fundeps (mp-placeholder-class p)))
+		 (let ((found (find-mp-instance (mp-placeholder-class p) (mp-placeholder-types p))))
+		   ;; an instance whose own context still wants the class at
+		   ;; the variables: FreeVars a b => FreeVars [a] b
+		   (and found (not (null? (instance-mcontext (tuple-2-1 found)))))))
+	(dolist (ty (mp-placeholder-types p))
+	  (dolist (v (ntype-free-tyvars ty))
+	    (when (and (not (memq v res)) (mp-type-generic? v))
+	      (push v res))))))
+    res))
+
 (define (mp-generalizable-constraints placeholders)
   (let ((res '()))
     (dolist (p placeholders)

@@ -9,6 +9,7 @@ module Control.Monad.ST (
   ) where
 
 import PreludeModern
+import Control.Monad.Fix (MonadFix(mfix))
 import System.IO.Unsafe (unsafePerformIO, unsafeFixIO)
 import GHC.PrimOps (RealWorld)
 
@@ -36,6 +37,10 @@ instance Monad (ST s) where
 
 runST :: (forall s. ST s a) -> a
 runST (ST io) = unsafePerformIO io
+
+-- (base's: JHC's Graph uses mfix in ST)
+instance MonadFix (ST s) where
+  mfix = fixST
 
 fixST :: (a -> ST s a) -> ST s a
 fixST k = ST (unsafeFixIO (\x -> unST (k x)))

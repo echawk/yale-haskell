@@ -304,6 +304,16 @@
 				   (add-instance-mp-requirements)
 				   (mp-generalizable-constraints
 				    (dynamic *placeholders*))))))
+	;; a local binding whose multi-parameter constraint an instance
+	;; matches without deciding (FreeVars [t] b, by FreeVars a b =>
+	;; FreeVars [a] b, JHC's localJumps): its variables kept monomorphic,
+	;; for the use to decide, as MonoLocalBinds would
+	(when (not (some (function var-toplevel?) all-vars))
+	  (let ((mono (local-instance-mp-tyvars (dynamic *placeholders*))))
+	    (when (not (null? mono))
+	      (setf all-tyvars (lisp:remove-if (lambda (v) (memq v mono)) all-tyvars))
+	      (setf (dynamic *non-generic-tyvars*)
+		    (append mono (dynamic *non-generic-tyvars*))))))
 	(dolist (tyvar all-tyvars)
 	  (when (ntyvar-context tyvar)
 	     (push tyvar overloaded-tyvars)))

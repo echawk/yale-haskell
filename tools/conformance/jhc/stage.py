@@ -247,10 +247,62 @@ for name, path in modules:
 gen = os.path.join(src, "GenUtil.hs")
 text = open(gen).read()
 text = text.rstrip("\n") + ("\n\n-- (old mtl's: Either String's fail is Left)\n"
-                            "instance MonadFail (Either String) where\n    fail = Left\n")
+                            "instance MonadFail (Either String) where\n    fail = Left\n"
+                            "\n-- (old base's: Identity's fail is error)\n"
+                            "instance MonadFail Data.Functor.Identity.Identity where\n    fail = error\n")
+m = re.search(r"^module\b.*?\bwhere\b[^\n]*\n", text, re.M | re.S)
+text = text[:m.end()] + "import qualified Data.Functor.Identity\n" + text[m.end():]
 if "FlexibleInstances" not in text.split("\n")[0]:
     text = "{-# LANGUAGE FlexibleInstances #-}\n" + text
 open(gen, "w").write(text)
+
+# elem is Foldable's now; with OverloadedStrings its string literal
+# (x `elem` ":(") was a [Char] for GHC 7.x's list elem, ambiguous now.
+for name, path in modules:
+    text = open(path, errors="replace").read()
+    if "OverloadedStrings" not in text:
+        continue
+    lit = r'("(?:[^"\\\n]|\\.)*")'
+    new = re.sub(r"(`(?:elem|notElem)`\s*)" + lit, r"\1(\2 :: String)", text)
+    new = re.sub(r"(\b(?:elem|notElem)\s+\S+\s+)" + lit, r"\1(\2 :: String)", new)
+    if new != text:
+        open(path, "w").write(new)
+
+# Applicative is Monad's superclass now (base 4.8): a newtype deriving
+# Monad derives Functor and Applicative too; a Monad instance without them
+# gets them from liftM and ap.
+for name, path in modules:
+    text = open(path, errors="replace").read()
+    new = text
+    def derive_ap(m):
+        cls = [c.strip() for c in m.group(2).split(",")]
+        if "Monad" not in cls:
+            return m.group(0)
+        add = [c for c in ("Functor", "Applicative") if c not in cls]
+        if not add:
+            return m.group(0)
+        i = cls.index("Monad")
+        cls[i:i] = add
+        return m.group(1) + ", ".join(cls) + ")"
+    new = re.sub(r"(deriving\s*\()([^)]*)\)", derive_ap, new)
+    def instances(m):
+        ctx, ty = m.group(1) or "", m.group(2)
+        if "=>" in ty:   # (Monad in a context: instance Monad m => OptionMonad ..)
+            return m.group(0)
+        key = re.escape(ty.strip())
+        if re.search(r"instance\s+(?:.*=>\s*)?Applicative\s+" + key + r"\s+where", new):
+            return m.group(0)
+        out = ""
+        if not re.search(r"instance\s+(?:.*=>\s*)?Functor\s+" + key + r"\s+where", new):
+            out += "instance %sFunctor %s where\n    fmap = Control.Monad.liftM\n\n" % (ctx, ty)
+        out += ("instance %sApplicative %s where\n    pure = return\n"
+                "    (<*>) = Control.Monad.ap\n\n" % (ctx, ty))
+        return out + m.group(0)
+    new2 = re.sub(r"^instance\s+((?:[^\n]*=>\s*)?)Monad\s+([^\n]+?)\s+where\b", instances, new, flags=re.M)
+    if new2 != new:
+        new = add_import(new2, "import qualified Control.Monad")
+    if new != text:
+        open(path, "w").write(new)
 
 # StringTable.Atom's addrToAtom_, a foreign import at Addr# for string
 # literals ("Data.Ix"# 7#): the C function at the literal's characters.
