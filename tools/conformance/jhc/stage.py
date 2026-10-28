@@ -356,6 +356,14 @@ for name, path in modules:
                      "Foldable(fold, foldMap, foldr, foldl, foldr1, foldl1)", text)
         open(path, "w").write(new)
 
+# MonadWarn's default addWarning failed in Monad (Identity's instance uses
+# it, whose fail was error): error, as MonadWarn has no MonadFail.
+warn = os.path.join(src, "FrontEnd", "Warning.hs")
+text = open(warn).read()
+old = "addWarning w = fail $ show w"
+assert old in text
+open(warn, "w").write(text.replace(old, "addWarning w = error $ show w"))
+
 # Data.Binary has putList now (Binary's method): JHC's own is jhcPutList.
 for name, path in modules:
     text = open(path, errors="replace").read()

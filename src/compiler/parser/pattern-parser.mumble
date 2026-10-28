@@ -183,7 +183,10 @@
       pat))
 
 (define (parse-pat-list term)  ;; , separated
-  (let ((pat (maybe-pattern-signature (parse-pat))))
+  ;; (an element may be a view pattern, as in parentheses: JHC's
+  ;; [fromHsTyVar -> Just classArg] = ..)
+  (let ((pat (maybe-pattern-signature
+	      (if (view-pattern-follows?) (parse-view-pattern) (parse-pat)))))
     (token-case
      (\, (cons pat (parse-pat-list term)))
      ((unquote term) (list pat))
