@@ -236,9 +236,12 @@
 		  (stuff  (assq var (dynamic *local-function-calls*))))
 	     (when stuff
 	       (push args (cdr stuff)))
-	     (box-analysis-app-aux
-	       (var-strictness var) (var-complexity var)
-	       args already-forced uninitialized)))
+	     (multiple-value-bind (forced complexity)
+		 (box-analysis-app-aux
+		   (var-strictness var) (var-complexity var)
+		   args already-forced uninitialized)
+	       (values forced
+		       (if (partial-division? var args) '#f complexity)))))
 	  ((and saturated? (is-type? 'flic-pack fn))
 	   (box-analysis-app-aux
 	     (con-slot-strict? (flic-pack-con fn)) pack-complexity
@@ -254,6 +257,20 @@
 	  )))
 	  
 
+
+;;; A division primitive is cheap only when it cannot fail: its divisor is
+;;; a nonzero literal.  Otherwise it must stay suspended where it is
+;;; lazy, as div 1 0 passed to a function that catches the error.
+
+(define (partial-division? var args)
+  (and (memq (var-optimized-entry var)
+	     '(prim.quot-int prim.rem-int prim.div-int prim.mod-int
+	       prim.quot-integer prim.rem-integer prim.div-integer
+	       prim.mod-integer))
+       (not (and (= (length args) 2)
+		 (is-type? 'flic-const (cadr args))
+		 (is-type? 'integer (flic-const-value (cadr args)))
+		 (not (= (flic-const-value (cadr args)) 0))))))
 
 ;;; Propagation of already-forced information depends on whether or
 ;;; not the implementation evaluates function arguments in left-to-right
