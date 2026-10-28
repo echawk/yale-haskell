@@ -54,8 +54,15 @@ nub                     :: Eq a => [a] -> [a]
 nub                     =  nubBy (==)
 
 nubBy                   :: (a -> a -> Bool) -> [a] -> [a]
-nubBy eq []             =  []
-nubBy eq (x:xs)         =  x : nubBy eq (filter (\y -> not (eq x y)) xs)
+-- Keep the elements seen so far and test each new one against them (as GHC):
+-- the Report's nested filters allocate a new list per distinct element.
+-- Still lazy: x is produced before the rest of the list is examined.
+nubBy eq l              =  go l []
+  where
+    go []     _    = []
+    go (x:xs) seen = if elemBy x seen then go xs seen else x : go xs (x:seen)
+    elemBy _ []     = False
+    elemBy y (z:zs) = eq z y || elemBy y zs
 
 delete                  :: Eq a => a -> [a] -> [a]
 delete                  =  deleteBy (==)
