@@ -108,6 +108,9 @@
 		    (not (null? (instance-head-args inst)))
 		    (ntycon? type)
 		    (not (instance-head-matches? inst type))
+		    ;; (nor could, the type's arguments decided further:
+		    ;; DocLike String's [Char] at [t1])
+		    (not (some-instance-head-could-match? inst type))
 		    (app-catch-all-instance class-def))
 	       (app-catch-all-instance class-def))
 	      ;; no instance for the type constructor: the class's at an
