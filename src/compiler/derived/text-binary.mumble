@@ -64,13 +64,24 @@
 			 (read-prefix con split-fn-def?))))
 		(algdata-constrs algdata)))))))))
 
+;;; A constructor named by letters (Int `Foo` Int) is shown and read
+;;; between backquotes.
+
+(define (alphanumeric-con? con)
+  (lisp:alpha-char-p (lisp:char (con-string con) 0)))
+
+(define (infix-con-string con)
+  (if (alphanumeric-con? con)
+      (string-append "`" (con-string con) "`")
+      (con-string con)))
+
 (define (show-infix con vars)
   (multiple-value-bind (p lp rp) (get-con-fixity con)
     (**showParen
      (**< (**Int p) (**var '|d|))
      (**dot (**showsPrec (**int lp) (**var (car vars)))
 	    (**showString
-	      (**string (string-append " " (con-string con) " ")))
+	      (**string (string-append " " (infix-con-string con) " ")))
 	    (**showsPrec (**int rp) (**var (cadr vars)))))))
 
 (define (show-prefix con vars)
@@ -163,13 +174,20 @@
 	 (**listcomp
 	  (**tuple2 (**app (**con/def con) (**var '|u|) (**var '|v|))
 		    (**var '|s2|))
-	  (list
-	   (**gen '(tuple |u| |s0|)
-		  (**readsPrec (**int lp) (**var '|r|)))
-	   (**gen `(tuple ,(con-string con) |s1|)
-		  (**lex (**var '|s0|)))
-	   (**gen '(tuple |v| |s2|)
-		  (**readsprec (**int rp) (**var '|s1|)))))))
+	  (append
+	   (list
+	    (**gen '(tuple |u| |s0|)
+		   (**readsPrec (**int lp) (**var '|r|))))
+	   (if (alphanumeric-con? con)
+	       (list (**gen '(tuple "`" |sa|) (**lex (**var '|s0|)))
+		     (**gen `(tuple ,(con-string con) |sb|)
+			    (**lex (**var '|sa|)))
+		     (**gen '(tuple "`" |s1|) (**lex (**var '|sb|))))
+	       (list (**gen `(tuple ,(con-string con) |s1|)
+			    (**lex (**var '|s0|)))))
+	   (list
+	    (**gen '(tuple |v| |s2|)
+		   (**readsprec (**int rp) (**var '|s1|))))))))
      (**readParen (**< (**int p) (**var '|d|))
 		  (**var '|readVal|) (**var '|str|)))))
 

@@ -1,0 +1,5 @@
+1 `Foo` 2
+Just (3 `Foo` 4)
+1 :+: 2
+5 `Foo` 6
+True
