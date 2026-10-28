@@ -159,7 +159,12 @@
 ;;; the pattern's part by part when the signature is checked.
 (define (soft-pattern-types pats types)
   (map (lambda (p ty)
-	 (if (is-type? 'pcon p)
+	 ;; (not a tuple's, which no index refines: the signature's at
+	 ;; once, so the clause's where sees it: GHC's maybe_concat's
+	 ;; backEdges)
+	 (if (and (is-type? 'pcon p)
+		  (or (pattern-has-gadt-con? p)
+		      (not (algdata-real-tuple? (con-alg (pcon-con p))))))
 	     (let ((slot (**ntyvar)))
 	       (push (list p (car (dynamic *enclosing-decls*)) ty slot)
 		     (dynamic *gadt-cast-types*))
