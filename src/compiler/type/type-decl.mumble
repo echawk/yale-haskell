@@ -560,6 +560,18 @@
   (when (not (null? *deferred-family-equalities*))
     (retry-family-equalities)))
 
+(define (contains-family-app? type depth)
+  (let ((type (prune type)))
+    (and (> depth 0)
+	 (cond ((ntycon? type)
+		(or (family-app? type)
+		    (lisp:some (lambda (a) (contains-family-app? a (1- depth)))
+			       (ntycon-args type))))
+	       ((ntyapp? type)
+		(lisp:some (lambda (a) (contains-family-app? a (1- depth)))
+			   (cons (ntyapp-fun type) (ntyapp-args type))))
+	       (else '#f)))))
+
 (define (restrict-stuck-family-tyvars vars decls)
   (when (not (some (function var-signature) vars))
     ;; a class at a family application (Show (Item l), from IsList's
@@ -570,6 +582,10 @@
 		 (let ((type (and (not (mp-placeholder? p)) (prune (placeholder-tyvar p)))))
 		   (if (and type (ntycon? type)
 			    (or (family-app? (expand-ntype-synonym type))
+				;; or containing one (Eq [(KeyOf map, a)],
+				;; GHC's equalBlockMaps: Eq (KeyOf map) once
+				;; reduced)
+				(contains-family-app? type 8)
 				;; or at a type whose flexible instance its
 				;; variables are yet to choose (ReportS [a],
 				;; Agda's local impossibleSort)

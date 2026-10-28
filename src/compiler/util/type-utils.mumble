@@ -396,9 +396,7 @@
 		(when (eq? r 'stuck) (setf r (given-family-reduction type)))
 		;; or an argument that is an application reducing so
 		;; (SubstArg (SubstArg a) with SubstArg a ~ a given)
-		(when (eq? r 'stuck) (setf r (reduce-with-reduced-args type)))
-		;; or a GADT match's refinement (existentials.mumble)
-		(if (eq? r 'stuck) (gadt-refined-family-reduction type) r))))
+		(if (eq? r 'stuck) (reduce-with-reduced-args type) r))))
     ;; a family whose result is a type constructor, applied to more
     ;; arguments than it has (Rep1 f a): the result applied to the rest
     (if (or (eq? res 'stuck) (<= (length args) arity))

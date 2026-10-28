@@ -94,7 +94,7 @@ open(os.path.join(src, "Config.hs"), "w").write(config)
 
 # Headers: the compiler's, the stage's, the RTS's includes and the
 # generated ones; #include "../includes/X" is #include "X".
-for d in ("compiler", "compiler/parser", "compiler/utils", "compiler/stage1",
+for d in ("compiler", "compiler/parser", "compiler/utils", "compiler/nativeGen", "compiler/stage1",
           "compiler/stage1/build", "includes/dist-derivedconstants/header"):
     for f in os.listdir(os.path.join(ghc, d)):
         if f.endswith((".h", ".hs-incl")) or (d.endswith("header") and f.endswith(".hs")):
@@ -112,8 +112,10 @@ for root, _, files in list(os.walk(src)) + list(os.walk(inc)):
         text = open(path, errors="replace").read()
         new = re.sub(r'#include\s+"(?:\.\./)+includes/(?:dist-derivedconstants/header/)?([^"]+)"',
                      r'#include "\1"', text)
-        # (and "../HsVersions.h": the trees are merged)
-        new = re.sub(r'#include\s+"(?:\.\./)+([^"/]+)"', r'#include "\1"', new)
+        # (and "../HsVersions.h", "nativeGen/NCG.h": the trees are merged)
+        new = re.sub(r'#include\s+"(?:[^"]*/)?([^"/]+)"',
+                     lambda m: '#include "%s"' % m.group(1)
+                     if os.path.exists(os.path.join(inc, m.group(1))) else m.group(0), new)
         if new != text:
             open(path, "w").write(new)
 

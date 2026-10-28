@@ -544,7 +544,10 @@
 (define (soft-expand type)
   (cond ((not (ntycon? type)) type)
 	((family-app? type)
-	 (let ((r (reduce-family-app type)))
+	 ;; (or a GADT match's refinement: gadt-refined-family-reduction,
+	 ;; here only, as a clause's types are the signature's elsewhere)
+	 (let ((r (let ((r1 (reduce-family-app type)))
+		    (if (eq? r1 'stuck) (gadt-refined-family-reduction type) r1))))
 	   ;; (its result a synonym's application, Fact C f = FactBase f)
 	   (if (eq? r 'stuck) type (soft-expand (prune r)))))
 	(else (prune (expand-ntype-synonym type)))))
