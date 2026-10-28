@@ -172,7 +172,7 @@ library
   build-depends: base, array, binary, bytestring, containers, deepseq,
     directory, filepath, process, time, transformers, unix, pretty
   include-dirs: include
-  cpp-options: -DSTAGE=1
+  cpp-options: -DSTAGE=1 -D__GLASGOW_HASKELL__=800
   cc-options: -DUSE_MINIINTERPRETER -DNOSMP
   c-sources: cbits/cutils.c cbits/genSym.c
   exposed-modules:
@@ -182,7 +182,7 @@ executable ghc
   hs-source-dirs: main
   main-is: Main.hs
   default-language: Haskell2010
-  cpp-options: -DSTAGE=1
+  cpp-options: -DSTAGE=1 -D__GLASGOW_HASKELL__=800
   build-depends: base, ghc, directory, filepath, process
 """ % "\n".join("    " + m for m in mods)
 open(os.path.join(stage, "ghc.cabal"), "w").write(cabal)

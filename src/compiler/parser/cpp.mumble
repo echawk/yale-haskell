@@ -48,13 +48,32 @@
       (call-with-input-file filename
 	(lambda (port)
 	  (let ((head  (lisp:with-output-to-string (out)
+			 ;; (a block comment's line starting with "module"
+			 ;; is not the header: GHC's TcRnTypes)
 			 (do ((line (read-line port) (read-line port))
-			      (i 0 (1+ i)))
+			      (i 0 (1+ i))
+			      (depth 0 (if (eof-object? line)
+					   depth
+					   (+ depth (cpp-comment-depth-change line)))))
 			     ((or (eof-object? line) (> i 200)
-				  (string-starts? "module" line)))
+				  (and (<= depth 0) (string-starts? "module" line))))
 			   (write-string line out)
 			   (write-char #\newline out)))))
 	    (cpp-pragma? head))))))
+
+;;; The block comments a line opens less those it closes.
+(define (cpp-comment-depth-change line)
+  (let ((n (string-length line))
+	(d 0)
+	(i 0))
+    (do () ((>= i (1- n)) d)
+      (cond ((and (char=? (string-ref line i) #\{) (char=? (string-ref line (1+ i)) #\-))
+	     (incf d)
+	     (incf i 2))
+	    ((and (char=? (string-ref line i) #\-) (char=? (string-ref line (1+ i)) #\}))
+	     (decf d)
+	     (incf i 2))
+	    (else (incf i))))))
 
 (define (cpp-pragma? text)
   (let ((start  (lisp:search "{-#" text)))

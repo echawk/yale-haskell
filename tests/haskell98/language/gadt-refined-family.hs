@@ -16,7 +16,8 @@ instance IsMap LabelMap where
   mapMap f (LM xs) = LM [(k, f v) | (k, v) <- xs]
 
 type family Fact x f
-type instance Fact C f = LabelMap f
+type FactBase f = LabelMap f
+type instance Fact C f = FactBase f
 type instance Fact O f = f
 
 project :: forall x a. Shape x -> Fact x (a, a) -> Fact x a

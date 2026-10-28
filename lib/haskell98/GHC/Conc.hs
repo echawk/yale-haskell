@@ -6,6 +6,8 @@ module GHC.Conc (numCapabilities, getNumCapabilities, setNumCapabilities,
                  STM, atomically, retry, orElse, throwSTM, catchSTM,
                  unsafeIOToSTM, TVar, newTVar, newTVarIO, readTVar,
                  readTVarIO, writeTVar, closeFdWith, threadWaitReadSTM, threadWaitWriteSTM,
+                 getAllocationCounter, setAllocationCounter,
+                 enableAllocationLimit, disableAllocationLimit,
                  module Control.Concurrent) where
 
 import Control.Concurrent
@@ -14,6 +16,7 @@ import Control.Concurrent.STM (TVar, newTVar, newTVarIO, readTVar, readTVarIO, w
 import Control.Parallel (par, pseq)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.Types (Fd(..))
+import Data.Int (Int64)
 
 numCapabilities :: Int
 numCapabilities = unsafePerformIO getNumCapabilities
@@ -29,3 +32,15 @@ labelThread _ _ = return ()
 -- | Close a descriptor with the given action; no thread waits on it.
 closeFdWith :: (Fd -> IO ()) -> Fd -> IO ()
 closeFdWith close fd = close fd
+
+-- The allocation counter (GHC's per-thread bytes left): Yale Haskell
+-- counts none, so it is 0, and a limit is never reached.
+getAllocationCounter :: IO Int64
+getAllocationCounter = return 0
+
+setAllocationCounter :: Int64 -> IO ()
+setAllocationCounter _ = return ()
+
+enableAllocationLimit, disableAllocationLimit :: IO ()
+enableAllocationLimit = return ()
+disableAllocationLimit = return ()

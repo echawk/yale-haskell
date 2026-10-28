@@ -323,7 +323,11 @@
 		    (lex-one-token)
 		    (let ((tok  (car *tokens*)))
 		      (when (eq? (car tok) 'conid)
-			(push (cadr tok) *promoted-names*))))
+			(push (cadr tok) *promoted-names*)
+			;; 'C names the promoted constructor even where a
+			;; type C is declared too (GHC's type Branched =
+			;; 'Branched): symbol-table.mumble's resolve-tycon
+			(setf (cadr tok) (string-append "'" (cadr tok))))))
 	     (begin
 	       (lex-char)
 	       ;; MagicHash: 'c'# is the Char# literal, the character

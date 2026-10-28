@@ -545,7 +545,8 @@
   (cond ((not (ntycon? type)) type)
 	((family-app? type)
 	 (let ((r (reduce-family-app type)))
-	   (if (eq? r 'stuck) type (prune r))))
+	   ;; (its result a synonym's application, Fact C f = FactBase f)
+	   (if (eq? r 'stuck) type (soft-expand (prune r)))))
 	(else (prune (expand-ntype-synonym type)))))
 
 ;;; f x1 .. xk against T t1 .. tn: f with T t1 .. t(n-k), each x with t.

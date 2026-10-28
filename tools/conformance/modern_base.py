@@ -42,6 +42,11 @@ def split_fail(text):
             e += 1
         fail_lines = block[k:e]
         out.extend(block[:k] + block[e:])
+        # (one the module has already: GHC 8.0's, under #if)
+        ty = re.escape(m.group(2).strip()).replace(r"\ ", r"\s+")
+        if re.search(r"instance\s+(?:[^\n]*=>\s*)?(?:[\w.]*\.)?MonadFail\s+" + ty + r"\s+where", text):
+            i = j
+            continue
         out.append("")
         # (its context's Monad m is MonadFail m: a transformer's fail is m's)
         ctx = re.sub(r"\bMonad(\s+[a-z])", r"MonadFail\1", m.group(1))

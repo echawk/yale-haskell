@@ -722,6 +722,7 @@
   (when (eq? (tycon-def tycon) *undefined-def*)
     (remember-context tycon
       (let ((def (or (promoted-tycon-def (tycon-name tycon))
+		     (ticked-tycon-def (tycon-name tycon))
 		     (fetch-top-def (tycon-name tycon) 'algdata))))
 	(cond ((and (class? def) (haskell98?) (null? (tycon-args tycon)))
 	       ;; ConstraintKinds: a class as a type argument (generic-data's
@@ -813,6 +814,15 @@
 					(let ((d (table-entry (module-symbol-table m) pname)))
 					  (and (algdata? d) d)))))
 			       (list (def-module con) '|PreludeCore|))))))))
+
+;;; 'C where no type 'C is declared: the type C (the parser's promoted
+;;; constructor, add-promoted-constructors, or a type of that name).
+(define (ticked-tycon-def name)
+  (let ((s (symbol->string name)))
+    (and (> (string-length s) 1)
+	 (char=? (string-ref s 0) #\')
+	 (eq? (resolve-toplevel-name name) '#f)
+	 (fetch-top-def (string->symbol (substring s 1 (string-length s))) 'algdata))))
 
 ;;; This should be used after the local environment has been searched.
 ;;; Other routines dealing with variable scoping are elsewhere.
