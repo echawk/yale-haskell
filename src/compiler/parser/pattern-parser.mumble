@@ -435,10 +435,14 @@
 (define (parse-view-pattern)
   (let ((exp (parse-exp)))
     (require-token -> (signal-missing-token "`->'" "view pattern"))
-    (let ((pat (parse-pat))
-	  (name (string->symbol
-		 (format '#f "view%~A" (incf *view-pattern-count*)))))
-      (push (list name exp pat) *view-patterns*)
+    ;; (recorded before the inner pattern is parsed: an inner view's guard
+    ;; uses the variable this one's binds, so it comes after it, JHC's
+    ;; (fromPi -> (fromUnboxedTuple -> Just [s',x], [getType -> s''])))
+    (let* ((name (string->symbol
+		  (format '#f "view%~A" (incf *view-pattern-count*))))
+	   (entry (list name exp '#f)))
+      (push entry *view-patterns*)
+      (setf (caddr entry) (parse-pat))
       (make var-pat (var (generated-var-ref name))))))
 
 ;;; Takes the view patterns recorded since the last call (oldest first).
@@ -623,7 +627,9 @@
   (let ((outer  *view-patterns*))
     (setf *view-patterns* '())
     (let* ((pat    (parse-pat))
-	   (views  (take-view-patterns))   ; inner views first
+	   ;; inner views first (parse-view-pattern records a view before
+	   ;; its inner ones)
+	   (views  (reverse (take-view-patterns)))
 	   (count  0)
 	   (env    '()))
       (setf *view-patterns* outer)
