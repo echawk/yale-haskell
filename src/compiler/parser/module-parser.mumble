@@ -466,7 +466,11 @@
   (setf *family-decls* '())
   (setf *family-data-decls* '())
   (setf *family-equations* '())
-  (when (or (language-extension? "DataKinds") (language-extension? "TypeData"))
+  ;; (TypeData's constructors are types only; DataKinds' promoted ones
+  ;; are found by resolution, top/symbol-table.mumble's
+  ;; promoted-tycon-def, so that one named as an imported type does not
+  ;; hide it: GHC's PmLit constructor of PmPat beside PmExpr's type PmLit)
+  (when (language-extension? "TypeData")
     (add-promoted-constructors mod-ast))
   (when (language-extension? "DuplicateRecordFields")
     (add-duplicate-record-fields mod-ast))
