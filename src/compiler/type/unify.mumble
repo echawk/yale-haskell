@@ -530,6 +530,10 @@
        ;; not when an enclosing signature has a flexible given of the
        ;; class (Hilite (RenamingTo m) =>): the type may be the given's
        (not (enclosing-signature-gives? (instance-class instance)))
+       ;; nor when the class has an instance at an application, which the
+       ;; type may yet be (JHC's TextLike ShowS and TextLike (m a), at t ->
+       ;; t: G Doc -> G Doc)
+       (not (app-catch-all-instance (instance-class instance)))
        (null? (cdr (lisp:remove-if-not
 		    (lambda (i) (eq? (instance-algdata i) (instance-algdata instance)))
 		    (class-instances (instance-class instance)))))
