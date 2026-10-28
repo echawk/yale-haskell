@@ -709,12 +709,26 @@
 (define *cpp-tokens* '())
 
 (define (cpp-eval-if text)
-  (let ((expanded  (cpp-expand (cpp-replace-defined text) '())))
+  (let ((expanded  (cpp-expand (cpp-replace-defined (cpp-strip-c-comments text)) '())))
     (dynamic-let ((*cpp-tokens*  (cpp-tokenize expanded)))
       (let ((v  (cpp-parse-cond)))
 	(when (not (null? (dynamic *cpp-tokens*)))
 	  (cpp-error "cannot read #if ~A" text))
 	(not (eqv? v 0))))))
+
+;;; TEXT without its C comments, /* ... */ and // to the end (GHC's
+;;; #if 0 /* def DEBUG */).
+(define (cpp-strip-c-comments text)
+  (let ((start (lisp:search "/*" text))
+	(line (lisp:search "//" text)))
+    (cond ((and line (or (not start) (< line start)))
+	   (substring text 0 line))
+	  (start
+	   (let ((end (lisp:search "*/" text :start2 (+ start 2))))
+	     (cpp-strip-c-comments
+	      (string-append (substring text 0 start) " "
+			     (if end (substring text (+ end 2) (string-length text)) "")))))
+	  (else text))))
 
 ;;; defined NAME and defined(NAME) become 1 or 0 before expansion.
 
