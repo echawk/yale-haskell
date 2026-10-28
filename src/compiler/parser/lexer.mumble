@@ -481,10 +481,19 @@
   (dolist (name names)
     (let ((off  (no-extension-name name)))
       (if off
-	  (setf (dynamic *language-extensions*)
-		(lisp:remove off (dynamic *language-extensions*)
-			     :test (function string=?)))
 	  (begin
+	    (setf (dynamic *language-extensions*)
+		  (lisp:remove off (dynamic *language-extensions*)
+			       :test (function string=?)))
+	    ;; (NoMonoLocalBinds kept: it overrides TypeFamilies' and GADTs'
+	    ;; implied MonoLocalBinds, type-decl.mumble's mono-local-binds-module?)
+	    (when (string=? off "MonoLocalBinds")
+	      (push name (dynamic *language-extensions*))))
+	  (begin
+	    (when (string=? name "MonoLocalBinds")
+	      (setf (dynamic *language-extensions*)
+		    (lisp:remove "NoMonoLocalBinds" (dynamic *language-extensions*)
+				 :test (function string=?))))
 	    (add-language-extensions (language-standard-extensions name))
 	    (push name (dynamic *language-extensions*)))))))
 

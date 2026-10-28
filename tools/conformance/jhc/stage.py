@@ -289,11 +289,25 @@ for name, path in modules:
         ctx, ty = m.group(1) or "", m.group(2)
         if "=>" in ty:   # (Monad in a context: instance Monad m => OptionMonad ..)
             return m.group(0)
-        key = re.escape(ty.strip())
-        if re.search(r"instance\s+(?:.*=>\s*)?Applicative\s+" + key + r"\s+where", new):
+        # (the type as written elsewhere: with or without its module,
+        # Util.Seq.Seq or Seq; or derived: newtype ContextEither ..
+        # deriving(Functor))
+        bare = re.sub(r"\b(?:[A-Z]\w*\.)+(?=[A-Z])", "", ty.strip())
+        key = re.escape(bare).replace(r"\ ", r"\s+")
+        key = re.sub(r"(?<![\w.])([A-Z]\w*)", r"(?:[A-Z]\\w*\\.)*\1", key)
+        head = re.match(r"\(?\s*([A-Z]\w*)", bare)
+        def has(cls):
+            if re.search(r"instance\s+(?:.*=>\s*)?" + cls + r"\s+" + key + r"\s+where", new):
+                return True
+            if head:
+                d = re.search(r"^(?:data|newtype)\s+" + head.group(1) + r"\b[^\n]*\n?(?:[ \t]+[^\n]*\n)*?[ \t]*deriving\s*\(([^)]*)\)", new, re.M)
+                if d and cls in [c.strip() for c in d.group(1).split(",")]:
+                    return True
+            return False
+        if has("Applicative"):
             return m.group(0)
         out = ""
-        if not re.search(r"instance\s+(?:.*=>\s*)?Functor\s+" + key + r"\s+where", new):
+        if not has("Functor"):
             out += "instance %sFunctor %s where\n    fmap = Control.Monad.liftM\n\n" % (ctx, ty)
         out += ("instance %sApplicative %s where\n    pure = return\n"
                 "    (<*>) = Control.Monad.ap\n\n" % (ctx, ty))
@@ -301,6 +315,51 @@ for name, path in modules:
     new2 = re.sub(r"^instance\s+((?:[^\n]*=>\s*)?)Monad\s+([^\n]+?)\s+where\b", instances, new, flags=re.M)
     if new2 != new:
         new = add_import(new2, "import qualified Control.Monad")
+    if new != text:
+        open(path, "w").write(new)
+
+# Data.Monoid exports Alt and Ap now (base 4.8, 4.12): JHC's E.Type.Alt.
+for name, path in modules:
+    text = open(path, errors="replace").read()
+    new = re.sub(r"^import (Data\.Monoid|Control\.Monad\.(?:Writer|RWS)(?:\.Strict|\.Lazy)?)[ \t]*$",
+                 r"import \1 hiding (Alt(..), Ap(..))", text, flags=re.M)
+    if new != text:
+        open(path, "w").write(new)
+
+# elem on freeVars's result was the list's (GHC 7.x): x `elem` freeVars e
+# is ambiguous at Foldable now; the list it was.
+for name, path in modules:
+    text = open(path, errors="replace").read()
+    new = re.sub(r"([A-Za-z_][\w']*)\s+`(elem|notElem)`\s+freeVars\s+([A-Za-z_][\w']*)",
+                 r"\1 `\2` (freeVars \3 `asTypeOf` [\1])", text)
+    if new != text:
+        open(path, "w").write(new)
+
+# containers 0.6 removed insertWith' (strict): insertWith.
+for name, path in modules:
+    text = open(path, errors="replace").read()
+    new = re.sub(r"\b([A-Z][A-Za-z.]*)\.insertWith'", r"\1.insertWith", text)
+    if new != text:
+        open(path, "w").write(new)
+
+# Foldable has toList, null, length, elem, sum .. as methods now (base
+# 4.8): a module importing Foldable(..) and defining its own imports the
+# old methods only.
+FOLDABLE_NEW = ["toList", "null", "length", "elem", "sum", "product", "maximum", "minimum"]
+for name, path in modules:
+    text = open(path, errors="replace").read()
+    if not re.search(r"Foldable\s*\(\.\.\)", text):
+        continue
+    own = [f for f in FOLDABLE_NEW if re.search(r"^" + f + r"\b", text, re.M)]
+    if own:
+        new = re.sub(r"Foldable\s*\(\.\.\)",
+                     "Foldable(fold, foldMap, foldr, foldl, foldr1, foldl1)", text)
+        open(path, "w").write(new)
+
+# Data.Binary has putList now (Binary's method): JHC's own is jhcPutList.
+for name, path in modules:
+    text = open(path, errors="replace").read()
+    new = re.sub(r"\bputList\b", "jhcPutList", text)
     if new != text:
         open(path, "w").write(new)
 

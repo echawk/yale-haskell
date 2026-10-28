@@ -313,10 +313,16 @@
 	  ;; yet tie them to the enclosing binding's (a case on mlookup a lm,
 	  ;; lm's type decided by MonadReader's improvement later: JHC's let
 	  ;; ss = [a =* v | a <- as ..])
-	  (let ((deferred '()))
+	  (let ((deferred '())
+		(ng (lisp:mapcan (lambda (v) (ntype-free-tyvars v))
+				 (dynamic *non-generic-tyvars*))))
 	    (dolist (e *deferred-family-equalities*)
-	      (setf deferred (append (ntype-free-tyvars (car e))
-				     (ntype-free-tyvars (cdr e)) deferred)))
+	      (let ((vs (append (ntype-free-tyvars (car e)) (ntype-free-tyvars (cdr e)))))
+		;; (only an equation with the enclosing binding's variables
+		;; in it: others leave a local function polymorphic, JHC's
+		;; thops used at [HsType] and HsType)
+		(when (lisp:some (lambda (v) (memq v ng)) vs)
+		  (setf deferred (append vs deferred)))))
 	    (when (not (null? deferred))
 	      (setf all-tyvars (lisp:remove-if (lambda (v) (memq v deferred)) all-tyvars))
 	      (setf (dynamic *non-generic-tyvars*)
@@ -481,6 +487,9 @@
 (define (mono-local-binds-module? var)
   (let ((m (table-entry *modules* (def-module var))))
     (and m
+	 ;; (not where NoMonoLocalBinds turns it off: JHC's TypeFamilies
+	 ;; with NoMonoLocalBinds)
+	 (not (mem-string "NoMonoLocalBinds" (module-extensions m)))
 	 (lisp:some (lambda (e) (mem-string e (module-extensions m)))
 		    '("MonoLocalBinds" "TypeFamilies" "GADTs")))))
 
