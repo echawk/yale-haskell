@@ -422,6 +422,13 @@
 	(when (eq? (var-ref-var v) *undefined-def*)
 	      (setf (var-ref-var v)
 		    (lookup-local-name (var-ref-name v) env)))
+	;; a top-level signature is for the module's own definition, also of
+	;; a Prelude name it clashes with (JHC's Doc.Chars.pi :: TextLike a => a)
+	(when (and (null? env) (def-prelude? (var-ref-var v)))
+	  (let ((own (table-entry *symbol-table* (var-ref-name v))))
+	    (when (and own (not (eq? own *undefined-def*))
+		       (eq? (def-module own) *module-name*))
+	      (setf (var-ref-var v) own))))
 	(let ((def  (var-ref-var v)))
 	  (when (not (eq? def *undefined-def*))
 	    ;; The lookup-local-name may fail if there is a program error.
