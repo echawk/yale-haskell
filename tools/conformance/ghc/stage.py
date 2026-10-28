@@ -75,7 +75,7 @@ for lib in ("ghc-boot", "ghc-boot-th", "template-haskell", "hpc"):
     copy_tree(os.path.join(ghc, "libraries", lib))
 copy_tree(os.path.join(ghc, "libraries", "hoopl", "src"))
 for lib in ("ghc-boot", "ghc-boot-th", "template-haskell", "hpc", "hoopl"):
-    text = open(os.path.join(ghc, "libraries", lib, lib + ".cabal")).read()
+    text = re.sub(r"--[^\n]*", "", open(os.path.join(ghc, "libraries", lib, lib + ".cabal")).read())
     for s in re.split(r"\n\s*(?=[A-Za-z-]+:)", text):
         if re.match(r"(?i)(exposed|other)-modules:", s):
             mods += [m for m in re.split(r"[\s,]+", s.split(":", 1)[1]) if m and not m.startswith("--")]
@@ -166,7 +166,8 @@ for root, _, files in os.walk(src):
         if f.endswith(HS):
             path = os.path.join(root, f)
             text = open(path, errors="replace").read()
-            new = modern_base.add_default_fail(modern_base.add_semigroup(modern_base.split_fail(text)))
+            new = modern_base.add_fail_contexts(modern_base.add_default_fail(
+                modern_base.add_semigroup(modern_base.split_fail(text))))
             # today's Data.List has singleton, containers 0.7's Data.Tree
             # edges: GHC's own (Util's, Digraph's Data.Graph's) clash
             body = re.sub(r"--[^\n]*", "", new)
@@ -196,6 +197,15 @@ for root, _, files in os.walk(src):
         if new != text:
             open(path, "w").write(new)
 
+# happy 2 wraps each nonterminal's type in a newtype: optSemi's
+# ([Located a],Bool) has a variable no newtype binds; its tokens are
+# Located Token.
+parser = os.path.join(src, "Parser.y")
+text = open(parser).read()
+old = "optSemi :: { ([Located a],Bool) }"
+assert old in text
+open(parser, "w").write(text.replace(old, "optSemi :: { ([Located Token],Bool) }"))
+
 # Yale Haskell's Ratio is the Report's, data Integral a => Ratio a: its
 # (:%) wants Integral.
 binary = os.path.join(src, "Binary.hs")
@@ -204,7 +214,8 @@ old = "instance (Binary a) => Binary (Ratio a) where"
 assert old in text
 open(binary, "w").write(text.replace(old, "instance (Integral a, Binary a) => Binary (Ratio a) where"))
 
-mods = sorted(set(mods))
+# (module names only: a cabal file's other words, its flags' names, are not)
+mods = sorted(set(m for m in mods if re.match(r"^[A-Z][\w']*(\.[A-Z][\w']*)*$", m)))
 missing = [m for m in mods if not any(os.path.exists(os.path.join(src, m.replace(".", "/") + e))
                                       for e in (".hs", ".lhs", ".hsc", ".x", ".y"))]
 for m in missing:

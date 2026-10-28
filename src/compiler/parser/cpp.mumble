@@ -240,6 +240,17 @@
 		;; blank lines keep the numbering
 		(let ((extra  0))
 		  (when (cpp-active? conds)
+		    ;; a line ending in \ whose next line does not start with \
+		    ;; (not a string gap) is spliced to it, as cpp does
+		    ;; (GHC's panic "... not found in\ / module dependency
+		    ;; graph")
+		    (do ()
+			((not (cpp-spliced-line? line lines)))
+		      (setf line (string-append
+				  (substring line 0 (1- (string-length line)))
+				  (car lines)))
+		      (setf lines (cdr lines))
+		      (incf extra))
 		    (do ()
 			((or (null? lines) (not (cpp-unfinished-macro-call? line))))
 		      (setf line (string-append line " " (car lines)))
@@ -252,6 +263,18 @@
 		    (write-char #\newline out)))))))
       (when (not (null? conds))
 	(cpp-error "#if without #endif")))))
+
+(define (cpp-spliced-line? line lines)
+  (let ((n (string-length line)))
+    (and (not (null? lines))
+	 (> n 0)
+	 (char=? (string-ref line (1- n)) #\\)
+	 ;; (not \\, an operator, nor a comment line's)
+	 (not (and (> n 1) (char=? (string-ref line (- n 2)) #\\)))
+	 (not (string-starts? "--" (lisp:string-left-trim '(#\space #\tab) line)))
+	 (let ((next (lisp:string-left-trim '(#\space #\tab) (car lines))))
+	   (not (and (> (string-length next) 0)
+		     (char=? (string-ref next 0) #\\)))))))
 
 (define (cpp-active? conds)
   (or (null? conds) (car (car conds))))

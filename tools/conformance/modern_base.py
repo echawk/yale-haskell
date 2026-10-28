@@ -131,6 +131,56 @@ def add_default_fail(text):
     return out
 
 
+def add_fail_contexts(text):
+    """fail was Monad's (base 4.8): a top-level signature with a context,
+    whose result is m x and whose clauses call fail, gets MonadFail m."""
+    lines = text.split("\n")
+    i = 0
+    out = []
+    while i < len(lines):
+        line = lines[i]
+        m = re.match(r"([a-z_][\w']*)\s*::(.*)$", line)
+        if not m:
+            out.append(line)
+            i += 1
+            continue
+        name = m.group(1)
+        sig = [line]
+        j = i + 1
+        while j < len(lines) and lines[j][:1] in (" ", "\t") and lines[j].strip():
+            sig.append(lines[j])
+            j += 1
+        k = j
+        body = []
+        while k < len(lines) and (lines[k].startswith(name) or lines[k][:1] in (" ", "\t", "") ):
+            if lines[k] and not lines[k][:1].isspace() and not lines[k].startswith(name):
+                break
+            body.append(lines[k])
+            k += 1
+        sigtext = " ".join(sig)
+        res = re.search(r"->\s*([a-z]\w*)\s+[^>]*$", sigtext) or re.search(r"::[^>]*=>\s*([a-z]\w*)\s", sigtext)
+        uses = re.search(r"\bfail\b", re.sub(r"--[^\n]*", "", "\n".join(body)))
+        if "=>" in sigtext and res and uses and "MonadFail" not in sigtext:
+            v = res.group(1)
+            mf = "Control.Monad.Fail.MonadFail %s" % v
+            m2 = re.match(r"(.*?::\s*)(\(?)(.*)$", sig[0])
+            if m2.group(2):
+                sig[0] = m2.group(1) + "(" + mf + ", " + m2.group(3)
+            else:
+                # (a single constraint C m => on the first line)
+                m3 = re.match(r"(.*?::\s*)([^=]*?)(\s*=>.*)$", sig[0])
+                if m3:
+                    sig[0] = m3.group(1) + "(" + mf + ", " + m3.group(2) + ")" + m3.group(3)
+                else:
+                    sig[0] = m2.group(1) + mf + " => " + m2.group(3)
+        out.extend(sig)
+        i = j
+    new = "\n".join(out)
+    if new != text and not re.search(r"^import\s+(qualified\s+)?Control\.Monad\.Fail[ \t]*$", new, re.M):
+        new = add_import(new, "import qualified Control.Monad.Fail")
+    return new
+
+
 def add_semigroup(text):
     """Monoid instances want Semigroup ones (base 4.11): one beside each
     Monoid instance whose module has none, (<>) its mappend."""
