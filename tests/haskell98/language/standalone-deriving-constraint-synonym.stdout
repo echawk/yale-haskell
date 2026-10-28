@@ -1,0 +1,2 @@
+Lit {name = Id 1, ty = True, self = Id 2}
+Lit {name = Name "n", ty = PlaceHolder, self = PlaceHolder}

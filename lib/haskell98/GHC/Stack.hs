@@ -8,8 +8,11 @@ module GHC.Stack (
     HasCallStack, CallStack, SrcLoc(..),
     callStack, emptyCallStack, freezeCallStack, fromCallSiteList,
     getCallStack, popCallStack, prettyCallStack, prettySrcLoc,
-    pushCallStack, withFrozenCallStack, currentCallStack
+    pushCallStack, withFrozenCallStack, currentCallStack,
+    module GHC.Stack.CCS
   ) where
+
+import GHC.Stack.CCS hiding (currentCallStack)
 
 import Data.List (intercalate)
 import PreludeModern (IP(..))

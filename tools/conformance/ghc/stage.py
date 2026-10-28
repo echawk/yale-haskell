@@ -135,6 +135,16 @@ for root, _, files in os.walk(src):
             path = os.path.join(root, f)
             text = open(path, errors="replace").read()
             new = modern_base.add_semigroup(modern_base.split_fail(text))
+            # today's Data.List has singleton, containers 0.7's Data.Tree
+            # edges: GHC's own (Util's, Digraph's Data.Graph's) clash
+            body = re.sub(r"--[^\n]*", "", new)
+            if re.search(r"\bsingleton\b", body):
+                new = re.sub(r"^import Data\.List[ \t]*$", "import Data.List hiding (singleton)", new, flags=re.M)
+            if re.search(r"\bedges\b", body):
+                new = re.sub(r"^import Data\.Tree[ \t]*$", "import Data.Tree hiding (edges)", new, flags=re.M)
+            # (GHC's Outputable and Pretty have their own <>)
+            if re.search(r"<>", re.sub(r"--[^\n]*", "", new)):
+                new = modern_base.hide_prelude(new, ["(<>)"])
             if new != text:
                 open(path, "w").write(new)
 
@@ -153,6 +163,14 @@ for root, _, files in os.walk(src):
                          lambda m: a + ".foldr" + (m.group(1) or ""), new)
         if new != text:
             open(path, "w").write(new)
+
+# Yale Haskell's Ratio is the Report's, data Integral a => Ratio a: its
+# (:%) wants Integral.
+binary = os.path.join(src, "Binary.hs")
+text = open(binary).read()
+old = "instance (Binary a) => Binary (Ratio a) where"
+assert old in text
+open(binary, "w").write(text.replace(old, "instance (Integral a, Binary a) => Binary (Ratio a) where"))
 
 mods = sorted(set(mods))
 missing = [m for m in mods if not any(os.path.exists(os.path.join(src, m.replace(".", "/") + e))

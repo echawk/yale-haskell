@@ -136,8 +136,9 @@
 		 (let ((before insts))
 		   (setf insts (derive-instance alg (class-ref-class class-ref) insts))
 		   ;; (a context on types that are not variables: inference
-		   ;; cannot give it)
-		   (when (and stand? (pair? stand-mp)
+		   ;; cannot give it; and as GHC, any declared context is the
+		   ;; instance's: GHC's (DataId id) => Data (HsOverLit id))
+		   (when (and stand? (or (pair? stand-mp) (pair? stand-ctx))
 			      (not (eq? insts before)) (pair? insts))
 		     (use-declared-context (car insts) stand-ctx stand-mp stand-args))))))))
     insts))
@@ -147,6 +148,12 @@
 ;;; it, not one inferred from the fields (Token s, a family application,
 ;;; has no instances to look in).
 (define (use-declared-context inst ctx mctx args)
+  ;; its constraint synonyms expanded (GHC's DataId id)
+  (let ((sig (make signature (context ctx) (type (**tyvar '|a|))
+		   (mcontext mctx) (foralls '()))))
+    (expand-constraint-synonyms sig)
+    (setf ctx (signature-context sig))
+    (setf mctx (signature-mcontext sig)))
   (dolist (c ctx)
     (resolve-class (context-class c)))
   (dolist (c mctx)
@@ -700,6 +707,25 @@
 	 (setf (instance-ok? inst) '#f)
 	 (setf *di-context-changed* '#t)
 	 '#f)
+	((and (synonym? (tycon-def type))
+	      (eq? (synonym-family? (tycon-def type)) '#t))
+	 ;; a type family's application (GHC's PostRn id ty): its equation's
+	 ;; right-hand side where one matches, else a context on it as for
+	 ;; an application of a type variable
+	 (let ((r (reduce-ast-family-app type)))
+	   (cond (r (propagate-type-context inst class r))
+		 ((lisp:some
+		   (lambda (mc)
+		     (and (eq? (class-ref-class (mp-context-class mc)) class)
+			  (ast-types-equal? (car (mp-context-types mc)) type)))
+		   (instance-mcontext inst))
+		  '#t)
+		 (else
+		  (setf *di-context-changed* '#t)
+		  (setf (instance-mcontext inst)
+			(append (instance-mcontext inst)
+				(list (**mp-context (**class/def class) (list type)))))
+		  '#t))))
 	((synonym? (tycon-def type))
 	 (propagate-type-context inst class (expand-synonym type)))
 	(else
@@ -763,6 +789,17 @@
   (if (eq? tyvar (car tyvars))
       (car args)
       (find-corresponding-tyvar tyvar (cdr tyvars) (cdr args))))
+
+;;; A type family application's right-hand side by the first equation
+;;; whose patterns match its arguments, or #f.
+(define (reduce-ast-family-app type)
+  (let ((m '#f))
+    (dolist (e (synonym-equations (tycon-def type)))
+      (when (not m)
+	(let ((alist (ast-family-match (tuple-2-1 e) (tycon-args type) '())))
+	  (when alist
+	    (setf m (copy-synonym-body (tuple-2-2 e) (cdr alist)))))))
+    m))
 
 ;;; 1 level type synonym expansion
 

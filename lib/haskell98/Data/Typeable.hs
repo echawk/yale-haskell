@@ -9,7 +9,7 @@ module Data.Typeable (
     Typeable(primTypeRepOf), TypeRep, TyCon, Proxy(Proxy),
     typeOf, typeRep, cast, gcast, gcast1, gcast2, eqTypeRep,
     typeRepTyCon, typeRepArgs, splitTyConApp, funResultTy, tyConName,
-    tyConModule, tyConPackage,
+    tyConModule, tyConPackage, mkTyCon3, mkTyConApp,
     showsTypeRep, rnfTypeRep, primTypeableDict, typeRepFingerprint
   ) where
 
@@ -35,6 +35,14 @@ instance Show TyCon where
 
 tyConName :: TyCon -> String
 tyConName (TyCon n _) = n
+
+-- base 4.9's (GHC's Binary TyCon): a type constructor by its package,
+-- module and name (Yale Haskell's has no package), and an application
+mkTyCon3 :: String -> String -> String -> TyCon
+mkTyCon3 _ m n = TyCon n m
+
+mkTyConApp :: TyCon -> [TypeRep] -> TypeRep
+mkTyConApp = TypeRep
 
 tyConModule :: TyCon -> String
 tyConModule (TyCon _ m) = m

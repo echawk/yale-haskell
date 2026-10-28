@@ -39,11 +39,25 @@
 	    (let ((var  (decl-var d)))
 	      (setf (var-type var) (var-signature var))))
 	  (when (not (null? unsigned))
-	    (type-recursive (reverse unsigned)))
+	    (type-unsigned-groups (reverse unsigned)))
 	  (dolist (d (reverse signed))
 	    (type-non-recursive d '#t))))))
 
 ;;; A binding of a single variable that has a type signature.
+
+;;; The bindings without signatures of a group with some, in their own
+;;; recursive groups, references to the signed ones being none (H98 4.5.1:
+;;; GHC's tyConsOfType's go_s, using only the signed go, is generalized
+;;; apart from go_co, so its Foldable is decided at its use).
+(define (type-unsigned-groups decls)
+  (if (null? (cdr decls))
+      (type-recursive decls)
+      (let ((sorted (dynamic-let ((*depend-fn-table* (make-table)))
+		      (restructure-decl-list decls))))
+	(dolist (s sorted)
+	  (if (is-type? 'recursive-decl-group s)
+	      (type-recursive (recursive-decl-group-decls s))
+	      (type-recursive (list s)))))))
 
 (define (signed-decl? decl)
   (let ((vars  (collect-pattern-vars (valdef-lhs decl))))

@@ -14,6 +14,35 @@ def add_import(text, line):
     return text[:m.end()] + line + "\n" + text[m.end():] if m else text
 
 
+def outside_cpp(text, pos):
+    """Whether POS is outside every #if (whose branch may not be taken)."""
+    depth = 0
+    for line in text[:pos].split("\n"):
+        if re.match(r"#\s*if", line):
+            depth += 1
+        elif re.match(r"#\s*endif", line):
+            depth -= 1
+    return depth <= 0
+
+
+def hide_prelude(text, names):
+    """Today's Prelude has NAMES (<>: base 4.11), which the module's own or
+    another library's clash with: the Prelude's hidden."""
+    hidden = "import Prelude hiding (%s)" % ", ".join(names)
+    m = re.search(r"^import\s+Prelude\s+hiding\s*\(", text, re.M)
+    if m and outside_cpp(text, m.start()):
+        return text[:m.end()] + " ".join(n + "," for n in names) + " " + text[m.end():]
+    m = re.search(r"^import\s+Prelude[ \t]*(--[^\n]*)?$", text, re.M)
+    if m and outside_cpp(text, m.start()):
+        return text[:m.start()] + hidden + text[m.end():]
+    m = re.search(r"^import\s+(qualified\s+)?Prelude\b", text, re.M)
+    if m and outside_cpp(text, m.start()):
+        # (an import list, or qualified only: no implicit Prelude)
+        return text
+    # (none, or only under an #if: GHC 7's)
+    return add_import(text, hidden)
+
+
 def split_fail(text):
     """A Monad instance's fail is a MonadFail instance's now (base 4.13)."""
     lines = text.split("\n")

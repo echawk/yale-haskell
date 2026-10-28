@@ -23,6 +23,7 @@ import ConcurrentPrims (primForkThread, primThreadDelay, primYield)
 import System.Posix.Types (Fd(..))
 import BasePrims (primWaitFd)
 import ConcurrentBase (ThreadId(..), myThreadId, withMaskState)
+import System.Mem.Weak (Weak, mkWeakPtr)
 
 forkIO :: IO () -> IO ThreadId
 forkIO act = fmap ThreadId (primForkThread (try act >>= report))
@@ -79,8 +80,8 @@ isCurrentThreadBound = return True
 threadCapability :: ThreadId -> IO (Int, Bool)
 threadCapability _ = return (0, False)
 
-mkWeakThreadId :: ThreadId -> IO ThreadId
-mkWeakThreadId = return
+mkWeakThreadId :: ThreadId -> IO (Weak ThreadId)
+mkWeakThreadId t = mkWeakPtr t Nothing
 
 -- | Block until the descriptor can be read, or written (network's
 -- non-blocking sockets wait here); other threads run meanwhile.

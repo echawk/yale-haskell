@@ -1,0 +1,3 @@
+Lit {val = 3, ty = True}
+Lit {val = 4, ty = PlaceHolder}
+Pair 1 PlaceHolder

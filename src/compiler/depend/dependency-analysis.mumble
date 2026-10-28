@@ -77,6 +77,13 @@
 ;;; special structures: recursive-decl-group
 
 (define (restructure-decl-list decls)
+ ;; (sorted again by the type checker, groups and all: type/type-decl
+ ;; .mumble's type-unsigned-groups)
+ (let ((decls (lisp:mapcan (lambda (d)
+			     (if (is-type? 'recursive-decl-group d)
+				 (lisp:copy-list (recursive-decl-group-decls d))
+				 (list d)))
+			   decls)))
   (let ((stack '())
 	(now 0)
 	(sorted-decls '())
@@ -135,7 +142,7 @@
     (dolist (decl decls)
       (dolist (var (collect-pattern-vars (valdef-lhs decl)))
 	(setf (var-depend-fn (var-ref-var var)) '#f)))
-    (nreverse sorted-decls))))
+    (nreverse sorted-decls)))))
 
 ;;; This is the only non-default walker needed.  When a reference to a
 ;;; variable is encountered, the sort algorithm above is notified.

@@ -4,7 +4,7 @@
 -- matches a ratio's numerator and denominator, and builds x % y (the
 -- same ratio when x :% y is reduced, as base's are).
 module GHC.Real (
-    Ratio, Rational, pattern (:%), (%), numerator, denominator, reduce,
+    Ratio((:%)), Rational, pattern (:%), (%), numerator, denominator, reduce,
     Real(..), Integral(..), Fractional(..), RealFrac(..),
     fromIntegral, realToFrac, (^), (^^), gcd, lcm, even, odd,
     showSigned, numericEnumFrom, numericEnumFromThen, numericEnumFromTo,
