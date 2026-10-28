@@ -194,6 +194,8 @@
       ;; plain variable there): gadt-pattern-vars
       (push (tuple (refined-index-positions type) scrutinee)
 	    (dynamic *gadt-refinements*))
+      (push (cons scrutinee (con-type-result type))
+	    (dynamic *gadt-index-refinements*))
       ;; an index the result has as a plain variable is the scrutinee's
       ;; (profunctors' Prep :: x -> p x a -> Prep p a: p and a)
       (link-unrefined-indices type scrutinee)
@@ -204,6 +206,45 @@
 	      hidden))))
 
 (define *gadt-refinements* '())
+
+;;; (scrutinee . the constructor's result) of the GADT constructors the
+;;; clause matched: a type family application stuck at a scrutinee's index
+;;; variable reduces at the constructor's index there (Hoopl's project
+;;; Closed: Fact x f, x C there, is FactBase f).
+(define *gadt-index-refinements* '())
+
+(define (gadt-refined-family-reduction type)
+  (let ((env '()))
+    (dolist (r (dynamic *gadt-index-refinements*))
+      (let ((s (prune (car r)))
+	    (res (prune (cdr r))))
+	(when (and (ntycon? s) (ntycon? res)
+		   (eqv? (length (ntycon-args s)) (length (ntycon-args res))))
+	  (dolist2 (a (ntycon-args s)) (b (ntycon-args res))
+	    (let ((a (prune a))
+		  (b (prune b)))
+	      (when (and (ntyvar? a) (not (ntyvar? b)) (not (assq a env)))
+		(push (cons a b) env)))))))
+    (if (and (not (null? env))
+	     (lisp:some (lambda (p) (occurs-in-type (car p) type)) env))
+	(let ((r (reduce-family-app-1 (synonym-equations (ntycon-tycon type))
+				      (map (lambda (a) (subst-ntyvars a env))
+					   (ntycon-args type)))))
+	  r)
+	'stuck)))
+
+(define (subst-ntyvars type env)
+  (let ((type (prune type)))
+    (cond ((ntyvar? type)
+	   (let ((b (assq type env)))
+	     (if b (cdr b) type)))
+	  ((ntycon? type)
+	   (**ntycon (ntycon-tycon type)
+		     (map (lambda (a) (subst-ntyvars a env)) (ntycon-args type))))
+	  ((ntyapp? type)
+	   (**ntyapp (subst-ntyvars (ntyapp-fun type) env)
+		     (map (lambda (a) (subst-ntyvars a env)) (ntyapp-args type))))
+	  (else type))))
 
 ;;; The result of the last GADT constructor pattern checked, when it
 ;;; refines its type's indices: b in b@BNil{} is a Block n O O, as BNil's
@@ -383,7 +424,9 @@
 
 (define (record-gadt-cast object inner outer)
   (when (memq object (dynamic *gadt-casts*))
-    (push (list object (car (dynamic *enclosing-decls*)) inner outer)
+    ;; (and the clause's GADT refinements, for its family applications)
+    (push (list object (car (dynamic *enclosing-decls*)) inner outer
+		(dynamic *gadt-index-refinements*))
 	  (dynamic *gadt-cast-types*))))
 
 (define (gadt-soft-unify var)
@@ -395,9 +438,11 @@
 				(collect-pattern-vars (valdef-lhs decl)))))
 	    (let ((inner (caddr entry))
 		  (outer (cadddr entry)))
-	      (if (eq? (car entry) 'coerce)
-		  (coercible-unify inner outer 16)
-		  (soft-unify-parts inner outer 16)))
+	      (dynamic-let ((*gadt-index-refinements*
+			     (if (pair? (cddddr entry)) (car (cddddr entry)) '())))
+		(if (eq? (car entry) 'coerce)
+		    (coercible-unify inner outer 16)
+		    (soft-unify-parts inner outer 16))))
 	    (push entry keep))))
     (setf (dynamic *gadt-cast-types*) (reverse keep))))
 
@@ -468,8 +513,10 @@
 ;;; U1), unify m with ReadPrec, so that pure's Applicative is not
 ;;; ambiguous, and leave U1 p and a (the GADT's refinement) apart.
 (define (soft-unify-parts t1 t2 depth)
-  (let ((t1 (prune t1))
-	(t2 (prune t2)))
+  ;; (a synonym expanded: FactBase f is LabelMap f, not map a's map
+  ;; FactBase applied to f: Hoopl's exitFacts)
+  (let ((t1 (soft-expand (prune t1)))
+	(t2 (soft-expand (prune t2))))
     (cond ((could-unify? t1 t2 32)
 	   (type-unify t1 t2 '#f))
 	  ((<= depth 0) '#f)
@@ -491,6 +538,15 @@
 		(>= (length (ntycon-args t1)) (length (ntyapp-args t2))))
 	   (soft-unify-app-parts t2 t1 depth))
 	  (else '#f))))
+
+;;; A type synonym's application expanded, a family's reduced if it can
+;;; be (at the clause's GADT refinements: gadt-refined-family-reduction).
+(define (soft-expand type)
+  (cond ((not (ntycon? type)) type)
+	((family-app? type)
+	 (let ((r (reduce-family-app type)))
+	   (if (eq? r 'stuck) type (prune r))))
+	(else (prune (expand-ntype-synonym type)))))
 
 ;;; f x1 .. xk against T t1 .. tn: f with T t1 .. t(n-k), each x with t.
 (define (soft-unify-app-parts app con depth)

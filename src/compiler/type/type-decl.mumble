@@ -419,6 +419,7 @@
  (dynamic-let ((*gadt-match* '#f)
 	       (*deferred-polytype-args* (list '()))
 	       (*gadt-refinements* '())
+	       (*gadt-index-refinements* (dynamic *gadt-index-refinements*))
 	       ;; pattern signatures bind type variables for this clause
 	       (*scoped-tyvars* (dynamic *scoped-tyvars*)))
   (fresh-monomorphic-types (length (single-fun-def-args object)) tyvars
@@ -611,6 +612,14 @@
 ;;; with the overall context of the declaration group.
 
 (define (check-user-signatures vars)
+  ;; a signature of scoped variables only was the declaration's type
+  ;; (scoped-tyvars.mumble's scoped-signatures, which drops it): its GADT
+  ;; right-hand sides too (Hoopl's exitLabel :: MaybeO x (block n C O) ->
+  ;; LabelSet, whose setEmpty is a LabelSet)
+  (dolist (v vars)
+    (when (and (not (var-signature v))
+	       (lisp:gethash v *dropped-scoped-signatures*))
+      (gadt-soft-unify v)))
   (cond ((null? vars)   ; a pattern binding of no variables: let _ = e
 	 '())
 	((null? (cdr vars))

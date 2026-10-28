@@ -212,7 +212,8 @@
 	(dolist (object (case-alts object))
 	  (recover-type-error ;;; %%% Needs work
 	   (dynamic-let ((*gadt-match* '#f)
-			 (*gadt-refinements* '()))
+			 (*gadt-refinements* '())
+			 (*gadt-index-refinements* (dynamic *gadt-index-refinements*)))
 	   (type-check alt pat pat-type
 	     (type-unify pat-type arg-type
                  (type-mismatch case-exp
