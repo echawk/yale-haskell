@@ -55,11 +55,12 @@ cabal_in = open(os.path.join(ghc, "compiler", "ghc.cabal.in")).read()
 dirs = re.search(r"hs-source-dirs:\s*\n((?:\s+\S+\n)+)", cabal_in).group(1).split()
 for d in dirs:
     copy_tree(os.path.join(ghc, "compiler", d))
-# (the lexer and parser from their sources: Yale's alex and happy)
-for f in ("Lexer.hs", "Parser.hs"):
-    os.remove(os.path.join(src, f))
-shutil.copy(os.path.join(ghc, "compiler", "parser", "Lexer.x.source"), os.path.join(src, "Lexer.x"))
-shutil.copy(os.path.join(ghc, "compiler", "parser", "Parser.y.source"), os.path.join(src, "Parser.y"))
+# (the lexers and parsers from their sources: Yale's alex and happy)
+for d, lexer, parser in (("parser", "Lexer", "Parser"), ("cmm", "CmmLex", "CmmParse")):
+    for f in (lexer, parser):
+        os.remove(os.path.join(src, f + ".hs"))
+    shutil.copy(os.path.join(ghc, "compiler", d, lexer + ".x.source"), os.path.join(src, lexer + ".x"))
+    shutil.copy(os.path.join(ghc, "compiler", d, parser + ".y.source"), os.path.join(src, parser + ".y"))
 
 # The modules: the library's, not those of GHCi (stage 1 has none).
 mods = []
@@ -165,7 +166,7 @@ for root, _, files in os.walk(src):
         if f.endswith(HS):
             path = os.path.join(root, f)
             text = open(path, errors="replace").read()
-            new = modern_base.add_semigroup(modern_base.split_fail(text))
+            new = modern_base.add_default_fail(modern_base.add_semigroup(modern_base.split_fail(text)))
             # today's Data.List has singleton, containers 0.7's Data.Tree
             # edges: GHC's own (Util's, Digraph's Data.Graph's) clash
             body = re.sub(r"--[^\n]*", "", new)

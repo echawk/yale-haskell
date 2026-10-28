@@ -1,9 +1,9 @@
 -- System.Posix.Internals (base), the terminal functions darcs and its
 -- like use: echo and canonical mode, on the controlling terminal.
-module System.Posix.Internals (getEcho, setEcho, setCooked, setNonBlockingFD, setCloseOnExec) where
+module System.Posix.Internals (getEcho, setEcho, setCooked, setNonBlockingFD, setCloseOnExec, c_getpid) where
 
 import BasePrims (primGetEcho, primSetEcho)
-import PosixPrims (primSetCooked, primPosixSetFdOption)
+import PosixPrims (primSetCooked, primPosixSetFdOption, primGetProcessID)
 import Foreign.C.Types (CInt)
 
 getEcho :: CInt -> IO Bool
@@ -22,3 +22,7 @@ setNonBlockingFD fd on = primPosixSetFdOption (fromIntegral fd) 2 on
 -- FD_CLOEXEC on the descriptor (network's sockets)
 setCloseOnExec :: CInt -> IO ()
 setCloseOnExec fd = primPosixSetFdOption (fromIntegral fd) 1 True
+
+-- getpid(2) (GHC's SysTools: temporary file names)
+c_getpid :: IO CInt
+c_getpid = fmap fromIntegral primGetProcessID

@@ -7,15 +7,24 @@
 
 ;;; The line and column of a pragma that began its line and was skipped
 ;;; (lexer.mumble's skip-pragma): the line's first token is at its column
-;;; for the layout ({-# SCC f #-} stmt in a do block, commonmark's).
+;;; for the layout ({-# SCC f #-} stmt in a do block, commonmark's), and
+;;; so is a token on a later line after it.
 (define *pragma-line-col* '#f)
 
 (define (emit-token type . args)
   (cond (*on-new-line?*
-	 (push (list 'line *start-line*
-		     (if (and *pragma-line-col* (eqv? (car *pragma-line-col*) *start-line*))
-			 (cdr *pragma-line-col*)
-			 *start-col*))
+	 ;; (or on a line of its own, the expression on the next lines
+	 ;; deeper: GHC's {-# SCC "llvm_datas_gen" #-} / cmmDataLlvmGens
+	 ;; cdata, the pragma beginning the statement)
+	 (push (cond ((not *pragma-line-col*)
+		      (list 'line *start-line* *start-col*))
+		     ((eqv? (car *pragma-line-col*) *start-line*)
+		      (list 'line *start-line* (cdr *pragma-line-col*)))
+		     ;; (only a deeper line continues it: {-# INLINABLE (==)
+		     ;; #-} then the next declaration does not)
+		     ((> *start-col* (cdr *pragma-line-col*))
+		      (list 'line (car *pragma-line-col*) (cdr *pragma-line-col*)))
+		     (else (list 'line *start-line* *start-col*)))
 	       *tokens*))
 	(*save-col?*
 	 (push (list 'col *start-col*) *tokens*)))

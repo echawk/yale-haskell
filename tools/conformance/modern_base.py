@@ -105,9 +105,30 @@ def split_fail(text):
         out.append("")
         i = j
     new = "\n".join(out)
-    if new != text and not re.search(r"^import\s+(qualified\s+)?Control\.Monad\.Fail\b", new, re.M):
+    if new != text and not re.search(r"^import\s+(qualified\s+)?Control\.Monad\.Fail[ \t]*$", new, re.M):
         new = add_import(new, "import qualified Control.Monad.Fail")
     return new
+
+
+def add_default_fail(text):
+    """A Monad instance without fail had base 4.8's default, error: a
+    MonadFail instance with it, unless the module has one for the type."""
+    code = blank_comments(text)
+    out = text
+    for m in re.finditer(r"^instance\s+((?:[^\n]*=>\s*)?)(?:[\w.]*\.)?Monad\s+(.+?)\s+where\b", code, re.M):
+        if not outside_cpp(text, m.start()):
+            continue
+        ctx, ty = m.group(1), m.group(2).strip()
+        if "=>" in ty:
+            continue
+        key = re.escape(ty).replace(r"\ ", r"\s+")
+        if re.search(r"instance\s+(?:[^\n]*=>\s*)?(?:[\w.]*\.)?MonadFail\s+" + key + r"\s+where", code):
+            continue
+        out = out.rstrip("\n") + ("\n\n-- (base 4.8's Monad fail)\ninstance %sControl.Monad.Fail.MonadFail %s where\n"
+                                   "    fail = error\n" % (ctx, ty))
+    if out != text and not re.search(r"^import\s+(qualified\s+)?Control\.Monad\.Fail[ \t]*$", out, re.M):
+        out = add_import(out, "import qualified Control.Monad.Fail")
+    return out
 
 
 def add_semigroup(text):
