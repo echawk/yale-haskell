@@ -309,6 +309,18 @@
 	;; FreeVars [a] b, JHC's localJumps): its variables kept monomorphic,
 	;; for the use to decide, as MonoLocalBinds would
 	(when (not (some (function var-toplevel?) all-vars))
+	  ;; nor the variables of a family equation still deferred: it may
+	  ;; yet tie them to the enclosing binding's (a case on mlookup a lm,
+	  ;; lm's type decided by MonadReader's improvement later: JHC's let
+	  ;; ss = [a =* v | a <- as ..])
+	  (let ((deferred '()))
+	    (dolist (e *deferred-family-equalities*)
+	      (setf deferred (append (ntype-free-tyvars (car e))
+				     (ntype-free-tyvars (cdr e)) deferred)))
+	    (when (not (null? deferred))
+	      (setf all-tyvars (lisp:remove-if (lambda (v) (memq v deferred)) all-tyvars))
+	      (setf (dynamic *non-generic-tyvars*)
+		    (append deferred (dynamic *non-generic-tyvars*)))))
 	  (let ((mono (local-instance-mp-tyvars (dynamic *placeholders*))))
 	    (when (not (null? mono))
 	      (setf all-tyvars (lisp:remove-if (lambda (v) (memq v mono)) all-tyvars))
