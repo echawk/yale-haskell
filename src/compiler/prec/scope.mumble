@@ -153,6 +153,15 @@
     "Ambiguous occurrence ~A: it could refer to ~A.~%Use a qualified name."
     name candidates))
 
+;;; A data constructor used unqualified: as a variable, a name two imports
+;;; (or an import and the module) define differently is ambiguous.
+
+(define (lookup-constructor-name name)
+  (let ((clash  (name-clash name)))
+    (when clash
+      (signal-ambiguous-name name clash)))
+  (lookup-toplevel-name name))
+
 ;;; Some kinds of names (e.g. type definitions) appear only at top-level,
 ;;; so use this to look for them directly.
 
@@ -798,7 +807,7 @@
       (begin
 	(when (eq? (con-ref-con object) *undefined-def*)
 	  (setf (con-ref-con object)
-		(lookup-toplevel-name (con-ref-name object))))
+		(lookup-constructor-name (con-ref-name object))))
 	object)))
 
 (define-walker-method scope list-comp (object env)
@@ -1073,7 +1082,7 @@
 
 (define (desugar-record-con-1 object env)
   (let* ((con-ref (record-con-con object))
-	 (con (lookup-toplevel-name (con-ref-name con-ref)))
+	 (con (lookup-constructor-name (con-ref-name con-ref)))
 	 (binds (resolve-field-bindings (record-con-fields object) con)))
     (if (not (con? con))
 	(**abort "Bad record construction")
@@ -1380,7 +1389,7 @@
 (define (desugar-record-pat-1 pat)
   (let* ((pcon (record-pat-con pat))
 	 (con (if (eq? (pcon-con pcon) *undefined-def*)
-		  (lookup-toplevel-name (pcon-name pcon))
+		  (lookup-constructor-name (pcon-name pcon))
 		  (pcon-con pcon)))
 	 (binds (resolve-field-bindings (record-pat-fields pat) con)))
     (setf (pcon-con pcon) con)

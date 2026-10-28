@@ -143,7 +143,7 @@
 	   (massage-pattern-list (pcon-pats pat)))))
 	((is-type? 'pcon pat)
 	 (when (eq? (pcon-con pat) *undefined-def*)
-	   (setf (pcon-con pat) (lookup-toplevel-name (pcon-name pat))))
+	   (setf (pcon-con pat) (lookup-constructor-name (pcon-name pat))))
 	 (setf (pcon-pats pat) (massage-pattern-list (pcon-pats pat)))
 	 pat)
 	((is-type? 'list-pat pat)
