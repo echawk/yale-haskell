@@ -308,7 +308,10 @@
 	;; matches without deciding (FreeVars [t] b, by FreeVars a b =>
 	;; FreeVars [a] b, JHC's localJumps): its variables kept monomorphic,
 	;; for the use to decide, as MonoLocalBinds would
-	(when (not (some (function var-toplevel?) all-vars))
+	(when (and (not (some (function var-toplevel?) all-vars))
+		   ;; (a binding without a signature: an instance's method has
+		   ;; one, its variables the signature's)
+		   (not (some (function var-signature) all-vars)))
 	  ;; nor the variables of a family equation still deferred: it may
 	  ;; yet tie them to the enclosing binding's (a case on mlookup a lm,
 	  ;; lm's type decided by MonadReader's improvement later: JHC's let
