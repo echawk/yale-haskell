@@ -65,8 +65,15 @@
   (walk-modules modules (function add-num-superclass-stubs))
   (walk-modules modules
    (lambda ()
+     ;; newtype-derived instances first: their dictionary is the field
+     ;; type's, which another derived instance's superclass may name
+     ;; (JHC's Properties: Collection before its Semigroup and Monoid)
      (dolist (inst (module-instance-defs *module*))
-       (expand-instance-decls inst))))
+       (when (instance-newtype-of inst)
+	 (expand-instance-decls inst)))
+     (dolist (inst (module-instance-defs *module*))
+       (when (not (instance-newtype-of inst))
+	 (expand-instance-decls inst)))))
   (when (not interface?)
    (walk-modules modules
     (lambda ()
