@@ -86,8 +86,37 @@
   (**showParen
    (**< (**int 10) (**var '|d|))
    (**dot/l (**showString (**string (string-append (con-string con) " {")))
-	    (append (show-record-fields (con-field-labels con) vars "")
+	    (append (show-record-chunks con (con-field-labels con) vars "" 0)
 		    (list (**showString (**string "}")))))))
+
+;;; A record of many fields shows them by top-level functions of at most
+;;; 32 fields each, so that its showsPrec is not one function too large
+;;; to compile (SBCL's arm64 branches reach 1MB: GHC's PlatformConstants).
+
+(define (show-record-chunks con labels vars sep i)
+  (cond ((null? labels) '())
+	((<= (length (con-field-labels con)) 32)
+	 (show-record-fields labels vars sep))
+	(else
+	 (let ((ls (list-head labels (min 32 (length labels))))
+	       (vs (list-head vars (min 32 (length vars)))))
+	   (cons (derived-helper con (format '#f "show-fields-~a" i) vs
+				 (let ((fns (show-record-fields ls vs sep)))
+				   (**dot/l (car fns) (cdr fns))))
+		 (show-record-chunks con (list-tail labels (length ls))
+				     (list-tail vars (length vs)) ", " (1+ i)))))))
+
+;;; A top-level function of ARGS, BODY, in CON's module: the call.
+(define (derived-helper con suffix args body)
+  (dynamic-let ((*module-name* (def-module con)))
+    (dynamic-let ((*module* (table-entry *modules* *module-name*)))
+      (let* ((alg (con-alg con))
+	     (fn (make-new-var
+		  (string-append (symbol->string (def-name alg)) "/" suffix "-"
+				 (remove-con-prefix (symbol->string (def-name con))))))
+	     (def (**define fn args body)))
+	(setf (module-decls *module*) (cons def (module-decls *module*)))
+	(**app/l (**var/def fn) (map (function **var) args))))))
 
 (define (show-record-fields labels vars sep)
   (if (null? labels)
@@ -163,38 +192,44 @@
 
 ;;; Records: lex the constructor, {, then field = value for each field
 ;;; (read at precedence 0) separated by commas, then }; readParen (d > 11).
+;;; Each field is read by a local readField (separator, label, =, value):
+;;; one generator per field, not four, so that a record of hundreds of
+;;; fields (GHC's PlatformConstants) is not one enormous function.
 
 (define (read-record con)
   (let* ((labels (con-field-labels con))
 	 (vars (temp-vars "x" (con-arity con)))
-	 (n-states (+ 2 (* 4 (length labels))))
-	 (svars (cons '|r| (temp-vars "s" n-states)))
-	 (gens '())
-	 (s svars)
-	 (lex-token
-	  (lambda (str)
-	    (push (**gen `(tuple ,str ,(cadr s)) (**lex (**var (car s)))) gens)
-	    (setf s (cdr s)))))
-    (funcall lex-token (con-string con))
-    (funcall lex-token "{")
+	 (svars (temp-vars "s" (1+ (length labels))))
+	 (gens '()))
+    (push (**gen `(tuple ,(con-string con) ,(car svars)) (**lex (**var '|r|)))
+	  gens)
     (do ((ls labels (cdr ls))
-	 (vs vars (cdr vs)))
-	((null? ls))
-      (when (not (eq? ls labels))
-	(funcall lex-token ","))
-      (funcall lex-token (field-string (car ls)))
-      (funcall lex-token "=")
+	 (vs vars (cdr vs))
+	 (s svars (cdr s)))
+	((null? ls)
+	 (push (**gen `(tuple "}" |sEnd|) (**lex (**var (car s)))) gens))
       (push (**gen `(tuple ,(car vs) ,(cadr s))
-		   (**readsprec (**int 0) (**var (car s))))
-	    gens)
-      (setf s (cdr s)))
-    (funcall lex-token "}")
+		   (**app (**var '|readField|)
+			  (**string (if (eq? ls labels) "{" ","))
+			  (**string (field-string (car ls)))
+			  (**var (car s))))
+	    gens))
     (**let
      (list
+      (**define '|readField| '(|rsep| |rlabel| |rs0|)
+	(**listcomp
+	 (**tuple2 (**var '|rv|) (**var '|rs4|))
+	 (list
+	  (**gen '(tuple |rt1| |rs1|) (**lex (**var '|rs0|)))
+	  (make qual-filter (exp (**== (**var '|rt1|) (**var '|rsep|))))
+	  (**gen '(tuple |rt2| |rs2|) (**lex (**var '|rs1|)))
+	  (make qual-filter (exp (**== (**var '|rt2|) (**var '|rlabel|))))
+	  (**gen '(tuple "=" |rs3|) (**lex (**var '|rs2|)))
+	  (**gen '(tuple |rv| |rs4|) (**readsprec (**int 0) (**var '|rs3|))))))
       (**define '|readVal| '(|r|)
 	(**listcomp
 	 (**tuple2 (**app/l (**con/def con) (map (function **var) vars))
-		   (**var (car s)))
+		   (**var '|sEnd|))
 	 (reverse gens))))
      (**readParen (**< (**int 11) (**var '|d|))
 		  (**var '|readVal|) (**var '|str|)))))

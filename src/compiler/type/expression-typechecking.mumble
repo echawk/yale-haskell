@@ -56,9 +56,13 @@
 ;;; These type checkers deal with patterns.
 
 (define-type-checker as-pat
-  (type-check as-pat pattern as-type
-    (setf (var-type (var-ref-var (as-pat-var object))) as-type)
-    (return-type object as-type)))
+  (dynamic-let ((*gadt-pcon-result* '#f))
+    (type-check as-pat pattern as-type
+      (let ((refined (and (is-type? 'pcon (as-pat-pattern object))
+			  (con-gadt? (pcon-con (as-pat-pattern object)))
+			  (dynamic *gadt-pcon-result*))))
+	(setf (var-type (var-ref-var (as-pat-var object))) (or refined as-type)))
+      (return-type object as-type))))
 
 (define-type-checker irr-pat
   (type-check irr-pat pattern pattern-type

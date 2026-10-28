@@ -620,6 +620,7 @@
 
 (define (instance-head-matches? instance type)
   (or (and (instance-catch-all? instance)
+	   (null? (instance-head-args instance))
 	   (or (null? (cdr (instance-tyvars instance)))
 	       (application-parts (prune type))))
       (null? (instance-head-args instance))
@@ -630,15 +631,18 @@
 		   (list (tuple '|%none| '|%none|))))
 
 (define (instance-arg-types instance type)
-  (cond ((and (instance-catch-all? instance) (pair? (cdr (instance-tyvars instance))))
+  (cond ((and (instance-catch-all? instance) (pair? (cdr (instance-tyvars instance)))
+	      (null? (instance-head-args instance)))
 	 ;; C (t a) at T x1 .. xn: T x1 .. xn-1 and xn
 	 (let ((parts (application-parts (prune type))))
 	   (if parts
 	       (list (car parts) (cadr parts))
 	       (list type type))))
-	((instance-catch-all? instance) (list type))
+	((and (instance-catch-all? instance) (null? (instance-head-args instance)))
+	 (list type))
 	;; at a data instance of the family the instance is for
-	((and (data-family-def? (instance-algdata instance))
+	((and (not (instance-catch-all? instance))
+	      (data-family-def? (instance-algdata instance))
 	      (ntycon? type)
 	      (not (eq? (ntycon-tycon type) (instance-algdata instance))))
 	 (instance-arg-types instance

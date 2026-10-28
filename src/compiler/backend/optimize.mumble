@@ -2624,10 +2624,12 @@
 	     ;; Already installed.
 	     '#t)
 	    (else
-	     ;; Ooops!  The symbol installed in the symbol table isn't 
-             ;; this one!
-	     (error "Duplicate defs ~s and ~s in symbol table for ~s!"
-		    v def module))
+	     ;; Another def has this name: two local bindings of the
+	     ;; same name lifted to the top level (a `footers' in each
+	     ;; of two where clauses).  This one gets a fresh name.
+	     (setf name (rename-gensym-var v (gensym (symbol->string name))
+					   table))
+	     (setf (table-entry table name) v))
 	    ))))
 
 

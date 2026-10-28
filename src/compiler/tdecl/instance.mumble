@@ -286,7 +286,7 @@
 
 (define (instance->def-1 inst-decl)
  (if (or (tyvar? (instance-decl-simple inst-decl))
-	 (var-application-head? (instance-decl-simple inst-decl)))
+	 (var-headed-application? (instance-decl-simple inst-decl)))
      (catch-all-instance->def inst-decl)
      (instance->def-2 inst-decl)))
 
@@ -302,10 +302,18 @@
 	     ;; C a, or C (t a) (Agda's TermSize (t a)): at an
 	     ;; application, t the function and a the last argument
 	     ;; (type/unify.mumble's instance-arg-types)
-	     (tyvars (if (tyvar? simple)
-			 (list (tyvar-name simple))
-			 (list (tyvar-name (tyapp-fun simple))
-			       (tyvar-name (car (tyapp-args simple))))))
+	     ;; or C (t x1 .. xk) of any types (Hoopl's LabelsPtr (n e C)):
+	     ;; t and the variables of the x's, the x's its head-args
+	     (general? (and (not (tyvar? simple))
+			    (not (var-application-head? simple))))
+	     (tyvars (cond ((tyvar? simple)
+			    (list (tyvar-name simple)))
+			   (general?
+			    (cons (tyvar-name (tyapp-fun simple))
+				  (flexible-head-tyvars (tyapp-args simple) '())))
+			   (else
+			    (list (tyvar-name (tyapp-fun simple))
+				  (tyvar-name (car (tyapp-args simple)))))))
 	     (tyvar (car tyvars)))
 	(resolve-signature-aux tyvars context)
 	(when (lisp:some (lambda (i) (and (instance-catch-all? i)
@@ -325,6 +333,10 @@
 						       (symbol->string (print-name class-def))
 						       "-all")))))))
 	  (setf (instance-catch-all? inst) '#t)
+	  (when general?
+	    (dolist (a (tyapp-args simple))
+	      (resolve-type-1 a '() '#t))
+	    (setf (instance-head-args inst) (tyapp-args simple)))
 	  (link-instance inst)
 	  (setf (instance-context inst) context)
 	  (dolist (c mcontext)
@@ -954,12 +966,16 @@
   to)
 
 (define (make-instance-type inst)
-  (if (instance-catch-all? inst)
-      (if (null? (cdr (instance-tyvars inst)))
-	  (**tyvar (car (instance-tyvars inst)))
-	  (apply-ast-type (**tyvar (car (instance-tyvars inst)))
-			  (list (**tyvar (cadr (instance-tyvars inst))))))
-      (make-instance-type-1 inst)))
+  (cond ((not (instance-catch-all? inst))
+	 (make-instance-type-1 inst))
+	((not (null? (instance-head-args inst)))
+	 (apply-ast-type (**tyvar (car (instance-tyvars inst)))
+			 (instance-head-args inst)))
+	((null? (cdr (instance-tyvars inst)))
+	 (**tyvar (car (instance-tyvars inst))))
+	(else
+	 (apply-ast-type (**tyvar (car (instance-tyvars inst)))
+			 (list (**tyvar (cadr (instance-tyvars inst))))))))
 
 (define (make-instance-type-1 inst)
   (**tycon/def (instance-algdata inst)

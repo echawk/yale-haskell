@@ -22,7 +22,7 @@
 -- package of their own so that its extensions and cpp-options apply.
 module MicroCabal.Backend.Yale(yaleBackend) where
 import Control.Monad
-import Data.Char (isAlphaNum, toLower)
+import Data.Char (isAlphaNum, isSpace, toLower)
 import Data.List
 import Data.Maybe
 import Data.Version
@@ -233,9 +233,10 @@ preprocessModules env src hscFlags mdls =
         _ -> return ()
 
 -- A line using one of hsc2hs's constructs: #{...}, or #const, #size,
--- #peek and the rest (as words: #define is CPP's).
+-- #peek and the rest (as words: #define is CPP's), or a directive for the
+-- Haskell output (##include "HsVersions.h": GHC's Fingerprint).
 hscConstruct :: String -> Bool
-hscConstruct l = "#{" `isInfixOf` l || any key (tails l)
+hscConstruct l = "#{" `isInfixOf` l || "##" `isPrefixOf` dropWhile isSpace l || any key (tails l)
   where
     key ('#' : r) = any (\ k -> k `isPrefixOf` r && boundary (drop (length k) r)) keys
     key _ = False

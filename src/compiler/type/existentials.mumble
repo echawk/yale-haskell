@@ -197,10 +197,24 @@
       ;; an index the result has as a plain variable is the scrutinee's
       ;; (profunctors' Prep :: x -> p x a -> Prep p a: p and a)
       (link-unrefined-indices type scrutinee)
+      ;; (an as-pattern's variable: the constructor's refined result)
+      (setf (dynamic *gadt-pcon-result*)
+	    (if (gadt-result-refines? type) (con-type-result type) '#f))
       (values (**arrow/l-2 (arrow-argument-types type) scrutinee)
 	      hidden))))
 
 (define *gadt-refinements* '())
+
+;;; The result of the last GADT constructor pattern checked, when it
+;;; refines its type's indices: b in b@BNil{} is a Block n O O, as BNil's
+;;; fields would be (Hoopl's frontBiasBlock).
+(define *gadt-pcon-result* '#f)
+
+(define (con-type-result con-type)
+  (let ((res (prune con-type)))
+    (do () ((not (and (ntycon? res) (eq? (ntycon-tycon res) (core-symbol "Arrow")))))
+      (setf res (prune (cadr (ntycon-args res)))))
+    res))
 
 (define (link-unrefined-indices con-type scrutinee)
   (let ((res (prune con-type)))

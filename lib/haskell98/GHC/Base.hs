@@ -4,10 +4,11 @@
 module GHC.Base (
     module GHC.Exts, Int, Double, Float, Char, Word, Bool(..), Ordering(..),
     quotInt, remInt, divInt, modInt, ord, unsafeChr, ($!), until, asTypeOf,
-    otherwise, id, const, (.), flip, ($), assert
+    otherwise, id, const, (.), flip, ($), assert, IO(IO)
   ) where
 
 import GHC.Exts
+import GHC.IO (IO(IO))
 import Data.Word (Word)
 import Data.Char (ord, chr)
 

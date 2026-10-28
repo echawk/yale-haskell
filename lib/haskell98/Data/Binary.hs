@@ -3,8 +3,10 @@
 -- Int, Word and Int64 as 8 bytes big-endian, Integer and Natural tagged
 -- (small, or sign and bytes), Char as UTF-8, a list or container as its
 -- length then its elements, Float and Double through decodeFloat.
--- There are no Generic default methods (Yale Haskell has no Generic
--- representations): an instance gives put and get.
+-- An instance without put and get has binary's Generic ones: the fields
+-- in order, a constructor of a sum by its index (a Word8 tag when there
+-- are at most 256 constructors).
+{-# LANGUAGE DefaultSignatures, FlexibleContexts, FlexibleInstances, TypeOperators #-}
 module Data.Binary (
     Binary(put, get, putList), encode, decode, decodeOrFail, encodeFile,
     decodeFile, decodeFileOrFail,
@@ -42,10 +44,17 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Encoding as TE
 import qualified Data.Foldable as F
+import Data.Version (Version(..))
+import GHC.Generics
+import GHC.Fingerprint.Type (Fingerprint(..))
 
 class Binary t where
   put :: t -> Put
+  default put :: (Generic t, GBinaryPut (Rep t)) => t -> Put
+  put = gput . from
   get :: Get t
+  default get :: (Generic t, GBinaryGet (Rep t)) => Get t
+  get = fmap to gget
   putList :: [t] -> Put
   putList xs = put (length xs) >> mapM_ put xs
 
@@ -276,3 +285,126 @@ instance Binary a => Binary (Tree.Tree a) where
 instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
   put a = put (bounds a) >> put (length (elems a)) >> mapM_ put (elems a)
   get = do { bs <- get; n <- get; xs <- getMany n; return (listArray bs xs) }
+
+instance Binary Version where
+  put (Version br tags) = put br >> put tags
+  get = do { br <- get; tags <- get; return (Version br tags) }
+
+instance Binary Fingerprint where
+  put (Fingerprint x1 x2) = put x1 >> put x2
+  get = do { x1 <- get; x2 <- get; return (Fingerprint x1 x2) }
+
+-- binary's Generic encoding (Data.Binary.Generic)
+class GBinaryPut f where
+  gput :: f t -> Put
+
+class GBinaryGet f where
+  gget :: Get (f t)
+
+instance GBinaryPut V1 where
+  gput _ = return ()
+
+instance GBinaryGet V1 where
+  gget = return undefined
+
+instance GBinaryPut U1 where
+  gput U1 = return ()
+
+instance GBinaryGet U1 where
+  gget = return U1
+
+instance (GBinaryPut a, GBinaryPut b) => GBinaryPut (a :*: b) where
+  gput (x :*: y) = gput x >> gput y
+
+instance (GBinaryGet a, GBinaryGet b) => GBinaryGet (a :*: b) where
+  gget = do { x <- gget; y <- gget; return (x :*: y) }
+
+instance GBinaryPut a => GBinaryPut (M1 i c a) where
+  gput = gput . unM1
+
+instance GBinaryGet a => GBinaryGet (M1 i c a) where
+  gget = fmap M1 gget
+
+instance Binary a => GBinaryPut (K1 i a) where
+  gput = put . unK1
+
+instance Binary a => GBinaryGet (K1 i a) where
+  gget = fmap K1 get
+
+-- A sum's constructor: its index as the smallest word that holds them
+-- all, the halves of the sum's size as binary splits them (GHC's Rep
+-- puts the first half of the constructors on the left).
+instance (SumSize a, SumSize b, PutSum a, PutSum b) => GBinaryPut (a :+: b) where
+  gput x
+    | n - 1 <= 255 = putSum (0 :: Word8) (fromIntegral n) x
+    | n - 1 <= 65535 = putSum (0 :: Word16) (fromIntegral n) x
+    | n - 1 <= 4294967295 = putSum (0 :: Word32) (fromIntegral n) x
+    | otherwise = putSum (0 :: Word64) (fromIntegral n) x
+    where n = sumSizeOf x
+
+instance (SumSize a, SumSize b, GetSum a, GetSum b) => GBinaryGet (a :+: b) where
+  gget = r
+    where n = sumSizeOfGet r
+          r | n - 1 <= 255 = (get :: Get Word8) >>= checkGetSum (fromIntegral n)
+            | n - 1 <= 65535 = (get :: Get Word16) >>= checkGetSum (fromIntegral n)
+            | n - 1 <= 4294967295 = (get :: Get Word32) >>= checkGetSum (fromIntegral n)
+            | otherwise = (get :: Get Word64) >>= checkGetSum (fromIntegral n)
+
+checkGetSum :: (Integral w, GetSum f) => w -> w -> Get (f a)
+checkGetSum n code
+  | code < n = getSum code n
+  | otherwise = fail "Unknown encoding for constructor"
+
+newtype SumSizeOf (f :: * -> *) = SumSizeOf Word64
+
+class SumSize f where
+  sumSize :: SumSizeOf f
+
+instance (SumSize a, SumSize b) => SumSize (a :+: b) where
+  sumSize = plusSize sumSize sumSize
+
+instance SumSize (M1 C c a) where
+  sumSize = SumSizeOf 1
+
+plusSize :: SumSizeOf a -> SumSizeOf b -> SumSizeOf (a :+: b)
+plusSize (SumSizeOf x) (SumSizeOf y) = SumSizeOf (x + y)
+
+sumSizeOf :: SumSize f => f t -> Word64
+sumSizeOf x = sizeAt x sumSize
+  where sizeAt :: f t -> SumSizeOf f -> Word64
+        sizeAt _ (SumSizeOf n) = n
+
+sumSizeOfGet :: SumSize f => Get (f t) -> Word64
+sumSizeOfGet g = sizeAt g sumSize
+  where sizeAt :: Get (f t) -> SumSizeOf f -> Word64
+        sizeAt _ (SumSizeOf n) = n
+
+class PutSum f where
+  putSum :: (Integral w, Binary w) => w -> w -> f p -> Put
+
+instance (PutSum a, PutSum b) => PutSum (a :+: b) where
+  putSum code size s = case s of
+      L1 x -> putSum code sizeL x
+      R1 x -> putSum (code + sizeL) sizeR x
+    where sizeL = halve size
+          sizeR = size - sizeL
+
+instance GBinaryPut a => PutSum (M1 C c a) where
+  putSum code _ x = put code >> gput x
+
+class GetSum f where
+  getSum :: Integral w => w -> w -> Get (f p)
+
+instance (GetSum a, GetSum b) => GetSum (a :+: b) where
+  getSum code size
+      | code < sizeL = fmap L1 (getSum code sizeL)
+      | otherwise = fmap R1 (getSum (code - sizeL) sizeR)
+    where sizeL = halve size
+          sizeR = size - sizeL
+
+instance GBinaryGet a => GetSum (M1 C c a) where
+  getSum _ _ = gget
+
+-- size `shiftR` 1
+halve :: Integral w => w -> w
+halve n = n `div` 2

@@ -268,6 +268,14 @@
        (tyvar? (car (tyapp-args ty)))
        (not (eq? (tyvar-name (tyapp-fun ty)) (tyvar-name (car (tyapp-args ty)))))))
 
+;;; FlexibleInstances: a type variable applied to any types not using it
+;;; (Hoopl's LabelsPtr (n e C)).
+(define (var-headed-application? ty)
+  (and (tyapp? ty) (tyvar? (tyapp-fun ty))
+       (not (null? (tyapp-args ty)))
+       (not (memq (tyvar-name (tyapp-fun ty))
+		  (lisp:mapcan (function ast-tyvar-names) (tyapp-args ty))))))
+
 (define (signal-not-simple where)
   (parser-error 'not-simple "Simple type required in ~a." where))
 
@@ -686,7 +694,7 @@
 	       (if (and (haskell98?) (or (tycon? simple) (tyvar? simple)
 					 ;; C (t a): tdecl/instance.mumble's
 					 ;; catch-all-instance->def
-					 (var-application-head? simple)))
+					 (var-headed-application? simple)))
 		   '#t
 		   (check-simple simple '#f "instance declaration")))
 	      ;; FlexibleInstances: a multi-parameter instance's types may be
