@@ -104,13 +104,20 @@
 	;; (TextLike ShowS, String -> String, at Int -> D) gives way to the
 	;; class's instance at an application (TextLike (m a)), as with GHC's
 	;; overlapping instances (JHC's DocLike)
-	(if (and inst (not (instance-catch-all? inst))
-		 (not (null? (instance-head-args inst)))
-		 (ntycon? type)
-		 (not (instance-head-matches? inst type))
-		 (app-catch-all-instance class-def))
-	    (app-catch-all-instance class-def)
-	    inst))))
+	(cond ((and inst (not (instance-catch-all? inst))
+		    (not (null? (instance-head-args inst)))
+		    (ntycon? type)
+		    (not (instance-head-matches? inst type))
+		    (app-catch-all-instance class-def))
+	       (app-catch-all-instance class-def))
+	      ;; no instance for the type constructor: the class's at an
+	      ;; application, for one applied to an argument (JHC's
+	      ;; MonadSetSrcLoc m => WithSrcLoc (m a), at Ki ())
+	      ((and (not inst) (ntycon? type)
+		    (not (null? (ntycon-args type)))
+		    (app-catch-all-instance class-def))
+	       (app-catch-all-instance class-def))
+	      (else inst)))))
 
 (define (data-family-def? def)
   (and (synonym? def) (eq? (synonym-family? def) 'data)))
