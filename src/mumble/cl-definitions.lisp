@@ -1073,6 +1073,16 @@
     (3 '(optimize (speed 3) (safety 0) (compilation-speed 0) (debug 0)))
     (t (warn "Bogus *code-quality* setting ~s." q) nil)))
 
+;;; A form beyond the size where SBCL's constraint propagation, quadratic
+;;; in the function's blocks and constraints, takes gigabytes (GHC's
+;;; PrimOp.primOpInfo, a case of 1053 alternatives): compiled without it
+;;; (dump-interface.mumble's write-compiled-code-file).
+(defun big-form-compile-mode (on)
+  #+sbcl (setf sb-c::*constraint-propagate* (not on))
+  #-sbcl (declare (ignore on))
+  nil)
+(define-mumble-import big-form-compile-mode)
+
 (defun code-quality-hack (q)
   (let ((decl (code-quality-declaration q)))
     (when decl (proclaim decl))))

@@ -45,6 +45,16 @@
 			    (when (getenv "YALE_HASKELL_TRACE_HEAP") (trace-code-profile f))
 			    f)))
     (warn-oversized-forms forms)
+    ;; (a form too big for the Lisp compiler's constraint propagation:
+    ;; compiled without, cl-definitions.lisp's big-form-compile-mode)
+    (setf forms (lisp:mapcan
+		 (lambda (f)
+		   (if (> (form-size f) *max-function-size*)
+		       (list '(lisp:eval-when (:compile-toplevel) (big-form-compile-mode '#t))
+			     f
+			     '(lisp:eval-when (:compile-toplevel) (big-form-compile-mode '#f)))
+		       (list f)))
+		 forms))
     (dynamic-let ((*magic-chunk-size*
 		   (or chunk-size (dynamic *magic-chunk-size*)))
 		  (*code-quality*

@@ -112,8 +112,37 @@ for root, _, files in list(os.walk(src)) + list(os.walk(inc)):
         text = open(path, errors="replace").read()
         new = re.sub(r'#include\s+"(?:\.\./)+includes/(?:dist-derivedconstants/header/)?([^"]+)"',
                      r'#include "\1"', text)
+        # (and "../HsVersions.h": the trees are merged)
+        new = re.sub(r'#include\s+"(?:\.\./)+([^"/]+)"', r'#include "\1"', new)
         if new != text:
             open(path, "w").write(new)
+
+# genprimopcode's functions of a clause per primop (primOpInfo's 1053) in
+# chunks of 128 clauses, each its own function: one is compiled to more
+# than SBCL arm64's conditional branches reach (1MB).
+def chunk_clauses(path, fname, size=128):
+    lines = open(path).read().split("\n")
+    is_clause = lambda l: l.startswith(fname + " ") and not l.startswith(fname + " ::")
+    clauses = [l for l in lines if is_clause(l)]
+    if len(clauses) <= size:
+        return
+    rest = [l for l in lines if not is_clause(l)]
+    out = rest[:]
+    chunks = [clauses[i:i + size] for i in range(0, len(clauses), size)]
+    for k, chunk in enumerate(chunks):
+        for c in chunk:
+            pat, rhs = c[len(fname) + 1:].split(" = ", 1)
+            out.append("%s_%d %s = Just (%s)" % (fname, k, pat, rhs))
+        out.append("%s_%d _ = Nothing" % (fname, k))
+    body = 'error "%s"' % fname
+    for k in reversed(range(len(chunks))):
+        body = "case %s_%d x of { Just r -> r; Nothing -> %s }" % (fname, k, body)
+    out.append("%s x = %s" % (fname, body))
+    open(path, "w").write("\n".join(out) + "\n")
+
+
+chunk_clauses(os.path.join(inc, "primop-primop-info.hs-incl"), "primOpInfo")
+chunk_clauses(os.path.join(inc, "primop-tag.hs-incl"), "primOpTag")
 
 shutil.copy(os.path.join(ghc, "compiler", "cbits", "genSym.c"), os.path.join(stage, "cbits", "genSym.c"))
 # parser/cutils.c, but the driver's RTS flags (+RTS -t, -H) are no-ops:

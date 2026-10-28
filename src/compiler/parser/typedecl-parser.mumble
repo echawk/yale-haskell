@@ -108,10 +108,24 @@
 	   (_ (skip-explicit-forall))
 	   (context (mlet (((single _) (split-contexts (parse-optional-context))))
 		      single))
-	   (args+res (parse-gadt-con-type))
+	   ;; or record syntax: C :: { f :: t, ... } -> T b1 .. bn (GHC's
+	   ;; CmmCondBranch)
+	   (record (and (eq? *token* '\{)
+			(begin (advance-token)
+			       (let ((r (parse-record-constr (car cons))))
+				 (require-token ->
+				   (signal-missing-token "`->'" "GADT record constructor"))
+				 r))))
+	   (args+res (if record
+			 (cons (constr-types record)
+			       (parse-type-operators (parse-btype)))
+			 (parse-gadt-con-type)))
 	   (constrs (map (lambda (con)
-			   (make-gadt-constr con simple context
-					     (car args+res) (cdr args+res)))
+			   (let ((c (make-gadt-constr con simple context
+						      (car args+res) (cdr args+res))))
+			     (when record
+			       (setf (constr-field-labels c) (constr-field-labels record)))
+			     c))
 			 cons)))
       (token-case
        (\; (append constrs (parse-gadt-constrs simple in-layout?)))

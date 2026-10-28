@@ -671,6 +671,10 @@
 ;;; BODY with each parameter replaced by its argument.
 
 (define (cpp-substitute body params args)
+  ;; F() of a one-parameter F: one empty argument (C's; GHC's
+  ;; CodeGen.Platform.hs mentions REG() in a comment)
+  (when (and (null? args) (= (length params) 1))
+    (setf args (list "")))
   (when (not (= (length params) (length args)))
     (cpp-error "macro expects ~A arguments, given ~A"
 	       (length params) (length args)))

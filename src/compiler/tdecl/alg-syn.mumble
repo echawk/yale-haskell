@@ -144,8 +144,25 @@
 
 (define (add-field-selectors alg)
   (dolist (field (algdata-field-vars alg))
+    (gadt-field-signature alg field)
     (setf (module-decls *module*)
 	  (cons (field-selector-decl alg field) (module-decls *module*)))))
+
+;;; A GADT's field of a type without variables (GHC's CmmCondBranch {
+;;; cml_true :: ULabel, ... } -> CmmNode O C): its selector's signature,
+;;; T a1 .. an -> t, as its GADT matches would not decide its result.
+(define (gadt-field-signature alg field)
+  (let ((con (lisp:find-if (lambda (c) (field-position field c))
+			   (algdata-constrs alg))))
+    (when (and con (con-gadt? con) (eq? (var-signature field) '#f))
+      (let ((ty (list-ref (con-types con) (field-position field con))))
+	(when (and (null? (ast-tyvar-names ty))
+		   (not (forall-type? ty)))
+	  (setf (var-signature field)
+		(ast->gtype '()
+		  (**arrow-type/l
+		   (list (**tycon/def alg (map (function **tyvar) (algdata-tyvars alg)))
+			 ty)))))))))
 
 (define (algdata-field-vars alg)
   (let ((fields '()))
