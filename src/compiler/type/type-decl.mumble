@@ -336,7 +336,12 @@
 	  (when (ntyvar-context tyvar)
 	     (push tyvar overloaded-tyvars)))
 	(when (and (or overloaded-tyvars mp-constraints
-		       (pending-flexible-constraint? all-tyvars))
+		       (pending-flexible-constraint? all-tyvars)
+		       ;; (or a multi-parameter constraint an instance will
+		       ;; decide, at the binding's variables: JHC's let x = atom
+		       ;; (pprint con), PPrint d Tycon by DocLike d => PPrint d
+		       ;; Tycon)
+		       (not (null? (pending-mp-generic-tyvars (dynamic *placeholders*)))))
 		   (apply-pattern-binding-rule? (list decl)))
 	 ;; the restriction keeps the constrained type variables
 	 ;; monomorphic, those of a constraint on an application
@@ -345,7 +350,8 @@
 	 (setf (dynamic *non-generic-tyvars*)
 	   (do-pattern-binding-rule
 	    (list decl)
-	    (append overloaded-tyvars (mp-constraint-tyvars mp-constraints))
+	    (append overloaded-tyvars (mp-constraint-tyvars mp-constraints)
+		    (pending-mp-generic-tyvars (dynamic *placeholders*)))
 	    (dynamic *non-generic-tyvars*)))
 	 (setf overloaded-tyvars '())
 	 (setf mp-constraints '()))

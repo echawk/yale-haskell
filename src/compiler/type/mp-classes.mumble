@@ -729,6 +729,18 @@
 				  (mp-param-types param) types)))
 	     (mp-placeholder-local-params p)))
 
+(define (pending-mp-generic-tyvars placeholders)
+  (let ((res '()))
+    (dolist (p placeholders)
+      (when (and (mp-placeholder? p)
+		 (eq? (mp-placeholder-exp p) '#f)
+		 (not (qc-class? (mp-placeholder-class p))))
+	(dolist (ty (mp-placeholder-types p))
+	  (dolist (v (ntype-free-tyvars ty))
+	    (when (and (not (memq v res)) (mp-type-generic? v))
+	      (push v res))))))
+    res))
+
 (define (local-instance-mp-tyvars placeholders)
   (let ((res '()))
     (dolist (p placeholders)
