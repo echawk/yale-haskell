@@ -767,6 +767,33 @@
 ;;; 1 level type synonym expansion
 
 (define (expand-synonym type)
+  (if (eq? (synonym-family? (tycon-def type)) 'data)
+      ;; a data family's application (JHC's GMap Atom TyTy): its data
+      ;; instance's type
+      (let ((m '#f))
+	(dolist (e (synonym-equations (tycon-def type)))
+	  (when (not m)
+	    (let ((alist (ast-family-match (tuple-2-1 e) (tycon-args type) '())))
+	      (when alist
+		(setf m (copy-synonym-body (tuple-2-2 e) (cdr alist)))))))
+	(or m type))
+      (expand-synonym-1 type)))
+
+;;; A data instance's argument patterns (AST types) matched against ARGS:
+;;; (#t . bindings), or #f.
+(define (ast-family-match pats args acc)
+  (cond ((null? pats) (cons '#t acc))
+	((null? args) '#f)
+	(else
+	 (let ((p (car pats)) (a (car args)))
+	   (cond ((tyvar? p)
+		  (ast-family-match (cdr pats) (cdr args) (cons (tuple (tyvar-name p) a) acc)))
+		 ((and (tycon? p) (tycon? a) (eq? (tycon-def p) (tycon-def a)))
+		  (let ((inner (ast-family-match (tycon-args p) (tycon-args a) acc)))
+		    (and inner (ast-family-match (cdr pats) (cdr args) (cdr inner)))))
+		 (else '#f))))))
+
+(define (expand-synonym-1 type)
   (let* ((synonym (tycon-def type))
 	 (args (synonym-args synonym))
 	 (body (synonym-body synonym)))
