@@ -25,17 +25,38 @@ def outside_cpp(text, pos):
     return depth <= 0
 
 
+def blank_comments(text):
+    """TEXT with its block comments ({- -}, nested) blanked, positions kept."""
+    out, depth, i = [], 0, 0
+    while i < len(text):
+        two = text[i:i + 2]
+        if two == "{-":
+            depth += 1
+            out.append("  ")
+            i += 2
+        elif two == "-}" and depth > 0:
+            depth -= 1
+            out.append("  ")
+            i += 2
+        else:
+            ch = text[i]
+            out.append(ch if depth == 0 or ch == "\n" else " ")
+            i += 1
+    return "".join(out)
+
+
 def hide_prelude(text, names):
     """Today's Prelude has NAMES (<>: base 4.11), which the module's own or
     another library's clash with: the Prelude's hidden."""
     hidden = "import Prelude hiding (%s)" % ", ".join(names)
-    m = re.search(r"^import\s+Prelude\s+hiding\s*\(", text, re.M)
+    code = blank_comments(text)
+    m = re.search(r"^import\s+Prelude\s+hiding\s*\(", code, re.M)
     if m and outside_cpp(text, m.start()):
         return text[:m.end()] + " ".join(n + "," for n in names) + " " + text[m.end():]
-    m = re.search(r"^import\s+Prelude[ \t]*(--[^\n]*)?$", text, re.M)
+    m = re.search(r"^import\s+Prelude[ \t]*(--[^\n]*)?$", code, re.M)
     if m and outside_cpp(text, m.start()):
         return text[:m.start()] + hidden + text[m.end():]
-    m = re.search(r"^import\s+(qualified\s+)?Prelude\b", text, re.M)
+    m = re.search(r"^import\s+(qualified\s+)?Prelude\b", code, re.M)
     if m and outside_cpp(text, m.start()):
         # (an import list, or qualified only: no implicit Prelude)
         return text

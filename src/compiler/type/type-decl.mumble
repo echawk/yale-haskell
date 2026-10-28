@@ -560,6 +560,19 @@
   (when (not (null? *deferred-family-equalities*))
     (retry-family-equalities)))
 
+;;; Whether TYPE has an application of a type variable (m a) in it.
+(define (contains-tyvar-app? type depth)
+  (let ((type (prune type)))
+    (and (> depth 0)
+	 (cond ((ntyapp? type)
+		(or (ntyvar? (prune (ntyapp-fun type)))
+		    (lisp:some (lambda (a) (contains-tyvar-app? a (1- depth)))
+			       (ntyapp-args type))))
+	       ((ntycon? type)
+		(lisp:some (lambda (a) (contains-tyvar-app? a (1- depth)))
+			   (ntycon-args type)))
+	       (else '#f)))))
+
 (define (contains-family-app? type depth)
   (let ((type (prune type)))
     (and (> depth 0)
@@ -586,6 +599,14 @@
 				;; GHC's equalBlockMaps: Eq (KeyOf map) once
 				;; reduced)
 				(contains-family-app? type 8)
+				;; or an application of a type variable inside
+				;; (Outputable (Located (body Name)): GHC's
+				;; tcMatch's tc_match), which reduction would
+				;; leave on the application, a local binding
+				;; not holding it
+				(and (not (some (function var-toplevel?) vars))
+				     (lisp:some (lambda (a) (contains-tyvar-app? a 8))
+						(ntycon-args type)))
 				;; or at a type whose flexible instance its
 				;; variables are yet to choose (ReportS [a],
 				;; Agda's local impossibleSort)
