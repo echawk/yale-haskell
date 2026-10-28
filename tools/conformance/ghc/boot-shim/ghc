@@ -1,0 +1,55 @@
+#!/bin/sh
+# Stand-in for a bootstrap GHC so that GHC 8.0.2's configure runs.  It
+# answers configure's version and --info queries; the stage-1 compiler
+# itself is built by Yale (tools/conformance/ghc/setup.sh).
+info() {
+cat <<INFO
+ [("Project name","The Glorious Glasgow Haskell Compilation System")
+ ,("Project version","7.10.3")
+ ,("C compiler command","clang")
+ ,("C compiler flags","")
+ ,("ld command","ld")
+ ,("ar command","ar")
+ ,("ar flags","qcls")
+ ,("ar supports at file","NO")
+ ,("Host platform","aarch64-apple-darwin")
+ ,("Target platform","aarch64-apple-darwin")
+ ,("Host OS","darwin")
+ ,("Unregisterised","YES")
+ ]
+INFO
+}
+rtsinfo() {
+cat <<INFO
+ [("GHC RTS", "YES")
+ ,("Host platform", "aarch64-apple-darwin")
+ ,("Host OS", "darwin")
+ ,("Target platform", "aarch64-apple-darwin")
+ ,("Target OS", "darwin")
+ ]
+INFO
+}
+case "$1 $2" in
+  "+RTS --info") rtsinfo; exit 0 ;;
+esac
+out=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --version) echo "The Glorious Glasgow Haskell Compilation System, version 7.10.3"; exit 0 ;;
+    --numeric-version) echo 7.10.3; exit 0 ;;
+    --info) info; exit 0 ;;
+    --print-libdir) echo "$(cd "$(dirname "$0")" && pwd)/lib"; exit 0 ;;
+    -o) out="$2"; shift ;;
+  esac
+  shift
+done
+# configure's "ghc --make utils/ghc-pwd/Main.hs -o ...": a pwd script.
+# (Every other tool is built by Yale beforehand.)
+if case "$out" in *ghc-pwd*) true;; *) false;; esac; then
+  mkdir -p "$(dirname "$out")"
+  printf '#!/bin/sh\npwd -P\n' > "$out"
+  chmod +x "$out"
+  exit 0
+fi
+echo "boot-shim ghc: unsupported invocation" >&2
+exit 1

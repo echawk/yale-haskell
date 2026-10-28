@@ -1,0 +1,6 @@
+#!/bin/sh
+# Companion of the boot-shim ghc for GHC 8.0.2's configure.
+case "$1" in
+  --version) echo "GHC package manager version 7.10.3" ;;
+  *) exit 0 ;;
+esac
