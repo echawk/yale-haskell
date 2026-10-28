@@ -307,6 +307,13 @@
 		(not (def-prelude? def))
 		(not (eq? (def-module def) *module-name*)))
 	   (install-clashing-definition name def old-definition '#t))
+	  ;; the module's own definition of a core name (JHC's Doc.Chars.pi):
+	  ;; as of another Prelude name, ambiguous only where used unqualified
+	  ((and (def-prelude? old-definition)
+		(haskell98?)
+		(not (def-prelude? def))
+		(eq? (def-module def) *module-name*))
+	   (install-clashing-definition name def old-definition '#t))
 	  ((def-prelude? old-definition)
 	   (signal-core-redefinition name))
 	  ((and (module-uses-standard-prelude? *module*)

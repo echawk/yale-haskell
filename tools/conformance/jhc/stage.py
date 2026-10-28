@@ -94,7 +94,8 @@ for name, path in modules:
         return ("%sinstance %s where\n    (<>) = mappend\n\n%s"
                 % (m.group(1), head, m.group(0)))
     new = re.sub(r"^(\s*)instance\s+(?:\(?([^\n]*?)\)?\s*=>\s*)?Monoid\s+([^\n]+?)\s+where\b",
-                 lambda m: semigroup(m) if m.group(2) is None or "=>" not in (m.group(2) or "") else m.group(0),
+                 # (not Monoid in a context: instance Monoid x => FreeVars () x)
+                 lambda m: semigroup(m) if "=>" not in m.group(3) and "=>" not in (m.group(2) or "") else m.group(0),
                  new, flags=re.M)
     new = re.sub(r"(deriving\s*\([^)]*?)\bMonoid\b", r"\1Data.Semigroup.Semigroup,Monoid", new)
     if new != text:
@@ -240,6 +241,16 @@ for name, path in modules:
                      monadfail, new, flags=re.M)
     if new != text:
         open(path, "w").write(new)
+
+# old mtl's Monad (Either e) failed with Left (Error's strMsg); JHC's
+# options parsing fails in Either String.
+gen = os.path.join(src, "GenUtil.hs")
+text = open(gen).read()
+text = text.rstrip("\n") + ("\n\n-- (old mtl's: Either String's fail is Left)\n"
+                            "instance MonadFail (Either String) where\n    fail = Left\n")
+if "FlexibleInstances" not in text.split("\n")[0]:
+    text = "{-# LANGUAGE FlexibleInstances #-}\n" + text
+open(gen, "w").write(text)
 
 # StringTable.Atom's addrToAtom_, a foreign import at Addr# for string
 # literals ("Data.Ix"# 7#): the C function at the literal's characters.

@@ -2,7 +2,8 @@
 -- (Data.Typeable).
 module Data.Dynamic (
     Dynamic, toDyn, fromDynamic, fromDyn, dynTypeRep, dynApply, dynApp,
-    Typeable
+    -- (base re-exports Data.Typeable: JHC's TypeRep)
+    module Data.Typeable
   ) where
 
 import Data.Typeable
