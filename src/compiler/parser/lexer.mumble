@@ -1050,10 +1050,15 @@
 		      ;; BinaryLiterals (GHC)
 		      ((#\b #\B) (and (haskell98?) 2))
 		      (else '#f)))))
-    (if (and radix (char->digit (peek-char-2) radix))
+    (if (and radix
+	     (or (char->digit (peek-char-2) radix)
+		 ;; NumericUnderscores: 0x_ff, 0b_1 (a _ may follow the prefix)
+		 (and (char=? (peek-char-2) #\_)
+		      (language-extension? "NumericUnderscores"))))
 	(begin
 	  (advance-char)
 	  (advance-char)
+	  (when (char=? *char* #\_) (advance-char))
 	  (let ((n  (lex-integer radix)))
 	    (if (and (eqv? radix 16) (hex-float-follows?))
 		(lex-hex-float n)
