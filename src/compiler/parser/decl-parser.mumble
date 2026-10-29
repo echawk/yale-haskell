@@ -369,6 +369,12 @@
       (if (eqv? (length (single-fun-def-args (car (valdef-definitions decl1))))
 		(length (single-fun-def-args (car (valdef-definitions decl2)))))
 	  (begin
+	    ;; x = 1; x = 2 binds x twice: only a function (arity > 0) has
+	    ;; several clauses.
+	    (when (null? (single-fun-def-args (car (valdef-definitions decl1))))
+	      (parser-error 'conflicting-definitions
+			    "Conflicting definitions of ~a."
+			    (valdef-lhs decl1)))
 	    (setf (valdef-definitions decl1)
 		  (nconc (valdef-definitions decl1)
 			 (valdef-definitions decl2)))
