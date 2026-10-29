@@ -137,6 +137,12 @@
 	,(**showsPrec (**int 0) (**var (car vars)))
 	,@(show-record-fields (cdr labels) (cdr vars) ", "))))
 
+(define (field-original-string field)
+  (symbol->string (field-original-name field)))
+
+(define (operator-field? field)
+  (not (string=? (field-string field) (field-original-string field))))
+
 (define (field-string field)
   ;; a DuplicateRecordFields field f%T shows as f
   (let ((s (symbol->string (field-original-name field))))
@@ -227,13 +233,28 @@
 	((null? ls)
 	 (push (**gen `(tuple "}" |sEnd|) (**lex (**var (car s)))) gens))
       (push (**gen `(tuple ,(car vs) ,(cadr s))
-		   (**app (**var '|readField|)
+		   (**app (**var (if (operator-field? (car ls))
+				     '|readOpField|
+				     '|readField|))
 			  (**string (if (eq? ls labels) "{" ","))
-			  (**string (field-string (car ls)))
+			  (**string (field-original-string (car ls)))
 			  (**var (car s))))
 	    gens))
     (**let
      (list
+      ;; an operator field is shown and read in parentheses
+      (**define '|readOpField| '(|rsep| |rlabel| |rs0|)
+	(**listcomp
+	 (**tuple2 (**var '|rv|) (**var '|rs6|))
+	 (list
+	  (**gen '(tuple |rt1| |rs1|) (**lex (**var '|rs0|)))
+	  (make qual-filter (exp (**== (**var '|rt1|) (**var '|rsep|))))
+	  (**gen '(tuple "(" |rs2|) (**lex (**var '|rs1|)))
+	  (**gen '(tuple |rt2| |rs3|) (**lex (**var '|rs2|)))
+	  (make qual-filter (exp (**== (**var '|rt2|) (**var '|rlabel|))))
+	  (**gen '(tuple ")" |rs4|) (**lex (**var '|rs3|)))
+	  (**gen '(tuple "=" |rs5|) (**lex (**var '|rs4|)))
+	  (**gen '(tuple |rv| |rs6|) (**readsprec (**int 0) (**var '|rs5|))))))
       (**define '|readField| '(|rsep| |rlabel| |rs0|)
 	(**listcomp
 	 (**tuple2 (**var '|rv|) (**var '|rs4|))

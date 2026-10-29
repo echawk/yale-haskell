@@ -1409,7 +1409,10 @@
 ;;; (f%T is f).
 (define (field-original-name var)
   (let* ((s (symbol->string (def-name var)))
-	 (i (lisp:position #\% s)))
+	 ;; an operator field, as (%%), has no f%T suffix
+	 (i (and (> (string-length s) 0)
+		 (or (char-alphabetic? (string-ref s 0)) (char=? (string-ref s 0) #\_))
+		 (lisp:position #\% s))))
     (if i (string->symbol (substring s 0 i)) (def-name var))))
 
 ;;; TemplateHaskell: 'f, 'C or ''T (STRING is %nameq.K.NAME) is the Name of
