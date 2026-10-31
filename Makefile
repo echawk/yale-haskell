@@ -1,7 +1,8 @@
 # Makefile for Yale Haskell.
 #
 #   make deps       fetch the Lisp libraries (ocicl install; see ocicl.csv)
-#   make            build the compiler and an executable for each dialect
+#   make            build the compiler and the Haskell 98 executable
+#   make haskell-1.2  also build the Haskell 1.2 one (the original system)
 #   make test       run the test suite (tests/README.md)
 #   make liquid-test  run yale-liquid's tests (tests/liquid/README.md)
 #   make bench      time the benchmark programs (bench/README.md)
@@ -9,12 +10,14 @@
 #   make clean      delete everything under build/
 #   make ref        clone the reference implementations into ref/
 #
-# Dialects are the Prelude/library trees under lib/: haskell-1.2 (the
-# original system) and haskell98 (in progress).  Each gets its own
-# compiled prelude and executable, build/$(LISP)/<dialect>/yale-haskell.
-# bin/yale-haskell is a link to the haskell-1.2 one; an SBCL executable
-# runs another (--haskell98, $YALE_HASKELL_DIALECT, $YALE_HASKELL_LISP)
-# itself (src/cli/startup.lisp).  Build logs go to build/$(LISP)/logs.
+# Dialects are the Prelude/library trees under lib/: haskell98 (Haskell
+# 98 and 2010, and GHC's base) and haskell-1.2 (the original system).
+# Each gets its own compiled prelude and executable,
+# build/$(LISP)/<dialect>/yale-haskell; make builds only haskell98's
+# (DIALECTS), make haskell-1.2 the other.  bin/yale-haskell is a link to
+# the haskell98 one; an SBCL executable runs another (--haskell1.2,
+# $YALE_HASKELL_DIALECT, $YALE_HASKELL_LISP) itself
+# (src/cli/startup.lisp).  Build logs go to build/$(LISP)/logs.
 #
 # LISP=sbcl (the default), ecl or abcl picks the host Lisp
 # (doc/PORTABILITY.md).
@@ -27,7 +30,8 @@ STACK_MB ?= 512
 # so it is small; the compiler and programs run in a thread with
 # $YALE_HASKELL_STACK_MB (default 512) MB of stack (src/cli/cli.lisp).
 IMAGE_STACK_MB ?= 8
-DIALECTS ?= haskell-1.2 haskell98
+ALL_DIALECTS := haskell98 haskell-1.2
+DIALECTS ?= haskell98
 
 Y2       := $(CURDIR)
 BUILD    := build/$(LISP)
@@ -75,16 +79,16 @@ define step
 	  echo "*** $(1) failed; full log in $(LOGS)/$(1).log"; exit 1; }
 endef
 
-.PHONY: all compiler test liquid-test bench profile clean ref deps $(DIALECTS)
+.PHONY: all compiler test liquid-test bench profile clean ref deps $(ALL_DIALECTS)
 .SECONDEXPANSION:
 .SECONDARY:
 
 all: $(DIALECTS)
-	@echo "Built $(foreach d,$(DIALECTS),$(BUILD)/$(d)/yale-haskell).  Run bin/yale-haskell [--haskell98] [file.hs]."
+	@echo "Built $(foreach d,$(DIALECTS),$(BUILD)/$(d)/yale-haskell).  Run bin/yale-haskell [file.hs]."
 
 compiler: $(BUILD)/.compiler-stamp
 
-$(DIALECTS): %: $(BUILD)/%/yale-haskell
+$(ALL_DIALECTS): %: $(BUILD)/%/yale-haskell
 
 $(BUILD)/.compiler-stamp: $(COMPILER_SOURCES)
 	$(call step,compiler,$(RUN_LISP) tools/build/compiler.lisp)

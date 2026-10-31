@@ -121,7 +121,12 @@ for hs in $(find "$@" -name '*.hs' -o -name '*.repl' | sort); do
   [ -f "$b.stdout" ] || [ -f "$b.exit" ] ||
     continue                                   # helper module, not a test
   rel=${hs#tests/}
-  case "${rel%%/*}" in haskell-1.2|haskell98) ;; *) continue ;; esac
+  case "${rel%%/*}" in
+    haskell98) ;;
+    # built only by make haskell-1.2
+    haskell-1.2) [ -x build/sbcl/haskell-1.2/yale-haskell ] || continue ;;
+    *) continue ;;
+  esac
   n=$((n+1))
   echo "$n $hs"
 done > "$RT_TMP/list"
@@ -170,7 +175,7 @@ import System.Environment
 import System.Exit
 main = do { n <- getProgName; as <- getArgs; putStrLn (n ++ show as); exitWith (ExitFailure 4) }
 EOF
-if bin/yale-haskell --haskell98 build "$RT_TMP/Exe.hs" -o "$RT_TMP/exe" > "$RT_TMP/cli.err" 2>&1 &&
+if bin/yale-haskell build "$RT_TMP/Exe.hs" -o "$RT_TMP/exe" > "$RT_TMP/cli.err" 2>&1 &&
    out=$("$RT_TMP/exe" --help -x 2>&1); st=$?; [ "$st" = 4 ] && [ "$out" = 'exe["--help","-x"]' ]; then
   echo pass >> "$RT_TMP/summary"
   [ "$RT_VERBOSE" = 1 ] && echo "pass  yale-haskell build"

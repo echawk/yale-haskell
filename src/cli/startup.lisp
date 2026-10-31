@@ -40,8 +40,9 @@ line, or replaces this process with the executable that should run them."
     (unless (and (string= dialect *image-dialect*) (string= lisp "sbcl"))
       (let ((exe (format nil "~abuild/~a/~a/yale-haskell" root lisp dialect)))
         (unless (probe-file exe)
-          (format *error-output* "yale-haskell: ~a not found; run make~@[ LISP=~a~] first.~%"
-                  exe (and (string/= lisp "sbcl") lisp))
+          (format *error-output* "yale-haskell: ~a not found; run make~@[ LISP=~a~]~@[ ~a~] first.~%"
+                  exe (and (string/= lisp "sbcl") lisp)
+                  (and (string/= dialect "haskell98") dialect))
           (uiop:quit 1))
         ;; the other image reads the dialect from here, not the flag
         (setenv "YALE_HASKELL_DIALECT" dialect)

@@ -22,8 +22,9 @@ tests/<dialect>/<area>/<name>.repl      an interactive session instead of a prog
                                         banner line) is compared with <name>.stdout
 ```
 
-- `<dialect>` is `haskell-1.2` or `haskell98`; the test is run with
-  `bin/yale-haskell --<dialect>`.  `<area>` is free-form (`smoke`,
+- `<dialect>` is `haskell98` or `haskell-1.2`; the test is run in that
+  dialect (`$YALE_HASKELL_DIALECT`).  `haskell-1.2` tests run only when
+  `make haskell-1.2` has built that dialect.  `<area>` is free-form (`smoke`,
   `prelude`, `lib`, `language`, `demo`, …).
 - A test passes when the program's exit status is the expected one (0
   unless there is a `.exit` file) and its stdout matches `.stdout`

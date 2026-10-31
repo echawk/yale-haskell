@@ -25,7 +25,8 @@ pinned in `ocicl.csv`.
 
 ```sh
 make deps       # ocicl install: fetch the Lisp libraries into ocicl/
-make            # compiler, prelude, and the build/sbcl/yale-haskell executable
+make            # compiler, Haskell 98 prelude, build/sbcl/haskell98/yale-haskell
+make haskell-1.2  # also the Haskell 1.2 system (only for --haskell1.2)
 make test       # run the test suite
 make clean      # remove build/
 ```
@@ -35,13 +36,13 @@ Build logs are written to `build/sbcl/logs/`.
 ## Running
 
 ```sh
-bin/yale-haskell examples/demo/queens.hs        # compile a program and run Main.main
-bin/yale-haskell --haskell98 prog.hs a b        # Haskell 98; a b are getArgs
-bin/yale-haskell --haskell98                    # the interactive system
-bin/yale-haskell --haskell98 repl prog.hs       # ... with prog.hs loaded
-bin/yale-haskell --haskell98 -e 'sum [1..100]'  # evaluate and exit
-bin/yale-haskell --help                         # options: --backend, --printers, ...
-bin/yale-haskell --haskell98 compile prog.hs --emit lisp -o prog.lisp   # compile only
+bin/yale-haskell prog.hs a b        # compile prog.hs, run Main.main; a b are getArgs
+bin/yale-haskell                    # the interactive system
+bin/yale-haskell repl prog.hs       # ... with prog.hs loaded
+bin/yale-haskell -e 'sum [1..100]'  # evaluate and exit
+bin/yale-haskell --help             # options: --backend, --printers, ...
+bin/yale-haskell compile prog.hs --emit lisp -o prog.lisp   # compile only
+bin/yale-haskell --haskell1.2 examples/demo/queens.hs       # Haskell 1.2 (make haskell-1.2)
 ```
 
 `--ghc2021` and `--ghc2024` compile in GHC's languages of those names:
@@ -62,7 +63,7 @@ neither the source tree nor the environment.  Executables are large
 (about 65 MB: the whole Lisp image) and start in about 0.05 s.
 
 ```sh
-bin/yale-haskell --haskell98 build prog.hs -o prog && ./prog a b
+bin/yale-haskell build prog.hs -o prog && ./prog a b
 ```
 
 `compile FILE --emit STAGES` writes compiler stages for the program's own
@@ -110,15 +111,17 @@ recurse; `YALE_HASKELL_STACK_MB` sets another size.  A program that
 runs out of stack prints `stack overflow` and exits with status 2, as
 GHC's does.
 
-Without a language flag the compiler reads Haskell 1.2, where `main` is
-a `Dialogue`, e.g.
+Without a language flag the compiler reads Haskell 98 (and 2010);
+`--modern-prelude` (implied by `--ghc2021` and `--ghc2024`) gives
+modules GHC base's Prelude.  `--haskell98` is accepted and changes
+nothing.  `--haskell1.2` selects the original system's Haskell 1.2,
+where `main` is a `Dialogue`, e.g.
 
 ```haskell
 main = appendChan stdout "Hello, world!\n" abort done
 ```
 
-`--haskell98` selects Haskell 98 (and 2010); `--modern-prelude` (implied
-by `--ghc2021` and `--ghc2024`) gives modules GHC base's Prelude.
+Its executable is built only by `make haskell-1.2`.
 
 ## Layout
 
