@@ -106,9 +106,8 @@ snapshot's version of each dependency.
 - There are no unboxed types: `Int#` is `Int`, `(# a, b #)` a tuple,
   and code written with GHC's primops runs at ordinary speed.
 - Template Haskell is partial (quotes, splices of imported functions,
-  reify of types; not quasi-quotes or reify of classes);
-  QuantifiedConstraints is not supported.  doc/plans/GHC-EXTENSIONS.md
-  has the full list.
+  reify of types; not quasi-quotes or reify of classes).
+  doc/plans/GHC-EXTENSIONS.md has the full list.
 - Of `+RTS` options only `-N` means something; there is no GHC
   profiling, event log or `GHC.Stats`.
 - An executable from `build` is the whole Lisp image with the program

@@ -134,9 +134,9 @@ Measured on an Apple M4 with SBCL 2.6.9 and GHC 9.14.1, 2026-10-31.
 
 **Language.**  Haskell 98 and 2010, and GHC2021/GHC2024 with most of
 GHC's extensions (101 of 104 extension probes;
-doc/plans/GHC-EXTENSIONS.md).  Not there: QuantifiedConstraints,
-quasi-quotes and parts of Template Haskell, unboxed types (`Int#` is
-`Int`), and a 64-bit `Int`: `Int` is SBCL's 63-bit fixnum.
+doc/plans/GHC-EXTENSIONS.md).  Not there: quasi-quotes and parts of
+Template Haskell, unboxed types (`Int#` is `Int`), and a 64-bit `Int`:
+`Int` is SBCL's 63-bit fixnum.
 
 **Libraries.**  base, containers, text, bytestring, mtl, transformers,
 stm, parsec, time, process, directory, QuickCheck and the other common
