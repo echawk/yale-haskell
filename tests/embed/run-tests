@@ -1,0 +1,44 @@
+#!/bin/sh
+#
+# run-tests -- the tests of Haskell in Lisp files (#@hs{ ... }#,
+# doc/EMBEDDING.md).  Each NAME.lisp is loaded, as source and then
+# compiled to a FASL loaded into a new image, into an SBCL with
+# yale-haskell/runtime (yale-haskell.asd); its output is compared with
+# NAME.stdout.
+
+cd "$(dirname "$0")/../.." || exit 1
+root=$(pwd)
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/yh-embed.XXXXXX") || exit 1
+trap 'rm -rf "$tmp"' EXIT
+
+# lisp FORM...: an SBCL with Yale Haskell loaded, evaluating the FORMs
+lisp() {
+  ${SBCL:-sbcl} --noinform --dynamic-space-size 4096 --control-stack-size 64 \
+    --non-interactive --no-userinit \
+    --eval '(require :asdf)' \
+    --eval "(asdf:initialize-source-registry '(:source-registry (:directory \"$root/\") (:tree \"$root/ocicl/\") :inherit-configuration))" \
+    --eval "(let ((*standard-output* (make-broadcast-stream))) (handler-bind ((warning #'muffle-warning)) (asdf:load-system :yale-haskell/runtime)))" \
+    "$@"
+}
+
+pass=0 fail=0
+for t in tests/embed/*.lisp; do
+  name=${t%.lisp}
+  for how in source fasl; do
+    case $how in
+      source) lisp --load "$t" > "$tmp/out" 2> "$tmp/err" ;;
+      fasl) lisp --eval "(progn (setf *readtable* (yale-haskell:enable-haskell-syntax (copy-readtable))) (let ((*standard-output* (make-broadcast-stream))) (compile-file \"$t\" :output-file \"$tmp/t.fasl\")))" > /dev/null 2> "$tmp/err" &&
+            lisp --load "$tmp/t.fasl" > "$tmp/out" 2>> "$tmp/err" ;;
+    esac
+    if cmp -s "$tmp/out" "$name.stdout"; then
+      pass=$((pass+1))
+    else
+      fail=$((fail+1))
+      echo "FAIL  $t ($how)"
+      diff "$name.stdout" "$tmp/out" | head -20
+      tail -5 "$tmp/err"
+    fi
+  done
+done
+echo "$pass passed, $fail failed"
+[ "$fail" -eq 0 ]

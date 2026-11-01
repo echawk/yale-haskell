@@ -5,6 +5,7 @@
 #   make haskell-1.2  also build the Haskell 1.2 one (the original system)
 #   make test       run the test suite (tests/README.md)
 #   make liquid-test  run yale-liquid's tests (tests/liquid/README.md)
+#   make embed-test   run the tests of Haskell in Lisp files (doc/EMBEDDING.md)
 #   make bench      time the benchmark programs (bench/README.md)
 #   make profile FILE=prog.hs   profile a Haskell 98 program (sb-sprof)
 #   make clean      delete everything under build/
@@ -79,7 +80,7 @@ define step
 	  echo "*** $(1) failed; full log in $(LOGS)/$(1).log"; exit 1; }
 endef
 
-.PHONY: all compiler test liquid-test bench profile clean ref deps $(ALL_DIALECTS)
+.PHONY: all compiler test liquid-test embed-test bench profile clean ref deps $(ALL_DIALECTS)
 .SECONDEXPANSION:
 .SECONDARY:
 
@@ -130,6 +131,10 @@ test: all
 # yale-liquid (tests/liquid/README.md); needs Z3 for the solver tests
 liquid-test:
 	@tests/liquid/run-tests
+
+# #@hs{ ... }# in Lisp files (doc/EMBEDDING.md)
+embed-test: all
+	@tests/embed/run-tests
 
 bench: all
 	@bench/run-bench $(BENCHFLAGS)

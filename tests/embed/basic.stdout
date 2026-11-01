@@ -1,0 +1,19 @@
+7
+6765
+75025
+42
+(1 4 9)
+((#\a 1) (#\b 2) (#\c 3))
+("hello" "lisp" "world")
+(1 "two }#" #\c T 3.5d0 NIL)
+55
+(3.141592653589793d0 4.0d0)
+"Circle 2.0"
+(10 20 30)
+81
+65
+from Haskell's IO
+hello Lisp
+(:HASKELL-ERROR "head{PreludeList}: head []")
+:COMPILE-ERROR
+2

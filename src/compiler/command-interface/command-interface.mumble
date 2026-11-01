@@ -15,4 +15,7 @@
     (require command command-utils incremental-compiler))
   (unit batch
     (source-filename "batch.mumble")
+    (require repl))
+  (unit embed
+    (source-filename "embed.mumble")
     (require repl)))

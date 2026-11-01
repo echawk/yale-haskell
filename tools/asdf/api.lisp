@@ -6,7 +6,11 @@
 (defpackage :yale-haskell
   (:use :cl)
   (:shadow #:compile-file)
-  (:export #:compile-file #:load-file #:run-file #:repl #:dialect))
+  (:export #:compile-file #:load-file #:run-file #:repl #:dialect
+           ;; embed.lisp: Haskell in Lisp files
+           #:enable-haskell-syntax #:eval-haskell
+           #:add-package-db #:add-search-path #:enable-extensions #:use-language
+           #:haskell-compile-error #:haskell-error #:haskell-error-message))
 
 (in-package :yale-haskell)
 

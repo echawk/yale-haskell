@@ -116,7 +116,7 @@
   :license "Free to copy and use with attribution to Yale University CS Dept."
   :version "3.1.0.0"
   :depends-on (:mumble)
-  :components ((:file "tools/asdf/api"))
+  :components ((:file "tools/asdf/api") (:file "tools/asdf/embed" :depends-on ("tools/asdf/api")))
   :perform (load-op :after (o c)
              (declare (ignore o))
              (bootstrap (system-source-directory c) (default-dialect)))
@@ -125,7 +125,7 @@
 (defsystem :yale-haskell/haskell-1.2
   :description "Yale Haskell with the Haskell 1.2 prelude."
   :depends-on (:mumble)
-  :components ((:file "tools/asdf/api"))
+  :components ((:file "tools/asdf/api") (:file "tools/asdf/embed" :depends-on ("tools/asdf/api")))
   :perform (load-op :after (o c)
              (declare (ignore o))
              (bootstrap (system-source-directory c) "haskell-1.2")))
@@ -159,12 +159,15 @@
 (defmethod operation-done-p ((o program-op) (s executable-system))
   nil)
 
-(defsystem :yale-haskell/executable
-  :description "The yale-haskell command line: the compiler, the prelude, the runtime and the CLI, saved as an executable."
-  :class executable-system
-  :depends-on (:yale-haskell :clingon :cffi :cl-ppcre :yale-liquid :lparallel :bordeaux-threads)
+;;; The compiler with the runtime the libraries' primitives use (the FFI;
+;;; base's exceptions, processes, Text, threads): what a Lisp program
+;;; that embeds Haskell (#@hs{ ... }#, doc/EMBEDDING.md) loads.
+
+(defsystem :yale-haskell/runtime
+  :description "Yale Haskell and the runtime of its libraries, for Lisp programs that use Haskell."
+  :depends-on (:yale-haskell :cffi :cl-ppcre :lparallel :bordeaux-threads)
   :serial t
-  :components ((:file "tools/build/executable")
+  :components ((:file "tools/asdf/runtime")
                (:file "src/ffi/ffi-runtime")
                (:file "src/ffi/errno-darwin" :if-feature :darwin)
                (:file "src/base/base-runtime")
@@ -172,7 +175,14 @@
                (:file "src/base/posix-runtime")
                (:file "src/base/parallel-runtime")
                (:file "src/base/primops-runtime")
-               (:file "src/base/concurrent-runtime")
+               (:file "src/base/concurrent-runtime")))
+
+(defsystem :yale-haskell/executable
+  :description "The yale-haskell command line: the compiler, the prelude, the runtime and the CLI, saved as an executable."
+  :class executable-system
+  :depends-on (:yale-haskell/runtime :clingon :yale-liquid)
+  :serial t
+  :components ((:file "tools/build/executable")
                (:file "src/cli/cli")
                (:file "src/cli/startup"))
   :build-operation "program-op"

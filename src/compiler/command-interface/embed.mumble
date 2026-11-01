@@ -1,0 +1,425 @@
+;;; embed.mumble -- Haskell in Lisp source files: the compiler side of
+;;; the #@hs{ ... }# syntax (tools/asdf/embed.lisp, doc/EMBEDDING.md).
+;;;
+;;; The blocks read in one Lisp package share a context: a scratch module
+;;; named for the package (Lisp_CL_USER for CL-USER) that imports the
+;;; Prelude and whatever its blocks import, extended by their definitions
+;;; as the REPL's module is (repl.mumble).  An expression block is
+;;; compiled as an extension binding `it' to the expression abstracted
+;;; over its Lisp splices, \cl_hs_splice_0 ... -> (EXPR); the type of
+;;; `it' says how values cross between Haskell and Lisp, as a descriptor
+;;; (embed-descriptor) that embed-to-lisp and embed-from-lisp follow.
+
+(lisp:defstruct (embed-context (:constructor make-embed-context (module)))
+  module                        ; the scratch module's name, a symbol
+  (imports '())                 ; import texts (after `import'), newest first
+  (definitions '())             ; definition texts, newest first
+  (expressions '()))            ; ((text . nsplices) . compiled), this state
+
+(define *embed-contexts* (lisp:make-hash-table :test (function lisp:equal)))
+
+;;; Signals a Lisp error for a Haskell runtime error (set by embed.lisp to
+;;; signal yale-haskell:haskell-error); MESSAGE is the error's text.
+(define *embed-runtime-error-hook*
+  (lambda (message) (lisp:error "~A" message)))
+
+;;; A Haskell value Lisp has no form for (a data type's, a type
+;;; variable's), passed back as it is when it is given to Haskell again.
+(lisp:defstruct (haskell-value (:constructor make-haskell-value (object))
+			       (:print-object
+				(lisp:lambda (v stream)
+				  (lisp:print-unreadable-object (v stream)
+				    (lisp:write-string "Haskell value" stream)))))
+  object)
+
+(define (embed-module-name package-name)
+  (string->symbol
+   (lisp:map 'lisp:string
+	     (lambda (c) (if (lisp:alphanumericp c) c #\_))
+	     (string-append "Lisp_" package-name))))
+
+
+;;;; Compiling blocks
+
+;;; Compiles block TEXT of Lisp package PACKAGE-NAME, whose NSPLICES Lisp
+;;; splices are written cl_hs_splice_0, ...: import lines at its start are
+;;; added to the package's imports; the rest is a definition, kept for
+;;; later blocks, or an expression.  Returns DECLARED, or for an
+;;; expression (IT-SYMBOL SPLICE-DESCRIPTORS RESULT-DESCRIPTOR); or ERROR
+;;; and the compiler's messages when the block does not compile.
+
+(define (embed-block package-name text nsplices filename)
+  (embed-compiling
+   (lambda ()
+     (let ((ctx  (embed-context-for package-name)))
+       (mlet (((imports rest) (embed-split-imports text)))
+	 (embed-add-imports ctx imports)
+	 (cond ((string=? (repl-trim rest) "")
+		'declared)
+	       ((repl-definition-text rest)
+		(when (> nsplices 0)
+		  (embed-fail "Lisp splices ($x, $(form)) are allowed only in expressions."))
+		(embed-define ctx (repl-definition-text rest) filename)
+		'declared)
+	       (else
+		(embed-expression ctx rest nsplices filename))))))))
+
+;;; Runs THUNK with the compiler's errors returning here: its value, or
+;;; ERROR and what the compiler printed.
+
+(define (embed-compiling thunk)
+  (initialize-haskell-system)
+  (setup-unit-cache-for 'library)
+  (let* ((out     (lisp:make-string-output-stream))
+	 (result  (let/cc k
+		    (let ((abort  (lambda () (funcall k 'error))))
+		      (dynamic-let ((*abort-compilation* abort)
+				    (*abort-command* abort)
+				    (*error-output-port* out)
+				    (lisp:*standard-output* out)
+				    (*printers* '())
+				    (*phase* 'command-interface)
+				    (*in-error-handler?* '#f))
+			(lisp:handler-bind ((lisp:warning (function lisp:muffle-warning)))
+			  (funcall thunk)))))))
+    (if (eq? result 'error)
+	(values 'error (lisp:get-output-stream-string out))
+	result)))
+
+(define (embed-fail message)
+  (format *error-output-port* "~A~%" message)
+  (funcall (dynamic *abort-compilation*)))
+
+(define (embed-context-for package-name)
+  (or (lisp:gethash package-name *embed-contexts*)
+      (let ((ctx  (make-embed-context (embed-module-name package-name))))
+	(embed-scratch-module ctx)
+	(lisp:setf (lisp:gethash package-name *embed-contexts*) ctx))))
+
+;;; The import lines at the start of TEXT (each without `import'), and
+;;; the rest of it.
+
+(define (embed-split-imports text)
+  (let ((imports  '())
+	(lines    (repl-lines text)))
+    (do () ((or (null? lines)
+		(not (or (string=? (repl-trim (car lines)) "")
+			 (repl-starts-with-word? (car lines) "import")))))
+      (when (repl-starts-with-word? (car lines) "import")
+	(push (repl-trim (substring (car lines) 6 (string-length (car lines)))) imports))
+      (setf lines (cdr lines)))
+    (values (reverse imports) (repl-join-lines lines))))
+
+;;; New imports compile the scratch module again, and the definitions on
+;;; it; one that does not compile is not kept.
+
+(define (embed-add-imports ctx imports)
+  (let ((new  (lisp:remove-if (lambda (i) (lisp:member i (embed-context-imports ctx)
+						       :test (function string=?)))
+			      imports)))
+    (when (pair? new)
+      (let ((old  (embed-context-imports ctx)))
+	(lisp:setf (embed-context-imports ctx) (append (reverse new) old))
+	(when (not (embed-scratch-module ctx))
+	  (lisp:setf (embed-context-imports ctx) old)
+	  (embed-scratch-module ctx)
+	  (funcall (dynamic *abort-compilation*)))))))
+
+;;; As repl-scratch-module, for CTX's module.  #f if it did not compile.
+
+(define (embed-scratch-module ctx)
+  (let ((file  (repl-scratch-file))
+	(name  (embed-context-module ctx)))
+    (call-with-output-file file
+      (lambda (port)
+	(lisp:format port "module ~A where~%import Prelude~%~{import ~A~%~}"
+		     name (reverse (embed-context-imports ctx)))))
+    (remove-extended-modules name)
+    (lisp:setf (embed-context-expressions ctx) '())
+    (let ((mods  (let/cc k
+		   (dynamic-let ((*abort-compilation* (lambda () (funcall k '#f))))
+		     (compile/load file)))))
+      (and (pair? mods)
+	   (let ((defs  (reverse (embed-context-definitions ctx))))
+	     (lisp:setf (embed-context-definitions ctx) '())
+	     (dolist (d defs)
+	       (embed-define-1 ctx d "<embedded>"))
+	     '#t)))))
+
+;;; A definition replaces the earlier ones of the names it defines, as at
+;;; the REPL (repl-define).  The same text again (a file compiled, then
+;;; loaded) changes nothing.
+
+(define (embed-define ctx text filename)
+  (when (not (lisp:member text (embed-context-definitions ctx) :test (function string=?)))
+    (lisp:setf (embed-context-expressions ctx) '())
+    (let* ((names  (repl-defined-names text))
+	   (defs   (embed-context-definitions ctx))
+	   (kept   (lisp:remove-if (lambda (d)
+				     (lisp:intersection (repl-defined-names d) names
+							:test (function string=?)))
+				   defs)))
+      (when (not (eqv? (length kept) (length defs)))
+	(lisp:setf (embed-context-definitions ctx) '())
+	(remove-extended-modules (embed-context-module ctx))
+	(dolist (d (reverse kept))
+	  (embed-define-1 ctx d filename)))
+      (embed-define-1 ctx text filename))))
+
+(define (embed-define-1 ctx text filename)
+  (let ((ext  (compile-fragment (embed-context-module ctx) text filename)))
+    (when (eq? ext 'error)
+      (funcall (dynamic *abort-compilation*)))
+    (extend-module (embed-context-module ctx) ext)
+    (lisp:push text (embed-context-definitions ctx))))
+
+(define (embed-splice-name i)
+  (lisp:format lisp:nil "cl_hs_splice_~D" i))
+
+(define (embed-expression ctx text nsplices filename)
+  (let* ((key     (cons text nsplices))
+	 (cached  (lisp:assoc key (embed-context-expressions ctx) :test (function lisp:equal))))
+    (if cached
+	(cdr cached)
+	(let* ((params  (lisp:loop for i below nsplices
+				   collect (embed-splice-name i)))
+	       (body    (if (null? params)
+			    text
+			    (lisp:format lisp:nil "\\~{~A~^ ~} -> (~A~%  )" params text)))
+	       (ext     (compile-fragment (embed-context-module ctx)
+					  (repl-binding "it" body) filename)))
+	  (when (eq? ext 'error)
+	    (funcall (dynamic *abort-compilation*)))
+	  (let* ((it    (or (repl-find-var ext '|it|)
+			    (embed-fail "The block is neither definitions nor an expression.")))
+		 (type  (var-type it)))
+	    (when (and (gtype? type) (lisp:some (function pair?) (gtype-context type)))
+	      (embed-fail (lisp:format lisp:nil "The expression's type, ~A, has class constraints: give it a type." type)))
+	    (mlet (((args result) (embed-split-arrows (if (gtype? type) (gtype-type type) type)
+						      nsplices)))
+	      (let ((compiled  (list (fullname it)
+				     (map (function embed-descriptor) args)
+				     (embed-descriptor result))))
+		(lisp:push (cons key compiled) (embed-context-expressions ctx))
+		compiled)))))))
+
+;;; The first N argument types of function type TYPE, and the rest of it.
+
+(define (embed-split-arrows type n)
+  (if (eqv? n 0)
+      (values '() type)
+      (let ((ty  (expand-ntype-synonym (prune type))))
+	(mlet (((args result) (embed-split-arrows (cadr (ntycon-args ty)) (1- n))))
+	  (values (cons (car (ntycon-args ty)) args) result)))))
+
+
+;;;; Descriptors
+
+;;; How a value of TYPE is passed to and from Lisp:
+;;;   :int :integer :double :float  the Lisp number
+;;;   :char                          a character
+;;;   :bool                          T or NIL
+;;;   :unit                          NIL
+;;;   :string                        a string
+;;;   (:list D)                      a list
+;;;   (:tuple D ...)                 a list of the components
+;;;   (:maybe D)                     NIL for Nothing, x for Just x
+;;;   (:io D)                        run (an IO value inside another:
+;;;                                  a function of no arguments)
+;;;   (:fun (D ...) D)               a function of that many arguments
+;;;   :opaque                        a number as it is, otherwise a
+;;;                                  haskell-value
+
+(define (embed-descriptor type)
+  (let ((ty  (expand-ntype-synonym (prune type))))
+    (if (not (ntycon? ty))
+	':opaque
+	(let ((tycon  (ntycon-tycon ty))
+	      (args   (ntycon-args ty)))
+	  (cond ((eq? tycon (core-symbol "Arrow"))
+		 (embed-function-descriptor ty))
+		((eq? tycon (core-symbol "List"))
+		 (if (embed-char-type? (car args))
+		     ':string
+		     (list ':list (embed-descriptor (car args)))))
+		((is-tuple-tycon? tycon)
+		 (cons ':tuple (map (function embed-descriptor) args)))
+		((eq? tycon (core-symbol "Int")) ':int)
+		((eq? tycon (core-symbol "Integer")) ':integer)
+		((eq? tycon (core-symbol "Double")) ':double)
+		((eq? tycon (core-symbol "Float")) ':float)
+		((eq? tycon (core-symbol "Char")) ':char)
+		((eq? tycon (core-symbol "Bool")) ':bool)
+		((eq? tycon (core-symbol "UnitType")) ':unit)
+		((eq? tycon (core-symbol "IO"))
+		 (list ':io (embed-descriptor (car args))))
+		((and (algdata? tycon)
+		      (eq? (def-name tycon) '|Maybe|)
+		      (eqv? (length (algdata-constrs tycon)) 2)
+		      ;; (constructor names start with ;)
+		      (eq? (def-name (car (algdata-constrs tycon))) '|;Nothing|))
+		 (list ':maybe (embed-descriptor (car args))))
+		(else ':opaque))))))
+
+(define (embed-char-type? type)
+  (let ((ty  (expand-ntype-synonym (prune type))))
+    (and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "Char")))))
+
+(define (embed-function-descriptor ty)
+  (let ((args  '()))
+    (do ((ty ty (expand-ntype-synonym (prune (cadr (ntycon-args ty))))))
+	((not (and (ntycon? ty) (eq? (ntycon-tycon ty) (core-symbol "Arrow"))))
+	 (list ':fun (reverse args) (embed-descriptor ty)))
+      (push (embed-descriptor (car (ntycon-args ty))) args))))
+
+
+;;;; Values
+
+;;; Runs THUNK as a program runs: IEEE floats, a runtime error a Lisp
+;;; error (through *embed-runtime-error-hook*), blackholes restored.
+
+(define (embed-evaluating thunk)
+  (let ((message  '#f))
+    (let ((result
+	   (lisp:handler-case
+	       (dynamic-let ((*catch-runtime-errors* '#t))
+		 (with-blackhole-restore
+		   (if (haskell98?) (call-with-ieee-floats thunk) (funcall thunk))))
+	     (haskell-error-call (c)
+	       (setf message (haskell-error-call-message c))
+	       '#f))))
+      (if message
+	  (funcall *embed-runtime-error-hook* message)
+	  result))))
+
+;;; The value of compiled expression BLOCK (embed-expression) applied to
+;;; the Lisp splice VALUES, as Lisp; an IO action is run.
+
+(define (embed-call block values)
+  (embed-evaluating
+   (lambda ()
+     (let ((v  (force (lisp:symbol-value (car block)))))
+       (embed-result (caddr block)
+		     (if (null? values)
+			 v
+			 (force (apply-list v (map (function embed-from-lisp)
+						   (cadr block) values)))))))))
+
+(define (embed-result d x)
+  (if (and (pair? d) (eq? (car d) ':io))
+      (embed-run-io (cadr d) x)
+      (embed-to-lisp d x)))
+
+(define (embed-run-io d action)
+  (embed-to-lisp d (apply-1 (force action) 'state)))
+
+(define (embed-to-lisp d v)
+  (let ((x  (force v)))
+    (cond ((eq? d ':opaque)
+	   (if (lisp:numberp x) x (make-haskell-value x)))
+	  ((memq d '(:int :integer :double :float :bool))
+	   x)
+	  ((eq? d ':char)
+	   (integer->char x))
+	  ((eq? d ':unit)
+	   '#f)
+	  ((eq? d ':string)
+	   (haskell-string->string x))
+	  ((eq? (car d) ':list)
+	   (let ((result  '()))
+	     (do ((c x (force (cdr c))))
+		 ((null? c) (reverse result))
+	       (push (embed-to-lisp (cadr d) (car c)) result))))
+	  ((eq? (car d) ':tuple)
+	   (if (eqv? (length (cdr d)) 2)
+	       (list (embed-to-lisp (cadr d) (car x))
+		     (embed-to-lisp (caddr d) (cdr x)))
+	       (lisp:loop for cd in (cdr d)
+			  for i from 0
+			  collect (embed-to-lisp cd (vector-ref x i)))))
+	  ((eq? (car d) ':maybe)
+	   (if (eqv? (constructor-number x) 0)
+	       '#f
+	       (embed-to-lisp (cadr d) (tagged-data-select 1 0 x))))
+	  ((eq? (car d) ':io)
+	   (lambda () (embed-evaluating (lambda () (embed-run-io (cadr d) x)))))
+	  ((eq? (car d) ':fun)
+	   (embed-lisp-function d x))
+	  (else
+	   (make-haskell-value x)))))
+
+;;; Haskell function F as a Lisp function of all its arguments.
+
+(define (embed-lisp-function d f)
+  (let ((ds  (cadr d))
+	(n   (length (cadr d))))
+    (lambda args
+      (when (not (eqv? (length args) n))
+	(lisp:error "This Haskell function takes ~D argument~:P, not ~D."
+		    n (length args)))
+      (embed-evaluating
+       (lambda ()
+	 (embed-result (caddr d)
+		       (force (apply-list f (map (function embed-from-lisp) ds args)))))))))
+
+(define (embed-from-lisp d x)
+  (cond ((eq? d ':opaque)
+	 (if (haskell-value-p x) (haskell-value-object x) x))
+	((eq? d ':int)
+	 (if (lisp:typep x 'lisp:fixnum) x (embed-type-error "an Int" x)))
+	((eq? d ':integer)
+	 (if (lisp:integerp x) x (embed-type-error "an Integer" x)))
+	((eq? d ':double)
+	 (if (lisp:realp x) (lisp:coerce x 'lisp:double-float) (embed-type-error "a Double" x)))
+	((eq? d ':float)
+	 (if (lisp:realp x) (lisp:coerce x 'lisp:single-float) (embed-type-error "a Float" x)))
+	((eq? d ':char)
+	 (if (lisp:characterp x) (char->integer x) (embed-type-error "a Char" x)))
+	((eq? d ':bool)
+	 (if x '#t '#f))
+	((eq? d ':unit)
+	 0)
+	((eq? d ':string)
+	 (if (lisp:stringp x) (make-haskell-string x) (embed-type-error "a String" x)))
+	((eq? (car d) ':list)
+	 (let ((result  '()))
+	   (dolist (e (reverse (lisp:coerce x 'lisp:list)))
+	     (setf result (cons (embed-from-lisp (cadr d) e) result)))
+	   result))
+	((eq? (car d) ':tuple)
+	 (let ((vals  (map (function embed-from-lisp) (cdr d) (lisp:coerce x 'lisp:list))))
+	   (if (eqv? (length vals) 2)
+	       (cons (car vals) (cadr vals))
+	       (lisp:coerce vals 'lisp:simple-vector))))
+	((eq? (car d) ':maybe)
+	 (if (null? x)
+	     (make-tagged-data 0)
+	     (make-tagged-data 1 (embed-from-lisp (cadr d) x))))
+	((eq? (car d) ':io)
+	 (lambda (state)
+	   (declare (ignore state))
+	   (embed-from-lisp (cadr d) (funcall x))))
+	((eq? (car d) ':fun)
+	 (embed-haskell-function d x))
+	(else
+	 (if (haskell-value-p x) (haskell-value-object x) x))))
+
+;;; Lisp function F as a Haskell function value.  Its arguments are
+;;; evaluated when it is applied; for an IO result, it is called when the
+;;; action runs.
+
+(define (embed-haskell-function d f)
+  (let ((ds      (cadr d))
+	(result  (caddr d)))
+    (make-fun/n
+     (length ds)
+     (lambda args
+       (let ((lisp-args  (map (function embed-to-lisp) ds args)))
+	 (if (and (pair? result) (eq? (car result) ':io))
+	     (lambda (state)
+	       (declare (ignore state))
+	       (embed-from-lisp (cadr result) (lisp:apply f lisp-args)))
+	     (embed-from-lisp result (lisp:apply f lisp-args))))))))
+
+(define (embed-type-error what x)
+  (lisp:error "~S is not ~A." x what))
