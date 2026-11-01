@@ -235,7 +235,18 @@
 	  (res-m   (ffi-marshalling var rtype '#t))
 	  (params  (map (lambda (ty) (declare (ignore ty)) (gensym "A")) args))
 	  (state   (gensym "S")))
-      (cond ((eq? (car spec) 'address)
+      (cond ((eq? (car spec) 'value)
+	     (when (or io? (not (null? args)))
+	       (ffi-error var "a value import must have a type without arguments"))
+	     (let ((v  (ffi-c-value var (cadr spec) (caddr spec)
+				    (and (memq (car res-m) '(:double :float)) '#t))))
+	       (setf (var-optimized-entry var) '#f)
+	       (setf (var-strict? var) '#f)
+	       (setf (var-arity var) 0)
+	       (setf (var-strictness var) '())
+	       `(define ,(fullname var)
+		  (delay ,(ffi-apply (caddr res-m) v)))))
+	    ((eq? (car spec) 'address)
 	     (when (or io? (not (null? args)) (not (eq? (car res-m) ':pointer)))
 	       (ffi-error var "an & import must have type Ptr t or FunPtr t"))
 	     (setf (var-optimized-entry var) '#f)
@@ -433,6 +444,16 @@
   (let ((words  (ffi-words entity)))
     (cond ((equal? words '("dynamic")) '(dynamic))
 	  ((equal? words '("wrapper")) '(wrapper))
+	  ;; capi "[header.h] value NAME": a C constant or macro
+	  ((let ((vs (lisp:member "value" words :test (function equal?))))
+	     (and vs (not (null? (cdr vs))) (null? (cddr vs))))
+	   (let ((vs (lisp:member "value" words :test (function equal?))))
+	     (list 'value (cadr vs)
+		   (lisp:remove-if-not
+		    (lambda (w)
+		      (and (> (string-length w) 2)
+			   (lisp:string= ".h" w :start2 (- (string-length w) 2))))
+		    words))))
 	  (else
 	   (let ((ws  (lisp:remove-if (lambda (w)
 					(or (string=? w "static")
@@ -457,6 +478,36 @@
 	(let ((end  (or (lisp:position #\space s :start start) (string-length s))))
 	  (cons (lisp:subseq s start end)
 		(ffi-words (lisp:subseq s end)))))))
+
+;;; The value of the C expression NAME, with HEADERS included, as a Lisp
+;;; number: a program that prints it is compiled by cc and run.
+(define (ffi-c-value var name headers float?)
+  (let* ((base  (format '#f "~A/yale-capi-~A-~A"
+			(or (sb-ext:posix-getenv "TMPDIR") "/tmp")
+			(sb-unix:unix-getpid)
+			(lisp:random 1000000000 (lisp:make-random-state '#t))))
+	 (src   (lisp:concatenate 'string base ".c"))
+	 (exe   base))
+    (lisp:unwind-protect
+      (begin
+	(lisp:with-open-file (o src :direction ':output :if-exists ':supersede)
+	  (lisp:format o "#include <stdio.h>~%")
+	  (dolist (h headers) (lisp:format o "#include <~A>~%" h))
+	  (if float?
+	      (lisp:format o "int main(void){printf(\"%.17g\\n\",(double)(~A));return 0;}~%" name)
+	      (lisp:format o "int main(void){printf(\"%lld\\n\",(long long)(~A));return 0;}~%" name)))
+	(let ((cc  (sb-ext:run-program "/usr/bin/env" (list "cc" "-w" "-o" exe src)
+				       ':output '#f ':error '#f)))
+	  (when (not (eqv? (sb-ext:process-exit-code cc) 0))
+	    (ffi-error var (format '#f "cc cannot compile the value ~A" name))))
+	(let* ((out  (lisp:with-output-to-string (o)
+		       (sb-ext:run-program exe '() ':output o)))
+	       (v    (lisp:let ((lisp:*read-default-float-format* 'lisp:double-float))
+		       (lisp:read-from-string out))))
+	  v))
+      (begin
+	(lisp:ignore-errors (lisp:delete-file src))
+	(lisp:ignore-errors (lisp:delete-file exe))))))
 
 ;;; How a value of type TY crosses to C: (cffi-type to-c from-c), where
 ;;; to-c and from-c are #f or functions of a form.  Int is a C long; the
