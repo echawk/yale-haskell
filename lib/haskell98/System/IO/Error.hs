@@ -11,6 +11,9 @@ module System.IO.Error (
     alreadyInUseErrorType, fullErrorType, eofErrorType,
     illegalOperationErrorType, permissionErrorType, userErrorType,
     ioeGetErrorType,
+    isAlreadyExistsErrorType, isDoesNotExistErrorType, isAlreadyInUseErrorType,
+    isFullErrorType, isEOFErrorType, isIllegalOperationErrorType,
+    isPermissionErrorType, isUserErrorType,
     ioError, catch, catchIOError, tryIOError, modifyIOError,
     ioeGetLocation, ioeSetErrorType, ioeSetErrorString, ioeSetLocation,
     ioeSetHandle, ioeSetFileName,
@@ -56,6 +59,18 @@ eofErrorType              = IOErrorType 5
 illegalOperationErrorType = IOErrorType 6
 permissionErrorType       = IOErrorType 7
 userErrorType             = IOErrorType 8
+
+isAlreadyExistsErrorType, isDoesNotExistErrorType, isAlreadyInUseErrorType,
+  isFullErrorType, isEOFErrorType, isIllegalOperationErrorType,
+  isPermissionErrorType, isUserErrorType :: IOErrorType -> Bool
+isAlreadyExistsErrorType = (== alreadyExistsErrorType)
+isDoesNotExistErrorType = (== doesNotExistErrorType)
+isAlreadyInUseErrorType = (== alreadyInUseErrorType)
+isFullErrorType = (== fullErrorType)
+isEOFErrorType = (== eofErrorType)
+isIllegalOperationErrorType = (== illegalOperationErrorType)
+isPermissionErrorType = (== permissionErrorType)
+isUserErrorType = (== userErrorType)
 
 ioeGetErrorType :: IOError -> IOErrorType
 ioeGetErrorType (IOError e) = IOErrorType (primIOErrorKind e)

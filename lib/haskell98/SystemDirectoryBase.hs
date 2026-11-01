@@ -13,7 +13,7 @@ module SystemDirectoryBase (
     getModificationTime, getHomeDirectory, getTemporaryDirectory,
     copyFile, findExecutable, makeAbsolute,
     canonicalizePath, makeRelativeToCurrentDirectory,
-    XdgDirectory(..), getXdgDirectory, getAppUserDataDirectory,
+    XdgDirectory(..), getXdgDirectory, XdgDirectoryList(..), getXdgDirectoryList, getAppUserDataDirectory,
     getUserDocumentsDirectory, exeExtension, findFile, findFiles,
     getFileSize, removePathForcibly, renamePath, pathIsSymbolicLink,
     getSymbolicLinkTarget
@@ -110,6 +110,24 @@ makeRelativeToCurrentDirectory p = do
 
 data XdgDirectory = XdgData | XdgConfig | XdgCache | XdgState
   deriving (Eq, Ord, Read, Show)
+
+data XdgDirectoryList = XdgDataDirs | XdgConfigDirs
+  deriving (Eq, Ord, Read, Show)
+
+-- | $XDG_DATA_DIRS or $XDG_CONFIG_DIRS (colon separated), or their defaults.
+getXdgDirectoryList :: XdgDirectoryList -> IO [FilePath]
+getXdgDirectoryList d = do
+  let (var, def) = case d of
+        XdgDataDirs -> ("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/")
+        XdgConfigDirs -> ("XDG_CONFIG_DIRS", "/etc/xdg")
+  v <- lookupEnv var
+  let str = case v of
+        Just x | not (null x) -> x
+        _ -> def
+      split t = case break (== ':') t of
+        (a, []) -> [a]
+        (a, _ : rest) -> a : split rest
+  return (filter (not . null) (split str))
 
 -- | $XDG_DATA_HOME (and the others), or its default under the home
 -- directory, with the path given.
