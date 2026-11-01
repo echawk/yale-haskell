@@ -4,7 +4,7 @@
 -- the strict one underneath: each function is Data.ByteString's.
 module Data.ByteString.Lazy (
     ByteString, mapAccumL, mapAccumR, fromStrict, toStrict, fromChunks, toChunks, foldrChunks, foldlChunks,
-    pack, unpack, empty, singleton, cons, snoc, append, head, last, tail, init, uncons, unsnoc, null, length, map, reverse, intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr', sort, foldr1, concat, concatMap, any, all, maximum, minimum, replicate, unfoldr, take, takeEnd, drop, dropEnd, splitAt, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, span, spanEnd, break, breakEnd, breakSubstring, group, groupBy, inits, tails, split, splitWith, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, elem, notElem, find, filter, partition, index, indexMaybe, (!?), elemIndex, elemIndices, findIndex, findIndices, count, zip, zipWith, unzip, copy, putStr, getLine, getContents, interact, readFile, writeFile, appendFile, hPutStr, hPut, hGetLine, hGetContents, hGet, hGetSome, hGetNonBlocking
+    pack, unpack, empty, singleton, cons, snoc, append, head, last, tail, init, uncons, unsnoc, null, length, map, reverse, intercalate, intersperse, transpose, foldl, foldl', foldl1, foldl1', foldr1', foldr, foldr', sort, foldr1, concat, concatMap, any, all, maximum, minimum, replicate, unfoldr, take, takeEnd, drop, dropEnd, splitAt, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, span, spanEnd, break, breakEnd, breakSubstring, group, groupBy, inits, tails, split, splitWith, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, elem, notElem, find, filter, partition, index, indexMaybe, (!?), elemIndex, elemIndices, findIndex, findIndices, count, zip, zipWith, unzip, copy, putStr, getLine, getContents, interact, readFile, writeFile, appendFile, hPutStr, hPut, hGetLine, hGetContents, hGet, hGetSome, hGetNonBlocking
   ) where
 
 import qualified Data.List as DL
@@ -306,3 +306,7 @@ hGetNonBlocking = unsafeCoerce S.hGetNonBlocking
 mapAccumL, mapAccumR :: (acc -> Word8 -> (acc, Word8)) -> acc -> ByteString -> (acc, ByteString)
 mapAccumL f acc b = case DL.mapAccumL f acc (unpack b) of (a, xs) -> (a, pack xs)
 mapAccumR f acc b = case DL.mapAccumR f acc (unpack b) of (a, xs) -> (a, pack xs)
+
+foldl1', foldr1' :: (Word8 -> Word8 -> Word8) -> ByteString -> Word8
+foldl1' = foldl1
+foldr1' = foldr1

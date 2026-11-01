@@ -4,7 +4,7 @@
 module Data.ByteString.Char8 (
     ByteString, packCString, packCStringLen, useAsCString, useAsCStringLen, mapAccumL, mapAccumR, pack, unpack, empty, singleton, cons, snoc, append, head,
     last, tail, init, uncons, unsnoc, null, length, map, reverse,
-    intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr,
+    intercalate, intersperse, transpose, foldl, foldl', foldl1, foldl1', foldr1', foldr,
     foldr', foldr1, concat, concatMap, any, all, maximum, minimum, scanl, sort,
     replicate, unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, splitAt,
     takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, dropSpace, strip,
@@ -363,3 +363,7 @@ sort = pack . L.sort . unpack
 mapAccumL, mapAccumR :: (acc -> Char -> (acc, Char)) -> acc -> ByteString -> (acc, ByteString)
 mapAccumL f acc b = case L.mapAccumL f acc (unpack b) of (a, xs) -> (a, pack xs)
 mapAccumR f acc b = case L.mapAccumR f acc (unpack b) of (a, xs) -> (a, pack xs)
+
+foldl1', foldr1' :: (Char -> Char -> Char) -> ByteString -> Char
+foldl1' = foldl1
+foldr1' = foldr1

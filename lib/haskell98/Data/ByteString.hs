@@ -3,7 +3,7 @@
 module Data.ByteString (
     ByteString, mapAccumL, mapAccumR, pack, unpack, empty, singleton, cons, snoc, append, head,
     last, tail, init, uncons, unsnoc, null, length, map, reverse,
-    intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr',
+    intercalate, intersperse, transpose, foldl, foldl', foldl1, foldl1', foldr1', foldr, foldr',
     sort,
     foldr1, concat, concatMap, any, all, maximum, minimum, replicate,
     unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, splitAt, takeWhile,
@@ -191,3 +191,7 @@ unzip ps = (pack (P.map fst ps), pack (P.map snd ps))
 mapAccumL, mapAccumR :: (acc -> Word8 -> (acc, Word8)) -> acc -> ByteString -> (acc, ByteString)
 mapAccumL f acc b = case L.mapAccumL f acc (unpack b) of (a, xs) -> (a, pack xs)
 mapAccumR f acc b = case L.mapAccumR f acc (unpack b) of (a, xs) -> (a, pack xs)
+
+foldl1', foldr1' :: (Word8 -> Word8 -> Word8) -> ByteString -> Word8
+foldl1' = foldl1
+foldr1' = foldr1

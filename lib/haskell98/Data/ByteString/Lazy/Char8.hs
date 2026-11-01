@@ -4,7 +4,7 @@
 -- the strict one underneath: each function is Data.ByteString.Char8's.
 module Data.ByteString.Lazy.Char8 (
     ByteString, mapAccumL, mapAccumR, fromStrict, toStrict, fromChunks, toChunks,
-    pack, unpack, empty, singleton, cons, snoc, append, head, last, tail, init, uncons, unsnoc, null, length, map, reverse, intercalate, intersperse, transpose, foldl, foldl', foldl1, foldr, foldr', foldr1, concat, concatMap, any, all, maximum, minimum, scanl, sort, replicate, unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, splitAt, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, dropSpace, strip, span, spanEnd, break, breakEnd, breakSubstring, group, groupBy, inits, tails, split, splitWith, lines, words, unlines, unwords, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, elem, notElem, find, filter, partition, index, indexMaybe, (!?), elemIndex, elemIndices, elemIndexEnd, findIndex, findIndices, count, zip, zipWith, unzip, readInt, readInteger, copy, putStr, putStrLn, getLine, getContents, interact, readFile, writeFile, appendFile, hPutStr, hPutStrLn, hPut, hGetLine, hGetContents, hGet, hGetSome, hGetNonBlocking
+    pack, unpack, empty, singleton, cons, snoc, append, head, last, tail, init, uncons, unsnoc, null, length, map, reverse, intercalate, intersperse, transpose, foldl, foldl', foldl1, foldl1', foldr1', foldr, foldr', foldr1, concat, concatMap, any, all, maximum, minimum, scanl, sort, replicate, unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, splitAt, takeWhile, takeWhileEnd, dropWhile, dropWhileEnd, dropSpace, strip, span, spanEnd, break, breakEnd, breakSubstring, group, groupBy, inits, tails, split, splitWith, lines, words, unlines, unwords, isPrefixOf, isSuffixOf, isInfixOf, stripPrefix, stripSuffix, elem, notElem, find, filter, partition, index, indexMaybe, (!?), elemIndex, elemIndices, elemIndexEnd, findIndex, findIndices, count, zip, zipWith, unzip, readInt, readInteger, copy, putStr, putStrLn, getLine, getContents, interact, readFile, writeFile, appendFile, hPutStr, hPutStrLn, hPut, hGetLine, hGetContents, hGet, hGetSome, hGetNonBlocking
   ) where
 
 import qualified Data.List as DL
@@ -345,3 +345,7 @@ hGetNonBlocking = unsafeCoerce S.hGetNonBlocking
 mapAccumL, mapAccumR :: (acc -> Char -> (acc, Char)) -> acc -> ByteString -> (acc, ByteString)
 mapAccumL f acc b = case DL.mapAccumL f acc (unpack b) of (a, xs) -> (a, pack xs)
 mapAccumR f acc b = case DL.mapAccumR f acc (unpack b) of (a, xs) -> (a, pack xs)
+
+foldl1', foldr1' :: (Char -> Char -> Char) -> ByteString -> Char
+foldl1' = foldl1
+foldr1' = foldr1
