@@ -42,7 +42,8 @@ module GHC.Exts (
     module GHC.PrimOps, module GHC.PrimOpsTyped, UnliftedType, UnliftedRep,
     RuntimeRep(..), Levity(..), TYPE, LiftedRep, SPEC(..),
     Ptr(Ptr), FunPtr(FunPtr), Down(..), sortWith, groupWith, the, realWorld#, runRW#, noDuplicate#, keepAlive#,
-    atomicModifyMutVar#, atomicModifyMutVar2#, atomicModifyMutVar_#
+    atomicModifyMutVar#, atomicModifyMutVar2#, atomicModifyMutVar_#,
+    Weak#, mkWeak#, mkWeakNoFinalizer#, deRefWeak#
   ) where
 
 import GHC.IsList (IsList(..), Item)
@@ -343,6 +344,19 @@ atomicModifyMutVar# :: MutVar# s a -> (a -> b) -> State# s -> (State# s, c)
 atomicModifyMutVar# mv f s =
   case atomicModifyMutVar2# mv f s of
     (s1, _, r) -> (s1, case unsafeCoerce r of (_, c) -> c)
+
+-- weak pointers hold their value; finalizers run only through
+-- System.Mem.Weak's finalize, so these ones never run theirs
+data Weak# b = MkWeak# b
+
+mkWeak# :: k -> v -> (State# RealWorld -> (State# RealWorld, c)) -> State# RealWorld -> (State# RealWorld, Weak# v)
+mkWeak# _ v _ s = (s, MkWeak# v)
+
+mkWeakNoFinalizer# :: k -> v -> State# RealWorld -> (State# RealWorld, Weak# v)
+mkWeakNoFinalizer# _ v s = (s, MkWeak# v)
+
+deRefWeak# :: Weak# a -> State# RealWorld -> (State# RealWorld, Int#, a)
+deRefWeak# (MkWeak# v) s = (s, 1#, v)
 
 keepAlive# :: a -> State# s -> (State# s -> b) -> b
 keepAlive# _ s k = k s
