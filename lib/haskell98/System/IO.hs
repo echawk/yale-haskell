@@ -22,7 +22,7 @@ module System.IO (
     Newline(LF, CRLF), NewlineMode(NewlineMode, inputNL, outputNL),
     nativeNewline, noNewlineTranslation, universalNewlineMode,
     nativeNewlineMode, hSetNewlineMode, hGetContents', readFile',
-    hPutBuf, hGetBuf
+    hPutBuf, hGetBuf, hGetBufSome, hGetBufNonBlocking
   ) where
 
 import IO
@@ -175,3 +175,9 @@ hPutBuf (Handle h) p n = primHPutBuf h p n
 
 hGetBuf :: Handle -> Ptr a -> Int -> IO Int
 hGetBuf (Handle h) p n = primHGetBuf h p n
+
+-- (as hGetBuf: it reads until n bytes or the end of the file, where
+-- base's return with what is available)
+hGetBufSome, hGetBufNonBlocking :: Handle -> Ptr a -> Int -> IO Int
+hGetBufSome = hGetBuf
+hGetBufNonBlocking = hGetBuf

@@ -1,7 +1,55 @@
-ram: Data.Word's popCount and byteSwap64 (base >= 4.7) and the Int#-based booleanPrim, not the fallbacks CPP picks without MIN_VERSION_base and __GLASGOW_HASKELL__.
+ram: Data.Word's popCount and byteSwap64, the Int#-based booleanPrim, and Data.ByteArray.Sized without its type-level arithmetic equalities (n + 1 ~ m), which the type checker cannot use.
+diff -ruN a/Data/ByteArray/Sized.hs b/Data/ByteArray/Sized.hs
+--- a/Data/ByteArray/Sized.hs	2026-11-01 04:35:12
++++ b/Data/ByteArray/Sized.hs	2026-11-01 04:35:12
+@@ -188,7 +188,7 @@
+ cons :: forall ni no bi bo
+       . ( ByteArrayN ni bi, ByteArrayN no bo, ByteArrayAccess bi
+         , KnownNat ni, KnownNat no
+-        , (ni + 1) ~ no
++        
+         )
+      => Word8 -> bi -> bo
+ cons b ba = unsafeCreate @no $ \d -> withByteArray ba $ \s -> do
+@@ -201,7 +201,7 @@
+ snoc :: forall bi bo ni no
+       . ( ByteArrayN ni bi, ByteArrayN no bo, ByteArrayAccess bi
+         , KnownNat ni, KnownNat no
+-        , (ni + 1) ~ no
++        
+         )
+      => bi -> Word8 -> bo
+ snoc ba b = unsafeCreate @no $ \d -> withByteArray ba $ \s -> do
+@@ -245,7 +245,7 @@
+          . ( ByteArrayN nbi bi, ByteArrayN nblhs blhs, ByteArrayN nbrhs brhs
+            , ByteArrayAccess bi
+            , KnownNat nbi, KnownNat nblhs, KnownNat nbrhs
+-           , nblhs <= nbi, (nbrhs + nblhs) ~ nbi
++           
+            )
+         => bi -> (blhs, brhs)
+ splitAt bs = unsafeDoIO $
+@@ -276,7 +276,7 @@
+       . ( ByteArrayN nbi bi, ByteArrayN nbo bo
+         , ByteArrayAccess bi
+         , KnownNat n, KnownNat nbi, KnownNat nbo
+-        , (nbo + n) ~ nbi
++        
+         )
+      => Proxy n -> bi -> bo
+ drop pn bs = unsafeCreate @nbo $ \d ->
+@@ -293,7 +293,7 @@
+         . ( ByteArrayN nblhs blhs, ByteArrayN nbrhs brhs, ByteArrayN nbout bout
+           , ByteArrayAccess blhs, ByteArrayAccess brhs
+           , KnownNat nblhs, KnownNat nbrhs, KnownNat nbout
+-          , (nbrhs + nblhs) ~ nbout
++          
+           )
+        => blhs -> brhs -> bout
+ append blhs brhs = unsafeCreate @nbout $ \p ->
 diff -ruN a/Data/Memory/Internal/Compat.hs b/Data/Memory/Internal/Compat.hs
---- a/Data/Memory/Internal/Compat.hs	2026-11-01 04:31:23
-+++ b/Data/Memory/Internal/Compat.hs	2026-11-01 04:31:23
+--- a/Data/Memory/Internal/Compat.hs	2026-11-01 04:35:12
++++ b/Data/Memory/Internal/Compat.hs	2026-11-01 04:35:12
 @@ -35,14 +35,14 @@
  unsafeDoIO = unsafePerformIO
  #endif
@@ -45,8 +93,8 @@ diff -ruN a/Data/Memory/Internal/Compat.hs b/Data/Memory/Internal/Compat.hs
  unsafeShiftL = shiftL
  
 diff -ruN a/Data/Memory/Internal/CompatPrim.hs b/Data/Memory/Internal/CompatPrim.hs
---- a/Data/Memory/Internal/CompatPrim.hs	2026-11-01 04:31:23
-+++ b/Data/Memory/Internal/CompatPrim.hs	2026-11-01 04:31:23
+--- a/Data/Memory/Internal/CompatPrim.hs	2026-11-01 04:35:12
++++ b/Data/Memory/Internal/CompatPrim.hs	2026-11-01 04:35:12
 @@ -46,7 +46,7 @@
  -- | Simple compatibility for byteswap the lower 32 bits of a Word#
  -- at the primitive level
