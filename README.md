@@ -75,7 +75,7 @@ comma-separated list:
 - `asm`, SBCL's disassembly of each top-level function.
 
 To see what the optimizations do, combine it with `--optimizers` (FLIC:
-`foldr,inline,constant,lisp`), `--grin-optimizations` (`-g`) and
+`foldr,inline,constant,lisp,arity`), `--grin-optimizations` (`-g`) and
 `--backend`. Each list takes names, `+name`, `-name`, `all` or `none`.
 
 The interactive system works like GHCi: type an expression to evaluate

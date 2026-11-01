@@ -49,7 +49,7 @@
                       :key :no-optimize :persistent t
                       :description "turn off the FLIC optimizer")
    (clingon:make-option :string :long-name "optimizers" :key :optimizers :persistent t
-                        :description "FLIC optimizers, comma-separated: names (exactly these), +name, -name, all, none; of foldr,inline,constant,lisp")
+                        :description "FLIC optimizers, comma-separated: names (exactly these), +name, -name, all, none; of foldr,inline,constant,lisp,arity")
    (clingon:make-option :flag :long-name "liquid" :key :liquid :persistent t
                         :description "check the {-@ @-} refined signatures with Z3 (doc/plans/LIQUID-HASKELL.md)")
    (clingon:make-option :flag :long-name "cpp" :key :cpp :persistent t

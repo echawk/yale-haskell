@@ -30,7 +30,8 @@
 
 ;;; Flags for enabling various optimizations
 
-(define *all-optimizers* '(foldr inline constant lisp))
+;;; arity: raising a self-recursive function's arity (optimize-binding-value)
+(define *all-optimizers* '(foldr inline constant lisp arity))
 (define *optimizers* *all-optimizers*)
 
 
@@ -338,7 +339,7 @@
 	      (when (top-level-alias-of-inline? var val)
 		(setf (var-force-inline? var) '#t))
 	      ;; Then walk value normally.
-	      (let ((new-val  (optimize val)))
+	      (let ((new-val  (optimize-binding-value var val)))
 		(setf (var-value var) new-val)
 		(setf (var-simple? var)
 		      (cond ((and toplevel?
@@ -1326,6 +1327,65 @@
 	   (memq (flic-ref-var (flic-app-fn exp))
 		 (list (core-symbol "build") (core-symbol "inlineBuild"))))))
 
+;;; Arity raising for a function's own calls (GHC's arity analysis, as
+;;; far as these loops need it).  A function whose every branch returns a
+;;; lambda after bindings that do no work, such as `loop n = step >> loop
+;;; (n - 1)` in State once >> is inlined (if n == 0 then \s -> ... else let
+;;; k = loop (n - 1) in \s -> ... k s' ...), takes the lambda's argument
+;;; too: its own call with its present arguments, loop (n - 1), is then a
+;;; partial application, which GHC's fixpoint also takes to be cheap.  So
+;;; let-hoist-lambda moves k into the lambda, if-hoist-lambda and
+;;; lambda-compress make loop a function of n and s, and k s' a saturated
+;;; call: no closure and no thunk per step (statemonad allocated 4.4x
+;;; GHC's).  The function must return a lambda in every branch, or the call
+;;; moved inside it would be repeated as real work.
+
+(define *eta-candidates* '())   ; ((var . arity) ...), values being optimized
+
+(define (optimize-binding-value var val)
+  (if (and (is-type? 'flic-lambda val)
+	   (dynamic *do-inline-optimizations*)
+	   (do-optimization? 'arity))
+      (let ((c  (cons var (length (flic-lambda-vars val)))))
+	(dynamic-let ((*eta-candidates* (cons c (dynamic *eta-candidates*))))
+	  (if (returns-lambda-everywhere? (flic-lambda-body val))
+	      (optimize val)
+	      ;; not (yet): its calls are not partial applications
+	      (dynamic-let ((*eta-candidates* (cdr (dynamic *eta-candidates*))))
+		(optimize val)))))
+      (optimize val)))
+
+;;; Does BODY return a lambda in every branch, after bindings that would
+;;; move into it?
+(define (returns-lambda-everywhere? body)
+  (typecase body
+    (flic-lambda '#t)
+    (flic-let
+     (and (not (flic-let-recursive? body))
+	  (every-1 (lambda (v) (hoistable-into-lambda? (var-value v)))
+		   (flic-let-bindings body))
+	  (returns-lambda-everywhere? (flic-let-body body))))
+    (flic-if
+     (and (returns-lambda-everywhere? (flic-if-then-exp body))
+	  (returns-lambda-everywhere? (flic-if-else-exp body))))
+    (else '#f)))
+
+;;; A call of a function being raised with its present arguments, each
+;;; doing no work but a primitive's (loop (n - 1)).
+(define (eta-candidate-call? exp)
+  (and (is-type? 'flic-app exp)
+       (is-type? 'flic-ref (flic-app-fn exp))
+       (let ((c  (assq (flic-ref-var (flic-app-fn exp)) (dynamic *eta-candidates*))))
+	 (and c
+	      (eqv? (length (flic-app-args exp)) (cdr c))
+	      (every-1 (lambda (a)
+			 (or (work-free-value? a)
+			     (and (is-type? 'flic-app a)
+				  (is-type? 'flic-ref (flic-app-fn a))
+				  (var-complexity (flic-ref-var (flic-app-fn a)))
+				  (every-1 (function work-free-value?) (flic-app-args a)))))
+		       (flic-app-args exp))))))
+
 ;;; A binding that may move inside a lambda (let-hoist-lambda): one doing no
 ;;; work, but not a list producer (build), which would make its list again
 ;;; at each call; or a cheap one, as GHC's exprIsCheap: a field selection
@@ -1355,6 +1415,8 @@
 	       (args (flic-app-args exp)))
 	   (and (is-type? 'flic-ref fn)
 		(or (eq? (flic-ref-var fn) (core-symbol "error"))
+		    ;; a partial application once its function is raised
+		    (eta-candidate-call? exp)
 		    (and (var-selector-fn? (flic-ref-var fn))
 			 (null? (cdr args))
 			 (is-type? 'flic-ref (car args)))))))

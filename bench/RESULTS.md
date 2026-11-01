@@ -870,3 +870,29 @@ a new state closure, with a thunk for `loop (n - 1)`, at every step
 `n` and the state.  Eta-expanding a function whose every branch is a
 lambda, through the State newtype, is the next step for it
 (doc/plans/GHC-OPTIMIZATIONS.md).
+
+## Arity raising (2026-11-01)
+
+A recursive function that returns a lambda in every branch, after
+bindings that do nothing but call itself with its present arguments,
+now takes the lambda's argument too (backend/optimize.mumble's
+optimize-binding-value; GHC's arity analysis assumes the same of a
+function's own calls).  `loop n = step >> loop (n - 1)` in State was a
+function of `n` returning a new closure, with a thunk for `loop (n -
+1)`, at every step; it is now a loop over `n` and the state.  The pass
+is the optimizer `arity`, so `--optimizers -arity` shows the
+difference.  `bench/modern/arity.hs` has four such loops (State with
+`>>`, State over a list, a Reader-like newtype, continuation-passing
+style).  Three runs each, run time of `main`, same session:
+
+```
+                     arity on                 --optimizers -arity
+arity.hs        0.089-0.106 s,   64 MB    0.249-0.462 s, 1008 MB
+statemonad.hs   0.098-0.134 s,  154 MB    0.110-0.114 s,  314 MB
+```
+
+statemonad's time is mostly garbage collection either way (its step
+still builds a new state record and a result pair); its allocation
+halves.  tests/haskell98/language/arity-raising.hs checks that a
+function with a branch returning something other than a lambda is left
+alone, so a shared partial application keeps its work shared.
