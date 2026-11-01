@@ -231,7 +231,10 @@ operations are strict in it) and return the token."
 (cl:defun prim.new-array# (n x s) (state-and s (cl:make-array n :initial-element x)))
 (cl:defun prim.read-array# (a i s) (state-and s (cl:svref a i)))
 (cl:defun prim.write-array# (a i x s) (with-state (s) (cl:setf (cl:svref a i) x)))
-(cl:defun prim.index-array# (a i) (cl:svref a i))
+;;; A primitive's result is taken to be evaluated (the code generator does
+;;; not force it), so the element is: an unevaluated one (V.fromList (map
+;;; f xs)) was taken for its constructor ([Null,Null], or a memory fault).
+(cl:defun prim.index-array# (a i) (force (cl:svref a i)))
 (cl:defun prim.sizeof-array# (a) (cl:length a))
 (cl:defun prim.get-sizeof-array# (a s) (state-and s (cl:length a)))
 (cl:defun prim.unsafe-freeze-array# (a s) (state-and s a))
