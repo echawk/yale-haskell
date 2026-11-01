@@ -1,6 +1,8 @@
+diff --git a/MicroCabal/Main.hs b/MicroCabal/Main.hs
+index 06d16ce..49b107d 100644
 --- a/MicroCabal/Main.hs
 +++ b/MicroCabal/Main.hs
-@@ -10,6 +10,7 @@
+@@ -10,6 +10,7 @@ import qualified System.Info as I
  import Text.Read
  import MicroCabal.Backend.GHC
  import MicroCabal.Backend.MHS
@@ -8,16 +10,29 @@
  import MicroCabal.Cabal
  import MicroCabal.Env
  import MicroCabal.Glob
-@@ -51,7 +52,7 @@
+@@ -51,11 +52,18 @@ setupEnv = do
        env = Env{ instDir = cdir, distDir = "dist-mcabal", pkgPath = Nothing, verbose = 0, depth = 0, eflags = [],
                   backend = error "backend undefined", recursive = False, targets = [TgtLib, TgtFor, TgtExe],
                   gitRepo = Nothing, gitRef = Nothing, dryRun = False, useNightly = True, subDir = Nothing, compOptions = [] }
 -  be <- mhsBackend env
-+  be <- yaleBackend env
-   return env{ backend = be }
+-  return env{ backend = be }
++  return env
  
  decodeCommonArgs :: Env -> IO (Env, [String])
-@@ -65,6 +66,7 @@
+-decodeCommonArgs env = do
++decodeCommonArgs env0 = do
++  args <- getArgs
++  -- The default backend is only probed when no other is chosen, so mhs
++  -- need not be installed to use --ghc.
++  env <- if any (`elem` ["--ghc", "--mhs", "--yale"]) (takeWhile ("-" `isPrefixOf`) args) then
++           return env0
++         else do
++           be <- mhsBackend env0
++           return env0{ backend = be }
+   let loop e ("-v"           : as) = loop e{ verbose = verbose e + 1 } as
+       loop e ("-q"           : as) = loop e{ verbose = -1 } as
+       loop e ("-r"           : as) = loop e{ recursive = True } as
+@@ -65,6 +73,7 @@ decodeCommonArgs env = do
        loop e (('-':'a':s)    : as) = loop e{ pkgPath = Just $ maybe s (++ (':' : s)) (pkgPath e) } as
        loop e ("--ghc"        : as) = do be <- ghcBackend env; loop e{ backend = be } as
        loop e ("--mhs"        : as) = do be <- mhsBackend env; loop e{ backend = be } as
@@ -25,7 +40,16 @@
        loop e ("--dry-run"    : as) = loop e{ dryRun = True } as
        loop e ("--nightly"    : as) = loop e{ useNightly = True } as
        loop e ("--no-nightly" : as) = loop e{ useNightly = False } as
-@@ -302,7 +304,13 @@
+@@ -73,7 +82,7 @@ decodeCommonArgs env = do
+                                    | Just r <- stripPrefix "--install=" a
+                                    = loop e{ instDir = r } as
+       loop e as = return (e, as)
+-  loop env =<< getArgs
++  loop env args
+ 
+ decodeCabalFlags :: String -> [(Name, Bool)]
+ decodeCabalFlags = map f . words
+@@ -302,7 +311,13 @@ createPathFile env gsect@(Section _ _ glob) = do
      "import Data.Version\n" ++
      "version :: Version; version = makeVersion " ++ show (versionBranch vers) ++ "\n" ++
      "getDataDir :: IO FilePath; getDataDir = return " ++ show dataDir ++ "\n" ++
@@ -40,7 +64,7 @@
  
  build :: Env -> IO ()
  build env = do
-@@ -313,7 +321,11 @@
+@@ -313,7 +328,11 @@ build env = do
        info = FlagInfo { os = I.os, arch = I.arch, flags = eflags env, impl = comp }
        ncbl@(Cabal sects) = normalizeAndPatch env info cbl
        glob = getGlobal ncbl
@@ -53,7 +77,7 @@
        sectLib s@(Section "foreign-library" _ _) | TgtFor `elem` targets env && isBuildable s = buildForeignLib env glob s
        sectLib _ = return Nothing
        sectExe ll s@(Section "executable"   _ _) | TgtExe `elem` targets env && isBuildable s = void $ buildExe env glob s ll
-@@ -328,6 +340,27 @@
+@@ -328,6 +347,27 @@ build env = do
    mapM_ (sectExe localLibs) sects'
    mapM_ (sectTst localLibs) sects'
  
@@ -81,7 +105,7 @@
  isBuildable :: Section -> Bool
  isBuildable (Section _ _ flds) = getFieldBool True flds "buildable"
  
-@@ -357,11 +390,11 @@
+@@ -357,11 +397,11 @@ hackLocalLibs env locals vers (Section stype sname flds) =
            in  replField mhso mfs' fs
          localFiles = map (\ n -> distDir env ++ "/" ++  n ++ "-" ++ showVersion vers ++ ".pkg") locals
  
@@ -96,7 +120,7 @@
    mapM_ (checkDep env) pkgs
    buildPkgLib (backend env) env glob sect
    return (Just name)
-@@ -421,6 +454,7 @@
+@@ -421,6 +461,7 @@ install env = do
        ncbl@(Cabal sects) = normalizeAndPatch env info cbl
        glob = getGlobal ncbl
        sect s@(Section "executable" _ _) | TgtExe `elem` targets env && isBuildable s = installExe env glob s
@@ -104,19 +128,19 @@
        sect s@(Section "library"    _ _) | TgtLib `elem` targets env && isBuildable s = installLib env glob s
        sect _ = return ()
    message env 3 $ "Unnormalized Cabal file:\n" ++ show cbl
-@@ -519,7 +553,8 @@
-   \  -q                            be quiet\n\
+@@ -520,6 +561,7 @@ cmdHelp _ _ = putStrLn "\
    \  -r                            do recursive installs for missing packages\n\
    \  --ghc                         compile using ghc\n\
--  \  --mhs                         compile using mhs (default)\n\
-+  \  --mhs                         compile using mhs\n\
-+  \  --yale                        compile using yale-haskell, $YALE (default)\n\
+   \  --mhs                         compile using mhs (default)\n\
++  \  --yale                        compile using yale-haskell\n\
    \  --git=URL                     fetch from the Git repo instead of hackage\n\
    \  --dry-run                     do NOT execute the commands, just print\n\
    \  --no-nightly                  use latest versioned snapshot from stackage instead of nightly\n\
+diff --git a/MicroCabal/Normalize.hs b/MicroCabal/Normalize.hs
+index 05fd945..b03f3ba 100644
 --- a/MicroCabal/Normalize.hs
 +++ b/MicroCabal/Normalize.hs
-@@ -94,4 +94,15 @@
+@@ -94,4 +94,15 @@ inVersionRange v (VGE v') = v >= v'
  inVersionRange v (VOr vr1 vr2) = inVersionRange v vr1 || inVersionRange v vr2
  inVersionRange v (VAnd vr1 vr2) = inVersionRange v vr1 && inVersionRange v vr2
  inVersionRange v (VEQSet vs) = v `elem` vs
@@ -133,15 +157,17 @@
 +  (a : b : _) -> makeVersion [a, b + 1]
 +  [a] -> makeVersion [a, 1]
 +  [] -> makeVersion [1]
+diff --git a/MicroCabal/Parse.hs b/MicroCabal/Parse.hs
+index ebf8f44..f8c0098 100644
 --- a/MicroCabal/Parse.hs
 +++ b/MicroCabal/Parse.hs
-@@ -15,8 +15,38 @@
+@@ -15,7 +15,37 @@ import MicroCabal.YAML
  --import Debug.Trace
  
  parseCabal :: FilePath -> String -> Cabal
 -parseCabal fn rfile = runP pCabalTop fn $ dropCabalComments rfile
 +parseCabal fn rfile = runP pCabalTop fn $ unbraceFields $ dropCabalComments rfile
- 
++
 +-- A field whose value is in braces, Cabal's alternative to layout
 +-- (cryptohash-sha256's description: {, its text from column 0, up to a
 +-- line holding only }): its lines indented under the field instead.
@@ -171,11 +197,10 @@
 +            ':':v | not (null name), trim v == "{" -> Just (ind, name)
 +            _ -> Nothing
 +    trim = dropWhile (== ' ') . reverse . dropWhile (== ' ') . reverse
-+
+ 
  parseYAML :: FilePath -> String -> YAMLValue
  parseYAML fn s =
-   case parseYaml s of
-@@ -356,6 +386,7 @@
+@@ -356,6 +386,7 @@ pSection = pWhite *> (
    <|< Section <$> pKeyWordNC "flag"              <*>    pName <*> pFields
    <|< Section <$> pKeyWordNC "test-suite"        <*>    pName <*> pFields
    <|< Section <$> pKeyWordNC "benchmark"         <*>    pName <*> pFields
@@ -183,7 +208,7 @@
    )
    where libName = pName <|< pure ""
  
-@@ -372,6 +403,7 @@
+@@ -372,6 +403,7 @@ parsers =
    , "autogen-modules"                # pVComma
    , "build-depends"                  # pVLibs
    , "build-tool-depends"             # pVLibs  -- ??? pVComma -- XXX
@@ -191,7 +216,7 @@
    , "build-tools"                    # pVLibs -- XXX
    , "buildable"                      # (VBool <$> pBoolNL)
    , "c-sources"                      # pVOptComma
-@@ -380,6 +412,7 @@
+@@ -380,6 +412,7 @@ parsers =
    , "cmm-options"                    # pVOptComma
    , "cpp-options"                    # pVOptComma
    , "cxx-options"                    # pVOptComma
