@@ -21,7 +21,8 @@
 ;;;
 ;;; Which units are cached (setup-unit-cache):
 ;;;   all      batch runs (yale-haskell foo.hs)
-;;;   library  only $HASKELL_LIBRARY's units: the interactive system,
+;;;   library  only $HASKELL_LIBRARY's and installed packages' units: the
+;;;            interactive system and Haskell embedded in Lisp,
 ;;;            which needs the program's own modules whole (not just their
 ;;;            interfaces), and runs with printers on
 ;;;   off      YALE_HASKELL_CACHE=0 (or off, no)
@@ -146,7 +147,11 @@
        (not stable?)
        (null? lisp-files)
        (or (eq? *unit-cache-policy* 'all)
-	   (library-source-file? ufile))))
+	   (library-source-file? ufile)
+	   ;; an installed package's, at the REPL (--package-db) or in Lisp
+	   ;; (#@hs{ ... }#)
+	   (package-unit? ufile)
+	   (package-of-file ufile))))
 
 ;;; Where a unit with output name FILENAME keeps its files in the cache.
 
@@ -225,14 +230,29 @@
 (define (unit-lock-file c)
   (string-append (ucache-cfile c) ".lock"))
 
+;;; The lock holds its writer's process id: a lock whose writer is gone (a
+;;; compile that exhausted the heap) is stale at once, not only after
+;;; *unit-lock-stale-seconds*, so later runs do not compile its unit
+;;; again, in core, for that long.
 (define (unit-locked? c)
   (and (unit-in-cache? c)
        (let ((lock  (unit-lock-file c)))
 	 (and (file-exists? lock)
-	      (if (> (- (current-date) (or (lisp:ignore-errors (file-write-date lock)) 0))
-		     *unit-lock-stale-seconds*)
+	      (if (or (> (- (current-date) (or (lisp:ignore-errors (file-write-date lock)) 0))
+			 *unit-lock-stale-seconds*)
+		      (not (unit-lock-writer-alive? lock)))
 		  (begin (lisp:ignore-errors (lisp:delete-file lock)) '#f)
 		  '#t)))))
+
+;;; Whether LOCK's writer may be running: true unless its id is known and
+;;; no process has it.
+(define (unit-lock-writer-alive? lock)
+  (let ((pid  (lisp:ignore-errors
+	       (lisp:with-open-file (s lock)
+		 (lisp:parse-integer (lisp:read-line s) ':junk-allowed '#t)))))
+    (or (not (lisp:integerp pid))
+	#+sbcl (eqv? (lisp:ignore-errors (sb-unix:unix-kill pid 0)) 0)
+	#-sbcl '#t)))
 
 ;;; The lock's name, or '#f when another process holds it.
 (define (acquire-unit-lock c)
@@ -243,7 +263,7 @@
 	       (lisp:open lock ':direction ':output ':if-exists '#f
 			  ':if-does-not-exist ':create))))
       (if s
-	  (begin (lisp:close s) lock)
+	  (begin (lisp:format s "~D~%" (host-pid)) (lisp:close s) lock)
 	  '#f))))
 
 ;;; Compiles unit C (compiler-driver.mumble), holding its lock when its

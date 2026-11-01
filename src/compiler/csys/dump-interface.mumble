@@ -391,12 +391,14 @@
 	   (setf acc (form-binders (car l) acc))))))
 
 ;;; A single form beyond SBCL's limit cannot be split here: it is named on
-;;; standard error, before the Lisp compiler fails on it.
+;;; standard error, before the Lisp compiler fails on it.  A merely large
+;;; one (compiled in big-form-compile-mode) is named only with
+;;; YALE_HASKELL_TRACE, to find where a long compile is.
 (define (warn-oversized-forms forms)
   (dolist (f forms)
     (let ((w (form-weight f))
 	  (n (form-size f)))
-      (when (or (> w 1800) (> n *max-function-size*))
+      (when (or (> w 1800) (and (> n *max-function-size*) (trace-compile?)))
 	(lisp:format lisp:*error-output*
 		     "~&; a form of ~A functions, ~A conses: ~A~%" w n (oversized-form-name f))))))
 
