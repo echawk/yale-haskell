@@ -7,6 +7,7 @@ import PreludeModern (Semigroup((<>)), Monoid(mempty, mconcat))
 import GHC.Exts
 import Data.Word (Word8)
 import Numeric (showHex)
+import Control.DeepSeq (NFData(..))
 
 data ByteArray = ByteArray ByteArray#
 
@@ -58,3 +59,9 @@ instance Monoid ByteArray where
 
 instance Eq (MutableByteArray s) where
   MutableByteArray a == MutableByteArray b = sameMutableByteArray# a b == 1
+
+instance NFData ByteArray where
+  rnf (ByteArray _) = ()
+
+instance NFData (MutableByteArray s) where
+  rnf (MutableByteArray _) = ()
