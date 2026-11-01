@@ -111,7 +111,10 @@
 ;;; A superclass argument as a template over the class's type variables:
 ;;; a variable's position, or (tycon-def . argument templates) for a type
 ;;; constructor or family applied to such (Mutable v), or (%app f a ..)
-;;; for an application of such (m Doc); #f otherwise.
+;;; for an application of such (m Doc), or (%forall polytype class-vars)
+;;; for a quantified constraint's polytype over them (transformers'
+;;; class (forall m. Monad m => Monad (t m)) => MonadTrans t); #f
+;;; otherwise.
 ;;; util/signature.mumble's instantiate-mp-super-template undoes it.
 
 ;;; A method signature's equalities on the class's variables whose types
@@ -168,7 +171,17 @@
 			   (cons (tyapp-fun ty) (tyapp-args ty)))))
 	   (and (every (lambda (a) (not (eq? a '#f))) parts)
 		(cons '%app parts))))
+	((forall-type? ty)
+	 (let ((free (resolve-type-1 ty '() '#t)))
+	   (and (every (lambda (v) (memq v class-vars)) free)
+		(list '%forall ty class-vars))))
 	(else '#f)))
+
+;;; Whether superclass S (class . templates) is a quantified constraint's,
+;;; which has no ntype template: it is a signature's constraint
+;;; (util/signature.mumble), not a given's closure's.
+(define (forall-super-template? s)
+  (lisp:some (lambda (p) (and (pair? p) (eq? (car p) '%forall))) (tuple-2-2 s)))
 
 (define (signal-mp-superclasses-unsupported class)
   (phase-error 'mp-superclasses

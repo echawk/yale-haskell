@@ -611,7 +611,8 @@
 	(setf work (cdr work))
 	(incf n)
 	(when (class? (car c))
-	  (dolist (s (class-mp-mp-supers (car c)))
+	  (dolist (s (lisp:remove-if (function forall-super-template?)
+				     (class-mp-mp-supers (car c))))
 	    (let ((new (cons (tuple-2-1 s)
 			     (map (lambda (p) (instantiate-mp-template/ntype p (cdr c)))
 				  (tuple-2-2 s)))))
@@ -1109,7 +1110,13 @@
 		(mod (and i (string->symbol (substring qual 0 i))))
 		(name (and i (string->symbol (substring qual (1+ i) (string-length qual)))))
 		(m (and mod (table-entry *modules* mod)))
-		(c (and m (table-entry (module-symbol-table m) name))))
+		(c (cond (m (table-entry (module-symbol-table m) name))
+			 ;; a core class (Monad: *Core.Monad), from a literal
+			 ;; made in another compilation (a library's class's
+			 ;; quantified superclass, MonadTrans's)
+			 ((eq? mod '|*Core|)
+			  (lisp:ignore-errors (lisp:symbol-value (symbol->core-var name))))
+			 (else '#f))))
 	   (and (class? c) c))))))
 
 ;;; The characters of a promoted list of TypeChar literals, or #f.

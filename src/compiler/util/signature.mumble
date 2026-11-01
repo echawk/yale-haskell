@@ -405,6 +405,8 @@
 
 (define (instantiate-mp-super-template p types)
   (cond ((integer? p) (list-ref types p))
+	((eq? (car p) '%forall)
+	 (substitute-tyvars-simultaneously (cadr p) (caddr p) types))
 	((eq? (car p) '%app)
 	 (**tyapp (instantiate-mp-super-template (cadr p) types)
 		  (map (lambda (a) (instantiate-mp-super-template a types))
