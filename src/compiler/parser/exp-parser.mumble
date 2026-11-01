@@ -32,6 +32,11 @@
      ((no-advance satisfies at-proc?)
       (advance-token)
       (list (parse-proc)))
+     ;; QualifiedDo (GHC): M.do
+     ((no-advance satisfies at-qualified-do?)
+      (let ((q (qualified-do-word? (car *token-args*))))
+	(advance-token)
+	(parse-possible-app (parse-do q))))
      ;; RecursiveDo (GHC): mdo
      ((no-advance satisfies at-mdo?)
       (advance-token)
@@ -387,6 +392,9 @@
  (trace-parser aexp
   (token-case
     (var (save-parser-context (var->ast)))
+    ;; LexicalNegation: -x, tight, is negate x (lexer.mumble)
+    (tight-minus
+     (make app (fn (**var/def (core-symbol "negate"))) (arg (parse-aexp))))
     (con (save-parser-context (magic-hash-con (con->ast))))
     (literal (overloaded-string (literal->ast)))
     ((no-advance ipvar)
@@ -445,6 +453,11 @@
 	      (setf body (make app (fn (generated-var-ref f)) (arg body))))
 	    (make lambda (pats (list (make var-pat (var v)))) (body body)))))
        (\, (parse-tuple-slots (list '#f)))
+       ;; LexicalNegation: (- x) is the section (subtract x)
+       ((no-advance satisfies lexical-minus-section?)
+	(advance-token)
+	(make-right-section
+	 (make var-ref (name '|-|) (infix? '#t) (var *undefined-def*))))
        ((no-advance -) (parse-exp-or-tuple))
        (varop
 	(let ((varop (varop->ast)))
@@ -492,6 +505,9 @@
 	    "a list, sequence, or list comprehension")))))))
     (else
      (signal-invalid-syntax "an aexp")))))
+
+(define (lexical-minus-section?)
+  (and (at-varsym/-?) (language-extension? "LexicalNegation")))
 
 (define (make-right-section op)
   (let ((exps (parse-infix-exps)))
@@ -564,11 +580,26 @@
 ;;; do expressions: a layout block of statements, `let' statements
 ;;; without `in', generators and expressions.
 
-(define (parse-do)
+(define (parse-do . qualifier)
   (trace-parser do
    (save-parser-context
     (let ((stmts (start-layout (function parse-stmts))))
-      (make do-exp (stmts stmts))))))
+      (make do-exp (stmts stmts)
+	    (qualifier (if (pair? qualifier) (car qualifier) '#f)))))))
+
+;;; QualifiedDo (GHC): M.do { ... } uses M's >>=, >> and fail.  The
+;;; lexer gives M.do as a varid; this is the module name M, or #f.
+(define (qualified-do-word? s)
+  (let ((n (string-length s)))
+    (and (> n 3)
+	 (char=? (string-ref s (- n 3)) #\.)
+	 (string=? (substring s (- n 2) n) "do")
+	 (substring s 0 (- n 3)))))
+
+(define (at-qualified-do?)
+  (and (eq? *token* 'varid)
+       (language-extension? "QualifiedDo")
+       (qualified-do-word? (car *token-args*))))
 
 ;;; The layout rule's parse-error(t) (Report 9.3), in the case that matters
 ;;; for do blocks: a token that cannot begin a statement ends an implicit

@@ -149,13 +149,22 @@
 		 (parse-strict-atype)
 		 ;; (a type operator's application: Refl :: a :~: a)
 		 (tuple (parse-type-operators (parse-btype)) '()))))
+    (if (linear-arrow-here?)
+	;; LinearTypes: a %1 -> b, a %m -> b, a ⊸ b
+	(let ((percent? (string=? (car *token-args*) "%")))
+	  (advance-token)
+	  (when percent?
+	    (parse-atype)
+	    (require-token -> (signal-missing-token "`->'" "linear arrow")))
+	  (let ((rest (parse-gadt-con-type)))
+	    (cons (cons t+a (car rest)) (cdr rest))))
     (token-case
      (-> (let ((rest (parse-gadt-con-type)))
 	   (cons (cons t+a (car rest)) (cdr rest))))
      (else
       (when (not (null? (tuple-2-2 t+a)))
 	(signal-invalid-syntax "a GADT constructor's result type"))
-      (cons '() (tuple-2-1 t+a))))))
+      (cons '() (tuple-2-1 t+a)))))))
 
 (define (make-gadt-constr con simple context fields result)
   (when (not (and (tycon? result)

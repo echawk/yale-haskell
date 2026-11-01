@@ -203,6 +203,10 @@
 
 (define (parse-apat-list-1)
   (token-case
+    ;; TypeAbstractions (GHC 9.2): Just @Int x binds or matches the
+    ;; constructor's type argument; types are erased here, so it is skipped
+    (@ (parse-atype)
+       (parse-apat-list))
     (apat-start
      (let ((pat (parse-apat)))
        (cons pat (parse-apat-list))))
@@ -293,6 +297,8 @@
 
 (define (scan-apat-list-1)
   (token-case
+   (@ (parse-atype)
+      (scan-apat-list))
    (apat-start
     (and (scan-apat)
 	 (scan-apat-list)))

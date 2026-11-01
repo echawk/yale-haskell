@@ -270,7 +270,9 @@
 (define-struct do-exp
   (include aexp)
   (slots
-   (stmts (type (list qual)))))
+   (stmts (type (list qual)))
+   ;; QualifiedDo: the module name of M.do, or #f
+   (qualifier (type t) (default '#f))))
 
 ;;; Record construction and update (report 3.15):
 ;;;   <con> { <fbind> , ... }      <aexp> { <fbind> , ... }

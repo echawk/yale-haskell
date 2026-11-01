@@ -201,7 +201,9 @@
 			     (memv *char-before-token* '(#\( #\[ #\, #\;))))
 		   (lex-varsym))))
 	    (else
-	     (lex-varsym))))
+	     (if (tight-minus-here?)
+		 (begin (advance-char) (emit-token 'tight-minus))
+		 (lex-varsym)))))
     (#\{ (cond ((char=? *peek-char* '#\-)
 		(advance-char)
 		(advance-char)
@@ -1207,6 +1209,18 @@
        (or (char-upper-case? *peek-char*)
 	   (memv *peek-char* '(#\[ #\( #\:)))
        (not (char=? (peek-char-2) #\'))))
+
+;;; LexicalNegation (GHC): a - after a space or an opening bracket and
+;;; right before an identifier or an opening bracket is a prefix negation
+;;; of the next aexp: f -x is f (negate x).  (A - before a space there
+;;; stays the operator: (- 1) is the section.)
+(define (tight-minus-here?)
+  (and (language-extension? "LexicalNegation")
+       (or (not *char-before-token*)
+	   (char-whitespace? *char-before-token*)
+	   (memv *char-before-token* '(#\( #\[ #\, #\;)))
+       (or (char-alphabetic? *peek-char*)
+	   (memv *peek-char* '(#\( #\[ #\_)))))
 
 ;;; NegativeLiterals / LexicalNegation (GHC): a - before a digit, after
 ;;; a space or an opening bracket, is part of the literal: f -1 is

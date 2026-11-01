@@ -41,6 +41,11 @@
 				       (equal? (car args) "cases")))
 			      (pair? (cdr *tokens*))
 			      (eq? (car (cadr *tokens*)) '\\))
+			 ;; QualifiedDo: M.do opens a block
+			 (and (eq? type 'varid)
+			      (pair? args)
+			      (qualified-do-word? (car args))
+			      (language-extension? "QualifiedDo"))
 			 ;; RecursiveDo: rec and mdo open blocks too
 			 (and (eq? type 'varid)
 			      (pair? args)

@@ -802,6 +802,213 @@ main = do
   print ((1,2,3,4) == (1,2,3,4::Int), compare (1,2,3,4,5) (1,2,3,4,6::Int))
   print (maximum [(1,'b'),(1,'c'),(0,'z')], (1,"a",True) < (1,"a",False))
 ''',
+'NoFieldSelectors': '''{-# LANGUAGE NoFieldSelectors, DuplicateRecordFields #-}
+data P = P { name :: String, age :: Int } deriving Show
+name :: Int
+name = 7
+main = do
+  let p = P { name = "a", age = 3 }
+  print (name, case p of P { age = a } -> a)
+''',
+'TypeAbstractions': '''{-# LANGUAGE TypeAbstractions, GADTs, DataKinds, TypeApplications #-}
+f :: Maybe Int -> Int
+f (Just @Int n) = n
+f Nothing = 0
+main = print (f (Just 3), f Nothing)
+''',
+'TypeAbstractionsDecl': '''{-# LANGUAGE TypeAbstractions, PolyKinds, DataKinds, StandaloneKindSignatures #-}
+import Data.Kind
+type P :: forall k. k -> Type
+data P @k (a :: k) = MkP
+main = case (MkP :: P Int) of MkP -> putStrLn "ok"
+''',
+'InferredBinders': '''{-# LANGUAGE PolyKinds, RankNTypes, TypeApplications, ScopedTypeVariables #-}
+import Data.Kind
+f :: forall {k} (a :: k). Int -> Int
+f x = x + 1
+g :: forall {a} b. a -> b -> a
+g x _ = x
+main = print (f 1, g 'c' True, g @Int True 3)
+''',
+'RequiredTypeArguments': '''{-# LANGUAGE RequiredTypeArguments #-}
+f :: forall a -> Show a => a -> String
+f t x = show x
+main = putStrLn (f Int 3)
+''',
+'ImpredicativeTypes': '''{-# LANGUAGE ImpredicativeTypes #-}
+ids :: [forall a. a -> a]
+ids = [id, \\x -> x]
+main = print (length ids, map (\\(f :: forall a. a -> a) -> f 3) ids :: [Int])
+''',
+'LinearTypes': '''{-# LANGUAGE LinearTypes, GADTs #-}
+swap :: (a, b) %1 -> (b, a)
+swap (x, y) = (y, x)
+data L a where { N :: L a; C :: a %1 -> L a %1 -> L a }
+f :: a %m -> a
+f x = x
+main = print (swap (1 :: Int, 'c'), f True)
+''',
+'LinearArrowUnicode': '''{-# LANGUAGE LinearTypes, UnicodeSyntax #-}
+h :: a ⊸ a
+h x = x
+main = print (h (5 :: Int))
+''',
+'UnliftedNewtypes': '''{-# LANGUAGE UnliftedNewtypes, MagicHash #-}
+import GHC.Exts
+newtype N = N Int#
+f :: N -> Int
+f (N i) = I# (i +# 1#)
+main = print (f (N 4#))
+''',
+'UnliftedDatatypes': '''{-# LANGUAGE UnliftedDatatypes, StandaloneKindSignatures #-}
+import Data.Kind
+import GHC.Exts
+type U :: UnliftedType
+data U = MkU Int
+f :: U -> Int
+f (MkU n) = n
+main = print (f (MkU 4))
+''',
+'UnboxedSums': '''{-# LANGUAGE UnboxedSums, UnboxedTuples, MagicHash #-}
+f :: Int -> (# Int | Bool #)
+f 0 = (# | True #)
+f n = (# n | #)
+g :: (# Int | Bool #) -> String
+g (# n | #) = show n
+g (# | b #) = show b
+main = mapM_ (\\n -> putStrLn (g (f n))) [0, 3]
+''',
+'TypeData': '''{-# LANGUAGE TypeData, DataKinds, KindSignatures #-}
+import Data.Kind
+type data Nat = Z | S Nat
+data V (n :: Nat) = V Int deriving Show
+main = print (V 3 :: V (S Z))
+''',
+'LexicalNegation': '''{-# LANGUAGE LexicalNegation #-}
+f :: Int -> Int
+f x = x * 2
+main = do
+  print (f -3)
+  print (map (subtract 1) [1,2], (- 1) 5, let x = 4 in -x)
+  print (abs -2 + 1)
+''',
+'ExtendedLiterals': '''{-# LANGUAGE ExtendedLiterals, MagicHash #-}
+import GHC.Exts
+import GHC.Int
+main = print (I8# 123#Int8, I# (int8ToInt# 5#Int8))
+''',
+'MultilineStrings': '''{-# LANGUAGE MultilineStrings #-}
+s :: String
+s = """
+    hello
+      world
+    end"""
+main = putStrLn s >> print (length s)
+''',
+'OrPatterns': '''{-# LANGUAGE OrPatterns #-}
+data C = R | G | B deriving Show
+f :: C -> String
+f (R; G) = "warm-ish"
+f B = "blue"
+g :: Maybe Int -> Int
+g (Just 0; Nothing) = 0
+g (Just n) = n
+main = mapM_ (putStrLn . f) [R, G, B] >> print (map g [Nothing, Just 0, Just 4])
+''',
+'NamedDefaults': '''{-# LANGUAGE NamedDefaults #-}
+class C a where c :: a -> String
+instance C Int where c _ = "int"
+instance C Bool where c _ = "bool"
+default C (Bool)
+main = putStrLn "ok"
+''',
+'QualifiedDo': '''{-# LANGUAGE QualifiedDo #-}
+import qualified Prelude as O
+import Prelude
+main = print (O.do { x <- [1,2]; y <- [10,20]; O.return (x + y :: Int) })
+''',
+'OverloadedLabels': '''{-# LANGUAGE OverloadedLabels, DataKinds, FlexibleInstances, MultiParamTypeClasses, TypeApplications #-}
+import GHC.OverloadedLabels
+import GHC.Records
+newtype L = L String deriving Show
+instance IsLabel "foo" L where fromLabel = L "foo!"
+data P = P { age :: Int }
+instance HasField "twice" P Int where getField (P a) = 2 * a
+main = print (#foo :: L) >> print (getField @"twice" (P 4))
+''',
+'TypeLits': '''{-# LANGUAGE TypeOperators, DataKinds, KindSignatures, ScopedTypeVariables, TypeApplications #-}
+import GHC.TypeLits
+import Data.Proxy
+main = do
+  print (natVal (Proxy :: Proxy 42), symbolVal (Proxy :: Proxy "hi"))
+  print (natVal (Proxy @(2 + 3)), symbolVal (Proxy @"a"))
+''',
+'TypeFamilyDependencies': '''{-# LANGUAGE TypeFamilyDependencies #-}
+type family F a = r | r -> a where
+  F Int = Bool
+  F Bool = Int
+f :: F Int -> String
+f b = show b
+main = putStrLn (f True)
+''',
+'PartialTypeSignatures': '''{-# LANGUAGE PartialTypeSignatures #-}
+{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
+f :: _ -> Int
+f x = x + 1
+g :: Show a => a -> _
+g = show
+main = print (f 1) >> putStrLn (g True)
+''',
+'UnicodeSyntax': '''{-# LANGUAGE UnicodeSyntax, ExplicitForAll, KindSignatures #-}
+f ∷ ∀ a. Show a ⇒ a → String
+f x = show x
+main = putStrLn (f (1 :: Int)) >> print [y | y ← [1,2,3 :: Int]]
+''',
+'TransformListComp': '''{-# LANGUAGE TransformListComp #-}
+import GHC.Exts (sortWith, groupWith, the)
+main = do
+  print [x | x <- [3,1,2 :: Int], then sortWith by x]
+  print [(the k, length v) | (k, v) <- [(1,'a'),(2,'b'),(1,'c') :: (Int,Char)], then group by k using groupWith]
+  print [x | x <- [1..10 :: Int], then take 3]
+''',
+'StaticPointers': '''{-# LANGUAGE StaticPointers #-}
+import GHC.StaticPtr
+f :: Int -> Int
+f = (+ 1)
+main = print (deRefStaticPtr (static f) 2)
+''',
+'ApplicativeDo': '''{-# LANGUAGE ApplicativeDo #-}
+newtype A a = A (Maybe a) deriving Show
+instance Functor A where fmap f (A m) = A (fmap f m)
+instance Applicative A where { pure = A . Just; A f <*> A x = A (f <*> x) }
+main = print (do { x <- A (Just 1); y <- A (Just (2 :: Int)); pure (x + y) })
+''',
+'DeepSubsumption': '''{-# LANGUAGE DeepSubsumption, RankNTypes #-}
+f :: (forall a. a -> forall b. b -> b) -> Int
+f g = g 'x' (3 :: Int)
+h :: forall a b. a -> b -> b
+h _ y = y
+main = print (f h)
+''',
+'CApiFFI': '''{-# LANGUAGE CApiFFI #-}
+foreign import capi "math.h sin" c_sin :: Double -> Double
+main = print (c_sin 0)
+''',
+'VisibleDependentQuantification': '''{-# LANGUAGE StandaloneKindSignatures, DataKinds, PolyKinds #-}
+import Data.Kind
+type T :: forall k -> k -> Type
+data T k a = MkT
+main = case (MkT :: T Type Int) of MkT -> putStrLn "ok"
+''',
+'GHC2024Defaults': '''{-# LANGUAGE GHC2024 #-}
+data T = A | B deriving (Show)
+f :: forall a. [a] -> Int
+f = \\case { [] -> 0; _ -> 1 }
+main = print (f "ab", f "", B)
+''',
+'NumDecimalsHexFloat': '''{-# LANGUAGE NumDecimals, HexFloatLiterals, NegativeLiterals #-}
+main = print (1.5e3 :: Integer, 0x1.8p1 :: Double, abs -3 :: Int)
+''',
 }
 
 

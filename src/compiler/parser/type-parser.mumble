@@ -165,6 +165,10 @@
 
 (define (parse-atype-list)
   (token-case
+    ;; TypeAbstractions (GHC): data T @k (a :: k), and visible kind
+    ;; application T @k: kinds are not checked, so the binder is skipped
+    (@ (parse-atype)
+       (parse-atype-list))
     ((atype-start satisfies at-type-wildcard?)
      (let ((atype (parse-atype)))
        (cons atype (parse-atype-list))))
@@ -701,7 +705,9 @@
 	(do () ((or (eq-token? '\}) (eq-token? 'eof)))
 	  (advance-token)))
       (require-token \} (signal-missing-token "`}'" "forall inferred variable"))
-      (cons name (skip-forall-tyvars))))
+      ;; (not in the list: an inferred variable takes no type argument,
+      ;; so f @T applies to the next, specified, variable)
+      (skip-forall-tyvars)))
    ((no-advance varsym)
     (if (string=? (car *token-args*) ".")
 	(begin (advance-token) '())

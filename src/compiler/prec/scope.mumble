@@ -842,7 +842,7 @@
 (define-walker-method scope do-exp (object env)
   (scope-ast-1 (or (and (module-extension? "ApplicativeDo")
 			(applicative-do (do-exp-stmts object)))
-		   (desugar-do (do-exp-stmts object)))
+		   (desugar-do (do-exp-stmts object) (do-exp-qualifier object)))
 	       env))
 
 ;;; ApplicativeDo (GHC): do p1 <- e1; ..; pn <- en; pure e, no ei using
@@ -937,7 +937,20 @@
 		    (td-slots (struct-type-descriptor x))))
 	(else '#f)))
 
-(define (desugar-do stmts)
+;;; QualifiedDo: Q.>>= etc. are ordinary qualified names, resolved by scope.
+(define (do-operator q opname core)
+  (if q
+      (make var-ref (name (string->symbol (string-append q "." opname)))
+	    (infix? '#f) (var *undefined-def*))
+      (cond ((string=? core ">>") (**var/def (core-symbol ">>")))
+	    ((string=? core ">>=") (**var/def (core-symbol ">>=")))
+	    (else (**var/def (core-symbol "fail"))))))
+
+(define (desugar-do stmts . qs)
+  (let ((q (if (pair? qs) (car qs) '#f)))
+    (desugar-do-1 stmts q)))
+
+(define (desugar-do-1 stmts q)
   (cond ((null? stmts)
 	 (signal-bad-do "A do expression has no statements.")
 	 (**con/def (core-symbol "UnitConstructor")))
@@ -949,19 +962,20 @@
 	       (**con/def (core-symbol "UnitConstructor")))))
 	(else
 	 (let ((stmt (car stmts))
-	       (rest (desugar-do (cdr stmts))))
+	       (rest (desugar-do-1 (cdr stmts) q)))
 	   (cond ((is-type? 'qual-filter stmt)
-		  (**app (**var/def (core-symbol ">>")) (qual-filter-exp stmt) rest))
+		  (**app (do-operator q ">>" ">>") (qual-filter-exp stmt) rest))
 		 ((is-type? 'qual-let stmt)
 		  (ip-let-or-let (qual-let-decls stmt) rest))
 		 (else
 		  (desugar-do-bind (qual-generator-pat stmt)
 				   (qual-generator-exp stmt)
-				   rest)))))))
+				   rest q)))))))
 
-(define (desugar-do-bind pat exp rest)
+(define (desugar-do-bind pat exp rest . qs)
   (let ((pat (massage-pattern pat))
-	(bind (**var/def (core-symbol ">>="))))
+	(q (if (pair? qs) (car qs) '#f))
+	(bind (do-operator (if (pair? qs) (car qs) '#f) ">>=" ">>=")))
     (if (failure-free-pattern? pat)
 	(**app bind exp (make lambda (pats (list pat)) (body rest)))
 	(let ((v1 (make var-ref (name '|do-v|) (infix? '#f)
@@ -975,13 +989,16 @@
 				     (list (**alt/simple pat rest)
 					   (**alt/simple
 					    (**wildcard-pat)
-					    (do-failure-exp)))))))))))
+					    (do-failure-exp q)))))))))))
 
-(define (do-failure-exp)
+(define (do-failure-exp . qs)
+  (if (and (pair? qs) (car qs))
+      (**app (do-operator (car qs) "fail" "fail")
+	     (**string "Pattern match failure in do expression"))
   (if (feature? 'monad-fail)
       (**app (**var/def (core-symbol "fail"))
 	     (**string "Pattern match failure in do expression"))
-      (**var/def (core-symbol "zero"))))
+      (**var/def (core-symbol "zero")))))
 
 ;;; A failure-free pattern can be refuted only by bottom: irrefutable
 ;;; patterns, and constructors of single-constructor types applied to
