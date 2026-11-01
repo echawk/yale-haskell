@@ -58,6 +58,8 @@
      (advance-token)
      (let ((type (parse-atype)))
        (parse-possible-app (make type-app (exp exp) (type type)))))
+    ((no-advance satisfies then-keyword-here?)
+     (list exp))
     (aexp-start
      (let ((exp2 (parse-aexp)))
       (parse-possible-app (make app (fn exp) (arg exp2)))))
@@ -339,7 +341,19 @@
 		 (when (null? fields)
 		   (parser-error 'empty-record-update
 		     "A record update must name at least one field."))
-		 (make record-update (exp exp) (fields fields)))))))
+		 (if (language-extension? "OverloadedRecordUpdate")
+		     ;; e { f = v } is setField @"f" v e (GHC's order), setField the one in
+		     ;; scope (RebindableSyntax, as GHC requires)
+		     (let ((acc exp))
+		       (dolist (f fields)
+			 (setf acc (**app (make type-app
+						(exp (generated-var-ref '|setField|))
+						(type (symbol-literal-type
+						       (symbol->string
+							(var-ref-name (tuple-2-1 f))))))
+					  (tuple-2-2 f) acc)))
+		       acc)
+		     (make record-update (exp exp) (fields fields))))))))
       (if (eq? *token* 'record-dot)
 	  ;; OverloadedRecordDot (GHC): e.f is f e (lexer.mumble)
 	  (let ((field (record-dot-field (car *token-args*))))
@@ -399,6 +413,12 @@
  (trace-parser aexp
   (token-case
     (var (save-parser-context (var->ast)))
+    ;; UnboxedSums: (# | x | #) is Right (Left x) etc., nested Eithers
+    (open-usum
+     (let ((slots (parse-usum-slots (function parse-exp))))
+       (usum-inject (car slots) (cadr slots) (caddr slots)
+		    (lambda (x) (**app (arrow-con "Left") x))
+		    (lambda (x) (**app (arrow-con "Right") x)))))
     ;; LexicalNegation: -x, tight, is negate x (lexer.mumble)
     (tight-minus
      (make app (fn (**var/def (core-symbol "negate"))) (arg (parse-aexp))))
@@ -603,6 +623,28 @@
 	 (string=? (substring s (- n 2) n) "do")
 	 (substring s 0 (- n 3)))))
 
+;;; UnboxedSums (GHC): (# a | b #) is an ordinary sum, Either a b; with
+;;; n alternatives, Either a (Either b ..).  After the (#: the bars
+;;; before the one element, the element, the bars after, and the ).
+;;; Returns (index arity element).
+(define (parse-usum-slots parse-elem)
+  (let ((before 0) (after 0) (elem '#f))
+    (do () ((not (eq-token? '\|)))
+      (advance-token)
+      (incf before))
+    (setf elem (funcall parse-elem))
+    (do () ((not (eq-token? '\|)))
+      (advance-token)
+      (incf after))
+    (require-token \) (signal-missing-token "`#)'" "unboxed sum"))
+    (list before (+ before after 1) elem)))
+
+;;; The injection of X as alternative I of N, nested Left and Right.
+(define (usum-inject i n x left right)
+  (cond ((= n 1) x)
+	((= i 0) (funcall left x))
+	(else (funcall right (usum-inject (1- i) (1- n) x left right)))))
+
 (define (at-static?)
   (and (at-varid-named? "static") (language-extension? "StaticPointers")))
 
@@ -670,7 +712,7 @@
 
 (define (parse-list-comp exp)
  (save-parser-context 
-  (let ((branches (parse-qual-branches)))
+  (let ((branches (map (function expand-transform-quals) (parse-qual-branches))))
     (cond ((not (null? (cdr branches)))
 	   (build-parallel-list-comp exp branches))
 	  ((language-extension? "MonadComprehensions")
@@ -679,6 +721,72 @@
 	   (build-list-comp exp (car branches)))))))
 
 ;;; The qualifier lists, separated by `|' (ParallelListComp, GHC).
+
+;;; TransformListComp.  `then ...' is read as a marker
+;;; (%then f by group?) and expanded, with the qualifiers before it, by
+;;; expand-transform-quals (the GHC user guide's translation): with vs the
+;;; variables the qualifiers before bind,
+;;;   then f              vs <- f [vs | Q]
+;;;   then f by e         vs <- f (\vs -> e) [vs | Q]
+;;;   then group using f  g <- f [vs | Q], then each v is map (\vs -> v) g
+;;;   then group by e using f   likewise with f (\vs -> e)
+(define *then-clause?* '#f)   ; by and using end an expression there
+
+(define (transform-comp-here?)
+  (and (eq? *token* '|then|) (language-extension? "TransformListComp")))
+
+(define (then-keyword-here?)
+  (and (dynamic *then-clause?*) (eq? *token* 'varid)
+       (mem-string (car *token-args*) '("by" "using"))))
+
+(define (parse-then-clause)
+  (dynamic-let ((*then-clause?* '#t))
+    (cond ((and (at-varid-named? "group")
+		(let ((nx (peek-1-type))) (or (eq? nx 'varid))))
+	   (advance-token)
+	   (let ((by (and (at-varid-named? "by")
+			  (begin (advance-token) (parse-exp)))))
+	     (if (at-varid-named? "using")
+		 (advance-token)
+		 (signal-missing-token "`using'" "then group clause"))
+	     (list '%then (parse-exp) by '#t)))
+	  (else
+	   (let* ((f (parse-exp))
+		  (by (and (at-varid-named? "by")
+			   (begin (advance-token) (parse-exp)))))
+	     (list '%then f by '#f))))))
+
+(define (expand-transform-quals quals)
+  (let ((prefix '()))
+    (dolist (q quals)
+      (if (and (pair? q) (eq? (car q) '%then))
+	  (setf prefix (transform-quals prefix (cadr q) (caddr q) (car (cdddr q))))
+	  (setf prefix (append prefix (list q)))))
+    prefix))
+
+(define (transform-quals prefix f by group?)
+  (let* ((names (quals-bound-names prefix))
+	 (inner (build-list-comp (names->tuple-exp names) prefix))
+	 (f-app (if by
+		    (**app f (make lambda (pats (list (names->tuple-pat names)))
+				   (body by)))
+		    f))
+	 (source (**app f-app inner)))
+    (if (not group?)
+	(list (make qual-generator (pat (names->tuple-pat names)) (exp source)))
+	(let ((g '|transform-group|))
+	  (cons (make qual-generator
+		      (pat (make var-pat (var (generated-var-ref g))))
+		      (exp source))
+		(map (lambda (v)
+		       (cons 'let-qual
+			     (list (**define v '()
+					     (**app (generated-var-ref '|map|)
+						    (make lambda
+							  (pats (list (names->tuple-pat names)))
+							  (body (generated-var-ref v)))
+						    (generated-var-ref g))))))
+		     names))))))
 
 (define (parse-qual-branches)
   (let ((quals (parse-qual-list)))
@@ -691,6 +799,11 @@
 (define (parse-qual-list)
   (let ((quals (token-case
 		(|let| (list (parse-let-qual)))
+		;; TransformListComp (GHC): then f, then f by e,
+		;; then group using f, then group by e using f
+		((no-advance satisfies transform-comp-here?)
+		 (advance-token)
+		 (list (parse-then-clause)))
 		(else (parse-qual/views)))))
     (token-case
       (\, (let ((rest (parse-qual-list)))

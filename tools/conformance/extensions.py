@@ -1009,6 +1009,57 @@ main = print (f "ab", f "", B)
 'NumDecimalsHexFloat': '''{-# LANGUAGE NumDecimals, HexFloatLiterals, NegativeLiterals #-}
 main = print (1.5e3 :: Integer, 0x1.8p1 :: Double, abs -3 :: Int)
 ''',
+'OverloadedRecordUpdate': '''{-# LANGUAGE OverloadedRecordDot, OverloadedRecordUpdate, RebindableSyntax, DataKinds, TypeApplications, AllowAmbiguousTypes, FunctionalDependencies, FlexibleInstances, MultiParamTypeClasses, ScopedTypeVariables #-}
+import Prelude
+class HasField x r a | x r -> a where hasField :: r -> (a -> r, a)
+getField :: forall x r a . HasField x r a => r -> a
+getField = snd . hasField @x
+setField :: forall x r a . HasField x r a => a -> r -> r
+setField v r = fst (hasField @x r) v
+data P = P { px :: Int, py :: Int } deriving Show
+instance HasField "px" P Int where hasField r@(P _ y) = (\\v -> P v y, px' r)
+instance HasField "py" P Int where hasField r@(P x _) = (\\v -> P x v, py' r)
+px' (P x _) = x
+py' (P _ y) = y
+main = print ((P 1 2) { px = 5 :: Int, py = 6 :: Int }, (getField @"px" (P 7 8) :: Int))
+''',
+'HasFieldSolved': '''{-# LANGUAGE DataKinds, TypeApplications #-}
+import GHC.Records
+data P = P { name :: String, age :: Int } deriving Show
+data Q a = Q { item :: a, count :: Int }
+main = do
+  putStrLn (getField @"name" (P "ann" 3))
+  print (getField @"age" (P "ann" 3) + 1)
+  print (getField @"item" (Q 'x' 1), getField @"count" (Q 'x' 1))
+''',
+'TransformListComp2': '''{-# LANGUAGE TransformListComp #-}
+import GHC.Exts (sortWith, groupWith, the)
+import Data.List (sortBy)
+main = do
+  print [ (the dept, sum salary) | (dept, salary) <- [("a", 1), ("b", 2), ("a", 3 :: Int)], then group by dept using groupWith ]
+  print [ x | x <- [1 .. 10 :: Int], even x, then reverse, then take 2 ]
+  print [ (x, y) | x <- [1, 2, 3 :: Int], y <- "ab", then sortWith by (negate x) ]
+  print [ x | x <- [1, 2, 3 :: Int], then group using (\\xs -> [xs, xs]) ]
+''',
+'RequiredTypeArguments2': '''{-# LANGUAGE RequiredTypeArguments, TypeApplications, ScopedTypeVariables #-}
+import Data.Proxy
+size :: forall a -> (Bounded a, Enum a) => Int
+size a = fromEnum (maxBound :: a) - fromEnum (minBound :: a) + 1
+main = print (size Bool, size (type Ordering))
+''',
+'UnboxedSums2': '''{-# LANGUAGE UnboxedSums, UnboxedTuples #-}
+f :: Int -> (# Int | Bool | String #)
+f 0 = (# | True | #)
+f 1 = (# | | "s" #)
+f n = (# n | | #)
+g :: (# Int | Bool | String #) -> String
+g (# n | | #) = show n
+g (# | b | #) = show b
+g (# | | s #) = s
+h :: (# Int, Int #) -> Int
+h (# a, b #) = a + b
+main = mapM_ (\\n -> putStrLn (g (f n))) [0, 1, 5] >> print (h (# 1, 2 #))
+''',
 }
 
 

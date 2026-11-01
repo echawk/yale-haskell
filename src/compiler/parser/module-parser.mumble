@@ -486,6 +486,15 @@
   (when (or (language-extension? "DuplicateRecordFields")
 	    (language-extension? "NoFieldSelectors"))
     (add-duplicate-record-fields mod-ast))
+  ;; GHC.Records' HasField "f" T a for each field of a type, solved as GHC
+  ;; does, in a module that imports GHC.Records
+  (when (and (not (eq? (module-name mod-ast) '|GHC.Records|))
+	     (lisp:some (lambda (i) (eq? (import-decl-module-name i) '|GHC.Records|))
+			(module-imports mod-ast)))
+    (push (make import-decl (module-name '|GHC.Records|) (mode 'all)
+		(specs '()) (renamings '()) (qualified? '#t) (as-name '#f))
+	  (module-imports mod-ast))
+    (add-has-field-instances mod-ast))
   ;; MagicHash: Addr# literals call GHC.Exts.addrLit# (lexer.mumble)
   (when (and (language-extension? "MagicHash")
 	     ;; GHC.Exts and the primops it re-exports (they need no literals)
@@ -959,6 +968,35 @@
 		(setf (constr-field-labels c)
 		      (map (lambda (l) (if (eq? l field) (renamed-field field tname) l))
 			   (constr-field-labels c)))))))))))
+
+;;; instance HasField "f" (T a ..) ft where getField = f, for each field f
+;;; of each type T of the module (f%T when DuplicateRecordFields or
+;;; NoFieldSelectors renamed it).
+(define (add-has-field-instances mod-ast)
+  (dolist (d (module-algdatas mod-ast))
+    (let ((simple (data-decl-simple d))
+	  (done '()))
+      (dolist (c (data-decl-constrs d))
+	(dolist (label (constr-field-labels c))
+	  (when (and label (not (memq label done)))
+	    (push label done)
+	    (let* ((s (symbol->string label))
+		   (pct (lisp:position #\% s))
+		   (field (if pct (substring s 0 pct) s))
+		   (head (make tycon (name (tycon-name simple)) (def *undefined-def*)
+			       (args (map (lambda (v) (make tyvar (name (tyvar-name v))))
+					  (tycon-args simple)))))
+		   (ftype (field-type-of label d)))
+	      (when ftype
+		(push (make instance-decl (context '())
+			    (class (make class-ref (name '|GHC.Records.HasField|)
+					 (class *undefined-def*)))
+			    (simple head)
+			    (decls (list (**define '|getField| '()
+						   (generated-var-ref label))))
+			    (types (list (symbol-literal-type field) head ftype))
+			    (mcontext '()))
+		      (module-instances mod-ast))))))))))
 
 (define (renamed-field field tname)
   (string->symbol (format '#f "~A%~A" field tname)))

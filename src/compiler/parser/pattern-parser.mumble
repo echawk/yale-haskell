@@ -145,6 +145,14 @@
       (let ((args *token-args*))
 	(advance-token)
 	(pattern-splice (quasi-quote-exp '|quotePat| args))))
+     ;; UnboxedSums: (# | p #) (exp-parser.mumble's parse-usum-slots)
+     (open-usum
+      (let ((slots (parse-usum-slots (function parse-pat))))
+	(usum-inject (car slots) (cadr slots) (caddr slots)
+		     (lambda (p) (make pcon (name '|;Left|) (con *undefined-def*)
+				       (pats (list p)) (infix? '#f)))
+		     (lambda (p) (make pcon (name '|;Right|) (con *undefined-def*)
+				       (pats (list p)) (infix? '#f))))))
      (\( (token-case
            (\) (**pcon/def (core-symbol "UnitConstructor") '()))
 	   (\, (**pcon/def (tuple-constructor (parse-tuple-con-commas 2)) '()))

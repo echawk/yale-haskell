@@ -163,6 +163,18 @@
 (define (at-type-wildcard?)
   (and (haskell98?) (eq-token? '\_)))
 
+(define (parse-usum-types)
+  (let ((type (parse-type)))
+    (token-case (\| (cons type (parse-usum-types)))
+		(\) (list type))
+		(else (signal-missing-token "`|' or `#)'" "unboxed sum type")))))
+
+(define (usum-either types)
+  (if (null? (cdr types))
+      (car types)
+      (make tycon (name '|Either|) (def *undefined-def*)
+	    (args (list (car types) (usum-either (cdr types)))))))
+
 (define (parse-atype-list)
   (token-case
     ;; TypeAbstractions (GHC): data T @k (a :: k), and visible kind
@@ -194,6 +206,10 @@
      (setf *signature-wildcard?* '#t)
      (make tyvar (name '|_wildcard|)))
     (tycon (tycon->ast))
+    ;; UnboxedSums: (# t1 | t2 #) is Either t1 t2 (exp-parser.mumble)
+    (open-usum
+     (let ((types (parse-usum-types)))
+       (usum-either types)))
     (\( (token-case
 	  (\) (**tycon/def (core-symbol "UnitType") '()))
 	  (-> (require-token \) (signal-missing-token "`)'" "type expression"))
@@ -258,6 +274,11 @@
 ;;; is TypeChar of its code's; a string is TypeSymbol of a promoted list
 ;;; of its characters.  GHC.TypeLits' KnownNat, KnownSymbol and KnownChar
 ;;; have instances for them.
+
+(define (symbol-literal-type s)
+  (**tycon/def (core-symbol "TypeSymbol")
+	       (list (promoted-list (map (function type-literal-char)
+					 (string->list s))))))
 
 (define (type-literal-bits n)
   (if (<= n 0)
