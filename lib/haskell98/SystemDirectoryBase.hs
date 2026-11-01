@@ -4,7 +4,7 @@
 -- --modern-prelude, modern/System/Directory.hs is the directory package's
 -- current version (getModificationTime gives a UTCTime).
 module SystemDirectoryBase (
-    Permissions, readable, writable, executable, searchable,
+    Permissions(Permissions), readable, writable, executable, searchable,
     createDirectory, createDirectoryIfMissing, removeDirectory,
     removeDirectoryRecursive, removeFile, renameDirectory, renameFile,
     getDirectoryContents, listDirectory, getCurrentDirectory,
