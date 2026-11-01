@@ -292,6 +292,13 @@ instance (Monoid a, Monoid b, Monoid c, Monoid d, Monoid e) => Monoid (a, b, c, 
 instance Functor ((,) a) where
   fmap f (x, y) = (x, f y)
 
+instance Monoid a => Applicative ((,) a) where
+  pure x = (mempty, x)
+  (u, f) <*> (v, x) = (u <> v, f x)
+
+instance Monoid a => Monad ((,) a) where
+  (u, a) >>= k = case k a of (v, b) -> (u <> v, b)
+
 -- Foldable and Traversable (base's Data.Foldable, Data.Traversable)
 
 infix 4 `elem`, `notElem`
