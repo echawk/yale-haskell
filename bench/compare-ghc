@@ -10,7 +10,9 @@ YALE_HASKELL_TIME=1, which reports the CPU seconds of running main
 with ghc -O0 and -O2 (Haskell 98 module names mapped to base's) into
 build/bench/ghc/, and its process CPU time (user + sys) is measured.
 Outputs are checked against NAME.stdout.  Prints the best of RUNS
-(default 3) per column and the ratio Yale / GHC -O2.
+(default 3) per column and the ratio Yale / GHC -O2, and the megabytes
+each allocates running (Yale: SBCL's bytes consed by main; GHC -O2: its
+RTS's bytes allocated, +RTS -t).
 """
 import os, re, resource, subprocess, sys
 
@@ -20,6 +22,7 @@ YALE = os.path.join(ROOT, 'bin', 'yale-haskell')
 H98_MODULES = {'Array': 'Data.Array', 'List': 'Data.List', 'Char': 'Data.Char',
                'Monad': 'Control.Monad', 'IO': 'System.IO', 'Ratio': 'Data.Ratio',
                'Maybe': 'Data.Maybe'}
+GHC_ALLOC = re.compile(r'"bytes allocated", "([0-9]+)"')
 TIME = re.compile(r'run ([0-9.]+) s cpu ([0-9.]+) s real(?: \([0-9.]+ s GC\))?, ([0-9,]+) bytes')
 
 
@@ -73,8 +76,8 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     env = dict(os.environ, YALE_HASKELL_TIME='1')
     print('CPU seconds, best of %d; Yale: running main only' % runs)
-    print('%-12s %8s %10s %8s %8s %8s  %s' % ('program', 'Yale', 'Yale MB',
-          'GHC -O0' if o0 else '', 'GHC -O2', 'ratio', 'check'))
+    print('%-12s %8s %10s %8s %8s %8s %8s  %s' % ('program', 'Yale', 'Yale MB',
+          'GHC -O0' if o0 else '', 'GHC -O2', 'GHC MB', 'ratio', 'check'))
     for name, src, flags in programs():
         if args and name not in args:
             continue
@@ -90,21 +93,25 @@ def main():
                 check = 'WRONG'
             yale.append(float(m.group(1)))
             mb = int(m.group(3).replace(',', '')) / 1e6
-        ghc = {}
+        ghc, ghc_mb = {}, None
         for opt in (['O0', 'O2'] if o0 else ['O2']):
             exe = ghc_build(name, src, opt)
             times = []
             for _ in range(runs):
-                r, cpu = child_cpu([exe])
+                r, cpu = child_cpu([exe, '+RTS', '-t', '--machine-readable', '-RTS'])
                 if r.stdout != want:
                     check += ' (GHC %s output differs)' % opt
                 times.append(cpu)
+                m = GHC_ALLOC.search(r.stderr.decode('latin-1'))
+                if opt == 'O2' and m:
+                    ghc_mb = int(m.group(1)) / 1e6
             ghc[opt] = min(times)
         y = min(yale) if yale else None
         fmt = lambda v: '%8.3f' % v if v is not None else '%8s' % '-'
         ratio = '%7.1fx' % (y / ghc['O2']) if y is not None and ghc['O2'] > 0.0005 else '%8s' % '-'
-        print('%-12s %s %10.0f %s %s %s  %s' % (name, fmt(y), mb, fmt(ghc.get('O0')) if o0 else '        ',
-                                               fmt(ghc['O2']), ratio, check))
+        print('%-12s %s %10.0f %s %s %8s %s  %s' % (name, fmt(y), mb, fmt(ghc.get('O0')) if o0 else '        ',
+                                                    fmt(ghc['O2']), '%.0f' % ghc_mb if ghc_mb is not None else '-',
+                                                    ratio, check))
 
 
 main()
