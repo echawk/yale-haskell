@@ -65,7 +65,26 @@ profunctors, monad-control, pretty 1.1.3.6: about 80 packages build).
   Writer.Lazy and Writer.Strict, MonadFix for the transformers, more of
   NonEmpty, IsList for Text, ByteString and Seq.
 - **Tools:** `tools/microcabal/yale-hsc2hs`, hsc2hs's constructs for the
-  Yale backend; newtypes cross the FFI as their fields.
+  Yale backend; newtypes cross the FFI as their fields.  MicroCabal's
+  Yale backend as proposed upstream (echawk/MicroCabal, branch
+  yale-backend); `mcabal` passes `--yale`.
+- **Haskell in Lisp:** `#@hs{ ... }#` blocks in Lisp files, with Lisp
+  splices and values converted by type, and the ASDF system
+  `yale-haskell/runtime` (doc/EMBEDDING.md, `make embed-test`).
+- **Driver (breaking):** Haskell 98 is the default language; `make`
+  builds only the Haskell 98 executable, and Haskell 1.2 needs `make
+  haskell-1.2` and `--haskell1.2`.
+- **Fixes:** `indexArray#` gave an unevaluated element (aeson's Array
+  values encoded wrongly or faulted); `-X` extensions applied to the
+  library's own modules (`-X OverloadedStrings` made Data.String
+  import itself) and broke REPL input; a crashed compile's unit locks
+  made later runs recompile for ten minutes; installed packages were
+  not cached at the REPL.
+- **Performance:** mutable array primitives and IO primitives'
+  wrappers are inline (starray -24%); `bench/compare-ghc` reports GHC's
+  allocation.
+- **Documentation:** doc/GUIDE.md (Yale Haskell in place of GHC and
+  cabal), README's "What to expect".
 
 ## 3.1.0.0 (2026-10-21)
 
