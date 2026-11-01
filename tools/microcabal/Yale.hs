@@ -354,6 +354,9 @@ yaleBuildLib env (Section _ _ glob) (Section _ name flds0) = do
   let flds = foldr (\ (k, vs) fs -> addFieldStrings k vs fs) flds0 info
   pdir <- stagePackage env (stageDB env) name vers flds
   renameHiddenModules (pdir </> "src") (hiddenRenames name flds)
+  -- (the include-dirs' copies too: bitvec's ThreadSafe.hs #includes
+  -- "Data/Bit.hs" from its include-dirs copy of src)
+  forM_ (getFieldStrings flds [] "include-dirs") $ \ d -> renameHiddenModules (pdir </> "include" </> d) (hiddenRenames name flds)
   mdls <- buildableModules env pdir (libModules (renameHiddenFields name flds))
   mkdir env (yaleDB env)
   if null mdls then
@@ -541,6 +544,13 @@ renameLine rs l =
                           , (m, _) <- span (\ c -> isAlphaNum c || c `elem` "._'") w
                           , Just new <- lookup m rs ->
          ind ++ "module " ++ new ++ drop (length ("module " ++ m)) (dropWhile (== ' ') rest)
+       -- #include "Data/Bit/F2Poly.hs" of a renamed module's file (bitvec's
+       -- thread-safe copies)
+       ("#include" : ('"' : q) : _)
+         | (path, "\"") <- break (== '"') q
+         , ".hs" `isSuffixOf` path
+         , Just new <- lookup (map (\ c -> if c == '/' then '.' else c) (take (length path - 3) path)) rs ->
+           ind ++ "#include \"" ++ new ++ ".hs\""
        ("import" : _) ->
          let (pre, after) = splitImport rest
          in case span (\ c -> isAlphaNum c || c `elem` "._'") after of
