@@ -91,7 +91,7 @@ full guide, including current limitations, is [doc/REPL.md](doc/REPL.md).
 Compiled modules are cached in `~/.cache/yale-haskell/` (or
 `$YALE_HASKELL_CACHE_DIR`), so a program compiles once and later runs
 reuse it until its sources change; the interactive system caches only
-library modules.  `YALE_HASKELL_CACHE=0` turns the cache off and
+library modules and installed packages'.  `YALE_HASKELL_CACHE=0` turns the cache off and
 `YALE_HASKELL_CACHE=library` limits it to library modules.  A new build
 starts a new cache and removes those of the same checkout's older
 builds.  See
@@ -122,6 +122,71 @@ main = appendChan stdout "Hello, world!\n" abort done
 ```
 
 Its executable is built only by `make haskell-1.2`.
+
+[doc/GUIDE.md](doc/GUIDE.md) is the guide to using Yale Haskell in
+place of GHC and cabal (and from Common Lisp); Hackage packages are in
+[doc/PACKAGES.md](doc/PACKAGES.md), Haskell inside Lisp files
+(`#@hs{ ... }#`) in [doc/EMBEDDING.md](doc/EMBEDDING.md).
+
+## What to expect
+
+Measured on an Apple M4 with SBCL 2.6.9 and GHC 9.14.1, 2026-10-31.
+
+**Language.**  Haskell 98 and 2010, and GHC2021/GHC2024 with most of
+GHC's extensions (101 of 104 extension probes;
+doc/plans/GHC-EXTENSIONS.md).  Not there: QuantifiedConstraints,
+quasi-quotes and parts of Template Haskell, unboxed types (`Int#` is
+`Int`), and a 64-bit `Int`: `Int` is SBCL's 63-bit fixnum.
+
+**Libraries.**  base, containers, text, bytestring, mtl, transformers,
+stm, parsec, time, process, directory, QuickCheck and the other common
+boot-style libraries are built in; about 80 Hackage packages (aeson,
+vector, optparse-applicative, megaparsec, prettyprinter ..., the
+dependencies of Agda) build from source with MicroCabal.
+
+**Speed of the compiled code.**  `bench/compare-ghc` runs 17 programs
+(nofib-style and library-heavy ones) with Yale Haskell and GHC.  Yale
+Haskell's CPU time is 0.1x to 3x GHC -O2's, 1.4x at the geometric mean
+(except statemonad, mostly garbage collection, which varied from 1.8x
+to 5.6x between runs), and below GHC -O0's on 13 of the 17; it
+allocates about as much (1.1x at the geometric mean of the 14 that
+allocate).
+
+| program | Yale (s) | GHC -O2 (s) | ratio | Yale MB | GHC MB |
+|---|---|---|---|---|---|
+| integrate (Double loops) | 0.014 | 0.096 | 0.1x | 51 | 116 |
+| wheel (lazy streams) | 0.005 | 0.009 | 0.6x | 10 | 11 |
+| queens (lists) | 0.116 | 0.142 | 0.8x | 124 | 116 |
+| loop (strict Int loop) | 0.179 | 0.190 | 0.9x | 0 | 0 |
+| tree (data, pattern matching) | 0.189 | 0.183 | 1.0x | 580 | 446 |
+| foldable (derived Traversable) | 0.313 | 0.206 | 1.5x | 1122 | 780 |
+| ioloop (file I/O, read) | 0.179 | 0.109 | 1.6x | 658 | 1272 |
+| mapcount (Data.Map, IntMap) | 0.472 | 0.273 | 1.7x | 1967 | 794 |
+| nfib (calls, Int arithmetic) | 0.503 | 0.259 | 1.9x | 0 | 0 |
+| textproc (Data.Text) | 0.189 | 0.093 | 2.0x | 494 | 697 |
+| bigint (Integer) | 0.108 | 0.053 | 2.0x | 559 | 556 |
+| starray (STUArray sieve) | 0.135 | 0.047 | 2.9x | 1 | 1 |
+
+The rest, and the history of each optimization, are in
+bench/RESULTS.md.  Where Yale Haskell is slower it is mostly in
+dictionary-passing code inside recursive overloaded functions
+(doc/plans/SPECIALIZE.md) and in garbage collection.
+
+**Compilation.**  `yale-haskell prog.hs` compiles what changed and runs
+it: a 40-line program compiles in under 0.1 s, and a program whose
+compiled units are cached starts in 0.03 s.  Libraries are compiled
+once per build of Yale Haskell and cached (`~/.cache/yale-haskell`):
+aeson and its dependencies take about three minutes the first time.
+This is slower than GHC for large code bases.
+
+**Executables.**  `yale-haskell build` makes a 68 MB executable (the
+whole Lisp image) that starts in 0.02 s, with 87 MB resident for hello
+world.
+
+**Lisp.**  The compiler and the compiled program are Common Lisp in one
+image: Lisp functions are Haskell primitives (interface files), and a
+Lisp program can load the compiler with ASDF and contain Haskell
+(doc/EMBEDDING.md).
 
 ## Layout
 

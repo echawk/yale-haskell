@@ -823,3 +823,44 @@ programs, with every library module they use.
   product are dictionary constructors (1,000+ of 1,129) and a few cold
   library functions (mapAccumL 11, Data.Map's deleteFindMin/Max 7 each,
   splitAt 2); none on a hot path of these programs.
+
+## GHC's allocation beside Yale's; inlined array and IO wrappers (2026-10-31)
+
+`bench/compare-ghc` now also reports GHC -O2's allocation (`+RTS -t`,
+bytes allocated) next to Yale's (bytes consed by `main`).  Two changes:
+the mutable array primitives (`prim.read-mut-arr`, `prim.write-mut-arr`)
+are inline, and so are the wrappers generated for interface primitives
+that drop the IO state token (backend/interface-codegen.mumble), which
+every `readArray`/`writeArray` went through as a full call: starray
+0.178 s -> 0.135 s.  Commit f2cdefe, SBCL 2.6.9, GHC 9.14.1, Apple M4,
+`bench/compare-ghc -n 3` (the machine had other load):
+
+```
+program          Yale    Yale MB  GHC -O0  GHC -O2   GHC MB    ratio  check
+bigint          0.108        559    0.058    0.053      556     2.0x  ok
+integrate       0.014         51    0.300    0.096      116     0.1x  ok
+interp          0.080        176    0.223    0.046      192     1.8x  ok
+ioloop          0.179        658    0.118    0.109     1272     1.6x  ok
+loop            0.179          0   13.017    0.190        0     0.9x  ok
+nfib            0.503          0    5.146    0.259        0     1.9x  ok
+queens          0.116        124    1.764    0.142      116     0.8x  ok
+sieve           0.036        131    0.044    0.016      181     2.2x  ok
+tree            0.189        580    0.299    0.183      446     1.0x  ok
+wheel           0.005         10    0.050    0.009       11     0.6x  ok
+existential     0.020         85    0.058    0.021       48     1.0x  ok
+foldable        0.313       1122    0.526    0.206      780     1.5x  ok
+ioref           0.027          0    0.424    0.013      107     2.0x  ok
+mapcount        0.472       1967    0.341    0.273      794     1.7x  ok
+starray         0.135          1    2.514    0.047        1     2.9x  ok
+statemonad      0.116        314    0.581    0.021       71     5.6x  ok
+textproc        0.189        494    0.139    0.093      697     2.0x  ok
+```
+
+Geometric means: time 1.39x GHC -O2, allocation 1.10x (the 14 programs
+that allocate).  statemonad measured 0.038 s (1.8x) at the start of the
+day and 0.06-0.11 s later with the same allocation: its profile is
+80% `munmap`, `bzero` and lock waits, the garbage collector's work with
+the OS, so its time follows the machine's state more than the code.
+Allocation is furthest from GHC's in statemonad (4.4x: the state
+record is rebuilt where GHC unboxes it) and mapcount (2.5x: Data.Map's
+operations through the Ord dictionary).
