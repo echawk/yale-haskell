@@ -74,14 +74,14 @@ fast.
 
 ### Language modes
 
-With no language flag the compiler reads **Haskell 1.2**, the language
-of the original Yale Haskell (`main` is a `Dialogue`; the example
-programs in `examples/` are written that way).  A modern program needs
-one of these:
+With no language flag the compiler reads **Haskell 98**.  (Haskell
+1.2, the original Yale Haskell's language, where `main` is a `Dialogue`
+as in `examples/`, is `--haskell1.2`, built by `make haskell-1.2`.)
+The flags:
 
 | Flag | Language | Prelude |
 |---|---|---|
-| `--haskell98` | Haskell 98 | the Haskell 98 Prelude |
+| (none), `--haskell98` | Haskell 98 | the Haskell 98 Prelude |
 | `--haskell2010` | Haskell 2010 | the Haskell 2010 Prelude |
 | `--modern-prelude` | as above, plus the names of GHC base's Prelude (Applicative, MonadFail, Semigroup/Monoid, Foldable/Traversable, `Word`) | GHC base's |
 | `--ghc2021` | GHC2021: its extensions on in every module; implies `--modern-prelude` | GHC base's |

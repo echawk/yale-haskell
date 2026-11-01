@@ -1,5 +1,11 @@
 # Plan: Haskell and Common Lisp together
 
+Status (2026-10-31): steps 1, 3 and 4 are done, as `#@hs{ ... }#`
+blocks and `yale-haskell:eval-haskell` (doc/EMBEDDING.md,
+src/compiler/command-interface/embed.mumble, tools/asdf/embed.lisp,
+tests/embed/).  A Haskell function is had in Lisp as `#@hs{ M.f }#`;
+`foreign export lisp` (step 2) is not done.
+
 Today Haskell can call Lisp (LispName primitives in interface files)
 and C (the FFI).  The other direction — Lisp calling Haskell — and
 mixing the two in one source file are not there.  None of it depends on
