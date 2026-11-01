@@ -78,7 +78,12 @@
    (walk-modules modules
     (lambda ()
      (dolist (ty (default-decl-types (module-default *module*)))
-	(resolve-type ty)))))
+	(resolve-type ty))
+     ;; NamedDefaults: default C (T, ..)
+     (dolist (nd (module-named-defaults *module*))
+       (when (is-type? 'class-ref (car nd))
+	 (resolve-class (car nd))
+	 (dolist (ty (cdr nd)) (resolve-type ty)))))))
    ))
 
 

@@ -1,7 +1,19 @@
 ;;; This handles the default rule.
 
+;;; NamedDefaults: the types of the first of CLASSES a default C (T, ..)
+;;; of MODULE names, or #f.
+(define (named-default-types classes module)
+  (let ((entry (assq module *named-default-decls*)))
+    (and entry
+	 (lisp:some (lambda (c)
+		      (let ((nd (assq c (tuple-2-2 entry))))
+			(and nd (cdr nd))))
+		    classes))))
+
 (define (maybe-default-ambiguous-tyvar type def module)
   (let ((classes (ntyvar-context type)))
+   (if (and (not (null? classes)) (named-default-types classes module))
+    (find-default-type type classes classes (named-default-types classes module))
    (and (not (null? classes)) ; this happens only during cleanup after an error
     ;; OverloadedStrings (GHC): IsString is defaultable too, and String a
     ;; default after the module's (Agda's throwError "..." in an ExceptT
@@ -26,7 +38,7 @@
 	    (else
 	     (find-default-type type classes classes
 			(append (tuple-2-2 (assq module *default-decls*))
-				(if strings? (list *string-type*) '())))))))))
+				(if strings? (list *string-type*) '()))))))))))
 
 (define (is-string-class? class)
   (eq? (def-name class) '|IsString|))

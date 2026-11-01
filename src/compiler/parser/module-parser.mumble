@@ -236,15 +236,26 @@
    (|instance| (let ((instance-decl (parse-instance-decl '#f)))
 		 (push-decl-list instance-decl (module-instances mod-ast)))
 	       (terminate-topdecl mod-ast in-layout? 'topdecl))
-   (|default| (let ((types 
-		     (token-case
-		      (\( (token-case (\) '())
-				      (else (parse-type-list))))
-		      (else (list (parse-type))))))
-		(if (eq? (module-default mod-ast) *standard-module-default*)
-		    (setf (module-default mod-ast)
-			  (make default-decl (types types)))
-		    (signal-multiple-defaults)))
+   (|default|
+    (if (and (language-extension? "NamedDefaults")
+	     (eq? *token* 'conid)
+	     (eq? (peek-1-type) '\())
+	;; NamedDefaults (GHC 9.12): default C (T1, ..) is class C's own list
+	(let* ((cname (token->symbol))
+	       (types (begin (advance-token)
+			     (token-case (\) '())
+					 (else (parse-type-list))))))
+	  (push (cons (make class-ref (name cname) (class *undefined-def*)) types)
+		(module-named-defaults mod-ast)))
+	(let ((types 
+	       (token-case
+		(\( (token-case (\) '())
+				(else (parse-type-list))))
+		(else (list (parse-type))))))
+	  (if (eq? (module-default mod-ast) *standard-module-default*)
+	      (setf (module-default mod-ast)
+		    (make default-decl (types types)))
+	      (signal-multiple-defaults))))
     (terminate-topdecl mod-ast in-layout? 'topdecl))
    ((begin-annotation no-advance)
     (let ((annotations (parse-annotations)))

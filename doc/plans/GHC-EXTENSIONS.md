@@ -17,8 +17,13 @@ nofib suites (`tools/conformance/nofib.py`, with `--suite real
 | nofib imaginary + spectral | 68 pass | 69 pass (mandel) |
 | nofib real + gc + shootout | 28 pass, 11 compile errors, 2 wrong, 1 timeout | 40 pass, 2 known (ByteString pointers), no failures |
 
-The two failing probes: GHCIntWraps (a deliberate departure: Int is
-the 63-bit fixnum) and QuantifiedConstraints.  Typeable is
+The failing probes: GHCIntWraps (a deliberate departure: Int is
+the 63-bit fixnum) and, of the 31 newer probes added 2026-11-01 (GHC
+9.2 to 9.12 features), UnboxedSums, RequiredTypeArguments and
+TransformListComp (tier 4).  Fixed that day: QualifiedDo, TypeAbstractions
+(`Just @Int x`, `data P @k a`), `forall {a}` inferred binders, LinearTypes
+in GADT constructors, LexicalNegation, StaticPointers, NoFieldSelectors,
+NamedDefaults, GHC.Records.  Typeable is
 GHC's: every type constructor is Typeable without an instance (the type
 checker builds the dictionary from the constructor's name and the
 arguments' dictionaries, util/instance-manager.mumble), so typeOf, cast
@@ -27,7 +32,7 @@ and Data.Dynamic work and show types as GHC does.
 Every GHC2021 extension is accepted except where a probe below says
 otherwise, and so are most of the extensions modern code turns on beyond
 GHC2021.  What is left is either large (the rest of Template Haskell,
-the runtime's concurrency) or rare (QuantifiedConstraints).
+the runtime's concurrency) or rare.
 
 ## How extensions are switched on
 
@@ -90,7 +95,7 @@ StrictData and Strict (2026-10-24: fields, and function and lambda
 arguments, strict but those marked `~`; Strict's let and where bindings
 are strict too), LinearTypes (`%1 ->`, `%m ->`, `⊸`; multiplicities not
 checked), ExtendedLiterals (`42#Int8`), MultilineStrings and
-OrPatterns (GHC 9.12; an or-pattern is a view pattern), OverloadedLabels
+OrPatterns (GHC 9.12; an or-pattern is a view pattern), QualifiedDo (`M.do` uses M's `>>=`, `>>`, `fail`), LexicalNegation (`f -x`, `(- x)`), NamedDefaults (`default C (T)` is class C's defaulting list), StaticPointers (`static e`; no key table), NoFieldSelectors, TypeAbstractions (type binders in constructor patterns and data heads are skipped), OverloadedLabels
 (`#x` is `fromLabel @"x"`), TypeData (a data type whose constructors are
 promoted),
 BinaryLiterals, NumericUnderscores, HexFloatLiterals, NumDecimals,
@@ -245,7 +250,9 @@ be accepted.
 
 | extension | what it needs | size |
 |---|---|---|
-| QuantifiedConstraints | contexts with `forall` in instance heads; dictionary functions as dictionary fields | medium-large |
+| UnboxedSums | `(# a | b #)`: the lexer reads `(#` as `(`, so alternatives need a marker token and a generated sum type | small-medium |
+| RequiredTypeArguments | `forall a ->` in a signature and `f Int x` at the call: needs type arguments in term position | medium |
+| TransformListComp | `then f`, `then group by e using f` in list comprehensions | medium |
 
 ### 5. Not realistic here
 

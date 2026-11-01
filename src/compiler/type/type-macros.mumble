@@ -24,6 +24,7 @@
 ;;; Used by the defaulting mechanism
 
 (define *default-decls* '())
+(define *named-default-decls* '())   ; NamedDefaults: (module (class . ntypes) ..)
 
 ;;; Used in error handling & recovery
 

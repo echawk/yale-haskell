@@ -91,6 +91,9 @@
     ;; <default-decl>, default types
     (annotations (type (list annotation)) (default '()))
     (default (type (maybe default-decl)) (default '#f))
+    ;; NamedDefaults: default C (T1, ..): (class-ref . types), then
+    ;; (class-def . types) once resolved
+    (named-defaults (type list) (default '()))
     ;; signatures, pattern, function bindings
     (decls (type (list decl)) (default '()))
     ;; foreign import declarations (Haskell 2010 FFI), and the Lisp code
