@@ -872,7 +872,10 @@
       (restore-excursion saved)
       res)))
 
+(define *foreign-capi?* '#f)
+
 (define (parse-foreign-callconv what)
+  (setf *foreign-capi?* (at-varid-named? "capi"))
   (if (or (at-varid-named? "ccall") (at-varid-named? "capi"))
       (advance-token)
       (parser-error 'foreign-callconv
@@ -927,7 +930,9 @@
     (when (or (at-varid-named? "safe") (at-varid-named? "unsafe")
 	      (at-varid-named? "interruptible"))
       (advance-token))
-    (let* ((entity  (parse-foreign-entity))
+    (let* ((capi?   *foreign-capi?*)
+	   (entity  (let ((e (parse-foreign-entity)))
+		      (if capi? (string-append "%capi " e) e)))
 	   (sd      (parse-signdecl))
 	   (vars    (signdecl-vars sd)))
       (when (not (null? (cdr vars)))

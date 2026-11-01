@@ -256,7 +256,12 @@
 	     `(define ,(fullname var)
 		(delay (ffi-symbol-pointer ,(cadr spec)))))
 	    (else
-	     (let* ((call-args  (concat (map (lambda (m p)
+	     (let* ((stub  (and (eq? (car spec) 'static) (caddr spec)
+				(pair? (cadddr spec))
+				(ffi-capi-stub var (cadr spec) (cadddr spec)
+					       arg-ms res-m)))
+		    (spec  (if stub (list 'static (car stub)) spec))
+		    (call-args  (concat (map (lambda (m p)
 					       (list (car m) (ffi-apply (cadr m) p)))
 					     arg-ms params)))
 		    (call       (if (eq? (car spec) 'dynamic)
@@ -277,7 +282,7 @@
 	       (setf (var-strict? var) '#t)
 	       (setf (var-arity var) (length all-params))
 	       (setf (var-strictness var) strictness)
-	       (if (null? all-params)
+	       (ffi-capi-wrap stub (if (null? all-params)
 		   ;; a pure constant: called once, when first needed
 		   (begin
 		     (setf (var-optimized-entry var) '#f)
@@ -290,7 +295,7 @@
 		      (define ,(fullname var)
 			,(maybe-make-box-value
 			  (codegen-curried-fn `(function ,entry) strictness)
-			  '#t))))))))))
+			  '#t)))))))))))
 
 ;;; Callbacks (src/ffi/ffi-runtime.lisp): a "wrapper" import
 ;;;   mk :: ft -> IO (FunPtr ft)
@@ -440,8 +445,59 @@
 ;;; (dynamic) or (wrapper).  A header file name and `static' are ignored;
 ;;; the C name defaults to the Haskell name.
 
+;;; capi imports of header-defined functions: a C stub function per
+;;; import (src/ffi/ffi-runtime.lisp's ffi-capi-build); (symbol source
+;;; flags), or #f when the stub cannot be built (the import is then a plain
+;;; ccall of the symbol).
+(define (ffi-c-type cffi-type)
+  (let ((e  (lisp:assoc cffi-type
+			'((:long . "long") (:double . "double") (:float . "float")
+			  (:int . "int") (:pointer . "void *") (:void . "void")
+			  (:int8 . "int8_t") (:int16 . "int16_t") (:int32 . "int32_t")
+			  (:int64 . "int64_t") (:uint8 . "uint8_t")
+			  (:uint16 . "uint16_t") (:uint32 . "uint32_t")
+			  (:uint64 . "uint64_t")))))
+    (and e (cdr e))))
+
+(define (ffi-indices n)
+  (if (eqv? n 0) '() (append (ffi-indices (1- n)) (list (1- n)))))
+
+(define (ffi-capi-stub var name headers arg-ms res-m)
+  (let ((rt  (ffi-c-type (car res-m)))
+	(ats (map (lambda (m) (ffi-c-type (car m))) arg-ms)))
+    (and rt (every (lambda (a) a) ats)
+	 (let* ((stub   (string-append "yale_capi_" name))
+		(idx    (ffi-indices (length ats)))
+		(params (map (lambda (ty i) (format '#f "~A a~A" ty i)) ats idx))
+		(args   (map (lambda (i) (format '#f "a~A" i)) idx))
+		(src    (lisp:with-output-to-string (o)
+			  (lisp:format o "#include <stdint.h>~%")
+			  (dolist (h headers) (lisp:format o "#include <~A>~%" h))
+			  (lisp:format o "~A ~A(~{~A~^, ~}) { ~A~A(~{~A~^, ~}); }~%"
+				       rt stub (if (null? params) '("void") params)
+				       (if (string=? rt "void") "" "return ")
+				       name args)))
+		(flags  (ffi-capi-flags)))
+	   (and (lisp:funcall 'ffi-capi-build src flags)
+		(list stub src flags))))))
+
+(define (ffi-capi-flags)
+  (append (lisp:mapcan (lambda (p)
+			 (map (lambda (d) (string-append "-I" d)) (package-include-dirs p)))
+		       (installed-packages))
+	  (map (lambda (d) (string-append "-I" d)) *cpp-include-dirs*)
+	  (let ((d (getenv "YALE_MCABAL_INCLUDE")))
+	    (if (and d (not (string=? d ""))) (list (string-append "-I" d)) '()))))
+
+(define (ffi-capi-wrap stub code)
+  (if stub
+      `(begin (ffi-capi-load ,(cadr stub) ',(caddr stub)) ,code)
+      code))
+
 (define (ffi-parse-entity entity default)
-  (let ((words  (ffi-words entity)))
+  (let* ((all    (ffi-words entity))
+	 (capi?  (and (lisp:member "%capi" all :test (function equal?)) '#t))
+	 (words  (lisp:remove "%capi" all :test (function equal?))))
     (cond ((equal? words '("dynamic")) '(dynamic))
 	  ((equal? words '("wrapper")) '(wrapper))
 	  ;; capi "[header.h] value NAME": a C constant or macro
@@ -469,7 +525,13 @@
 	       (setf address? '#t)
 	       (setf ws (cons (lisp:subseq (car ws) 1) (cdr ws))))
 	     (list (if address? 'address 'static)
-		   (if (null? ws) default (car ws))))))))
+		   (if (null? ws) default (car ws))
+		   capi?
+		   (lisp:remove-if-not
+		    (lambda (w)
+		      (and (> (string-length w) 2)
+			   (lisp:string= ".h" w :start2 (- (string-length w) 2))))
+		    words)))))))
 
 (define (ffi-words s)
   (let ((start  (lisp:position #\space s :test-not (function lisp:char=))))

@@ -316,3 +316,46 @@
 	    (cl:lambda (cl:&rest args)
 	      (cl:apply adapter (force (cl:symbol-value value-sym)) args))))
   0)
+
+
+;;; capi imports of functions a header defines (static inline, macros):
+;;; a C stub per import, compiled with cc into a small shared library in
+;;; the compiler's cache and loaded with the code that uses it.  The
+;;; code generator (backend/interface-codegen.mumble) calls ffi-capi-build
+;;; when it compiles the import, and the generated code calls ffi-capi-load
+;;; (which rebuilds the library if the cache was cleared).
+
+(cl:defun ffi-capi-path (src flags)
+  (cl:let ((dir (cl:format cl:nil "~A/capi/"
+                           (cl:or (uiop:getenv "YALE_HASKELL_CACHE_DIR")
+                                  (cl:format cl:nil "~A/.cache/yale-haskell"
+                                             (cl:or (uiop:getenv "HOME") "/tmp"))))))
+    (cl:ensure-directories-exist dir)
+    (cl:format cl:nil "~Ayale-capi-~36R.so" dir
+               (cl:sxhash (cl:format cl:nil "~A~%~{~A ~}" src flags)))))
+
+(cl:defun ffi-capi-build (src flags)
+  "The path of the library for the C source SRC, built if needed; NIL when cc fails."
+  (cl:let ((path (ffi-capi-path src flags)))
+    (cl:if (cl:probe-file path)
+           path
+           (cl:let ((c (cl:concatenate 'cl:string path ".c")))
+             (cl:with-open-file (o c :direction :output :if-exists :supersede)
+               (cl:write-string src o))
+             (cl:unwind-protect
+                  (cl:let ((tmp (cl:concatenate 'cl:string path ".new")))
+                    (cl:and
+                     (cl:eql 0 (sb-ext:process-exit-code
+                                (sb-ext:run-program "/usr/bin/env"
+                                                    (cl:append (cl:list "cc" "-shared" "-fPIC" "-w" "-o" tmp)
+                                                               flags (cl:list c))
+                                                    :output cl:nil :error cl:nil)))
+                     (cl:progn (cl:rename-file tmp path) path)))
+               (cl:ignore-errors (cl:delete-file c)))))))
+
+(cl:defun ffi-capi-load (src flags)
+  (cl:let ((path (ffi-capi-build src flags)))
+    (cl:if path
+           (cffi:load-foreign-library path)
+           (haskell-runtime-error "Cannot build the C stub of a capi import"))
+    0))
