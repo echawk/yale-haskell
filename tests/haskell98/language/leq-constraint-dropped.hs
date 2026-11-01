@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds, TypeOperators, KindSignatures, ScopedTypeVariables #-}
 import GHC.TypeLits
 import Data.Proxy
+import GHC.TypeLits (type (<=))
 
 idx :: forall n na. (KnownNat na, KnownNat n, n <= na) => Proxy n -> Proxy na -> Integer
 idx p q = natVal p + natVal q

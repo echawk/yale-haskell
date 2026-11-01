@@ -9,12 +9,12 @@ module GHC.TypeLits (
     KnownSymbol(symbolSing), symbolVal, SSymbol, fromSSymbol,
     withKnownNat, withSomeSNat, withKnownSymbol, withSomeSSymbol,
     KnownChar(charSing), charVal, SChar, fromSChar,
-    ErrorMessage(..), TypeError, type (+), Div, Mod, CmpNat
+    ErrorMessage(..), TypeError, type (+), type (<=), Div, Mod, CmpNat
   ) where
 
 import Numeric.Natural (Natural)
 import Unsafe.Coerce (unsafeCoerce)
-import GHC.TypeNats (Nat, KnownNat(natSing), SNat, fromSNat, withKnownNat, withSomeSNat, KnownBits(bitsValue), BitsValue(..), type (+), Div, Mod, CmpNat)
+import GHC.TypeNats (Nat, KnownNat(natSing), SNat, fromSNat, withKnownNat, withSomeSNat, KnownBits(bitsValue), BitsValue(..), type (+), type (<=), Div, Mod, CmpNat)
 import PreludeCore (TypeSymbol, TypeChar, PromotedNil, PromotedCons)
 
 data Symbol

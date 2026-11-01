@@ -5,7 +5,7 @@
 module GHC.TypeNats (
     Nat, Natural, KnownNat(natSing), SNat, natVal, fromSNat,
     withKnownNat, withSomeSNat,
-    KnownBits(bitsValue), BitsValue(..), type (+), Div, Mod, CmpNat
+    KnownBits(bitsValue), BitsValue(..), type (+), type (<=), Div, Mod, CmpNat
   ) where
 
 import Numeric.Natural (Natural)
@@ -103,3 +103,6 @@ type family CarryBit a b c where
 type family Div (a :: Nat) (b :: Nat) :: Nat
 type family Mod (a :: Nat) (b :: Nat) :: Nat
 type family CmpNat (a :: Nat) (b :: Nat) :: Ordering
+
+-- (n <= m constraints are parsed and dropped, parser/type-parser.mumble)
+type a <= b = ()
