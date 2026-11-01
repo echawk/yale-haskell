@@ -43,6 +43,7 @@ module GHC.Exts (
     RuntimeRep(..), Levity(..), TYPE, LiftedRep, SPEC(..),
     Ptr(Ptr), FunPtr(FunPtr), Down(..), sortWith, groupWith, the, realWorld#, runRW#, noDuplicate#, keepAlive#,
     atomicModifyMutVar#, atomicModifyMutVar2#, atomicModifyMutVar_#,
+    plusWord8#, plusWord16#, subWord8#, subWord16#, plusInt8#, plusInt16#, subInt8#, subInt16#,
     Weak#, mkWeak#, mkWeakNoFinalizer#, deRefWeak#
   ) where
 
@@ -106,6 +107,18 @@ word32ToWord# w = w
 wordToWord8# w = w `mod` 256
 wordToWord16# w = w `mod` 65536
 wordToWord32# w = w `mod` 4294967296
+
+plusWord8#, plusWord16#, subWord8#, subWord16# :: Word -> Word -> Word
+plusWord8# a b = wordToWord8# (a + b)
+plusWord16# a b = wordToWord16# (a + b)
+subWord8# a b = wordToWord8# (a + 256 - b `mod` 256)
+subWord16# a b = wordToWord16# (a + 65536 - b `mod` 65536)
+
+plusInt8#, plusInt16#, subInt8#, subInt16# :: Int -> Int -> Int
+plusInt8# a b = intToInt8# (a + b)
+plusInt16# a b = intToInt16# (a + b)
+subInt8# a b = intToInt8# (a - b)
+subInt16# a b = intToInt16# (a - b)
 
 int32ToWord32#, int16ToWord16# :: Int -> Word
 int32ToWord32# n = fromIntegral (n `mod` 4294967296)

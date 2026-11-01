@@ -1,17 +1,19 @@
--- System.Posix.Types (base): the POSIX types, as the type synonyms the
--- Foreign.C.Types types are here (doc/FFI.md), except Fd, a newtype over
--- CInt as in base.
+{-# LANGUAGE GeneralizedNewtypeDeriving, DerivingStrategies #-}
+-- System.Posix.Types (base): the POSIX types, newtypes over the sized
+-- integers as the Foreign.C.Types types are (doc/FFI.md); Fd is a newtype
+-- over CInt as in base.
 module System.Posix.Types (
-    Fd(Fd), CMode, CDev, CIno, COff, CPid, CSsize, CUid, CGid, CNlink,
+    Fd(Fd), CMode(..), CDev(..), CIno(..), COff(..), CPid(..), CSsize(..), CUid(..), CGid(..), CNlink(..),
     FileMode, FileOffset, EpochTime, ProcessID, ByteCount, DeviceID,
     FileID, UserID, GroupID, LinkCount, Limit,
-    CClockId, CBlkSize, CBlkCnt, CFsBlkCnt, CFsFilCnt, CRLim, CSpeed,
-    CTcflag, CCc, CId, CKey, CSocklen, CNfds
+    CClockId(..), CBlkSize(..), CBlkCnt(..), CFsBlkCnt(..), CFsFilCnt(..), CRLim(..), CSpeed(..),
+    CTcflag(..), CCc(..), CId(..), CKey(..), CSocklen(..), CNfds(..)
   ) where
 
 import Data.Int (Int32, Int64)
 import Data.Word (Word8, Word16, Word32, Word64)
-import Foreign.C.Types (CInt, CTime)
+import Foreign.C.Types (CInt, CTime, CSize, CLong)
+import Data.Bits (Bits, FiniteBits)
 import Foreign.Storable (Storable(..))
 import Foreign.Ptr (castPtr)
 
@@ -50,38 +52,38 @@ instance Bounded Fd where
   minBound = Fd minBound
   maxBound = Fd maxBound
 
-type CMode = Word32
-type CDev = Int32
-type CIno = Word64
-type COff = Int64
-type CPid = Int32
-type CSsize = Int64
-type CUid = Word32
-type CGid = Word32
-type CNlink = Word16
+newtype CMode = CMode Word32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CDev = CDev Int32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CIno = CIno Word64 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype COff = COff Int64 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CPid = CPid Int32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CSsize = CSsize Int64 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CUid = CUid Word32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CGid = CGid Word32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CNlink = CNlink Word16 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
 -- (the sizes of macOS/arm64's C types)
-type CClockId = Word32
-type CBlkSize = Int32
-type CBlkCnt = Int64
-type CFsBlkCnt = Word32
-type CFsFilCnt = Word32
-type CRLim = Word64
-type CSpeed = Word64
-type CTcflag = Word64
-type CCc = Word8
-type CId = Word32
-type CKey = Int32
-type CSocklen = Word32
-type CNfds = Word32
+newtype CClockId = CClockId Word32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CBlkSize = CBlkSize Int32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CBlkCnt = CBlkCnt Int64 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CFsBlkCnt = CFsBlkCnt Word32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CFsFilCnt = CFsFilCnt Word32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CRLim = CRLim Word64 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CSpeed = CSpeed Word64 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CTcflag = CTcflag Word64 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CCc = CCc Word8 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CId = CId Word32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CKey = CKey Int32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CSocklen = CSocklen Word32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
+newtype CNfds = CNfds Word32 deriving newtype (Eq, Ord, Num, Enum, Real, Integral, Bits, FiniteBits, Bounded, Storable, Show, Read)
 type FileMode = CMode
 type FileOffset = COff
 type EpochTime = CTime
 type ProcessID = CPid
-type ByteCount = Word64
+type ByteCount = CSize
 type DeviceID = CDev
 type FileID = CIno
 type UserID = CUid
 type GroupID = CGid
 type LinkCount = CNlink
 -- pathconf's result (unix: CLong)
-type Limit = Int64
+type Limit = CLong
