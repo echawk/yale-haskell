@@ -271,8 +271,9 @@ Other commands (`mcabal help`):
 - `-fFLAG` sets a cabal flag, `-v` is more verbose, `-q` quiet,
   `--dry-run` prints the commands without running them,
   `--options=OPTIONS` passes options to the compiler, `--git=URL` takes
-  a package from a Git repository.  `--ghc` and `--mhs` select the other
-  backends of MicroCabal; `--yale` is the default.
+  a package from a Git repository.  The `mcabal` script passes
+  `--yale`; a later `--ghc` or `--mhs` selects another of MicroCabal's
+  backends.
 
 ### What the backend does
 
