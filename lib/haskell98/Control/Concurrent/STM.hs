@@ -14,14 +14,16 @@ module Control.Concurrent.STM (
     isEmptyTQueue, flushTQueue, unGetTQueue, peekTQueue, tryPeekTQueue,
     TBQueue, newTBQueue, newTBQueueIO, writeTBQueue, readTBQueue,
     tryReadTBQueue, flushTBQueue, lengthTBQueue, isEmptyTBQueue, isFullTBQueue,
-    threadWaitReadSTM, threadWaitWriteSTM
+    peekTBQueue, tryPeekTBQueue, unGetTBQueue,
+    threadWaitReadSTM, threadWaitWriteSTM, registerDelay, mkWeakTVar, mkWeakTMVar, mkWeakTQueue, mkWeakTBQueue, mkWeakTChan
   ) where
 
 import Control.Monad.STM
 import STMBase (TVar, newTVar, newTVarIO, readTVar, readTVarIO, writeTVar)
-import Control.Concurrent (forkIO, killThread, threadWaitRead, threadWaitWrite)
+import Control.Concurrent (forkIO, killThread, threadDelay, threadWaitRead, threadWaitWrite)
 import System.Posix.Types (Fd)
 import Numeric.Natural (Natural)
+import System.Mem.Weak (Weak, mkWeak)
 
 modifyTVar, modifyTVar' :: TVar a -> (a -> a) -> STM ()
 modifyTVar v f = readTVar v >>= writeTVar v . f
@@ -213,6 +215,12 @@ lengthTBQueue :: TBQueue a -> STM Natural
 lengthTBQueue (TBQueue _ c _) = fmap fromIntegral (readTVar c)
 isEmptyTBQueue :: TBQueue a -> STM Bool
 isEmptyTBQueue (TBQueue q _ _) = isEmptyTQueue q
+peekTBQueue :: TBQueue a -> STM a
+peekTBQueue (TBQueue q _ _) = peekTQueue q
+tryPeekTBQueue :: TBQueue a -> STM (Maybe a)
+tryPeekTBQueue (TBQueue q _ _) = tryPeekTQueue q
+unGetTBQueue :: TBQueue a -> a -> STM ()
+unGetTBQueue (TBQueue q c _) x = do { modifyTVar' c (+ 1); unGetTQueue q x }
 isFullTBQueue :: TBQueue a -> STM Bool
 isFullTBQueue (TBQueue _ c cap) = fmap (>= cap) (readTVar c)
 
@@ -229,3 +237,22 @@ threadWaitSTM wait fd = do
   t <- forkIO (wait fd >> atomically (writeTVar ready True))
   return (readTVar ready >>= \ r -> if r then return () else retry,
           killThread t)
+
+-- GHC.Conc's: a TVar that becomes True after the given microseconds.
+registerDelay :: Int -> IO (TVar Bool)
+registerDelay us = do
+  v <- newTVarIO False
+  _ <- forkIO (threadDelay us >> atomically (writeTVar v True))
+  return v
+
+mkWeakTVar :: TVar a -> IO () -> IO (Weak (TVar a))
+mkWeakTVar t fin = mkWeak t t (Just fin)
+
+mkWeakTMVar :: TMVar a -> IO () -> IO (Weak (TMVar a))
+mkWeakTMVar t fin = mkWeak t t (Just fin)
+mkWeakTQueue :: TQueue a -> IO () -> IO (Weak (TQueue a))
+mkWeakTQueue t fin = mkWeak t t (Just fin)
+mkWeakTBQueue :: TBQueue a -> IO () -> IO (Weak (TBQueue a))
+mkWeakTBQueue t fin = mkWeak t t (Just fin)
+mkWeakTChan :: TChan a -> IO () -> IO (Weak (TChan a))
+mkWeakTChan t fin = mkWeak t t (Just fin)

@@ -726,6 +726,28 @@
 			(append (instance-mcontext inst)
 				(list (**mp-context (**class/def class) (list type)))))
 		  '#t))))
+	((and (synonym? (tycon-def type))
+	      (eq? (synonym-family? (tycon-def type)) 'data)
+	      (let ((r (expand-synonym type)))
+		(or (not (tycon? r))
+		    (not (algdata? (tycon-def r)))
+		    (let ((i (lookup-instance (tycon-def r) class)))
+		      (or (eq? i '#f) (not (instance-ok? i)))))))
+	 ;; a data family's application whose instance is declared on the
+	 ;; family (vector's instance Eq a => Eq (Vector a)), not on its
+	 ;; data instance: a flexible context on the application
+	 (cond ((lisp:some
+		 (lambda (mc)
+		   (and (eq? (class-ref-class (mp-context-class mc)) class)
+			(ast-types-equal? (car (mp-context-types mc)) type)))
+		 (instance-mcontext inst))
+		'#t)
+	       (else
+		(setf *di-context-changed* '#t)
+		(setf (instance-mcontext inst)
+		      (append (instance-mcontext inst)
+			      (list (**mp-context (**class/def class) (list type)))))
+		'#t)))
 	((synonym? (tycon-def type))
 	 (propagate-type-context inst class (expand-synonym type)))
 	(else

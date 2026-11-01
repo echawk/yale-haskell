@@ -1,0 +1,28 @@
+terminal-size: a Handle's descriptor through System.Posix.IO (no GHC.IO.FD / Handle__).
+diff -ruN a/System/Console/Terminal/Posix.hsc b/System/Console/Terminal/Posix.hsc
+--- a/System/Console/Terminal/Posix.hsc	2026-11-01 00:22:26
++++ b/System/Console/Terminal/Posix.hsc	2026-11-01 00:22:26
+@@ -10,9 +10,8 @@
+ import Foreign
+ import Foreign.C.Error
+ import Foreign.C.Types
+-import GHC.IO.FD (FD(FD, fdFD))
+-import GHC.IO.Handle.Internals (withHandle_)
+-import GHC.IO.Handle.Types (Handle, Handle__(Handle__, haDevice))
++import System.IO (Handle)
++import System.Posix.IO (handleToFd)
+ #if defined(__GLASGOW_HASKELL__) && (__GLASGOW_HASKELL__ < 706)
+ import Prelude hiding (catch)
+ #endif
+@@ -59,7 +58,7 @@
+ size = fdSize (Fd (#const STDOUT_FILENO))
+ 
+ hSize :: Integral n => Handle -> IO (Maybe (Window n))
+-hSize h = withHandle_ "hSize" h $ \Handle__ { haDevice = dev } ->
+-  case cast dev of
+-    Nothing -> return Nothing
+-    Just FD { fdFD = fd } -> fdSize (Fd fd)
++hSize h = (handleToFd h >>= fdSize) `catch` handler
++ where
++  handler :: IOError -> IO (Maybe (Window h))
++  handler _ = return Nothing

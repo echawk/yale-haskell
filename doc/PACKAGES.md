@@ -353,6 +353,24 @@ prettyprinter-ansi-terminal, optparse-applicative, tagged, StateVar,
 colour, case-insensitive, data-default, distributive, comonad,
 indexed-traversable.
 
+A survey on a fresh `$CABALDIR` (3.1.0.0) built, with the C code of
+the FFI ones compiled and linked: zlib, bzlib, digest, network,
+direct-sqlite (an in-memory database query runs), entropy,
+cryptohash-sha256, double-conversion, unix-time, clock (builds; its
+`capi ... value CLOCK_X` imports are not supported, so `getTime` aborts
+with 'The alien function "value" is undefined'), attoparsec, cereal,
+base64-bytestring, http-types, microlens, microlens-mtl, data-default,
+resourcet, free, kan-extensions, adjunctions, tasty, tasty-hunit,
+terminal-size, prettyprinter-compat-ansi-wl-pprint.  Not building:
+basement/memory/crypton (basement defines `Integral COff` while
+System.Posix.Types' COff is a synonym of Int64), streaming-commons
+(System.Posix.Directory lacks DirStream), unliftio (Control.Concurrent
+lacks runInBoundThread), conduit/mono-traversable (bitvec),
+generics-sop (class assertions on a constraint variable), parsers
+(instance context variable fixed by a fundep), hspec-core (QuickCheck's
+Result lacks theException), ansi-wl-pprint (same module name as its
+prettyprinter-compat package), lens (duplicate Ixed Array instance).
+
 Executables: alex 3.5.4.2 builds (`YALE_CPP_OPTIONS=-D__GLASGOW_HASKELL__=906
 mcabal -r install alex`) and generates the same scanners as the
 GHC-built one on its test grammars.

@@ -26,4 +26,10 @@ typedef void        (*HsFunPtr)(void);
 typedef void         *HsStablePtr;
 #define HS_BOOL_FALSE 0
 #define HS_BOOL_TRUE  1
+#ifndef SIZEOF_VOID_P
+#define SIZEOF_VOID_P 8
+#define SIZEOF_LONG 8
+#define SIZEOF_INT 4
+#define SIZEOF_HSINT 8
+#endif
 #endif

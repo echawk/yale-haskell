@@ -27,7 +27,7 @@
 --   YALE_CONFIGURE_ARGS   extra arguments for a configure script
 module MicroCabal.Backend.Yale(yaleBackend) where
 import Control.Monad
-import Data.Char (isAlphaNum, isSpace, toLower)
+import Data.Char (isAlphaNum, isSpace, isUpper, toLower)
 import Data.List
 import Data.Maybe
 import Data.Version
@@ -414,6 +414,17 @@ buildForeignLibrary env pdir name flds = do
       -- or -lNAME without it
       pkgs    = [ takeWhile (\ c -> isAlphaNum c || c `elem` "-_.+") (dropWhile (== ' ') d)
                 | d <- getFieldStrings flds [] "pkgconfig-depends" ]
+  -- $YALE_MCABAL_PATCHES/NAME.ld-options: more linker options for this
+  -- package only (-lz for streaming-commons, whose zlib library GHC
+  -- links through the zlib package's extra-libraries)
+  pkgLd <- do
+    mdir <- lookupEnv "YALE_MCABAL_PATCHES"
+    case mdir of
+      Nothing -> return []
+      Just dir -> do
+        let f = dir </> name ++ ".ld-options"
+        b <- doesFileExist f
+        if b then words <$> readFile f else return []
   pkgFlags <- fmap concat $ forM (filter (not . null) pkgs) $ \ p -> do
     r <- tryCmdOut env ("pkg-config --cflags --libs " ++ p)
     return $ maybe ["-l" ++ p] words r
@@ -439,7 +450,7 @@ buildForeignLibrary env pdir name flds = do
     cmd env $ unwords $
       [if null cxxsrcs then "cc" else "c++", "-shared", "-fPIC", "-w", "-o", pdir </> out ++ ".new"] ++
       hsInc ++ incStaged ++ map ("-I" ++) incDirs ++ ccOpts ++ srcs ++
-      map ("-L" ++) libDirs ++ map ("-l" ++) libs ++ pkgFlags ++ ldOpts ++
+      map ("-L" ++) libDirs ++ map ("-l" ++) libs ++ pkgFlags ++ ldOpts ++ pkgLd ++
       concatMap (\ f -> ["-framework", f]) fworks
     cmd env $ "mv -f " ++ (pdir </> out ++ ".new") ++ " " ++ (pdir </> out)
     return ["foreign-libraries: " ++ out]
@@ -480,7 +491,10 @@ renameHiddenModules src rs0 = do
   files <- sourceFiles src
   forM_ files $ \ f -> do
     text <- readFile f
-    let text' = unlines (map (renameLine rs) (lines text))
+    -- (the module's own export list too: haskell-lexer's Utils exports
+    -- "module Language.Haskell.Lexer.Utils", itself)
+    let own = [ (o, n) | (o, n) <- rs, reverse (takeWhile (/= '/') (reverse f)) `elem` [ n ++ e | e <- [".hs", ".lhs", ".hs-boot"] ] ]
+        text' = unlines (map (renameSelfExport own . renameLine rs) (lines text))
     when (text' /= text) $ length text `seq` writeFile f text'
   where
     sourceFiles d = do
@@ -490,6 +504,30 @@ renameHiddenModules src rs0 = do
         isDir <- doesDirectoryExist p
         if isDir then sourceFiles p
           else return [ p | any (`isSuffixOf` e) [".hs", ".lhs", ".hs-boot"] ]
+
+-- an export-list entry "( module OLD" or ", module OLD" of a module's own name
+renameSelfExport :: [(String, String)] -> String -> String
+renameSelfExport rs l0 =
+  let l = foldl (\ t (o, n) -> qualRename o n t) l0 rs
+      (ind, rest) = span (== ' ') l
+  in case rest of
+       (c : r) | c `elem` "(,"
+               , ("module" : w : more) <- words r
+               , (m, tl) <- span (\ x -> isAlphaNum x || x `elem` "._'") w
+               , Just new <- lookup m rs ->
+         ind ++ [c] ++ " module " ++ new ++ tl ++ concatMap (' ' :) more
+       _ -> l
+
+-- OLD.name written in the module itself (text-short's export of
+-- Data.Text.Short.Internal.fromString) becomes NEW.name
+qualRename :: String -> String -> String -> String
+qualRename o n = go False
+  where
+    go _ [] = []
+    go prevId t@(c : cs)
+      | not prevId, (o ++ ".") `isPrefixOf` t
+      , (x : _) <- drop (length o + 1) t, not (isUpper x) = n ++ "." ++ go False (drop (length o + 1) t)
+      | otherwise = c : go (isAlphaNum c || c `elem` "._'") cs
 
 -- import [{-# SOURCE #-}] [qualified] OLD ...  and  module OLD ...
 renameLine :: [(String, String)] -> String -> String

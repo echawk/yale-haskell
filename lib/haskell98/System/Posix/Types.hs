@@ -11,7 +11,7 @@ module System.Posix.Types (
 
 import Data.Int (Int32, Int64)
 import Data.Word (Word8, Word16, Word32, Word64)
-import Foreign.C.Types (CInt)
+import Foreign.C.Types (CInt, CTime)
 import Foreign.Storable (Storable(..))
 import Foreign.Ptr (castPtr)
 
@@ -75,7 +75,7 @@ type CSocklen = Word32
 type CNfds = Word32
 type FileMode = CMode
 type FileOffset = COff
-type EpochTime = Int64
+type EpochTime = CTime
 type ProcessID = CPid
 type ByteCount = Word64
 type DeviceID = CDev

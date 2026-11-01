@@ -161,7 +161,7 @@ getFdPathVar (Fd n) v =
   fmap fromInteger (primPosixFpathconf (fromIntegral n) (pathVarNumber v))
 
 setFileTimes :: FilePath -> EpochTime -> EpochTime -> IO ()
-setFileTimes p a m = primPosixUtimes p (toInteger a) (toInteger m)
+setFileTimes p a m = primPosixUtimes p (truncate (toRational a)) (truncate (toRational m))
 
 touchFile :: FilePath -> IO ()
 touchFile p = do
