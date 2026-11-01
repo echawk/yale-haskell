@@ -158,7 +158,9 @@
 	 ((arg-conversions res-conversion)
 	  (collect-conversion-fns avars args)))
      (values
-      `(define (,new-fn ,@avars)
+      ;; inline: a wrapper only converts and drops the state token, and an
+      ;; IO primitive's call (readArray's) is often an inner loop's
+      `(define-integrable (,new-fn ,@avars)
 	 ,@(if ignore-state? `((declare (ignore ,(car (last avars)))))
 	                     '())
 	 ,@arg-conversions

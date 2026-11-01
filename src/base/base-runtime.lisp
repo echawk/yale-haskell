@@ -45,11 +45,16 @@
   (cl:if (cl:or (cl:eq x cl:t) (cl:null x))
 	 (cl:make-array n :element-type 'cl:bit :initial-element (cl:if x 1 0))
 	 (cl:make-array n :initial-element x)))
+;;; Inline: they are the inner loops of array code (starray's sieve spent
+;;; a third of its time in the calls).
+(cl:declaim (cl:inline prim.read-mut-arr prim.write-mut-arr))
 (cl:defun prim.read-mut-arr (a i)
+  (cl:declare (cl:type cl:fixnum i))
   (cl:if (cl:simple-bit-vector-p a)
 	 (cl:eql (cl:sbit a i) 1)
 	 (cl:svref a i)))
 (cl:defun prim.write-mut-arr (a i x)
+  (cl:declare (cl:type cl:fixnum i))
   (cl:if (cl:simple-bit-vector-p a)
 	 (cl:setf (cl:sbit a i) (bool-bit x))
 	 (cl:setf (cl:svref a i) x))
