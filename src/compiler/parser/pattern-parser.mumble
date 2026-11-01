@@ -154,6 +154,10 @@
 		     (lambda (p) (make pcon (name '|;Right|) (con *undefined-def*)
 				       (pats (list p)) (infix? '#f))))))
      (\( (token-case
+	   ;; RequiredTypeArguments: (type a), a type pattern, is erased
+	   (|type| (let ((ty (parse-type)))
+		     (require-token \) (signal-missing-token "`)'" "type pattern"))
+		     (make wildcard-pat)))
            (\) (**pcon/def (core-symbol "UnitConstructor") '()))
 	   (\, (**pcon/def (tuple-constructor (parse-tuple-con-commas 2)) '()))
 	   (else

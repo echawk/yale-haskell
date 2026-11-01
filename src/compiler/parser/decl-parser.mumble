@@ -73,7 +73,12 @@
       (require-token \:\:
 		     (signal-missing-token "`::'" "signature declaration"))
       (setf *signature-wildcard?* '#f)
+      (setf *sig-visible-count* 0)
       (let ((signature (parse-signature)))
+	(when (> *sig-visible-count* 0)
+	  (dolist (v vars)
+	    (push (cons (var-ref-name v) *sig-visible-count*)
+		  *visible-forall-counts*)))
 	(if *signature-wildcard?*
 	    ;; a partial signature: dropped (PartialTypeSignatures)
 	    (begin (setf *signature-wildcard?* '#f)
@@ -99,6 +104,17 @@
   (let* ((op (make var-pat (var (varop->ast))))
 	 (pat2 (parse-pat)))
 	(add-rhs op (list pat1 pat2) '#t line-number)))
+
+;;; RequiredTypeArguments: a function whose signature is forall a b -> ..
+;;; has type patterns first (f a x = ..), which are erased.
+(define (drop-type-arguments pat args)
+  (let* ((name (cond ((is-type? 'var-ref pat) (var-ref-name pat))
+		     ((is-type? 'var-pat pat) (var-ref-name (var-pat-var pat)))
+		     (else '#f)))
+	 (entry (and name (assq name *visible-forall-counts*))))
+    (if (and entry (>= (length args) (cdr entry)))
+	(list-tail args (cdr entry))
+	args)))
 
 (define (parse-fundef)
  (trace-parser fundef
@@ -208,8 +224,9 @@
 ;;; A pattern binding's view patterns, (var-name exp pat) ..., by valdef.
 (define *binding-views* (lisp:make-hash-table :test (function lisp:eq)))
 
-(define (add-rhs pat args infix? start-line)
-  (let* ((views0 (take-view-patterns))
+(define (add-rhs pat args0 infix? start-line)
+  (let* ((args (drop-type-arguments pat args0))
+	 (views0 (take-view-patterns))
 	 ;; a pattern binding's views bind its variables, for the binding's
 	 ;; scope, not its right-hand side's: let (f -> x, y) = e is let
 	 ;; (v, y) = e; x = f v (scope.mumble's lift-binding-views!)

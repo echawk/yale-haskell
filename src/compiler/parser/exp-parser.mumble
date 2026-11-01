@@ -52,6 +52,25 @@
 	     (parse-possible-app aexp)))))
 
 (define (parse-possible-app exp)
+  (if (and (language-extension? "RequiredTypeArguments")
+	   (visible-args-remaining? exp)
+	   (or (memq *token* '(tycon conid \( \[ varid))))
+      ;; RequiredTypeArguments: f T x, f (type T) x; T is a type argument
+      (parse-possible-app (make type-app (exp exp) (type (parse-atype))))
+      (parse-possible-app-1 exp)))
+
+;;; Whether EXP is a function of this file with a forall a -> signature,
+;;; given fewer type arguments than the signature has.
+(define (visible-args-remaining? exp)
+  (let ((count 0) (head exp))
+    (do () ((not (or (is-type? 'app head) (is-type? 'type-app head))))
+      (incf count)
+      (setf head (if (is-type? 'app head) (app-fn head) (type-app-exp head))))
+    (and (is-type? 'var-ref head)
+	 (let ((entry (assq (var-ref-name head) *visible-forall-counts*)))
+	   (and entry (< count (cdr entry)))))))
+
+(define (parse-possible-app-1 exp)
   (token-case
     ;; f @T (TypeApplications)
     ((no-advance satisfies at-type-application?)

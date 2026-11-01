@@ -1041,7 +1041,7 @@ main = do
   print [ (x, y) | x <- [1, 2, 3 :: Int], y <- "ab", then sortWith by (negate x) ]
   print [ x | x <- [1, 2, 3 :: Int], then group using (\\xs -> [xs, xs]) ]
 ''',
-'RequiredTypeArguments2': '''{-# LANGUAGE RequiredTypeArguments, TypeApplications, ScopedTypeVariables #-}
+'RequiredTypeArguments2': '''{-# LANGUAGE ExplicitNamespaces, RequiredTypeArguments, TypeApplications, ScopedTypeVariables #-}
 import Data.Proxy
 size :: forall a -> (Bounded a, Enum a) => Int
 size a = fromEnum (maxBound :: a) - fromEnum (minBound :: a) + 1

@@ -19,11 +19,19 @@ nofib suites (`tools/conformance/nofib.py`, with `--suite real
 
 The failing probes: GHCIntWraps (a deliberate departure: Int is
 the 63-bit fixnum) and, of the 31 newer probes added 2026-11-01 (GHC
-9.2 to 9.12 features), UnboxedSums, RequiredTypeArguments and
-TransformListComp (tier 4).  Fixed that day: QualifiedDo, TypeAbstractions
+9.2 to 9.12 features) none fails now.  Fixed 2026-11-01: QualifiedDo, TypeAbstractions
 (`Just @Int x`, `data P @k a`), `forall {a}` inferred binders, LinearTypes
 in GADT constructors, LexicalNegation, StaticPointers, NoFieldSelectors,
-NamedDefaults, GHC.Records.  Typeable is
+NamedDefaults, GHC.Records; in a second round UnboxedSums (an ordinary sum:
+nested Either by the number of bars), TransformListComp (all four `then`
+forms, expanded by the parser as in the GHC user guide),
+RequiredTypeArguments (`forall a ->` is an ordinary forall; the function's
+first arguments are dropped from its clauses, a call's are type
+applications, `(type T)` accepted; a pattern variable naming the type must
+match the forall's name), OverloadedRecordUpdate (`e {f = v}` is
+`setField @"f" v e` of the setField in scope) and HasField solved for
+every record field in a module importing GHC.Records (`getField @"f" r`;
+OverloadedRecordDot still uses its own path).  Typeable is
 GHC's: every type constructor is Typeable without an instance (the type
 checker builds the dictionary from the constructor's name and the
 arguments' dictionaries, util/instance-manager.mumble), so typeOf, cast
@@ -250,9 +258,6 @@ be accepted.
 
 | extension | what it needs | size |
 |---|---|---|
-| UnboxedSums | `(# a | b #)`: the lexer reads `(#` as `(`, so alternatives need a marker token and a generated sum type | small-medium |
-| RequiredTypeArguments | `forall a ->` in a signature and `f Int x` at the call: needs type arguments in term position | medium |
-| TransformListComp | `then f`, `then group by e using f` in list comprehensions | medium |
 
 ### 5. Not realistic here
 

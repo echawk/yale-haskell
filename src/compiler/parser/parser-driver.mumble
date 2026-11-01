@@ -76,6 +76,7 @@
   (setf *language-extensions* '())
   (add-language-extensions (file-language-extensions filename))
   (setf *promoted-names* '())
+  (setf *visible-forall-counts* '())
   (dynamic-let ((*current-file* filename))
     (let ((mods '()))
       (call-with-input-file filename

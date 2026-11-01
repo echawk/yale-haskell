@@ -211,6 +211,10 @@
      (let ((types (parse-usum-types)))
        (usum-either types)))
     (\( (token-case
+	  ;; RequiredTypeArguments: (type T) as an argument
+	  (|type| (let ((ty (parse-type)))
+		    (require-token \) (signal-missing-token "`)'" "type argument"))
+		    ty))
 	  (\) (**tycon/def (core-symbol "UnitType") '()))
 	  (-> (require-token \) (signal-missing-token "`)'" "type expression"))
 	      (**tycon/def (core-symbol "Arrow") '()))
@@ -696,12 +700,24 @@
 (define (forall-here?)
   (and (haskell98?) (eq-token? 'varid) (string=? (car *token-args*) "forall")))
 
+(define *forall-visible?* '#f)       ; the last forall ended in ->
+(define *sig-visible-count* 0)       ; visible variables of the signature's forall
+(define *visible-forall-counts* '()) ; (name . n) of the functions of this file
+
 (define (skip-explicit-forall)
   (if (and (haskell98?) (eq-token? 'varid)
 	   (string=? (car *token-args*) "forall"))
       (begin
 	(advance-token)
-	(skip-forall-tyvars))
+	(setf *forall-visible?* '#f)
+	(let ((names (skip-forall-tyvars)))
+	  ;; RequiredTypeArguments (GHC 9.10): forall a -> t; the variables
+	  ;; are an ordinary forall's, the function's first arguments are
+	  ;; types (dropped from its clauses, decl-parser.mumble; a call's
+	  ;; are type applications, exp-parser.mumble)
+	  (when *forall-visible?*
+	    (setf *sig-visible-count* (length names)))
+	  names))
       '()))
 
 ;;; The forall's type variables: a, or (a :: kind).  Returns their names.
@@ -733,7 +749,16 @@
     (if (string=? (car *token-args*) ".")
 	(begin (advance-token) '())
 	(signal-missing-token "`.'" "forall type")))
+   ((no-advance satisfies visible-forall-arrow?)
+    (advance-token)
+    (setf *forall-visible?* '#t)
+    '())
    (else (signal-missing-token "`.'" "forall type"))))
+
+(define (visible-forall-arrow?)
+  (and (language-extension? "RequiredTypeArguments")
+       (or (eq? *token* '->)
+	   (and (eq? *token* 'varsym) (string=? (car *token-args*) "->")))))
 
 
 		 
