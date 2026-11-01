@@ -861,6 +861,6 @@ that allocate).  statemonad measured 0.038 s (1.8x) at the start of the
 day and 0.06-0.11 s later with the same allocation: its profile is
 80% `munmap`, `bzero` and lock waits, the garbage collector's work with
 the OS, so its time follows the machine's state more than the code.
-Allocation is furthest from GHC's in statemonad (4.4x: the state
-record is rebuilt where GHC unboxes it) and mapcount (2.5x: Data.Map's
-operations through the Ord dictionary).
+Allocation is furthest from GHC's in statemonad (4.4x) and mapcount
+(2.5x; its Ord Int comparisons inside Data.Map are dictionary calls,
+section "Modern-Haskell benchmarks" above).
