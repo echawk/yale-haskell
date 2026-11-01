@@ -472,7 +472,8 @@
   ;; hide it: GHC's PmLit constructor of PmPat beside PmExpr's type PmLit)
   (when (language-extension? "TypeData")
     (add-promoted-constructors mod-ast))
-  (when (language-extension? "DuplicateRecordFields")
+  (when (or (language-extension? "DuplicateRecordFields")
+	    (language-extension? "NoFieldSelectors"))
     (add-duplicate-record-fields mod-ast))
   ;; MagicHash: Addr# literals call GHC.Exts.addrLit# (lexer.mumble)
   (when (and (language-extension? "MagicHash")
@@ -490,6 +491,12 @@
   (when (and (language-extension? "OverloadedLabels")
 	     (not (eq? (module-name mod-ast) '|GHC.OverloadedLabels|)))
     (push (make import-decl (module-name '|GHC.OverloadedLabels|) (mode 'all)
+		(specs '()) (renamings '()) (qualified? '#t) (as-name '#f))
+	  (module-imports mod-ast)))
+  ;; StaticPointers: static e calls GHC.StaticPtr's fromStaticPtr and mkStaticPtr
+  (when (and (language-extension? "StaticPointers")
+	     (not (eq? (module-name mod-ast) '|GHC.StaticPtr|)))
+    (push (make import-decl (module-name '|GHC.StaticPtr|) (mode 'all)
 		(specs '()) (renamings '()) (qualified? '#t) (as-name '#f))
 	  (module-imports mod-ast)))
   ;; OverloadedLists: list literals call GHC.IsList.fromList
@@ -928,7 +935,9 @@
 	(let ((e (assq label owners)))
 	  (if e (setf (cdr e) (cons d (cdr e))) (push (list label d) owners)))))
     (dolist (e owners)
-      (when (pair? (cddr e))
+      ;; (NoFieldSelectors: every field is renamed, so none is a function
+      ;; of its own name; e.f still works through the generated class)
+      (when (or (pair? (cddr e)) (language-extension? "NoFieldSelectors"))
 	(let ((field (car e)))
 	  (push field (module-duplicate-fields mod-ast))
 	  (push (has-field-class field) (module-classes mod-ast))

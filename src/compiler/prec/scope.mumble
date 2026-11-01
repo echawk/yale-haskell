@@ -787,6 +787,8 @@
     ;; DuplicateRecordFields: a field of several types, used as a
     ;; function, is HasField's getter (parser/module-parser.mumble)
     (when (and (memq (var-ref-name object) (module-duplicate-fields *module*))
+	       ;; (NoFieldSelectors: only e.f finds the field)
+	       (not (module-extension? "NoFieldSelectors"))
 	       (not (lisp:some (lambda (frame) (assq (var-ref-name object) frame)) env)))
       (setf (var-ref-name object) (has-field-getter (var-ref-name object))))
     (setf (var-ref-var object)
@@ -1326,6 +1328,15 @@
 	    (push (tuple label item) result)))))
     (reverse result)))
 
+(define (module-field-named name)
+  (let ((found '#f))
+    (dolist (alg (module-alg-defs *module*))
+      (dolist (c (algdata-constrs alg))
+	(dolist (v (con-field-labels c))
+	  (when (and v (not found) (eq? (field-original-name v) name))
+	    (setf found v)))))
+    found))
+
 (define (resolve-field-bindings bindings . con)
   (let ((result '()))
     (dolist (b (lisp:remove '|..| bindings :key (function tuple-2-1)))
@@ -1345,6 +1356,11 @@
 			   (lisp:find-if (lambda (v)
 					   (and v (eq? (field-original-name v) name)))
 					 (con-field-labels (car con))))
+		      ;; NoFieldSelectors: f itself is no name; a record update
+		      ;; finds the field through the module's types
+		      (and (module-extension? "NoFieldSelectors")
+			   (memq name (module-duplicate-fields *module*))
+			   (module-field-named name))
 		      (lookup-toplevel-name name))))
 	(cond ((eq? def *undefined-def*))
 	      ((not (and (var? def) (var-field-alg def)))

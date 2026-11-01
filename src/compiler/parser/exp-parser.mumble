@@ -32,6 +32,13 @@
      ((no-advance satisfies at-proc?)
       (advance-token)
       (list (parse-proc)))
+     ;; StaticPointers (GHC): static e
+     ((no-advance satisfies at-static?)
+      (advance-token)
+      (parse-possible-app
+       (make app (fn (generated-var-ref '|GHC.StaticPtr.fromStaticPtr|))
+	     (arg (make app (fn (generated-var-ref '|GHC.StaticPtr.mkStaticPtr|))
+			(arg (parse-aexp)))))))
      ;; QualifiedDo (GHC): M.do
      ((no-advance satisfies at-qualified-do?)
       (let ((q (qualified-do-word? (car *token-args*))))
@@ -595,6 +602,9 @@
 	 (char=? (string-ref s (- n 3)) #\.)
 	 (string=? (substring s (- n 2) n) "do")
 	 (substring s 0 (- n 3)))))
+
+(define (at-static?)
+  (and (at-varid-named? "static") (language-extension? "StaticPointers")))
 
 (define (at-qualified-do?)
   (and (eq? *token* 'varid)

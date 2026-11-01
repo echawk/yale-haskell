@@ -493,7 +493,7 @@
 			       :test (function string=?)))
 	    ;; (NoMonoLocalBinds kept: it overrides TypeFamilies' and GADTs'
 	    ;; implied MonoLocalBinds, type-decl.mumble's mono-local-binds-module?)
-	    (when (string=? off "MonoLocalBinds")
+	    (when (mem-string off '("MonoLocalBinds" "FieldSelectors"))
 	      (push name (dynamic *language-extensions*))))
 	  (begin
 	    (when (string=? name "MonoLocalBinds")
