@@ -7,7 +7,7 @@ module Data.Text (
     unsnoc, head, last, tail, init, null, length, compareLength, map,
     intercalate, intersperse, transpose, reverse, replace, toCaseFold,
     toLower, toUpper, toTitle, justifyLeft, justifyRight, center, foldl,
-    foldl', foldl1, foldr, foldr1, concat, concatMap, any, all, maximum,
+    foldl', foldl1, foldl1', foldr1', foldr, foldr1, concat, concatMap, any, all, maximum,
     minimum, scanl, scanl1, scanr, scanr1, mapAccumL, mapAccumR,
     replicate, unfoldr, unfoldrN, take, takeEnd, drop, dropEnd, takeWhile,
     takeWhileEnd, dropWhile, dropWhileEnd, dropAround, strip, stripStart,
@@ -379,3 +379,7 @@ copy t = t
 -- (a Text is a packed string: evaluated, evaluated in full)
 instance NFData Text where
   rnf t = t `seq` ()
+
+foldl1', foldr1' :: (Char -> Char -> Char) -> Text -> Char
+foldl1' = foldl1
+foldr1' = foldr1
