@@ -486,6 +486,9 @@
 			 (map (lambda (d) (string-append "-I" d)) (package-include-dirs p)))
 		       (installed-packages))
 	  (map (lambda (d) (string-append "-I" d)) *cpp-include-dirs*)
+	  ;; the library's ghcautoconf.h, MachDeps.h, ... (what GHC's
+	  ;; include directory holds)
+	  (list (string-append "-I" (absolute-filename "$HASKELL_LIBRARY/include")))
 	  (let ((d (getenv "YALE_MCABAL_INCLUDE")))
 	    (if (and d (not (string=? d ""))) (list (string-append "-I" d)) '()))))
 
