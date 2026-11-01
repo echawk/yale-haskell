@@ -863,4 +863,10 @@ day and 0.06-0.11 s later with the same allocation: its profile is
 the OS, so its time follows the machine's state more than the code.
 Allocation is furthest from GHC's in statemonad (4.4x) and mapcount
 (2.5x; its Ord Int comparisons inside Data.Map are dictionary calls,
-section "Modern-Haskell benchmarks" above).
+section "Modern-Haskell benchmarks" above).  In statemonad, `loop n =
+step >> loop (n - 1)` compiles to a one-argument function that returns
+a new state closure, with a thunk for `loop (n - 1)`, at every step
+(`compile --emit lisp`); GHC's arity analysis makes it a function of
+`n` and the state.  Eta-expanding a function whose every branch is a
+lambda, through the State newtype, is the next step for it
+(doc/plans/GHC-OPTIMIZATIONS.md).
