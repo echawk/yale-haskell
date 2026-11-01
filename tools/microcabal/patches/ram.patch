@@ -1,7 +1,7 @@
-ram: Data.Word's popCount and byteSwap64 (base >= 4.7), not the fallbacks CPP picks without MIN_VERSION_base.
+ram: Data.Word's popCount and byteSwap64 (base >= 4.7) and the Int#-based booleanPrim, not the fallbacks CPP picks without MIN_VERSION_base and __GLASGOW_HASKELL__.
 diff -ruN a/Data/Memory/Internal/Compat.hs b/Data/Memory/Internal/Compat.hs
---- a/Data/Memory/Internal/Compat.hs	2026-11-01 03:58:37
-+++ b/Data/Memory/Internal/Compat.hs	2026-11-01 03:58:37
+--- a/Data/Memory/Internal/Compat.hs	2026-11-01 04:31:23
++++ b/Data/Memory/Internal/Compat.hs	2026-11-01 04:31:23
 @@ -35,14 +35,14 @@
  unsafeDoIO = unsafePerformIO
  #endif
@@ -44,3 +44,24 @@ diff -ruN a/Data/Memory/Internal/Compat.hs b/Data/Memory/Internal/Compat.hs
  unsafeShiftL :: Bits a => a -> Int -> a
  unsafeShiftL = shiftL
  
+diff -ruN a/Data/Memory/Internal/CompatPrim.hs b/Data/Memory/Internal/CompatPrim.hs
+--- a/Data/Memory/Internal/CompatPrim.hs	2026-11-01 04:31:23
++++ b/Data/Memory/Internal/CompatPrim.hs	2026-11-01 04:31:23
+@@ -46,7 +46,7 @@
+ -- | Simple compatibility for byteswap the lower 32 bits of a Word#
+ -- at the primitive level
+ byteswap32Prim :: Word# -> Word#
+-#if __GLASGOW_HASKELL__ >= 708
++#if 1
+ byteswap32Prim w = byteSwap32# w
+ #else
+ byteswap32Prim w =
+@@ -60,7 +60,7 @@
+ -- | Simple wrapper to handle pre 7.8 and future, where
+ -- most comparaison functions don't returns a boolean
+ -- anymore.
+-#if __GLASGOW_HASKELL__ >= 708
++#if 1
+ booleanPrim :: Int# -> Bool
+ booleanPrim v = tagToEnum# v
+ #else

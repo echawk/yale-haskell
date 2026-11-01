@@ -464,6 +464,15 @@
 	(\, (cons context (parse-contexts)))
 	(\) (list context))
 	(else (signal-missing-token "`)' or `,'" "context")))))
+    ;; GHC.TypeLits' n <= m: not checked, dropped
+    ((no-advance satisfies leq-assertion-ahead?)
+     (advance-token)
+     (advance-token)
+     (parse-btype)
+     (token-case
+      (\, (parse-contexts))
+      (\) '())
+      (else (signal-missing-token "`)' or `,'" "context"))))
     ;; QuantifiedConstraints: forall x. C x => D (t x) is PreludeModern's
     ;; QuantifiedConstraint of the polytype forall x. C x => D (t x), D
     ;; (t x) a constraint type (a class literal applied)
@@ -568,6 +577,16 @@
 (define (tilde-here?)
   (or (eq? *token* '\~)
       (and (eq? *token* 'varsym) (equality-operator? (car *token-args*)))))
+
+(define (leq-assertion-ahead?)
+  (and (haskell98?)
+       (eq? *token* 'varid)
+       (let ((saved (save-scanner-state)))
+	 (advance-token)
+	 (let ((res (and (eq? *token* 'varsym)
+			 (equal? (car *token-args*) "<="))))
+	   (restore-excursion saved)
+	   res))))
 
 (define (equality-operator? s)
   (let ((op (let ((i (lisp:position #\. s :from-end '#t)))
