@@ -43,6 +43,13 @@ module GHC.Exts (
     RuntimeRep(..), Levity(..), TYPE, LiftedRep, SPEC(..),
     Ptr(Ptr), FunPtr(FunPtr), Down(..), sortWith, groupWith, the, realWorld#, runRW#, noDuplicate#, keepAlive#,
     atomicModifyMutVar#, atomicModifyMutVar2#, atomicModifyMutVar_#,
+    clz8#, clz16#, clz32#, clz64#, ctz8#, ctz16#, ctz32#, ctz64#,
+    popCnt8#, popCnt16#, popCnt32#, popCnt64#,
+    intToInt64#, int64ToWord64#, word64ToInt64#, wordToWord64#, word64ToWord#,
+    plusInt64#, uncheckedShiftRL64#, plusFloat#,
+    plusWord32#, plusInt32#, subWord32#, subInt32#,
+    uncheckedShiftRLWord8#, uncheckedShiftRLWord16#, uncheckedShiftRLWord32#,
+    uncheckedShiftLWord8#, uncheckedShiftLWord16#, uncheckedShiftLWord32#,
     plusWord8#, plusWord16#, subWord8#, subWord16#, plusInt8#, plusInt16#, subInt8#, subInt16#,
     Weak#, mkWeak#, mkWeakNoFinalizer#, deRefWeak#
   ) where
@@ -113,6 +120,69 @@ plusWord8# a b = wordToWord8# (a + b)
 plusWord16# a b = wordToWord16# (a + b)
 subWord8# a b = wordToWord8# (a + 256 - b `mod` 256)
 subWord16# a b = wordToWord16# (a + 65536 - b `mod` 65536)
+
+-- (count bits within a word of the given width)
+clz8#, clz16#, clz32#, clz64#, ctz8#, ctz16#, ctz32#, ctz64#,
+  popCnt8#, popCnt16#, popCnt32#, popCnt64# :: Word -> Word
+clz8# = clzN 8
+clz16# = clzN 16
+clz32# = clzN 32
+clz64# = clzN 64
+ctz8# = ctzN 8
+ctz16# = ctzN 16
+ctz32# = ctzN 32
+ctz64# = ctzN 64
+popCnt8# = popN 8
+popCnt16# = popN 16
+popCnt32# = popN 32
+popCnt64# = popN 64
+
+bitsOf :: Int -> Word -> [Bool]
+bitsOf n w = [testBit w i | i <- [0 .. n - 1]]
+
+clzN, ctzN, popN :: Int -> Word -> Word
+clzN n w = fromIntegral (length (takeWhile not (reverse (bitsOf n w))))
+ctzN n w = fromIntegral (length (takeWhile not (bitsOf n w)))
+popN n w = fromIntegral (length (filter id (bitsOf n w)))
+
+intToInt64# :: Int -> Int
+intToInt64# n = n
+
+plusInt64# :: Int -> Int -> Int
+plusInt64# a b = a + b
+
+int64ToWord64# :: Int -> Word
+int64ToWord64# = fromIntegral
+
+word64ToInt64# :: Word -> Int
+word64ToInt64# = fromIntegral
+
+wordToWord64#, word64ToWord# :: Word -> Word
+wordToWord64# w = w
+word64ToWord# w = w
+
+uncheckedShiftRL64# :: Word -> Int -> Word
+uncheckedShiftRL64# = shiftR
+
+plusFloat# :: Float -> Float -> Float
+plusFloat# = (+)
+
+plusWord32#, subWord32# :: Word -> Word -> Word
+plusWord32# a b = wordToWord32# (a + b)
+subWord32# a b = wordToWord32# (a + 4294967296 - b `mod` 4294967296)
+
+plusInt32#, subInt32# :: Int -> Int -> Int
+plusInt32# a b = intToInt32# (a + b)
+subInt32# a b = intToInt32# (a - b)
+
+uncheckedShiftRLWord8#, uncheckedShiftRLWord16#, uncheckedShiftRLWord32#,
+  uncheckedShiftLWord8#, uncheckedShiftLWord16#, uncheckedShiftLWord32# :: Word -> Int -> Word
+uncheckedShiftRLWord8# w n = w `div` (2 ^ n)
+uncheckedShiftRLWord16# w n = w `div` (2 ^ n)
+uncheckedShiftRLWord32# w n = w `div` (2 ^ n)
+uncheckedShiftLWord8# w n = wordToWord8# (w * 2 ^ n)
+uncheckedShiftLWord16# w n = wordToWord16# (w * 2 ^ n)
+uncheckedShiftLWord32# w n = wordToWord32# (w * 2 ^ n)
 
 plusInt8#, plusInt16#, subInt8#, subInt16# :: Int -> Int -> Int
 plusInt8# a b = intToInt8# (a + b)

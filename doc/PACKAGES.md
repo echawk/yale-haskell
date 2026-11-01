@@ -360,11 +360,14 @@ the C constant), unix-time, attoparsec, cereal, base64-bytestring,
 http-types, microlens, microlens-mtl, data-default, resourcet, free,
 kan-extensions, adjunctions, tasty, tasty-hunit (a test group runs),
 terminal-size, bitvec, double-conversion (builds), prettyprinter-compat-ansi-wl-pprint.
-cryptohash-sha256 builds but fails when run: its `foreign import capi
-"hs_sha256.h hs_cryptohash_sha256_hash"` names a function defined in a
-header (a `capi` import is compiled as `ccall`, so the symbol is missing).
-Not building: basement/memory (basement defines `Integral COff` while
-System.Posix.Types' COff is a synonym of Int64), crypton (needs type-level
+cryptohash-sha256 runs (its `foreign import capi "hs_sha256.h ..."` functions
+are defined in a header: a C stub per import is compiled with `cc` into
+`~/.cache/yale-haskell/capi/` and loaded with the code; SHA-256 of "abc" is
+right).
+Not building: basement/memory (past the POSIX-types clash, now at
+`Basement.Types.Word128`: its `Integral` instance is taken for the Prelude's class;
+a stale unit cache also hides a changed package `cpp-options`: clear
+`~/.cache/yale-haskell` after changing one), crypton (needs type-level
 Nat arithmetic and AllowAmbiguousTypes-style `Curve curve` calls:
 "ambiguous context (Curve)"; build it with `-f-integer-gmp`),
 streaming-commons (Data.Streaming.Text uses Data.Text.Internal.Encoding),
