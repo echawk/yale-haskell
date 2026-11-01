@@ -121,6 +121,22 @@
 	 (lisp:find-if (lambda (p) (string-starts? (package-root p) abs))
 		       (installed-packages)))))
 
+;;; The extensions FILENAME is read with: an installed package's own; none
+;;; for the library's modules ($HASKELL_LIBRARY, $PRELUDE), which have
+;;; their pragmas (-X OverloadedStrings in Data.String made it import
+;;; itself); otherwise the command line's (-X, --ghc2021).
+(define (file-language-extensions filename)
+  (let ((p  (package-of-file filename)))
+    (cond (p (package-extensions p))
+	  ((library-file? filename) '())
+	  (else *default-language-extensions*))))
+
+(define (library-file? filename)
+  (or (library-source-file? filename)
+      (let ((abs  (absolute-filename filename)))
+	(or (string-starts? (absolute-filename "$HASKELL_LIBRARY/") abs)
+	    (string-starts? (absolute-filename "$PRELUDE/") abs)))))
+
 ;;; MIN_VERSION_name for each installed package (cpp.mumble): the name
 ;;; with - as _, as Cabal spells it.
 (define (installed-package-versions)

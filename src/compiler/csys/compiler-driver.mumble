@@ -698,9 +698,7 @@
 			    ;; installed package's extensions, so their implicit
 			    ;; imports are seen (MagicHash's GHC.Exts)
 			    (setf *language-extensions* '())
-			    (add-language-extensions
-			     (let ((p (package-of-file file)))
-			       (if p (package-extensions p) *default-language-extensions*)))
+			    (add-language-extensions (file-language-extensions file))
 			    (let ((tokens (lex-file-quietly file ext)))
 			      ;; the imports some extensions add (parser/
 			      ;; module-parser.mumble's wrapup-module)
