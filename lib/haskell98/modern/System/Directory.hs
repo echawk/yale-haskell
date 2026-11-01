@@ -12,7 +12,7 @@ module System.Directory (
     getModificationTime, getHomeDirectory, getTemporaryDirectory,
     copyFile, findExecutable, makeAbsolute,
     canonicalizePath, makeRelativeToCurrentDirectory,
-    XdgDirectory(..), getXdgDirectory, getAppUserDataDirectory,
+    XdgDirectory(..), getXdgDirectory, XdgDirectoryList(..), getXdgDirectoryList, getAppUserDataDirectory,
     getUserDocumentsDirectory, exeExtension, findFile, findFiles,
     getFileSize, removePathForcibly, renamePath, pathIsSymbolicLink,
     getSymbolicLinkTarget
