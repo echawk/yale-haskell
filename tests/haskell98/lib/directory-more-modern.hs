@@ -12,5 +12,8 @@ main = do
   r <- findFileWith (\_ -> return True) ["."] "dirmore.tmp"
   print r
   _ <- getAccessTime "dirmore.tmp"
+  createFileLink "dirmore.tmp" "dirmore.lnk"
+  pathIsSymbolicLink "dirmore.lnk" >>= print
+  removeFile "dirmore.lnk"
   removeFile "dirmore.tmp"
   removeFile "dirmore2.tmp"

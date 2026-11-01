@@ -19,14 +19,15 @@ module System.Directory (
     emptyPermissions, setOwnerReadable, setOwnerWritable, setOwnerExecutable,
     setOwnerSearchable, copyPermissions, copyFileWithMetadata,
     findExecutables, findExecutablesInDirectories, findFileWith,
-    findFilesWith, getAccessTime, setAccessTime, setModificationTime
+    findFilesWith, getAccessTime, setAccessTime, setModificationTime,
+    createFileLink, createDirectoryLink, removeDirectoryLink
   ) where
 
 import SystemDirectoryBase hiding (getModificationTime)
 import DirectoryPrims (primGetModificationTime)
 import Data.Time.Clock (UTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import PosixPrims (primPosixStat, primStatAtime, primStatMtime, primPosixUtimes)
+import PosixPrims (primPosixSymlink, primPosixStat, primStatAtime, primStatMtime, primPosixUtimes)
 import System.Environment (lookupEnv)
 import Control.Monad (filterM)
 import Data.Maybe (catMaybes, fromMaybe)
@@ -91,3 +92,11 @@ setAccessTime p t = do
 setModificationTime p t = do
   st <- primPosixStat p True
   primPosixUtimes p (primStatAtime st) (floor (utcTimeToPOSIXSeconds t))
+
+-- (the target, then the link, as directory's createFileLink)
+createFileLink, createDirectoryLink :: FilePath -> FilePath -> IO ()
+createFileLink = primPosixSymlink
+createDirectoryLink = primPosixSymlink
+
+removeDirectoryLink :: FilePath -> IO ()
+removeDirectoryLink = removeFile
