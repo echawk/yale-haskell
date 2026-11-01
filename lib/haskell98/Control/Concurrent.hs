@@ -9,6 +9,7 @@ module Control.Concurrent (
     forkOn, killThread, throwTo, yield, threadDelay, getNumCapabilities,
     threadWaitRead, threadWaitWrite,
     setNumCapabilities, rtsSupportsBoundThreads, isCurrentThreadBound,
+    runInBoundThread, runInUnboundThread,
     threadCapability, mkWeakThreadId,
     module Control.Concurrent.MVar, module Control.Concurrent.Chan
   ) where
@@ -76,6 +77,11 @@ rtsSupportsBoundThreads = True
 
 isCurrentThreadBound :: IO Bool
 isCurrentThreadBound = return True
+
+-- (every thread is a host thread here: the action runs where it is)
+runInBoundThread, runInUnboundThread :: IO a -> IO a
+runInBoundThread act = act
+runInUnboundThread act = act
 
 threadCapability :: ThreadId -> IO (Int, Bool)
 threadCapability _ = return (0, False)
