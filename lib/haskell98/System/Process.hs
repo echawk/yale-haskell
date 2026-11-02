@@ -12,7 +12,7 @@ module System.Process (
     waitForProcess, getProcessExitCode, terminateProcess,
     showCommandForUser, system, rawSystem,
     runInteractiveCommand, runInteractiveProcess,
-    Pid, getPid, createPipe
+    Pid, getPid, createPipe, FD, createPipeFd, interruptProcessGroupOf
   ) where
 
 import System.Exit
@@ -25,6 +25,8 @@ import Data.List (intercalate)
 import Control.Exception (bracket, onException)
 import System.Posix.Types (CPid, GroupID, UserID, Fd(..))
 import System.Posix.IO (fdToHandle)
+import System.Posix.Signals (signalProcess, sigINT)
+import System.Posix.Internals (FD)
 
 data CmdSpec = ShellCommand String
              | RawCommand FilePath [String]
@@ -243,6 +245,21 @@ getPid (ProcessHandle p code) = do
   case done of
     Just _ -> return Nothing
     Nothing -> fmap (Just . fromIntegral) (primProcessPid p)
+
+-- | A pipe's read and write ends, as descriptors
+createPipeFd :: IO (FD, FD)
+createPipeFd = do
+  n <- primCreatePipe
+  return (fromIntegral (n `mod` 4294967296), fromIntegral (n `div` 4294967296))
+
+-- | SIGINT to the process (processes are not started in groups of their
+-- own here, so its group is the process)
+interruptProcessGroupOf :: ProcessHandle -> IO ()
+interruptProcessGroupOf ph = do
+  mp <- getPid ph
+  case mp of
+    Nothing -> return ()
+    Just pid -> signalProcess sigINT (fromIntegral pid)
 
 -- | A pipe's read and write ends
 createPipe :: IO (Handle, Handle)

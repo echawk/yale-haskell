@@ -1,0 +1,92 @@
+streaming-commons: Data.Streaming.Text's decoders in portable Haskell (the package's write into text's internal arrays).
+diff -ruN a/Data/Streaming/Text.hs b/Data/Streaming/Text.hs
+--- a/Data/Streaming/Text.hs	2026-11-02 01:10:22
++++ b/Data/Streaming/Text.hs	2026-11-02 01:10:54
+@@ -33,7 +33,82 @@
+ -- In order to indicate end of stream, you pass an empty @ByteString@ to the
+ -- decode function. This call may result in a failure, if there were unused
+ -- bytes left over from a previous step which formed part of a code sequence.
++#ifdef __YALE_HASKELL__
+ module Data.Streaming.Text
++    ( decodeUtf8
++    , decodeUtf8Pure
++    , decodeUtf16LE
++    , decodeUtf16BE
++    , decodeUtf32LE
++    , decodeUtf32BE
++    , DecodeResult (..)
++    ) where
++
++-- Yale Haskell: Text is not an array of code units here, so the stream
++-- decoders decode each chunk's complete characters with
++-- Data.Text.Encoding and keep an incomplete one's bytes for the next.
++
++import           Control.Exception      (SomeException, evaluate, try)
++import           Data.Bits              ((.&.))
++import qualified Data.ByteString        as B
++import           Data.Text              (Text)
++import qualified Data.Text              as T
++import qualified Data.Text.Encoding     as TE
++import           System.IO.Unsafe       (unsafePerformIO)
++
++data DecodeResult
++    = DecodeResultSuccess !Text !(B.ByteString -> DecodeResult)
++    | DecodeResultFailure !Text !B.ByteString
++
++streaming :: (B.ByteString -> Int) -> (B.ByteString -> Text) -> B.ByteString -> DecodeResult
++streaming complete dec = go B.empty
++  where
++    go prev bs =
++        let s = prev `B.append` bs
++            (done, rest) = B.splitAt (complete s) s
++        in case unsafePerformIO (try (evaluate (dec done))) of
++             Left e -> const (DecodeResultFailure T.empty s) (e :: SomeException)
++             Right t -> DecodeResultSuccess t (go rest)
++
++utf8Complete :: B.ByteString -> Int
++utf8Complete s =
++    case [ (i, need b) | i <- [max 0 (n - 4) .. n - 1], let b = B.index s i, b .&. 0xC0 /= 0x80 ] of
++      [] -> n
++      leads -> let (i, k) = last leads
++                   avail = n - i
++               in if k > avail then i else n
++  where
++    n = B.length s
++    need b | b < 0x80 = 1
++           | b .&. 0xE0 == 0xC0 = 2
++           | b .&. 0xF0 == 0xE0 = 3
++           | b .&. 0xF8 == 0xF0 = 4
++           | otherwise = 1
++
++utf16Complete :: Bool -> B.ByteString -> Int
++utf16Complete le s
++    | n < 2 = 0
++    | highSurrogate = n - 2
++    | otherwise = n
++  where
++    n = B.length s - B.length s `mod` 2
++    lastUnit = if le then fromIntegral (B.index s (n - 2)) + 256 * fromIntegral (B.index s (n - 1))
++                     else 256 * fromIntegral (B.index s (n - 2)) + fromIntegral (B.index s (n - 1)) :: Int
++    highSurrogate = lastUnit >= 0xD800 && lastUnit <= 0xDBFF
++
++utf32Complete :: B.ByteString -> Int
++utf32Complete s = B.length s - B.length s `mod` 4
++
++decodeUtf8, decodeUtf8Pure, decodeUtf16LE, decodeUtf16BE, decodeUtf32LE, decodeUtf32BE
++    :: B.ByteString -> DecodeResult
++decodeUtf8 = streaming utf8Complete TE.decodeUtf8
++decodeUtf8Pure = streaming utf8Complete TE.decodeUtf8
++decodeUtf16LE = streaming (utf16Complete True) TE.decodeUtf16LE
++decodeUtf16BE = streaming (utf16Complete False) TE.decodeUtf16BE
++decodeUtf32LE = streaming utf32Complete TE.decodeUtf32LE
++decodeUtf32BE = streaming utf32Complete TE.decodeUtf32BE
++#else
++module Data.Streaming.Text
+     (
+     -- * Streaming
+       decodeUtf8
+@@ -550,3 +625,4 @@
+             .|. shiftL (fromIntegral w3) 8
+             .|.        (fromIntegral w4)
+     {-# INLINE beginChunk #-}
++#endif

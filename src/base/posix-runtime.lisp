@@ -309,6 +309,11 @@
   #+sbcl (sb-posix:kill (sb-posix:getpid) signum)
   0)
 
+;;; signalProcess: SIGNUM to process PID (a negative PID: its group)
+(cl:defun prim.signal-process (pid signum)
+  #+sbcl (sb-posix:kill pid signum)
+  0)
+
 (cl:defun prim.get-process-id ()
   #+sbcl (sb-posix:getpid) #-sbcl 0)
 

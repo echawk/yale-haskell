@@ -1,10 +1,13 @@
 -- System.Posix.Internals (base), the terminal functions darcs and its
 -- like use: echo and canonical mode, on the controlling terminal.
-module System.Posix.Internals (getEcho, setEcho, setCooked, setNonBlockingFD, setCloseOnExec, c_getpid) where
+module System.Posix.Internals (FD, getEcho, setEcho, setCooked, setNonBlockingFD, setCloseOnExec, c_getpid) where
 
 import BasePrims (primGetEcho, primSetEcho)
 import PosixPrims (primSetCooked, primPosixSetFdOption, primGetProcessID)
 import Foreign.C.Types (CInt)
+
+-- | A file descriptor
+type FD = CInt
 
 getEcho :: CInt -> IO Bool
 getEcho _ = primGetEcho

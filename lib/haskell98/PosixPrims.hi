@@ -38,6 +38,7 @@ primFdToHandle       :: Int -> Int -> String -> IO HandleObj
 primSignalNumber     :: String -> Int
 primInstallSignalHandler :: Int -> Int -> IO () -> IO ()
 primRaiseSignal      :: Int -> IO ()
+primSignalProcess    :: Int -> Int -> IO ()
 primGetProcessID     :: IO Int
 primSetCooked        :: Bool -> IO ()
 primStatField        :: FileStatusObj -> Int -> Integer
@@ -88,6 +89,7 @@ primFdToHandle       :: LispName("prim.fd-to-handle")
 primSignalNumber     :: LispName("prim.signal-number")
 primInstallSignalHandler :: LispName("prim.install-signal-handler"), Strictness("S,S,N,S")
 primRaiseSignal      :: LispName("prim.raise-signal")
+primSignalProcess    :: LispName("prim.signal-process")
 primGetProcessID     :: LispName("prim.get-process-id")
 primSetCooked        :: LispName("prim.set-cooked")
 primStatField        :: LispName("prim.stat-field")

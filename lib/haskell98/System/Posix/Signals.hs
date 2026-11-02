@@ -2,13 +2,14 @@
 -- handler's action runs when the signal arrives) and raising signals.
 module System.Posix.Signals (
     Signal, Handler(Default, Ignore, Catch, CatchOnce),
-    installHandler, raiseSignal,
+    installHandler, raiseSignal, signalProcess, signalProcessGroup,
     sigINT, sigHUP, sigABRT, sigALRM, sigTERM, sigPIPE, sigQUIT, sigKILL,
     sigUSR1, sigUSR2, sigCHLD
   ) where
 
 import PosixPrims
 import Foreign.C.Types (CInt)
+import System.Posix.Types (ProcessID, ProcessGroupID)
 
 type Signal = CInt
 
@@ -44,3 +45,9 @@ installHandler s h _ = do
 
 raiseSignal :: Signal -> IO ()
 raiseSignal s = primRaiseSignal (fromIntegral s)
+
+signalProcess :: Signal -> ProcessID -> IO ()
+signalProcess s pid = primSignalProcess (fromIntegral pid) (fromIntegral s)
+
+signalProcessGroup :: Signal -> ProcessGroupID -> IO ()
+signalProcessGroup s pg = primSignalProcess (negate (fromIntegral pg)) (fromIntegral s)

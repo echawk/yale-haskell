@@ -4,7 +4,7 @@
 -- over CInt as in base.
 module System.Posix.Types (
     Fd(Fd), CMode(..), CDev(..), CIno(..), COff(..), CPid(..), CSsize(..), CUid(..), CGid(..), CNlink(..),
-    FileMode, FileOffset, EpochTime, ProcessID, ByteCount, DeviceID,
+    FileMode, FileOffset, EpochTime, ProcessID, ProcessGroupID, ByteCount, DeviceID,
     FileID, UserID, GroupID, LinkCount, Limit,
     CClockId(..), CBlkSize(..), CBlkCnt(..), CFsBlkCnt(..), CFsFilCnt(..), CRLim(..), CSpeed(..),
     CTcflag(..), CCc(..), CId(..), CKey(..), CSocklen(..), CNfds(..)
@@ -79,6 +79,7 @@ type FileMode = CMode
 type FileOffset = COff
 type EpochTime = CTime
 type ProcessID = CPid
+type ProcessGroupID = CPid
 type ByteCount = CSize
 type DeviceID = CDev
 type FileID = CIno

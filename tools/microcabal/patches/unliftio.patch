@@ -1,0 +1,59 @@
+unliftio: the durable/atomic file writes use the package's portable branch (UnliftIO.IO.File.Posix works on GHC's handle internals, GHC.IO.FD).
+diff -ruN a/UnliftIO/IO/File/Posix.hs b/UnliftIO/IO/File/Posix.hs
+--- a/UnliftIO/IO/File/Posix.hs	2026-11-02 01:08:19
++++ b/UnliftIO/IO/File/Posix.hs	2026-11-02 01:08:19
+@@ -4,6 +4,9 @@
+ {-# LANGUAGE LambdaCase #-}
+ {-# LANGUAGE OverloadedStrings #-}
+ {-# LANGUAGE ViewPatterns #-}
++#ifdef __YALE_HASKELL__
++-- (Yale Haskell: the portable writes, UnliftIO.IO.File's other branch;
++-- this module works on GHC's handle internals)
+ module UnliftIO.IO.File.Posix
+   ( withBinaryFileDurable
+   , withBinaryFileDurableAtomic
+@@ -12,6 +15,26 @@
+   )
+   where
+ 
++import Control.Monad.IO.Unlift (MonadUnliftIO, MonadIO)
++import UnliftIO.IO (Handle, IOMode(..), withBinaryFile)
++
++ensureFileDurable :: MonadIO m => FilePath -> m ()
++ensureFileDurable = (`seq` pure ())
++
++withBinaryFileDurable, withBinaryFileDurableAtomic, withBinaryFileAtomic
++  :: MonadUnliftIO m => FilePath -> IOMode -> (Handle -> m r) -> m r
++withBinaryFileDurable = withBinaryFile
++withBinaryFileDurableAtomic = withBinaryFile
++withBinaryFileAtomic = withBinaryFile
++#else
++module UnliftIO.IO.File.Posix
++  ( withBinaryFileDurable
++  , withBinaryFileDurableAtomic
++  , withBinaryFileAtomic
++  , ensureFileDurable
++  )
++  where
++
+ #if __GLASGOW_HASKELL__ < 710
+ import Control.Applicative
+ #endif
+@@ -579,4 +602,4 @@
+       res <- action tmpFileHandle
+       liftIO $ atomicTempFileRename Nothing mFileMode eTmpFile filePath
+       pure res
+-
++#endif
+diff -ruN a/UnliftIO/IO/File.hs b/UnliftIO/IO/File.hs
+--- a/UnliftIO/IO/File.hs	2026-11-02 01:05:07
++++ b/UnliftIO/IO/File.hs	2026-11-02 01:05:07
+@@ -89,7 +89,7 @@
+ import Control.Monad.IO.Unlift
+ import UnliftIO.IO (Handle, IOMode(..), withBinaryFile)
+ 
+-#if WINDOWS
++#if WINDOWS || defined(__YALE_HASKELL__)
+ 
+ 
+ ensureFileDurable = (`seq` pure ())
