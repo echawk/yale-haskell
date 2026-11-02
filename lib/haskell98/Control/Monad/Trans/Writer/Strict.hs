@@ -37,10 +37,12 @@ mapWriterT f m = WriterT (f (runWriterT m))
 instance Functor m => Functor (WriterT w m) where
   fmap f m = WriterT (fmap (\(a, w) -> (f a, w)) (runWriterT m))
 
-instance (Monoid w, Monad m) => Applicative (WriterT w m) where
-  pure a = WriterT (return (a, mempty))
-  mf <*> mx = WriterT (runWriterT mf >>= \(f, w) ->
-                       runWriterT mx >>= \(x, w') -> return (f x, w `mappend` w'))
+-- (transformers' contexts: Applicative m, not Monad m; mono-traversable's
+-- MonoPointed (WriterT w m a) has only Applicative m)
+instance (Monoid w, Applicative m) => Applicative (WriterT w m) where
+  pure a = WriterT (pure (a, mempty))
+  mf <*> mx = WriterT (liftA2 k (runWriterT mf) (runWriterT mx))
+    where k (f, w) (x, w') = (f x, w `mappend` w')
 
 instance (Monoid w, Monad m) => Monad (WriterT w m) where
   return a = WriterT (return (a, mempty))
@@ -50,9 +52,9 @@ instance (Monoid w, Monad m) => Monad (WriterT w m) where
 instance (Monoid w, MonadFail m) => MonadFail (WriterT w m) where
   fail msg = WriterT (fail msg)
 
-instance (Monoid w, MonadPlus m) => Alternative (WriterT w m) where
-  empty = WriterT mzero
-  m <|> n = WriterT (runWriterT m `mplus` runWriterT n)
+instance (Monoid w, Alternative m) => Alternative (WriterT w m) where
+  empty = WriterT empty
+  m <|> n = WriterT (runWriterT m <|> runWriterT n)
 
 instance (Monoid w, MonadPlus m) => MonadPlus (WriterT w m) where
   mzero = WriterT mzero
