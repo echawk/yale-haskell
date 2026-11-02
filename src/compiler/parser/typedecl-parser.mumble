@@ -787,6 +787,20 @@
 	       (dolist (ty types)
 		 (when (not (tyvar? ty))
 		   (check-simple ty '#f "instance declaration")))))
+	;; a one-parameter constraint on a variable the head does not
+	;; mention, which a functional dependency determines ((Stream s m
+	;; t, Show t) => Parsing (ParsecT s u m), parsers'): a
+	;; multi-parameter one, as such variables are in those
+	(when (and (haskell98?) (not (null? mcontexts)))
+	  (let ((head-vars (lisp:mapcan (lambda (ty) (lisp:copy-list (ast-tyvar-names ty)))
+					types)))
+	    (dolist (c contexts)
+	      (when (not (memq (context-tyvar c) head-vars))
+		(let ((m (**mp-context (context-class c) (list (**tyvar (context-tyvar c))))))
+		  (setf (mp-context-keep? m) '#t)
+		  (setf mcontexts (append mcontexts (list m))))))
+	    (setf contexts (lisp:remove-if-not (lambda (c) (memq (context-tyvar c) head-vars))
+					       contexts))))
 	(make instance-decl (context contexts) (class class)
 	                    (simple (or simple (car types))) (decls decls)
 			    (types (if simple '() types))
