@@ -407,6 +407,10 @@
 	      (setf (instance-mcontext inst)
 		    (instance-mcontext-with-mp-supers
 		     (instance-context inst) (instance-mcontext inst) tyvars))
+	      (setf (instance-context inst)
+		    (append (instance-context inst)
+			    (instance-head-mp-super-contexts
+			     (instance-context inst) mcontext tyvars)))
 	      (setf (instance-decls inst) decls)
 	      (setf (instance-ok? inst) '#t)
 	      inst))))))))

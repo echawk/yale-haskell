@@ -549,6 +549,32 @@
 	(with-mp-mp-superclasses
 	 (append-new-mp-contexts result (one-parameter-mp-superclasses at-head))))))
 
+;;; The one-parameter superclasses of an instance's multi-parameter
+;;; constraints at the head's variables (Monad m of Stream s m Char =>
+;;; CharParsing (ParsecT s u m), parsers'), which the dictionary's
+;;; signature has as ordinary contexts (add-mp-superclass-contexts): the
+;;; instance's context gets them too, so that a use passes their
+;;; dictionaries where the dictionary function takes them.
+(define (instance-head-mp-super-contexts context mcontext head-tyvars)
+  (let ((at-head '()))
+    (dolist (c mcontext)
+      (let ((class (class-ref-class (mp-context-class c))))
+	(when (class? class)
+	  (dolist (s (class-mp-supers class))
+	    (let ((ty (list-ref (mp-context-types c) (tuple-2-2 s))))
+	      (when (and (tyvar? ty) (memq (tyvar-name ty) head-tyvars)
+			 (not (lisp:some
+			       (lambda (ctx)
+				 (and (eq? (context-tyvar ctx) (tyvar-name ty))
+				      (eq? (class-ref-class (context-class ctx))
+					   (tuple-2-1 s))))
+			       (append context at-head))))
+		(setf at-head
+		      (append at-head
+			      (list (make context (class (**class/def (tuple-2-1 s)))
+					  (tyvar (tyvar-name ty))))))))))))
+    at-head))
+
 (define (single-mp-context-at? mcontext class ty)
   (lisp:some (lambda (c2)
 	       (and (eq? (class-ref-class (mp-context-class c2)) class)
