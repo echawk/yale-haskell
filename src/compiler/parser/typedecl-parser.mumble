@@ -565,6 +565,7 @@
   ;; is kept apart: signatures with the class get it too
   ;; (util/signature.mumble's add-mp-superclass-contexts)
   (mlet (((supers mp-supers) (split-contexts (parse-class-context))))
+    (rewrite-infix-class-head)
     (token-case
      (tycon
       (let* ((class (class->ast))
@@ -603,6 +604,62 @@
 	 (else
 	  (signal-missing-token "<tyvar>" "class declaration")))))
      (else (signal-missing-token "<tycon>" "class declaration"))))))
+
+;;; An infix class head, class .. => (f `Compose` g) x, or the instance
+;;; head instance .. => (Maybe `Pair` []) Int (sop-core): the tokens made
+;;; Compose (f) (g) x, the head written prefix, its operands parenthesized.
+(define (rewrite-infix-class-head)
+  (when (eq-token? '\()
+    (let ((toks '())
+	  (rest *token-stream*)
+	  (depth 0)
+	  (done? '#f))
+      ;; the tokens up to the matching ), without layout markers
+      (do () ((or done? (null? rest)))
+	(let ((tok (car rest)))
+	  (setf rest (cdr rest))
+	  (cond ((memq (car tok) '(col line)) '#f)
+		((and (eq? (car tok) '\)) (eqv? depth 0)) (setf done? '#t))
+		(else
+		 (when (memq (car tok) '(\( \[)) (incf depth))
+		 (when (memq (car tok) '(\) \])) (decf depth))
+		 (push tok toks)))))
+      (setf toks (reverse toks))
+      (when done?
+	(let ((i (infix-class-operator-position toks)))
+	  (when i
+	    (let ((left (list-head toks i))
+		  (c (list-ref toks (1+ i)))
+		  (right (list-tail toks (+ i 3))))
+	      (setf *token-stream*
+		    (append (parenthesized-operand left) (parenthesized-operand right) rest))
+	      (advance-token-1 (car c) (cdr c)))))))))
+
+;;; An operand's tokens, in parentheses unless it is one token (a class
+;;; head's operands are its variables: f, not (f), which reads as a kind
+;;; signature's start).
+(define (parenthesized-operand toks)
+  (if (null? (cdr toks))
+      toks
+      (append (list '(\()) toks (list '(\))))))
+
+;;; The position of ` C ` at the top level of TOKS, with operands on both
+;;; sides, or #f.
+(define (infix-class-operator-position toks)
+  (let ((depth 0)
+	(found '#f))
+    (do ((l toks (cdr l))
+	 (i 0 (1+ i)))
+	((or found (null? l) (null? (cdr l)) (null? (cddr l))) found)
+      (let ((type (car (car l))))
+	(cond ((memq type '(\( \[)) (incf depth))
+	      ((memq type '(\) \])) (decf depth))
+	      ((and (eqv? depth 0) (> i 0)
+		    (eq? type '\`)
+		    (memq (car (cadr l)) '(conid qconid))
+		    (eq? (car (caddr l)) '\`)
+		    (not (null? (cdddr l))))
+	       (setf found i)))))))
 
 ;;; A class's further parameters, each a tyvar or (tyvar :: kind).
 (define (parse-more-class-tyvars)
@@ -665,6 +722,7 @@
   (mlet (((assertions equalities) (split-equalities (parse-optional-context)))
 	 ((contexts mcontexts) (split-contexts assertions))
 	 (decls '())
+	 (_ (rewrite-infix-class-head))
 	 ;; a parenthesized head: instance (Show a) => (P [a])
 	 ;; (haskell-src-exts)
 	 (paren-head? (and (eq-token? '\() (memq (peek-1-type) '(conid qconid))
