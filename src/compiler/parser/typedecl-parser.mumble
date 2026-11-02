@@ -584,7 +584,8 @@
 			      (begin (advance-token) (parse-fundeps))
 			      '()))
 		 (families-before (length *family-decls*))
-		 (decls (remove-inline-annotations (parse-where-decls)))
+		 (decls (dynamic-let ((*parsing-class-vars* (cons class-var more-vars)))
+			  (remove-inline-annotations (parse-where-decls))))
 		 ;; the associated families its body declared (pushed on
 		 ;; *family-decls*)
 		 (families (map (lambda (d) (tycon-name (synonym-decl-simple d)))

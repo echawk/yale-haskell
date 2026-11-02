@@ -628,13 +628,58 @@
 	(setf (cdr e) (list (cons (tuple name type) (cadr e))))
 	(push (list sig (list (tuple name type))) *signature-equalities*))))
 
+;;; The variables of the class whose method signatures are being parsed
+;;; (typedecl-parser.mumble's class declaration).
+(define *parsing-class-vars* '())
+
+;;; Whether SIG's type with NAME := TYPE mentions none of CVARS, its
+;;; nested contexts too (IsBase t ~ b => All Bump (Domains t) => t -> t).
+(define (no-class-variable-left? sig name type cvars)
+  (not (mentions-tyvar-in? (substitute-tyvar (signature-type sig) name type) cvars)))
+
+(define (mentions-tyvar-in? ty vars)
+  (cond ((tyvar? ty) (memq (tyvar-name ty) vars))
+	((tycon? ty) (lisp:some (lambda (a) (mentions-tyvar-in? a vars)) (tycon-args ty)))
+	((tyapp? ty)
+	 (or (mentions-tyvar-in? (tyapp-fun ty) vars)
+	     (lisp:some (lambda (a) (mentions-tyvar-in? a vars)) (tyapp-args ty))))
+	((forall-type? ty)
+	 (or (mentions-tyvar-in? (forall-type-type ty) vars)
+	     (lisp:some (lambda (c) (memq (context-tyvar c) vars)) (forall-type-context ty))
+	     (lisp:some (lambda (c) (lisp:some (lambda (a) (mentions-tyvar-in? a vars))
+					      (mp-context-types c)))
+			(forall-type-mcontext ty))))
+	((signature? ty)
+	 (or (mentions-tyvar-in? (signature-type ty) vars)
+	     (lisp:some (lambda (c) (memq (context-tyvar c) vars)) (signature-context ty))
+	     (lisp:some (lambda (c) (lisp:some (lambda (a) (mentions-tyvar-in? a vars))
+					      (mp-context-types c)))
+			(signature-mcontext ty))))
+	(else '#f)))
+
 (define (apply-equalities equalities sig)
   (do ((es (lisp:copy-list equalities) (cdr es)))
       ((null? es))
-    (let* ((e (car es)) (left (cadr e)) (right (caddr e)))
+    (let* ((e (car es)) (left (cadr e)) (right (caddr e))
+	   (cvars (dynamic *parsing-class-vars*)))
+      ;; a class's variable is not replaced by another variable in a
+      ;; method's signature: the other one is
+      (when (and (tyvar? left) (tyvar? right)
+		 (memq (tyvar-name left) cvars)
+		 (not (memq (tyvar-name right) cvars)))
+	(let ((l left)) (setf left right) (setf right l)))
       (cond ((or (and (tyvar? left) (memq (tyvar-name left) (ast-tyvar-names right)))
 		 (and (tyvar? right) (memq (tyvar-name right) (ast-tyvar-names left)))
-		 (not (or (tyvar? left) (tyvar? right))))
+		 (not (or (tyvar? left) (tyvar? right)))
+		 ;; a class's variable equal to another type in a method's
+		 ;; signature, where replacing it would leave the method about
+		 ;; none of the class's variables (unions :: (MonoFoldable
+		 ;; mono, Element mono ~ set) => mono -> set in class
+		 ;; SetContainer set): kept as a constraint
+		 (and (tyvar? left) (memq (tyvar-name left) cvars) (not (tyvar? right))
+		      (no-class-variable-left? sig (tyvar-name left) right cvars))
+		 (and (tyvar? right) (memq (tyvar-name right) cvars) (not (tyvar? left))
+		      (no-class-variable-left? sig (tyvar-name right) left cvars)))
 	     ;; circular (SubstArg a ~ a), or between two other types (F a
 	     ;; ~ Int): a TypeEquality constraint, kept when a side is a
 	     ;; family's application (util/signature.mumble's

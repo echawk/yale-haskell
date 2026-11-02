@@ -337,7 +337,10 @@
      (else (close-layout in-layout?) '())))
    ;; DefaultSignatures (GHC), in a class: default m :: sig
    (|default| (let ((decl (dynamic-let ((*recording-equalities?* '#t)
-					  (*recorded-equalities* '()))
+					  (*recorded-equalities* '())
+					  ;; (its equalities do rebind the class's
+					  ;; variables: (f a) ~ mono)
+					  (*parsing-class-vars* '()))
 			    (let ((d (parse-signdecl)))
 			      ;; t n ~ m, m the class's: init-methods
 			      (push (tuple (signdecl-signature d)
