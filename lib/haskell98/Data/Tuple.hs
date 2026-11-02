@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 -- Data.Tuple (base)
-module Data.Tuple (fst, snd, curry, uncurry, swap, Solo(MkSolo), pattern Solo, getSolo) where
+module Data.Tuple (fst, snd, curry, uncurry, swap, Solo(MkSolo), pattern Solo) where
 
 import Prelude hiding (foldr)
 import PreludeModern
@@ -13,9 +13,6 @@ data Solo a = MkSolo a deriving (Eq, Ord, Show, Read, Bounded)
 
 pattern Solo :: a -> Solo a
 pattern Solo a = MkSolo a
-
-getSolo :: Solo a -> a
-getSolo (MkSolo a) = a
 
 instance Functor Solo where
   fmap f (MkSolo a) = MkSolo (f a)

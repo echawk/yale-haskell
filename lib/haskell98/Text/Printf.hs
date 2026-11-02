@@ -21,6 +21,7 @@ module Text.Printf(
    printf, hPrintf,
    PrintfType, HPrintfType, PrintfArg(formatArg), IsChar,
    FieldFormatter, FieldFormat(..), FormatAdjustment(..), FormatSign(..),
+   FormatParse(..), ModifierParser,
    formatString, formatChar, formatInt, formatInteger
 ) where
 
@@ -143,6 +144,12 @@ data FieldFormat = FieldFormat {
     fmtWidth :: Maybe Int, fmtPrecision :: Maybe Int,
     fmtAdjust :: Maybe FormatAdjustment, fmtSign :: Maybe FormatSign,
     fmtAlternate :: Bool, fmtModifiers :: String, fmtChar :: Char }
+
+-- base 4.7's result of parsing a format's modifiers
+data FormatParse = FormatParse {
+    fpModifiers :: String, fpChar :: Char, fpRest :: String }
+
+type ModifierParser = String -> FormatParse
 
 formatString :: IsChar c => [c] -> FieldFormatter
 formatString s ff = showString (maybe id take (fmtPrecision ff) (map toChar s))

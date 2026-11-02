@@ -30,6 +30,8 @@ module PreludeModern (
   ) where
 
 import Data.Word (Word)   -- GHC's Prelude exports Word
+import Data.Bits (Bits((.&.), (.|.), xor, complement, zeroBits), oneBits,
+                  And(And), Ior(Ior), Xor(Xor), Iff(Iff))
 
 import PreludeIO (catch)
 import Monad (MonadPlus(mzero, mplus))
@@ -288,6 +290,31 @@ instance (Semigroup a, Semigroup b, Semigroup c, Semigroup d, Semigroup e)
 
 instance (Monoid a, Monoid b, Monoid c, Monoid d, Monoid e) => Monoid (a, b, c, d, e) where
   mempty = (mempty, mempty, mempty, mempty, mempty)
+
+-- Data.Bits' monoids (base 4.16)
+instance Bits a => Semigroup (And a) where
+  And x <> And y = And (x .&. y)
+
+instance Bits a => Monoid (And a) where
+  mempty = And oneBits
+
+instance Bits a => Semigroup (Ior a) where
+  Ior x <> Ior y = Ior (x .|. y)
+
+instance Bits a => Monoid (Ior a) where
+  mempty = Ior zeroBits
+
+instance Bits a => Semigroup (Xor a) where
+  Xor x <> Xor y = Xor (x `xor` y)
+
+instance Bits a => Monoid (Xor a) where
+  mempty = Xor zeroBits
+
+instance Bits a => Semigroup (Iff a) where
+  Iff x <> Iff y = Iff (complement (x `xor` y))
+
+instance Bits a => Monoid (Iff a) where
+  mempty = Iff oneBits
 
 instance Functor ((,) a) where
   fmap f (x, y) = (x, f y)

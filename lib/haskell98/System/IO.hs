@@ -18,6 +18,7 @@ module System.IO (
     openTempFile, openBinaryTempFile, openTempFileWithDefaultPermissions,
     openBinaryTempFileWithDefaultPermissions, openBinaryFile, withBinaryFile, hSetBinaryMode,
     TextEncoding, utf8, utf8_bom, latin1, char8, utf16, utf32, mkTextEncoding,
+    utf16le, utf16be, utf32le, utf32be,
     localeEncoding, hSetEncoding, hGetEncoding,
     Newline(LF, CRLF), NewlineMode(NewlineMode, inputNL, outputNL),
     nativeNewline, noNewlineTranslation, universalNewlineMode,
@@ -131,6 +132,11 @@ latin1 = TextEncoding "ISO-8859-1"
 char8 = TextEncoding "char8"
 utf16 = TextEncoding "UTF-16"
 utf32 = TextEncoding "UTF-32"
+utf16le, utf16be, utf32le, utf32be :: TextEncoding
+utf16le = TextEncoding "UTF-16LE"
+utf16be = TextEncoding "UTF-16BE"
+utf32le = TextEncoding "UTF-32LE"
+utf32be = TextEncoding "UTF-32BE"
 localeEncoding = utf8
 
 mkTextEncoding :: String -> IO TextEncoding

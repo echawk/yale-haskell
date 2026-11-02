@@ -3,23 +3,41 @@
 -- IOError, and IOErrorType's constructors as patterns over System.IO.Error's
 -- kinds (src/runtime/io-errors.mumble).  The runtime has no kind for most
 -- of GHC's others; ResourceVanished, NoSuchThing's siblings and the rest
--- match no error the runtime raises.
+-- match no error the runtime raises.  GHC's IOError record is a pattern
+-- over System.IO.Error's accessors (ioe_errno is Nothing: the runtime
+-- keeps no errno).
 module GHC.IO.Exception (
     IOException, IOErrorType(AlreadyExists, NoSuchThing, ResourceBusy,
       ResourceExhausted, EOF, IllegalOperation, PermissionDenied, UserError,
       OtherError, ResourceVanished, Interrupted, InvalidArgument,
       InappropriateType, HardwareFault, UnsupportedOperation, TimeExpired,
       UnsatisfiedConstraints, SystemError, ProtocolError),
-    ioe_type, ioError, userError, ExitCode(ExitSuccess, ExitFailure)
+    pattern IOError, ioe_handle, ioe_type, ioe_location, ioe_description,
+    ioe_errno, ioe_filename,
+    ioError, userError, ExitCode(ExitSuccess, ExitFailure)
   ) where
 
 import System.IO.Error
+import System.IO (Handle)
+import Foreign.C.Types (CInt)
+import qualified PreludeIO as P (IOError(IOError))
+import qualified IOPrims as P (primIOErrorDescription)
 import System (ExitCode(ExitSuccess, ExitFailure))
 
 type IOException = IOError
 
-ioe_type :: IOException -> IOErrorType
-ioe_type = ioeGetErrorType
+pattern IOError :: Maybe Handle -> IOErrorType -> String -> String
+                -> Maybe CInt -> Maybe FilePath -> IOException
+pattern IOError { ioe_handle, ioe_type, ioe_location, ioe_description,
+                  ioe_errno, ioe_filename }
+  <- (ioeFields -> (ioe_handle, ioe_type, ioe_location, ioe_description,
+                    ioe_errno, ioe_filename)) where
+  IOError h t loc d _ f = ioeSetErrorString (mkIOError t loc h f) d
+
+ioeFields :: IOException -> (Maybe Handle, IOErrorType, String, String,
+                             Maybe CInt, Maybe FilePath)
+ioeFields e@(P.IOError o) = (ioeGetHandle e, ioeGetErrorType e, ioeGetLocation e,
+                             P.primIOErrorDescription o, Nothing, ioeGetFileName e)
 
 kindIs :: IOErrorType -> IOErrorType -> Bool
 kindIs = (==)

@@ -16,7 +16,8 @@ module Data.Bits (
          bitSizeMaybe, zeroBits, unsafeShiftL, unsafeShiftR),
     FiniteBits(finiteBitSize, countLeadingZeros, countTrailingZeros),
     bitDefault, testBitDefault, popCountDefault, toIntegralSized,
-    (.<<.), (.>>.), (!<<.), (!>>.), (.^.), oneBits
+    (.<<.), (.>>.), (!<<.), (!>>.), (.^.), oneBits,
+    And(And, getAnd), Ior(Ior, getIor), Xor(Xor, getXor), Iff(Iff, getIff)
   ) where
 
 import BitsPrims
@@ -163,3 +164,11 @@ toIntegralSized x
 
 oneBits :: Bits a => a
 oneBits = complement zeroBits
+
+-- base 4.16's monoids of the bitwise operations; their Semigroup and
+-- Monoid instances are PreludeModern's (which imports this module,
+-- through Data.Word)
+newtype And a = And { getAnd :: a } deriving (Eq, Ord, Bounded, Show, Read)
+newtype Ior a = Ior { getIor :: a } deriving (Eq, Ord, Bounded, Show, Read)
+newtype Xor a = Xor { getXor :: a } deriving (Eq, Ord, Bounded, Show, Read)
+newtype Iff a = Iff { getIff :: a } deriving (Eq, Ord, Bounded, Show, Read)
