@@ -55,7 +55,13 @@
       (let ((prelude (locate-module '|Prelude|)))
 	(cond ((eq? prelude '#f)
 	       (signal-missing-prelude))
-	      ((module-prelude? *module*)
+	      ((or (module-prelude? *module*)
+		   ;; module Prelude in the exports: as import Prelude, whose
+		   ;; names it then exports (hspec's Test.Hspec.Discover)
+		   (lisp:some (lambda (e)
+				(and (is-type? 'entity-module e)
+				     (eq? (entity-name e) '|Prelude|)))
+			      (module-exports *module*)))
 	       (setf (module-uses-standard-prelude? *module*) '#f)
 	       (add-imported-module prelude))
 	      (else
