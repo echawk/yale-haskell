@@ -889,6 +889,8 @@
 	 (process-qc-wanted p deferred decls))
 	((class-constraint-family (mp-placeholder-class p))
 	 (process-cfam-placeholder p deferred decls))
+	((capp-class? (mp-placeholder-class p))
+	 (process-capp-placeholder p deferred decls))
 	((reducible-one-parameter-mp? p)
 	 ;; a one-parameter class at a synonym or family application that
 	 ;; reduces (Eq (Item [a]), from a signature's Eq (Item full):
@@ -1503,6 +1505,61 @@
     (values dict deferred)))
 
 ;;;=====================================================================
+;;; Constraint variables
+;;;=====================================================================
+
+;;; ConstraintKinds: c y, an assertion whose class is a type variable, is
+;;; PreludeModern's ConstraintApply (c y) (parser/type-parser.mumble).
+;;; Once c is a class (All Show xs: the class literal %class:..Show), the
+;;; constraint is that class's at the arguments, and so is its
+;;; dictionary; until then it is matched as written against the given
+;;; ones (a signature's, a polymorphic argument's, an instance's).
+
+(define (capp-class? class)
+  (and (class? class)
+       (eq? (def-name class) '|ConstraintApply|)
+       (eq? (def-module class) '|PreludeModern|)))
+
+(define (process-capp-placeholder p deferred decls)
+  (mlet (((class args) (constraint-type-class (reduce-mp-type (car (mp-placeholder-types p))))))
+    (if (and class (class? class) (not (null? args)))
+	(let* ((edecls (placeholder-enclosing-decls p))
+	       (var (placeholder-overloaded-var p))
+	       (q (if (and (null? (cdr args)) (null? (cdr (class-tyvars class))))
+		      (**dict-placeholder class (car args) edecls var)
+		      (**mp-placeholder class args '#f edecls var))))
+	  (setf (placeholder-exp p) (mp-dict-use p q))
+	  (process-placeholder q deferred decls))
+	(begin
+	  (capp-improve-by-given p decls)
+	  (process-mp-placeholder-1 p deferred decls)))))
+
+;;; A wanted c t whose only given of the same constraint variable is c u:
+;;; t unified with u.  A GADT constructor's match does not refine the
+;;; types here (existentials.mumble), so an instance's given c x meets
+;;; the c t2 of its pattern's field (sop-core's All c (x ': xs)).
+(define (capp-improve-by-given p decls)
+  (let* ((ty (reduce-mp-type (car (mp-placeholder-types p))))
+	 (head (and (ntyapp? ty) (prune (ntyapp-fun ty))))
+	 (decl (find-enclosing-decl (placeholder-enclosing-decls p) decls))
+	 (same '()))
+    (when (ntyvar? head)
+      (dolist (param (append (mp-placeholder-local-params p)
+			     (placeholder-given-locals p)
+			     (dynamic *local-mp-params*)
+			     (if decl (valdef-mp-dict-params decl) '())))
+	(when (capp-class? (mp-param-class param))
+	  (let ((g (reduce-mp-type (car (mp-param-types param)))))
+	    (when (and (ntyapp? g) (eq? (prune (ntyapp-fun g)) head)
+		       (eqv? (length (ntyapp-args g)) (length (ntyapp-args ty)))
+		       (not (lisp:member g same :test (function mp-type-equal?))))
+	      (push g same)))))
+      (when (and (pair? same) (null? (cdr same))
+		 (not (mp-type-equal? (car same) ty)))
+	(dolist2 (a (ntyapp-args ty)) (b (ntyapp-args (car same)))
+	  (when (mp-type-generic? (prune a))
+	    (unify a b)))))))
+
 ;;; Quantified constraints
 ;;;=====================================================================
 

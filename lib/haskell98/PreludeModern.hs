@@ -24,7 +24,7 @@ module PreludeModern (
     Traversable(traverse, sequenceA, mapM, sequence),
     mapM_, sequence_, concat, concatMap, and, or, any, all, notElem,
     find, maximumBy, minimumBy, WrappedMonad(WrapMonad, unwrapMonad),
-    IP(ip), TypeEquality, QuantifiedConstraint,
+    IP(ip), TypeEquality, QuantifiedConstraint, ConstraintApply,
     Word,
     errorWithoutStackTrace
   ) where
@@ -430,6 +430,12 @@ class TypeEquality a b
 -- premises' dictionaries to the head's (src/compiler/type/mp-classes
 -- .mumble's quantified constraints).
 class QuantifiedConstraint q
+
+-- ConstraintKinds: an assertion whose class is a type variable (c y,
+-- f (g x)) is this class's constraint on that application, resolved as
+-- the class's once the variable is one (src/compiler/type/mp-classes
+-- .mumble's process-capp-placeholder); given, it is matched as written.
+class ConstraintApply c
 
 newtype WrappedMonad m a = WrapMonad { unwrapMonad :: m a }
 

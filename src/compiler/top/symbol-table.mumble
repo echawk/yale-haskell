@@ -676,6 +676,10 @@
 			 ((eq? (class-ref-name class-ref) '|%QC|)
 			  ;; a quantified constraint's (parser/type-parser.mumble)
 			  (prelude-modern-def '|QuantifiedConstraint|))
+			 ((eq? (class-ref-name class-ref) '|%CApp|)
+			  ;; a constraint variable's assertion, c y
+			  ;; (parser/type-parser.mumble)
+			  (prelude-modern-def '|ConstraintApply|))
 			 ((eq? (class-ref-name class-ref) '|%TypeEq|)
 			  ;; an equality's (parser/type-parser.mumble's
 			  ;; apply-equalities)

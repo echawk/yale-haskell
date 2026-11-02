@@ -396,6 +396,8 @@
 		    (tycon
 		     (list (parse-single-context)))
 		    (\( (parse-contexts))
+		    ((no-advance satisfies constraint-variable-ahead?)
+		     (list (parse-constraint-variable-assertion)))
 		    (else
 		     (signal-invalid-syntax "a context")))))))
    (require-token => (signal-missing-token "`=>'" "context"))
@@ -504,7 +506,24 @@
 		(\, (cons context (parse-contexts)))
 		(\) (list context))
 		(else (signal-missing-token "`)' or `,'" "context")))))
+    ;; ConstraintKinds: c y, f (g x), an assertion whose class is a type
+    ;; variable
+    ((no-advance satisfies constraint-variable-ahead?)
+     (let ((context (parse-constraint-variable-assertion)))
+       (token-case
+	(\, (cons context (parse-contexts)))
+	(\) (list context))
+	(else (signal-missing-token "`)' or `,'" "context")))))
     (else (signal-missing-token "<tycon>" "class assertion"))))
+
+(define (constraint-variable-ahead?)
+  (and (haskell98?) (eq-token? 'varid)))
+
+;;; c t1 .. tn: PreludeModern's ConstraintApply of the application c t1 ..
+;;; tn (type/mp-classes.mumble's process-capp-placeholder)
+(define (parse-constraint-variable-assertion)
+  (**mp-context (make class-ref (name '|%CApp|) (class *undefined-def*))
+		(list (parse-btype))))
 
 (define (parse-optional-context)
   (if (has-optional-context?)
