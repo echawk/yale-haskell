@@ -1258,8 +1258,10 @@
 	      ;; callers' dictionaries (optimize.mumble's try-to-specialize)
 	      (specializable-value? var))
       (let ((d (dump-flic-top value)))
-	(when (dumpable-value-size? d)
-	  (push `(setf (var-value var) ,d) code))))
+	(if (dumpable-value-size? d)
+	    (push `(setf (var-value var) ,d) code)
+	    ;; (not inlined, then: vector's unzip5)
+	    (push `(setf (var-simple? var) '#f) code))))
     (when inline-value
       (let ((d (dump-flic-top inline-value)))
 	(when (dumpable-value-size? d)

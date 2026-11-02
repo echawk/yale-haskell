@@ -1,4 +1,4 @@
-lens: no UArray instance of Each (Yale Haskell's UArray is Array).
+lens: no UArray instances of Each, Ixed, Index and IxValue (Yale Haskell's UArray is Array).
 diff -ruN a/Control/Lens/Each.hs b/Control/Lens/Each.hs
 --- a/Control/Lens/Each.hs	2026-10-27 14:02:08
 +++ b/Control/Lens/Each.hs	2026-10-27 14:02:08
@@ -14,3 +14,32 @@ diff -ruN a/Control/Lens/Each.hs b/Control/Lens/Each.hs
  
  -------------------------------------------------------------------------------
  -- strict
+diff -ruN a/Control/Lens/At.hs b/Control/Lens/At.hs
+--- a/Control/Lens/At.hs	2026-11-02 01:37:28
++++ b/Control/Lens/At.hs	2026-11-02 01:37:28
+@@ -111,7 +111,9 @@
+ type instance Index (Map k a) = k
+ type instance Index (HashMap k a) = k
+ type instance Index (Array.Array i e) = i
++#ifndef __YALE_HASKELL__
+ type instance Index (UArray i e) = i
++#endif
+ type instance Index (Vector.Vector a) = Int
+ type instance Index (Prim.Vector a) = Int
+ type instance Index (Storable.Vector a) = Int
+@@ -362,6 +364,7 @@
+     | otherwise              = pure arr
+   {-# INLINE ix #-}
+ 
++#ifndef __YALE_HASKELL__
+ type instance IxValue (UArray i e) = e
+ -- |
+ -- @
+@@ -373,6 +376,7 @@
+     | inRange (bounds arr) i = f (arr Array.! i) <&> \e -> arr Array.// [(i,e)]
+     | otherwise              = pure arr
+   {-# INLINE ix #-}
++#endif
+ 
+ type instance IxValue (Vector.Vector a) = a
+ instance Ixed (Vector.Vector a) where

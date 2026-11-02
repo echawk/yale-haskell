@@ -1562,6 +1562,9 @@
 	   (record-hack 'ref-inline-foldr-hack)
 	   (optimize-inline var (var-inline-value var)))
 	  ((and (var-simple? var)
+		;; (an imported one whose value was too big to keep in its
+		;; interface: csys/dump-interface.mumble's dumpable-value-size?)
+		(var-value var)
 		(or (dynamic *do-inline-optimizations*)
 		    (not (var-toplevel? var))))
 	   ;; Can substitute, but must copy.
