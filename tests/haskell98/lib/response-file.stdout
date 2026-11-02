@@ -1,0 +1,7 @@
+plain
+with\ space
+quote\'d
+back\\slash
+
+["plain","with space","quote'd","back\\slash"]
+["a","b c","d e","f g"]
