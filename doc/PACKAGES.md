@@ -363,7 +363,9 @@ terminal-size, bitvec, double-conversion (builds), prettyprinter-compat-ansi-wl-
 cryptohash-sha256 runs (its `foreign import capi "hs_sha256.h ..."` functions
 are defined in a header: a C stub per import is compiled with `cc` into
 `~/.cache/yale-haskell/capi/` and loaded with the code; SHA-256 of "abc" is
-right).
+right).  mono-traversable (with a patch, tools/microcabal/patches/) and
+conduit build and run: a conduit pipeline over a list, `chunksOf`, and
+`sourceFile .| decodeUtf8C .| linesUnboundedC` over a file.
 Not building: basement/memory (past the POSIX-types clash, now at
 `Basement.Types.Word128`: its `Integral` instance is taken for the Prelude's class;
 a stale unit cache also hides a changed package `cpp-options`: clear
@@ -371,9 +373,7 @@ a stale unit cache also hides a changed package `cpp-options`: clear
 Nat arithmetic and AllowAmbiguousTypes-style `Curve curve` calls:
 "ambiguous context (Curve)"; build it with `-f-integer-gmp`),
 streaming-commons (Data.Streaming.Text uses Data.Text.Internal.Encoding),
-unliftio (UnliftIO.IO.File.Posix uses GHC.IO.FD), mono-traversable and
-conduit (a default signature with equalities on `WriterT` instances,
-`Signature context is too general`), generics-sop (class assertions on a
+unliftio (UnliftIO.IO.File.Posix uses GHC.IO.FD), generics-sop (class assertions on a
 constraint variable), parsers (an instance context variable fixed by a
 fundep), hspec-core (QuickCheck's Result lacks theException), ansi-wl-pprint
 (same module name as its prettyprinter-compat package), lens (duplicate
