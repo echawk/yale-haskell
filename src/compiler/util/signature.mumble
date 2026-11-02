@@ -12,6 +12,7 @@
 (define (resolve-signature signature)
   (float-synonym-foralls signature)
   (expand-constraint-synonyms signature)
+  (constraint-family-contexts signature)
   (keep-family-equalities signature)
   (reduce-flexible-contexts signature)
   (add-mp-superclass-contexts signature)
@@ -43,6 +44,27 @@
 	    (setf tyvars (append tyvars (list (context-tyvar c)))))))
       (resolve-signature-aux tyvars context)
       tyvars)))
+
+;;; A one-parameter constraint family's constraint (Both a, type family
+;;; Both a :: Constraint) is a multi-parameter one, as two parameters'
+;;; are (type/mp-classes.mumble's process-cfam-placeholder): its
+;;; dictionary is what the family reduces to, not a class's.
+(define (constraint-family-contexts signature)
+  (let ((single '())
+	(multi '()))
+    (dolist (c (signature-context signature))
+      (resolve-class (context-class c))
+      (let ((class (class-ref-class (context-class c))))
+	(if (and (class? class) (class-constraint-family class))
+	    ;; (kept as it is: reduce-flexible-contexts)
+	    (let ((m (**mp-context (context-class c) (list (**tyvar (context-tyvar c))))))
+	      (setf (mp-context-keep? m) '#t)
+	      (push m multi))
+	    (push c single))))
+    (when (not (null? multi))
+      (setf (signature-context signature) (reverse single))
+      (setf (signature-mcontext signature)
+	    (append (signature-mcontext signature) (reverse multi))))))
 
 ;;; RankNTypes: a signature whose type is a synonym for a polytype,
 ;;;   type Lens s t a b = forall f. Functor f => (a -> f b) -> s -> f t
