@@ -12,7 +12,7 @@ that Hackage packages built with MicroCabal (doc/PACKAGES.md) find them.
 | `prelude/` | the Haskell 98 Standard Prelude, as the Report gives it, with the deviations below |
 | `<Module>.hs`, `<Module>.hu` | the H98 standard libraries: `List`, `Char`, `Maybe`, `Numeric`, `Ratio`, `Complex`, `Ix`, `Array`, `IO`, `System`, `Directory`, `Time`, `Locale`, `CPUTime`, `Random`, `Monad`; `Dialogue` (Yale: Haskell 1.2 stream I/O, `appendChan stdout ... abort done`); `PreludeModern` (GHC base's Prelude names, for `--modern-prelude`; also the hidden classes `IP` of ImplicitParams and `TypeEquality` of equality constraints) |
 | `*Prims.hi` | primitives: Haskell names for Lisp functions (`src/base/`, `src/runtime/`) |
-| `Control/`, `Data/`, `Foreign/`, `GHC/`, `System/`, `Text/`, `Numeric/`, `Debug/`, `Unsafe/`, `Type/`, `Test/` | base, containers, text, bytestring, mtl, transformers, stm, deepseq, parsec, time, process, unix, QuickCheck, ... (the packages listed as built in by `tools/microcabal/Yale.hs`) |
+| `Control/`, `Data/`, `Foreign/`, `GHC/`, `System/`, `Text/`, `Numeric/`, `Debug/`, `Unsafe/`, `Type/`, `Test/` | base, containers, text, bytestring, mtl, transformers, stm, deepseq, parsec, time, process, unix, QuickCheck, ... (the packages `builtinPackages` lists in the MicroCabal backend, `tools/microcabal/MicroCabal/src/MicroCabal/Backend/Yale.hs`) |
 | `Language/` | Template Haskell's library (doc/plans/TEMPLATE-HASKELL.md) |
 | `include/` | C headers packages `#include` (HsBaseConfig.h, MachDeps.h, ...) |
 

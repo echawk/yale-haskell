@@ -1,0 +1,4 @@
+[submodule "tools/microcabal/MicroCabal"]
+	path = tools/microcabal/MicroCabal
+	url = https://github.com/echawk/MicroCabal.git
+	branch = yale-backend

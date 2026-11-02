@@ -1,8 +1,8 @@
 /* HsFFI.h for packages' C sources built by MicroCabal's Yale Haskell
-   backend (tools/microcabal/Yale.hs): the Haskell 2010 FFI's C types as
-   Yale Haskell passes them (Int as a C long, Char as a 32-bit code
-   point).  hs_init and the like are not provided: the runtime is SBCL's,
-   started before any C code runs. */
+   backend (tools/microcabal/MicroCabal/src/MicroCabal/Backend/Yale.hs):
+   the Haskell 2010 FFI's C types as Yale Haskell passes them (Int as a C
+   long, Char as a 32-bit code point).  hs_init and the like are not
+   provided: the runtime is SBCL's, started before any C code runs. */
 #ifndef HSFFI_H
 #define HSFFI_H
 #include <stdint.h>

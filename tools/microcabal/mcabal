@@ -1,8 +1,9 @@
 #!/bin/sh
 #
-# mcabal -- MicroCabal, built from build/microcabal/src (setup.sh, run
-# when that is missing or older than its sources), run by Yale Haskell,
-# building packages with Yale Haskell (--yale).
+# mcabal -- MicroCabal, from the submodule tools/microcabal/MicroCabal
+# (the branch yale-backend of https://github.com/echawk/MicroCabal, which
+# adds the Yale Haskell backend), run by Yale Haskell, building packages
+# with Yale Haskell (--yale).
 #
 #   tools/microcabal/mcabal [FLAGS] COMMAND ...      (mcabal help)
 #
@@ -12,25 +13,24 @@
 
 here=$(cd "$(dirname "$0")" && pwd)
 top=$(dirname "$(dirname "$here")")
-out=$top/build/microcabal/src
-stamp=$out/.stamp
-if [ ! -f "$stamp" ] ||
-   [ -n "$(find "$here/Yale.hs" "$here/yale-backend.patch" "$here/mcabal.hs" \
-              "$top/ref/MicroCabal/src" -newer "$stamp" 2>/dev/null | head -1)" ]; then
-  "$here/setup.sh" && touch "$stamp" || exit 1
+src=$here/MicroCabal/src
+if [ ! -f "$src/MicroCabal/Main.hs" ]; then
+  git -C "$top" submodule update --init tools/microcabal/MicroCabal || exit 1
 fi
 YALE=${YALE:-$top/bin/yale-haskell}
 export YALE
-# patches for packages that only GHC was meant to compile (Yale.hs)
+# patches for packages that only GHC was meant to compile
+# (MicroCabal/Backend/Yale.hs)
 YALE_MCABAL_PATCHES=${YALE_MCABAL_PATCHES:-$here/patches}
 export YALE_MCABAL_PATCHES
-# HsFFI.h, for packages' C sources (Yale.hs)
+# HsFFI.h, for packages' C sources (Backend/Yale.hs)
 YALE_MCABAL_INCLUDE=${YALE_MCABAL_INCLUDE:-$here/include}
 export YALE_MCABAL_INCLUDE
-# hsc2hs's constructs (#{const ..}, #peek, ...) in .hsc modules (Yale.hs)
+# hsc2hs's constructs (#{const ..}, #peek, ...) in .hsc modules
+# (Backend/Yale.hs)
 YALE_HSC2HS=${YALE_HSC2HS:-$here/yale-hsc2hs}
 export YALE_HSC2HS
 # -ffake-ghc: impl(ghc >= v) holds as for GHC 9.6, whose boot packages
 # Yale Haskell's library follows (so a package does not take the
 # branches for old GHCs, integer-gmp and the like)
-exec "$top/bin/yale-haskell" --haskell98 --modern-prelude "$out/mcabal.hs" --yale -ffake-ghc "$@"
+exec "$top/bin/yale-haskell" --haskell98 --modern-prelude -i "$src" "$here/mcabal.hs" --yale -ffake-ghc "$@"

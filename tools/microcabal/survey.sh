@@ -5,14 +5,13 @@
 #
 #   tools/microcabal/survey.sh [-n LINES]
 #
-# Needs the clone in ref/MicroCabal and the patches of this directory
-# applied (tools/microcabal/apply-patches.sh), if any.
+# Reads the submodule tools/microcabal/MicroCabal.
 
 cd "$(dirname "$0")/../.." || exit 1
 top=$(pwd)
 lines=5
 [ "$1" = "-n" ] && lines=$2
-src=$top/ref/MicroCabal/src
+src=$top/tools/microcabal/MicroCabal/src
 [ -d "$src" ] || { echo "no $src; see doc/plans/MICROCABAL.md" >&2; exit 1; }
 cd "$src" || exit 1
 ok=0 total=0

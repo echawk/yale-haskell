@@ -28,20 +28,16 @@ dependency.
 
    This produces `bin/yale-haskell`.
 2. For `mcabal`: `curl`, `tar`, `patch`, and a network connection (the
-   Stackage package list and the package tarballs are fetched).  The
-   first run of `tools/microcabal/mcabal` builds MicroCabal itself, by
-   running `tools/microcabal/setup.sh`, which copies the MicroCabal
-   sources from `ref/MicroCabal` into `build/microcabal/src` and adds
-   the Yale backend.  `setup.sh` stops with "no ref/MicroCabal" if that
-   clone is missing:
-
-   ```sh
-   git clone --depth 1 https://github.com/augustss/MicroCabal ref/MicroCabal
-   ```
-
-   (The survey in doc/plans/MICROCABAL.md used version 0.5.10.0.)  The
-   copy is rebuilt automatically when `Yale.hs`, `yale-backend.patch`,
-   `mcabal.hs` or the clone changes.
+   Stackage package list and the package tarballs are fetched).
+   MicroCabal itself is the submodule `tools/microcabal/MicroCabal`: the
+   branch `yale-backend` of https://github.com/echawk/MicroCabal, which
+   adds the Yale backend (`src/MicroCabal/Backend/Yale.hs`, the `--yale`
+   flag) to MicroCabal 0.5.10.0 and is proposed upstream.
+   `tools/microcabal/mcabal` runs it from there, checking the submodule
+   out first if it is missing (or run
+   `git submodule update --init tools/microcabal/MicroCabal`).  To change
+   the backend, commit in the submodule, push the branch, and commit the
+   new submodule revision here.
 
 ## Running one file
 
@@ -295,7 +291,8 @@ Other commands (`mcabal help`):
   utf8-string, old-time, old-locale, xhtml, unix, knob, ghc-boot-th
   (GHC.Lexeme), ghc-compact, and the
   compatibility packages fail, semigroups, void, nats, tagged-compat
-  (the list is `builtinPackages` in `tools/microcabal/Yale.hs`).  They
+  (the list is `builtinPackages` in the backend,
+  `tools/microcabal/MicroCabal/src/MicroCabal/Backend/Yale.hs`).  They
   are "complete, or in the part commonly used", so a program may still
   find a module or function missing.
   QuickCheck is in the library too, most of `Test.QuickCheck`, enough for
@@ -444,7 +441,7 @@ dated: a package listed there as failing may build now.
 | `Invalid syntax appears where a topdecl is expected` on a program that is valid Haskell 98 | no language flag was given, so the file was read as Haskell 1.2.  Add `--haskell98` or `--ghc2021` |
 | `Cannot find module M, imported by module Main` | the module is not next to the file, not in `-i` or `$YALE_HASKELL_PATH`, and not in a `--package-db`.  Install the package, and pass `--package-db $CABALDIR/yale-VERSION/packages` (or set `YALE_HASKELL_PACKAGE_DB`) when running a single file |
 | `dependency not installed: PKG` (after `Haskell runtime abort.`) | `build`/`install` without `-r`; install the dependency, or add `-r` |
-| `setup.sh: no ref/MicroCabal` | clone MicroCabal into `ref/` (see Prerequisites) |
+| `fatal: not a git repository` from `mcabal` | the checkout is not a git clone, so the submodule cannot be fetched: clone https://github.com/echawk/MicroCabal (branch `yale-backend`) into `tools/microcabal/MicroCabal` |
 | a failure inside a package's module, e.g. a parse error or missing name | a limitation in the list above, or a Yale Haskell bug.  Run `hackage-survey.sh PKG` to see the first error; check doc/plans/MICROCABAL.md; a package-specific GHC-ism may need a patch or `YALE_CPP_OPTIONS` |
 | `#error This code isn't being built with GHC` | set `YALE_CPP_OPTIONS=-D__GLASGOW_HASKELL__=906` for that install |
 | `stack overflow`, exit status 2 | the program ran out of its 512 MB control stack; `YALE_HASKELL_STACK_MB` sets another size |

@@ -9,8 +9,11 @@ running a compiler (GHC or MicroHs) and fetches them with `wget` and
 real-world target: small, written for portability, and useful when it
 works (it is how a Haskell implementation gets at Hackage).
 
-A clone lives in `ref/MicroCabal` (gitignored;
+A clone lived in `ref/MicroCabal` (gitignored;
 `git clone --depth 1 https://github.com/augustss/MicroCabal ref/MicroCabal`).
+Since 2026-11-02 MicroCabal is the submodule `tools/microcabal/MicroCabal`,
+the branch `yale-backend` of https://github.com/echawk/MicroCabal (the Yale
+backend, proposed upstream), and `tools/microcabal/mcabal` runs it directly.
 
 ## What it is (surveyed 2026-10-09, version 0.5.10.0)
 
@@ -187,6 +190,10 @@ without editing the clone:
 - `setup.sh` copies `ref/MicroCabal/src` to `build/microcabal/src` and
   applies both, and `mcabal` runs that copy (re-running setup.sh when a
   source is newer): `tools/microcabal/mcabal install PKG`.
+
+(Since 2026-11-02 the three are gone: the backend and the patch are
+commits on the fork's `yale-backend` branch, the submodule
+`tools/microcabal/MicroCabal`.)
 
 A package is installed as its sources, in the package database
 `$CABALDIR/yale-VERSION/packages` that `--package-db` reads
