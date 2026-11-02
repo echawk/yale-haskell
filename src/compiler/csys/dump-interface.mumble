@@ -1257,9 +1257,13 @@
 	      ;; an overloaded function, for specialization at its
 	      ;; callers' dictionaries (optimize.mumble's try-to-specialize)
 	      (specializable-value? var))
-      (push `(setf (var-value var) ,(dump-flic-top value)) code))
+      (let ((d (dump-flic-top value)))
+	(when (dumpable-value-size? d)
+	  (push `(setf (var-value var) ,d) code))))
     (when inline-value
-      (push `(setf (var-inline-value var) ,(dump-flic-top inline-value)) code))
+      (let ((d (dump-flic-top inline-value)))
+	(when (dumpable-value-size? d)
+	  (push `(setf (var-inline-value var) ,d) code))))
     ;; Save extra stuff for method vars
     (when method-var?
       (push `(init-method-var-slots var
@@ -1270,6 +1274,14 @@
     ;; Push the whole mess onto the init code.
     (add-dump-init `(let ((var  ,dexp)) ,@(nreverse code)))))
 
+
+;;; Whether a variable's value, dumped for other modules' inlining,
+;;; folding and specialization, is small enough to keep: a bigger one
+;;; (mono-traversable's Data.Sequences, 107,231 conses in one form) passes
+;;; what SBCL's arm64 code reaches with a literal load ("-262153 is not of
+;;; type (SIGNED-BYTE 19)"), and would not be inlined anyway.
+(define (dumpable-value-size? d)
+  (<= (form-size d) *max-function-size*))
 
 (define-walker-method dump method-var (var)
   (dump-method-var/n var))
