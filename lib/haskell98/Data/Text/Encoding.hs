@@ -4,7 +4,8 @@ module Data.Text.Encoding (
     encodeUtf8, decodeUtf8, decodeUtf8', decodeUtf8With, decodeUtf8Lenient,
     decodeLatin1, decodeASCII, encodeUtf16LE, encodeUtf16BE, encodeUtf32LE,
     encodeUtf32BE, decodeUtf16LE, decodeUtf16BE, decodeUtf32LE, decodeUtf32BE,
-    utf8Bytes, utf8DecodeWith, encodeUtf8Builder, encodeUtf8BuilderEscaped
+    utf8Bytes, utf8DecodeWith, encodeUtf8Builder, encodeUtf8BuilderEscaped,
+    Decoding(..), streamDecodeUtf8, streamDecodeUtf8With
   ) where
 
 import Control.Exception (evaluate, try)
@@ -127,3 +128,39 @@ encodeUtf8Builder = BB.byteString . encodeUtf8
 -- | Each byte of the UTF-8 through the primitive (aeson's JSON escaping).
 encodeUtf8BuilderEscaped :: BP.BoundedPrim Word8 -> T.Text -> BB.Builder
 encodeUtf8BuilderEscaped p t = BP.primMapListBounded p (map c2w (unBS (encodeUtf8 t)))
+
+-- Streaming decoding (conduit's decodeUtf8): each piece decodes up to
+-- its last complete UTF-8 sequence; the bytes of an incomplete one are
+-- kept for the next piece.
+data Decoding = Some !T.Text !B.ByteString (B.ByteString -> Decoding)
+
+instance Show Decoding where
+  showsPrec d (Some t bs _) = showParen (d > 10) $
+    showString "Some " . showsPrec 11 t . showString " " . showsPrec 11 bs . showString " _"
+
+streamDecodeUtf8 :: B.ByteString -> Decoding
+streamDecodeUtf8 = streamDecodeUtf8With strictDecode
+
+streamDecodeUtf8With :: OnDecodeError -> B.ByteString -> Decoding
+streamDecodeUtf8With onErr = go ""
+  where
+    go prev bs =
+      let s = prev ++ unBS bs
+          (done, rest) = splitAt (length s - incompleteUtf8Suffix s) s
+      in Some (T.pack (utf8DecodeWith onErr done)) (bsFromString rest) (go rest)
+
+-- the length of an incomplete UTF-8 sequence at the end of the bytes
+incompleteUtf8Suffix :: String -> Int
+incompleteUtf8Suffix s =
+  case [ (i, need (ord c)) | (i, c) <- zip [0 ..] lastFour, ord c .&. 0xC0 /= 0x80 ] of
+    [] -> 0
+    leads -> let (i, k) = last leads
+                 avail = length lastFour - i
+             in if k > avail then avail else 0
+  where
+    lastFour = reverse (take 4 (reverse s))
+    need b | b < 0x80 = 1
+           | b .&. 0xE0 == 0xC0 = 2
+           | b .&. 0xF0 == 0xE0 = 3
+           | b .&. 0xF8 == 0xF0 = 4
+           | otherwise = 1

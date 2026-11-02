@@ -1,0 +1,35 @@
+mono-traversable: WrappedMono's Foldable elem, maximum and minimum are the class's defaults (Yale Haskell does not use a GADT constructor's local equality, Element mono ~ a); HashMap's mapKeysWith uses HashMap's functions (an instance method whose constraints are a constraint family's, at types an instance's context gives, is not typed yet).
+diff -ruN a/Data/Containers.hs b/Data/Containers.hs
+--- a/Data/Containers.hs	2026-11-01 09:24:50
++++ b/Data/Containers.hs	2026-11-01 09:24:50
+@@ -245,10 +245,15 @@
+     {-# INLINE mapKeysWith #-}
+ instance BiPolyMap HashMap.HashMap where
+     type BPMKeyConstraint HashMap.HashMap key = (Hashable key, Eq key)
++#ifdef __YALE_HASKELL__
++    -- (the same: a later key's value is the second argument of g)
++    mapKeysWith g f = HashMap.fromListWith (flip g) . map (\(k, v) -> (f k, v)) . HashMap.toList
++#else
+     mapKeysWith g f =
+         mapFromList . unionsWith g . map go . mapToList
+       where
+         go (k, v) = [(f k, v)]
++#endif
+     {-# INLINE mapKeysWith #-}
+ 
+ -- | Polymorphic typeclass for interacting with different map types
+diff -ruN a/Data/MonoTraversable.hs b/Data/MonoTraversable.hs
+--- a/Data/MonoTraversable.hs	2026-11-01 08:59:54
++++ b/Data/MonoTraversable.hs	2026-11-01 08:59:54
+@@ -1546,9 +1546,11 @@
+     {-# INLINE null #-}
+     length (WrappedMono mono) = olength mono
+     {-# INLINE length #-}
++#ifndef __YALE_HASKELL__
+     elem a (WrappedMono mono) = oelem a mono
+     {-# INLINE elem #-}
+     maximum (WrappedMono mono) = maximumEx mono
+     {-# INLINE maximum #-}
+     minimum (WrappedMono mono) = minimumEx mono
+     {-# INLINE minimum #-}
++#endif
