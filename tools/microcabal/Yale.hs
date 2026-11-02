@@ -64,7 +64,7 @@ builtinPackages :: [PackageName]
 builtinPackages =
   [ "base", "ghc-prim", "array", "containers", "bytestring", "text",
     "deepseq", "directory", "filepath", "process", "time", "mtl",
-    "transformers", "parsec", "pretty", "random", "stm", "parallel", "binary", "QuickCheck",
+    "transformers", "parsec", "pretty", "random", "stm", "parallel", "binary",
     "hashable", "unordered-containers", "scientific", "haskeline",
     "ansi-terminal", "utf8-string", "old-time", "old-locale", "xhtml",
     "unix", "knob",
@@ -86,6 +86,12 @@ builtinPackages =
     -- GHC's for C++ code (double-conversion's): c++ links it
     -- (buildForeignLibrary)
     "system-cxx-std-lib" ]
+
+-- The packages Yale Haskell's library has a part of, installed in full
+-- when a package depends on them: their modules replace the library's
+-- (hspec-core's Test.QuickCheck.Text and the other internals).
+replacedPackages :: [PackageName]
+replacedPackages = [ "QuickCheck" ]
 
 -- The installed packages' database.
 yaleDB :: Env -> FilePath
@@ -131,12 +137,14 @@ stagePackage env db name vers flds = do
       -- none given: Haskell98, as Cabal assumes (filemanip's data Ix a
       -- => SRange a, a datatype context)
       lang    = [fromMaybe "Haskell98" (getFieldStringM flds "default-language")]
-      cppOpts = getFieldStrings flds []    "cpp-options"
+      cppOpts0 = getFieldStrings flds []   "cpp-options"
   -- $YALE_CPP_OPTIONS: more for every package (-D__GLASGOW_HASKELL__=906
   -- for code that only GHC is expected to compile)
   extraCpp0 <- maybe [] words <$> lookupEnv "YALE_CPP_OPTIONS"
   -- $YALE_MCABAL_PATCHES/NAME.cpp-options: more for this package only
-  -- (-D__GLASGOW_HASKELL__=906 for one that refuses other compilers)
+  -- (-D__GLASGOW_HASKELL__=906 for one that refuses other compilers);
+  -- -UNAME there drops the description's -DNAME (QuickCheck's Hugs
+  -- options: -ffake-ghc makes impl(ghc >= v) hold, not impl(ghc))
   pkgCpp <- do
     mdir <- lookupEnv "YALE_MCABAL_PATCHES"
     case mdir of
@@ -145,14 +153,20 @@ stagePackage env db name vers flds = do
         let f = dir </> name ++ ".cpp-options"
         b <- doesFileExist f
         if b then words <$> readFile f else return []
-  let extraCpp = extraCpp0 ++ pkgCpp
+  let undefs   = [ n | o <- pkgCpp, Just n <- [stripPrefix "-U" o] ]
+      kept o    = not ("-D" `isPrefixOf` o && takeWhile (/= '=') (drop 2 o) `elem` undefs)
+      cppOpts   = filter kept cppOpts0
+      extraCpp  = extraCpp0 ++ filter (not . ("-U" `isPrefixOf`)) pkgCpp
   rmrf env pdir
   mkdir env (pdir </> "src")
   forM_ (srcDirs ++ [pathModuleDir env]) $ \ d -> copyTree env d (pdir </> "src")
   -- a module Yale Haskell's library has is not the package's: a
   -- compatibility package's backport (bifunctor-classes-compat's
-  -- Data.Bifoldable for a base without it) would hide the library's
-  inLib <- libraryModules env (libModules flds)
+  -- Data.Bifoldable for a base without it) would hide the library's.
+  -- One of the packages the library has, installed in full (QuickCheck,
+  -- replacedPackages), replaces the library's modules.
+  inLib <- if name `elem` (builtinPackages ++ replacedPackages) then return []
+           else libraryModules env (libModules flds)
   unless (null inLib) $
     message env 0 $ "Not staged (Yale Haskell's library has them): " ++ unwords inLib
   forM_ inLib $ \ m -> do

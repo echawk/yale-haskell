@@ -290,7 +290,7 @@ Other commands (`mcabal help`):
 - The packages Yale Haskell provides itself count as installed and are
   never fetched: base, ghc-prim, array, containers, bytestring, text,
   deepseq, directory, filepath, process, time, mtl, transformers,
-  parsec, pretty, random, stm, parallel, binary, QuickCheck, hashable,
+  parsec, pretty, random, stm, parallel, binary, hashable,
   unordered-containers, scientific, haskeline, ansi-terminal,
   utf8-string, old-time, old-locale, xhtml, unix, knob, ghc-boot-th
   (GHC.Lexeme), ghc-compact, and the
@@ -298,6 +298,9 @@ Other commands (`mcabal help`):
   (the list is `builtinPackages` in `tools/microcabal/Yale.hs`).  They
   are "complete, or in the part commonly used", so a program may still
   find a module or function missing.
+  QuickCheck is in the library too, most of `Test.QuickCheck`, enough for
+  a program; a package that depends on it gets QuickCheck from Hackage,
+  whose modules then replace the library's (`replacedPackages`).
   `template-haskell` also counts as installed, so that packages depend on
   it; Template Haskell itself is only partly there (below).
 - `impl(ghc ...)` conditions in a `.cabal` file are false (the compiler
@@ -331,7 +334,9 @@ Some packages contain code that only GHC was meant to compile.  Each
 paths relative to the package's `src/` tree) when the backend stages the
 package named `NAME`; "Patching NAME with ..." is printed.  A
 `NAME.cpp-options` file there adds cpp options (`-D...`) for that
-package only.  About twenty packages have one or the other today
+package only; a `-UNAME` there drops the package's own `-DNAME` (QuickCheck's
+`.cabal` gives Hugs's `-DNO_MONADFAIL` and the rest to a compiler that is not
+GHC).  About twenty packages have one or the other today
 (aeson, async, ListLike, monad-control, primitive, regex-tdfa, tagged,
 ...): each replaces a GHC-only construct with portable code and says
 why.  To add one, drop a file of that name there, or set
@@ -372,12 +377,13 @@ a stale unit cache also hides a changed package `cpp-options`: clear
 `~/.cache/yale-haskell` after changing one), crypton (needs type-level
 Nat arithmetic and AllowAmbiguousTypes-style `Curve curve` calls:
 "ambiguous context (Curve)"; build it with `-f-integer-gmp`),
-streaming-commons (Data.Streaming.Text uses Data.Text.Internal.Encoding),
-unliftio (UnliftIO.IO.File.Posix uses GHC.IO.FD), generics-sop (class assertions on a
-constraint variable), parsers (an instance context variable fixed by a
-fundep), hspec-core (QuickCheck's Result lacks theException), ansi-wl-pprint
-(same module name as its prettyprinter-compat package), lens (duplicate
-Ixed Array instance).
+generics-sop (class assertions on a constraint variable), ansi-wl-pprint
+(same module name as its prettyprinter-compat package), lens (its compile
+does not finish).
+parsers, unliftio and streaming-commons (with patches) build and run.
+QuickCheck 2.17.1.0 builds from Hackage and runs, shrinking and `Fun`
+included, and with it hspec-core and hspec: a spec of `it`, `prop` and
+`shouldThrow` runs.
 
 Executables: alex 3.5.4.2 builds (`YALE_CPP_OPTIONS=-D__GLASGOW_HASKELL__=906
 mcabal -r install alex`) and generates the same scanners as the
