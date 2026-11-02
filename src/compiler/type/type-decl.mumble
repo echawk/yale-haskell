@@ -444,6 +444,9 @@
       ;; related to its argument part by part (existentials.mumble)
       (when (gadt-guarded-clause? object)
 	(setf arg-types (soft-pattern-types (single-fun-def-args object) arg-types)))
+      ;; (or an argument's: the others refined by it, existentials.mumble)
+      (when (dynamic *gadt-match*)
+	(setf arg-types (soft-refined-argument-types (single-fun-def-args object) arg-types)))
       (unify-list tyvars arg-types)
       ;; a GADT constructor matched (existentials.mumble)
       ;; the arguments' types are the signature's before the body is

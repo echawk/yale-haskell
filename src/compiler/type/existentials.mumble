@@ -165,12 +165,64 @@
 	 (if (and (is-type? 'pcon p)
 		  (or (pattern-has-gadt-con? p)
 		      (not (algdata-real-tuple? (con-alg (pcon-con p))))))
-	     (let ((slot (**ntyvar)))
-	       (push (list p (car (dynamic *enclosing-decls*)) ty slot)
-		     (dynamic *gadt-cast-types*))
-	       slot)
+	     (soft-pattern-type p ty)
 	     ty))
        pats types))
+
+(define (soft-pattern-type p ty)
+  (let ((slot (**ntyvar)))
+    (push (list p (car (dynamic *enclosing-decls*)) ty slot)
+	  (dynamic *gadt-cast-types*))
+    slot))
+
+;;; A clause that matches a GADT constructor in an argument: another
+;;; argument's constructor pattern (a tuple's too) whose type in the
+;;; signature is a variable the constructor's result refines is typed
+;;; apart, as in a case on that argument (QuickCheck's abstract (Pair p)
+;;; d (x,y) at (a :-> c) -> c -> a -> c, Pair's result (a,b) :-> c).
+(define (soft-refined-argument-types pats types)
+  (let ((refined (signature-refined-arguments pats)))
+    (if (null? refined)
+	types
+	(map (lambda (p ty refined?)
+	       (if (and refined? (is-type? 'pcon p) (not (pattern-has-gadt-con? p)))
+		   (soft-pattern-type p ty)
+		   ty))
+	     pats types refined))))
+
+;;; For each of PATS, whether its type in the declaration's signature is a
+;;; variable a GADT constructor pattern among them refines; '() when none is.
+(define (signature-refined-arguments pats)
+  (let* ((decl (car (dynamic *enclosing-decls*)))
+	 (vs (and (valdef? decl) (collect-pattern-vars (valdef-lhs decl))))
+	 (sig (and (not (null? vs)) (null? (cdr vs))
+		   (var-signature (var-ref-var (car vs))))))
+    (if (not (and sig (gtype? sig) (not (gtype-nested? sig))))
+	'()
+	(let* ((sig-args (arrow-argument-types (instantiate-gtype sig)))
+	       (n (min (length sig-args) (length pats)))
+	       (refined '()))
+	  (dolist2 (p (list-head pats n)) (ty (list-head sig-args n))
+	    (when (and (is-type? 'pcon p) (con-gadt? (pcon-con p))
+		       (gtype? (con-signature (pcon-con p))))
+	      (let ((ty (prune ty)))
+		(when (ntycon? ty)
+		  (dolist (i (refined-index-positions
+			      (instantiate-gtype (con-signature (pcon-con p)))))
+		    (when (< i (length (ntycon-args ty)))
+		      (let ((a (prune (list-ref (ntycon-args ty) i))))
+			(when (ntyvar? a)
+			  (push a refined)))))))))
+	  (if (null? refined)
+	      '()
+	      (let ((i -1))
+		(map (lambda (p)
+		       (incf i)
+		       (and (< i n)
+			    (not (and (is-type? 'pcon p) (con-gadt? (pcon-con p))))
+			    (memq (prune (list-ref sig-args i)) refined)
+			    '#t))
+		     pats)))))))
 
 (define (pattern-has-gadt-con? p)
   (cond ((is-type? 'pcon p)
