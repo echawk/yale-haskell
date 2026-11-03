@@ -6,10 +6,14 @@
 module GHC.Event (
     TimerManager, TimeoutKey, TimeoutCallback, getSystemTimerManager,
     registerTimeout, updateTimeout, unregisterTimeout,
-    EventManager, getSystemEventManager
+    EventManager, getSystemEventManager,
+    Event, evtRead, evtWrite
   ) where
 
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
+import Data.Bits ((.|.), (.&.))
+import Data.List (intercalate)
+import PreludeModern (Semigroup((<>)), Monoid(mempty))
 import Data.IORef
 import Data.Time.Clock.POSIX (getPOSIXTime)
 
@@ -57,3 +61,20 @@ data EventManager = EventManager
 
 getSystemEventManager :: IO (Maybe EventManager)
 getSystemEventManager = return Nothing
+
+-- The I/O events a registration waits for, as GHC's: a set (its Monoid),
+-- shown as [evtRead,evtWrite] (lens' AsEmpty Event)
+newtype Event = Event Int deriving Eq
+
+evtRead, evtWrite :: Event
+evtRead = Event 1
+evtWrite = Event 2
+
+instance Semigroup Event where
+  Event a <> Event b = Event (a .|. b)
+
+instance Monoid Event where
+  mempty = Event 0
+
+instance Show Event where
+  show (Event e) = "[" ++ intercalate "," [n | (b, n) <- [(1, "evtRead"), (2, "evtWrite")], e .&. b /= 0] ++ "]"

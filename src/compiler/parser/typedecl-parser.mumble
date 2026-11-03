@@ -308,15 +308,17 @@
      (\| (cons constr (parse-constrs)))
      (else (list constr)))))
 
-;;; ExistentialQuantification (GHC): forall a. C a => K t ... ; the
-;;; context is allowed only after a forall (as in GHC).
+;;; ExistentialQuantification (GHC): forall a. C a => K t ... ; and a
+;;; context without a forall, on the type's own variables (lens' data
+;;; Answer b a = b ~ a => Hit a | ..).
 
 (define (parse-constr)
   (let* ((exist (skip-explicit-forall))
-	 (context (if (null? exist)
-		      '()
+	 (context (if (or (not (null? exist))
+			  (and (haskell98?) (has-optional-context?)))
 		      (mlet (((single _) (split-contexts (parse-optional-context))))
-			single)))
+			single)
+		      '()))
 	 (constr (parse-constr-1)))
     (setf (constr-exist-tyvars constr) exist)
     (setf (constr-exist-context constr) context)

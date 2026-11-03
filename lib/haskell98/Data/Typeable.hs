@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeOperators #-}
 -- Data.Typeable (base): run-time type representations.  Every type
 -- constructor is Typeable without an instance, as in GHC: the type
 -- checker makes the dictionary for T t1 .. tn from T's name and the ti's
@@ -7,13 +8,15 @@
 -- written.  A type constructor is its name and its defining module.
 module Data.Typeable (
     Typeable(primTypeRepOf), TypeRep, TyCon, Proxy(Proxy),
-    typeOf, typeRep, cast, gcast, gcast1, gcast2, eqTypeRep,
+    typeOf, typeRep, cast, eqT, gcast, gcast1, gcast2, eqTypeRep,
+    (:~:)(Refl), (:~~:)(HRefl),
     typeRepTyCon, typeRepArgs, splitTyConApp, funResultTy, tyConName,
     tyConModule, tyConPackage, mkTyCon3, mkTyConApp,
     showsTypeRep, rnfTypeRep, primTypeableDict, typeRepFingerprint
   ) where
 
 import Data.Proxy (Proxy(Proxy))
+import Data.Type.Equality ((:~:)(Refl), (:~~:)(HRefl))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Bits (xor)
 import Data.Char (ord)
@@ -86,6 +89,16 @@ cast x = r
   where r = if typeOf x == typeOf (unJust r) then Just (unsafeCoerce x) else Nothing
         unJust :: Maybe b -> b
         unJust _ = undefined
+
+-- a proof that a and b are the same type, when they are (lens' Data.Data.Lens)
+eqT :: (Typeable a, Typeable b) => Maybe (a :~: b)
+eqT = r
+  where r = if typeRep (left r) == typeRep (right r)
+              then Just (unsafeCoerce Refl) else Nothing
+        left :: Maybe (x :~: y) -> Proxy x
+        left _ = Proxy
+        right :: Maybe (x :~: y) -> Proxy y
+        right _ = Proxy
 
 gcast :: (Typeable a, Typeable b) => c a -> Maybe (c b)
 gcast x = r
