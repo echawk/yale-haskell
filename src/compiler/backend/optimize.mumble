@@ -171,7 +171,11 @@
 		      '||
 		      (def-module (car (flic-let-bindings object))))))
     (setf *hacks-done* '())
-    (dotimes (i (dynamic *max-optimize-iterations*))
+    (let* ((start-size (flic-size object *optimize-growth-cap*))
+	   (sizes (list start-size))        ; after each pass, the last first
+	   (stopped? '#f))
+     (dotimes (i (dynamic *max-optimize-iterations*))
+      (when (not stopped?)
       (dynamic-let ((*current-optimize-iteration*  i))
 ;; debug	    (*duplicate-object-table*      (make-table)))
 	(when (memq 'optimize-extra (dynamic *printers*))
@@ -184,7 +188,9 @@
 	  (setf (flic-let-bindings object)
 		(append (flic-let-bindings object)
 			(nreverse (dynamic *new-specializations*))))
-	  (setf (dynamic *new-specializations*) '()))))
+	  (setf (dynamic *new-specializations*) '()))
+	(push (flic-size object (optimize-growth-limit start-size)) sizes)
+	(setf stopped? (optimize-runaway? object i sizes))))))
     (remove-unused-specializations object)
     (setf (flic-let-bindings object)
 	  (nconc (nreverse (dynamic *structured-constants*))
@@ -193,6 +199,57 @@
   (postoptimize object)
   object)
 
+
+;;; A pass that copies code into itself grows the module exponentially: a
+;;; variable inlined into its own value doubled nhc98's FixSyntax at every
+;;; pass, 637 nodes to 574,089 (*binding-vars*).  So the module's size is
+;;; measured after each pass (YALE_HASKELL_TRACE prints it), and the
+;;; optimizer stops, with a warning naming the biggest bindings, when it
+;;; grew by half or more in each of the last three passes past
+;;; *optimize-growth-floor* nodes, or past 64 times its size before the
+;;; first and *optimize-growth-cap* nodes.  (One pass may grow a module
+;;; many times over: vector's Data.Vector.Strict, wrappers of Inline
+;;; functions, goes from 2,745 nodes to 175,724 in its second pass.)
+;;; The passes are rewrites that keep the meaning, so the code is right,
+;;; only not optimized further.
+(define *optimize-growth-floor* 10000)
+(define *optimize-growth-cap* 1000000)
+
+(define (optimize-growth-limit start)
+  (max (* 64 start) *optimize-growth-cap*))
+
+;;; SIZES: the module's size after each pass so far, the last first, and
+;;; before the first pass last.
+(define (optimize-runaway? object pass sizes)
+  (let ((size (car sizes))
+	(start (car (lisp:last sizes))))
+    (when (trace-compile?)
+      (lisp:format lisp:*error-output* "~&  optimize pass ~D: ~D nodes~%" pass size))
+    (if (or (> size (optimize-growth-limit start))
+	    (and (> size *optimize-growth-floor*)
+		 (>= (length sizes) 4)
+		 (growing-by-half? (list-head sizes 4))))
+	(begin
+	  (haskell-warning 'optimizer-growth
+	    "The optimizer stopped after pass ~D: the code grew from ~D to ~D nodes (largest: ~A)."
+	    pass start size (optimize-largest-bindings object (optimize-growth-limit start)))
+	  '#t)
+	'#f)))
+
+;;; Whether each size is at least half again the next (the one before it).
+(define (growing-by-half? sizes)
+  (or (null? (cdr sizes))
+      (and (>= (* 2 (car sizes)) (* 3 (cadr sizes)))
+	   (growing-by-half? (cdr sizes)))))
+
+;;; The three biggest bindings, as "name (nodes), ...".
+(define (optimize-largest-bindings object limit)
+  (let* ((sizes (map (lambda (v) (cons v (flic-size (var-value v) limit)))
+		     (lisp:remove-if-not (function var-value) (flic-let-bindings object))))
+	 (top (list-head (lisp:sort sizes (function >) :key (function cdr))
+			 (min 3 (length sizes)))))
+    (lisp:format lisp:nil "~{~A (~D)~^, ~}"
+		 (lisp:mapcan (lambda (p) (list (def-name (car p)) (cdr p))) top))))
 
 (define-flic-walker optimize (object))
 
