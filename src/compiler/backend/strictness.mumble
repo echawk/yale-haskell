@@ -260,6 +260,14 @@
 	   ;; terminate the fixpoint iteration.
 	   '#t)
 	  ((> *strictness-traces* *strictness-trace-limit*)
+	   ;; (named once, under YALE_HASKELL_TRACE: a limit reached is where
+	   ;; a compile's time went)
+	   (when (and (trace-compile?)
+		      (eqv? *strictness-traces* (1+ *strictness-trace-limit*)))
+	     (incf *strictness-traces*)
+	     (lisp:format lisp:*error-output*
+			  "~&  strictness: trace limit (~D) reached at ~A~%"
+			  *strictness-trace-limit* (def-name var)))
 	   '#f)
 	  (else
 	   (incf *strictness-traces*)

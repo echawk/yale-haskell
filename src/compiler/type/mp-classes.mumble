@@ -681,8 +681,13 @@
 	      (improve-by-fundeps class types (mp-placeholder-types q)))))
 	(when (not (equal? before (map (function mp-type-snapshot) types)))
 	  (setf changed '#t)))))
-    (when (and changed (> limit 0))
-      (improve-mp-loop mps (1- limit)))))
+    (cond ((and changed (> limit 0))
+	   (improve-mp-loop mps (1- limit)))
+	  ((and changed (trace-compile?))
+	   ;; (still changing at the limit: named under YALE_HASKELL_TRACE)
+	   (lisp:format lisp:*error-output*
+			"~&  improvement: still changing after its last pass: ~A~%"
+			(map (lambda (p) (def-name (mp-placeholder-class p))) mps))))))
 
 ;;; Improvement by an instance's head, then by its context's
 ;;; multi-parameter constraints (instance MonadState s m => MonadState s
