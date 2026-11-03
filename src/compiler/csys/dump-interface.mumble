@@ -146,6 +146,8 @@
 	      (or (> (form-weight f) *max-function-weight*)
 		  (> (form-size f) *max-function-size*)))
 	 (let ((helpers '()))
+	   ;; (refusals are this definition's: its forms, kept no longer)
+	   (lisp:clrhash *lift-refusals*)
 	   (let ((new (dynamic-let ((*lift-branches?*
 				     (> (form-size f) *max-function-size*)))
 			`(define ,(cadr f)
@@ -248,14 +250,18 @@
     (if (and (dynamic *lift-branches?*)
 	     (pair? e)
 	     (> (form-size e) (if (null? min-size) *branch-lift-size* (car min-size))))
-	(let ((free (liftable-free-vars e env fenv)))
-	  (if (eq? free 'no)
+	(let ((lifted (liftable-free-vars e env fenv)))
+	  (if (eq? lifted 'no)
 	      e
-	      (let ((helper (string->symbol
-			     (format '#f "~A%lift~A" name (incf *lift-counter*)))))
-		(funcall emit `(define (,helper ,@free) ,e))
-		`(,helper ,@free))))
+	      (emit-lifted e lifted name emit)))
 	e)))
+
+;;; BODY as a new top-level function of the locals FREE, and the call of
+;;; it that replaces BODY.
+(define (emit-lifted body free name emit)
+  (let ((helper (string->symbol (format '#f "~A%lift~A" name (incf *lift-counter*)))))
+    (funcall emit `(define (,helper ,@free) ,body))
+    `(,helper ,@free)))
 
 (define (lambda-list-vars ll)
   (lisp:remove-if (lambda (x) (or (not (symbol? x))
@@ -302,13 +308,10 @@
 	((and (eq? (car x) 'delay) (pair? (cdr x)))
 	 ;; (its body's own thunks and branches first, bottom up)
 	 (let* ((body (lift-delays (cadr x) env fenv name emit))
-		(free (liftable-free-vars body env fenv)))
-	   (if (eq? free 'no)
+		(lifted (liftable-free-vars body env fenv)))
+	   (if (eq? lifted 'no)
 	       `(delay ,body)
-	       (let ((helper (string->symbol
-			      (format '#f "~A%lift~A" name (incf *lift-counter*)))))
-		 (funcall emit `(define (,helper ,@free) (delay ,body)))
-		 `(,helper ,@free)))))
+	       (emit-lifted `(delay ,body) lifted name emit))))
 	((and (lambda-form? (car x)) (pair? (cdr x)))
 	 `(,(car x) ,(cadr x)
 	   ,@(map (lambda (b) (lift-delays b (append (lambda-list-vars (cadr x)) env)
@@ -349,26 +352,76 @@
 	   (append (reverse res) l)))))
 
 ;;; The locals in scope (ENV) that E uses, or 'no when E uses a local not
-;;; known to be bound, a local function, or leaves a block or tag.
+;;; known to be bound, a local function, or leaves a block or tag.  A
+;;; return-from a block E itself establishes stays inside the helper (a
+;;; thunk's own pattern match, (block pmatch .. (return-from pmatch ..))).
+;;;
+;;; lift-delays asks this of each thunk and branch, innermost first, and
+;;; one that is not lifted is part of the next one out: nhc98's FixSyntax,
+;;; whose thunks call local functions, walked its deep nest again at each
+;;; level (50 minutes; the code was big because of an optimizer bug,
+;;; optimize.mumble's *binding-vars*).  So the walk stops at the first
+;;; local function or unknown local, a subform refused before for one of
+;;; those is not walked again (*lift-refusals*), and E's binders and blocks
+;;; are gathered only for a walk that succeeds.
+(define *lift-refusals* (lisp:make-hash-table :test (function lisp:eq)))
+
 (define (liftable-free-vars e env fenv)
-  (let ((bound (form-binders e '()))
-	(free '())
-	(ok? '#t))
+  (let ((seen (lisp:make-hash-table :test (function lisp:eq)))
+	(locals '())         ; distinct locals E uses, outside env or not
+	(targets '())        ; blocks E returns from
+	(refusal '#f))
     (lisp:labels ((walk (y)
-		     (cond ((pair? y)
-			    (when (memq (car y) '(return-from lisp:return-from go lisp:go
-						  return lisp:return))
-			      (setf ok? '#f))
-			    (do ((l y (cdr l))) ((not (pair? l)))
-			      (walk (car l))))
-			   ((local-symbol? y)
-			    (cond ((memq y fenv) (setf ok? '#f))
-				  ((memq y bound))
-				  ((memq y env) (when (not (memq y free)) (push y free)))
-				  (else (setf ok? '#f))))
-			   ((and (symbol? y) (memq y fenv)) (setf ok? '#f)))))
+		     (when (not refusal)
+		       (cond ((pair? y)
+			      (let ((r (lisp:gethash y *lift-refusals*)))
+				(cond ((and r (or (eq? r 'unknown)
+						  (and (pair? r) (memq (cdr r) fenv))))
+				       (setf refusal r))
+				      (else
+				       (cond ((and (memq (car y) '(return-from lisp:return-from))
+						   (pair? (cdr y)) (symbol? (cadr y)))
+					      (push (cadr y) targets))
+					     ((memq (car y) '(go lisp:go return lisp:return))
+					      (setf refusal 'exit)))
+				       (do ((l y (cdr l))) ((not (pair? l)))
+					 (walk (car l)))))))
+			     ((and (symbol? y) (not (lisp:gethash y seen)))
+			      (setf (lisp:gethash y seen) '#t)
+			      (cond ((memq y fenv) (setf refusal (cons 'fenv y)))
+				    ((local-symbol? y) (push y locals))))))))
       (walk e))
-    (if ok? (reverse free) 'no)))
+    (when (not refusal)
+      (let ((blocks (if (null? targets) '() (form-blocks e '()))))
+	(when (lisp:some (lambda (b) (not (memq b blocks))) targets)
+	  (setf refusal 'exit))))
+    (let ((free '()))
+      (when (not refusal)
+	(let ((bound (symbol-set (form-binders e '()))))
+	  (dolist (y locals)
+	    (cond ((lisp:gethash y bound))
+		  ((memq y env) (push y free))
+		  (else (setf refusal 'unknown))))))
+      (cond (refusal
+	     (when (pair? e)
+	       (setf (lisp:gethash e *lift-refusals*) refusal))
+	     'no)
+	    (else free)))))
+
+(define (symbol-set symbols)
+  (let ((h (lisp:make-hash-table :test (function lisp:eq))))
+    (dolist (s symbols) (setf (lisp:gethash s h) '#t))
+    h))
+
+;;; The names of the blocks E establishes.
+(define (form-blocks e acc)
+  (cond ((not (pair? e)) acc)
+	((memq (car e) '(quote lisp:quote)) acc)
+	(else
+	 (when (and (memq (car e) '(block lisp:block)) (pair? (cdr e)) (symbol? (cadr e)))
+	   (setf acc (cons (cadr e) acc)))
+	 (do ((l e (cdr l))) ((not (pair? l)) acc)
+	   (setf acc (form-blocks (car l) acc))))))
 
 ;;; The locals E binds, by the forms lift-delays follows.
 (define (form-binders e acc)
