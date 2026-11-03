@@ -7,6 +7,7 @@ these are what comes after M11.
 
 | Plan | Topic | Status |
 |---|---|---|
+| [ROADMAP.md](ROADMAP.md) | Where Yale stands against GHC (conformance, correctness, speed), pandoc's dependency closure, and the agreed order of the next big items | current order (2026-11-02) |
 | [CONFORMANCE.md](CONFORMANCE.md) | Haskell 98 / Haskell 2010 conformance: the export checker, nofib, what remains | in progress |
 | [MICROCABAL.md](MICROCABAL.md) | Build MicroCabal (a Haskell 2010 Cabal subset) with Yale Haskell, then use it to build packages | mcabal runs with a Yale backend; about 80 Hackage packages build (Agda's dependencies) |
 | [REAL-WORLD-TARGETS.md](REAL-WORLD-TARGETS.md) | A ladder of real Haskell code to compile, below and beyond MicroCabal: darcs, husk-scheme, happy, optparse-applicative, and now Agda | ladder climbed; Agda in progress (2026-10-22) |
