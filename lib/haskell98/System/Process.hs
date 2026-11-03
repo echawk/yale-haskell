@@ -12,7 +12,7 @@ module System.Process (
     waitForProcess, getProcessExitCode, terminateProcess,
     showCommandForUser, system, rawSystem,
     runInteractiveCommand, runInteractiveProcess,
-    Pid, getPid, createPipe, FD, createPipeFd, interruptProcessGroupOf
+    Pid, getPid, getCurrentPid, createPipe, FD, createPipeFd, interruptProcessGroupOf
   ) where
 
 import System.Exit
@@ -27,6 +27,7 @@ import System.Posix.Types (CPid, GroupID, UserID, Fd(..))
 import System.Posix.IO (fdToHandle)
 import System.Posix.Signals (signalProcess, sigINT)
 import System.Posix.Internals (FD)
+import System.Posix.Process (getProcessID)
 
 data CmdSpec = ShellCommand String
              | RawCommand FilePath [String]
@@ -105,11 +106,19 @@ createProcess cp = do
   i <- pipe p 0 (std_in cp)
   o <- pipe p 1 (std_out cp)
   r <- pipe p 2 (std_err cp)
+  -- the parent's copy of a UseHandle handle is closed, as in the process
+  -- package (other than our stdin, stdout and stderr): a pipe's writing
+  -- end left open here would keep its reader from ever seeing the end
+  -- (hiss's runTee)
+  mapM_ closeUsed [std_in cp, std_out cp, std_err cp]
   code <- newIORef Nothing
   return (i, o, r, ProcessHandle p code)
  where
   pipe p n CreatePipe = primProcessHandle p n >>= return . Just . Handle
   pipe _ _ _          = return Nothing
+  closeUsed (UseHandle h)
+    | h /= stdin && h /= stdout && h /= stderr = hClose h
+  closeUsed _ = return ()
 
 createProcess_ :: String -> CreateProcess
                -> IO (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
@@ -237,6 +246,10 @@ interactive cp = do
   return (i, o, r, p)
 
 type Pid = CPid
+
+-- | This process's own id
+getCurrentPid :: IO Pid
+getCurrentPid = getProcessID
 
 -- | The process's id (Nothing once it is known to have exited)
 getPid :: ProcessHandle -> IO (Maybe Pid)

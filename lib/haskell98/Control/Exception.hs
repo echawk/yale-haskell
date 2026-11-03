@@ -33,7 +33,7 @@ import PreludeIO (IOError(..))
 import BasePrims
 import Data.Typeable (Typeable)
 import Data.Dynamic (toDyn, fromDynamic)
-import System.Exit (ExitCode)
+import System.Exit (ExitCode(ExitSuccess, ExitFailure))
 import ConcurrentBase (ThreadId(..), withMaskState)
 import ConcurrentPrims (primThrowTo, primGetMask)
 import System.IO.Unsafe (unsafePerformIO)
@@ -274,8 +274,16 @@ instance Show AssertionFailed where
 
 instance Exception AssertionFailed
 
--- (exitWith exits at once: only a thrown ExitCode is caught as one)
-instance Exception ExitCode
+-- exitWith's exception (base-runtime.lisp's haskell-exit): caught as an
+-- ExitCode, as GHC's, by a handler around it; past every handler, the
+-- program exits with it
+instance Exception ExitCode where
+  toException ExitSuccess = SomeException (primMakeExit 0)
+  toException (ExitFailure n) = SomeException (primMakeExit n)
+  fromException (SomeException e)
+    | primExcKind e == 4 = Just (if primExitCode e == 0 then ExitSuccess
+                                 else ExitFailure (primExitCode e))
+    | otherwise          = Nothing
 
 handle :: Exception e => (e -> IO a) -> IO a -> IO a
 handle = flip catch

@@ -60,6 +60,8 @@ primExcMessage     :: Exc -> String
 primMakeErrorCall  :: String -> Exc
 primMakeArithError :: Int -> Exc
 primArithCode      :: Exc -> Int
+primMakeExit       :: Int -> Exc
+primExitCode       :: Exc -> Int
 -- an exception of a program's own type (Control.Exception): its shown
 -- text and the value as a Dynamic
 primMakeUserExc    :: String -> a -> Exc
@@ -170,6 +172,8 @@ primExcMessage     :: LispName("prim.exc-message")
 primMakeErrorCall  :: LispName("prim.make-error-call")
 primMakeArithError :: LispName("prim.make-arith-error")
 primArithCode      :: LispName("prim.arith-code")
+primMakeExit       :: LispName("prim.make-exit")
+primExitCode       :: LispName("prim.exit-code")
 primMakeUserExc    :: LispName("prim.make-user-exc")
 primExcValue       :: LispName("prim.exc-value")
 primExcToObj       :: LispName("prim.identity")

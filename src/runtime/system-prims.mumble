@@ -105,6 +105,10 @@
 
 ;;; primExitWith :: Int -> IO a     (0 means ExitSuccess)
 (define (prim.exit-with code)
+  ;; inside a catch, GHC's ExitCode exception (base-runtime.lisp's
+  ;; haskell-exit); thrown on past every handler, an exit
+  (when (dynamic *catch-runtime-errors*)
+    (lisp:error (prim.make-exit code)))
   (flush-standard-streams)
   (if *haskell-batch-mode*
       (exit code)

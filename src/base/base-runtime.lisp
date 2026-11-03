@@ -124,16 +124,36 @@
       (cl:format cl:*error-output* "~&--- throw: ~A~%" (prim.exc-message c))
       #+sbcl (sb-debug:print-backtrace :count 60 :stream cl:*error-output*)
       (cl:finish-output cl:*error-output*)))
-  (cl:error c))
+  ;; an ExitCode no handler is left to catch: the program exits with it,
+  ;; as GHC's does
+  (cl:if (cl:and (cl:typep c 'haskell-exit) (cl:not *catch-runtime-errors*))
+         (prim.exit-with (haskell-exit-code c))
+         (cl:error c)))
 
 ;;; 0 an IOError, 1 an ErrorCall, 2 an arithmetic error, 3 an exception
-;;; of a program's own type
+;;; of a program's own type, 4 an ExitCode
 (cl:defun prim.exc-kind (c)
   (cl:typecase c
     (haskell-io-error 0)
+    (haskell-exit 4)
     (haskell-user-exception 3)
     (haskell-error-call 1)
     (cl:t 2)))
+
+;;; System.Exit's exitWith inside a catch (prim.exit-with): GHC's ExitCode
+;;; exception, which handlers, finally and bracket see (hiss's hooks).  It
+;;; is an error call, so that a thread or an embedding Lisp program, which
+;;; catch those, end as with one.
+(cl:define-condition haskell-exit (haskell-error-call)
+  ((code :initarg :code :reader haskell-exit-code)))
+
+(cl:defun prim.make-exit (code)
+  (cl:make-condition 'haskell-exit :code code
+                     :message (cl:if (cl:eql code 0)
+                                     "ExitSuccess"
+                                     (cl:format cl:nil "ExitFailure ~D" code))))
+
+(cl:defun prim.exit-code (c) (haskell-exit-code c))
 
 ;;; An exception of a type a program defines (instance Exception T): the
 ;;; value, as a Data.Dynamic Dynamic, for fromException, and its shown text
