@@ -50,8 +50,10 @@ packages.  75 have already built, 31 are the library's, 84 are new.
    `abstract (Pair p) d (x,y)`, 2026-11-02).  Real given equalities
    would end that.
 3. `Int` is 63 bits; GHC's is 64.  Report-conforming but not
-   GHC-conforming: hashes, bit tricks and overflow differ.  A 64-bit
-   Int costs speed (SBCL fixnums are 63 bits).
+   GHC-conforming: hashes, bit tricks and overflow differ.  Decided
+   (2026-11-02): the default stays SBCL's fixnum, since a non-native
+   representation would cost every numeric program; GHC's 64-bit `Int`
+   is an opt-in, behind a flag or language extension for conformance.
 4. Module names are global, not per package: PackageImports and two
    packages with the same module name fail (ansi-wl-pprint).
 5. The library's partial packages hide the real ones: packages that
@@ -80,4 +82,4 @@ packages.  75 have already built, 31 are the library's, 84 are new.
 | 3 | Agda's memory faults | |
 | 4 | basement/memory, then crypton, then pandoc's tree | |
 | 5 | A batch of user programs against GHC's output | |
-| 6 | Longer: 64-bit Int, local equality constraints, per-package module names | |
+| 6 | Longer: opt-in 64-bit Int (never the default), local equality constraints, per-package module names | |
