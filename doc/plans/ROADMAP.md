@@ -73,11 +73,37 @@ packages.  75 have already built, 31 are the library's, 84 are new.
    loss), SpecConstr, CPR and unboxed returns, worker/wrapper's absent
    arguments, garbage collection; 68 MB executables.
 
+## Compile-time audit (item 1)
+
+Found and fixed 2026-11-03 (all commands now run under `tools/bound`,
+since `perl alarm` does not stop yale-haskell):
+
+- Given equalities that reduce a family application in a cycle (lens's
+  Control.Lens.Tuple, 14 hours): 15e5eae.
+- A variable's only reference inside its own value inlined into itself,
+  doubling the code every optimizer pass (nhc98's FixSyntax, 50 minutes
+  and out of memory): bf3ef58.  It also made vector's modules 3x slower
+  to compile (Data.Vector.Strict 62 s to 19 s; lens's check 7.5 to 2.6
+  minutes).
+- Lifting thunks out of oversized functions walked a refused body again
+  at each enclosing level: 63b0e2e.
+- A growth guard in the optimizer (d5c5731): it stops, with a warning
+  naming the biggest bindings, when the code grows by half in three
+  passes in a row past 10,000 nodes.
+
+Next, the same kind of check for the other loops that run to a fixpoint:
+strictness.mumble's fixpoint, mp-classes.mumble's improve-mp-loop (a
+limit of 50 passes, no warning), import-export's and derived-instances'
+fixpoints, and unify's deferred family equalities; each should count its
+rounds and say so when a limit is reached.  The slowest units left are
+SBCL compiling large generated code (vector's modules, about 20 s each,
+half of it the interface file).
+
 ## Order
 
 | # | Item | Status |
 |---|---|---|
-| 1 | Compile-time blowup: find it with lens and nhc98 | in progress (2026-11-02) |
+| 1 | Compile-time blowup: find it with lens and nhc98 | lens's loop and nhc98's stall fixed (2026-11-03, below); audit continues |
 | 2 | A harness for GHC testsuite `should_run` tests: a conformance number | |
 | 3 | Agda's memory faults | |
 | 4 | basement/memory, then crypton, then pandoc's tree | |
