@@ -1342,7 +1342,18 @@
 
 (define *eta-candidates* '())   ; ((var . arity) ...), values being optimized
 
+;;; The variables whose own values are being optimized here.  A variable's
+;;; only reference inside its own value (a local function nothing else
+;;; calls: nhc98's FixSyntax's foldAp) is not a single reference to inline:
+;;; copying the value into itself doubled it at every pass, 637 nodes to
+;;; 574,089 in 15 passes.
+(define *binding-vars* '())
+
 (define (optimize-binding-value var val)
+  (dynamic-let ((*binding-vars* (cons var (dynamic *binding-vars*))))
+    (optimize-binding-value-1 var val)))
+
+(define (optimize-binding-value-1 var val)
   (if (and (is-type? 'flic-lambda val)
 	   (dynamic *do-inline-optimizations*)
 	   (do-optimization? 'arity))
@@ -1525,6 +1536,7 @@
     (cond ((memq var (dynamic *inlining-vars*))
 	   object)
 	  ((and (var-single-ref var)
+		(not (memq var (dynamic *binding-vars*)))
 		;; A field selected from a matched constructor is kept as
 		;; its binding, as GHC's case binds the fields: copied to its
 		;; use, often in a thunk or after a call (dfs (N l r) = dfs l

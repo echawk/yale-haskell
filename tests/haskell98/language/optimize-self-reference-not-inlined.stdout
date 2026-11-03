@@ -1,0 +1,1 @@
+ExpApplication 0 [ExpCon "tc",ExpLit 0 (LitString "Prelude.->"),ExpApplication 0 [ExpCon "cons",ExpApplication 0 [ExpCon "tc",ExpLit 0 (LitString "\"Int\""),ExpCon "nil"],ExpApplication 0 [ExpCon "cons",ExpApplication 0 [ExpCon "tc",ExpLit 0 (LitString "?"),ExpApplication 0 [ExpCon "cons",ExpApplication 0 [ExpCon "tg",ExpLit 0 (LitString "v3")],ExpCon "nil"]],ExpCon "nil"]]]
