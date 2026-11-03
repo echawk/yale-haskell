@@ -1,0 +1,17 @@
+#!/usr/bin/perl
+# bound SECONDS CMD ARGS...: run CMD; SIGKILL it (and its process group)
+# after SECONDS.  SBCL handles SIGALRM itself, so `alarm; exec` does not
+# bound yale-haskell.  Exit 124 on timeout, as GNU timeout does.
+use strict;
+my $secs = shift @ARGV;
+my $pid = fork();
+die "fork: $!" unless defined $pid;
+if ($pid == 0) { setpgrp(0, 0); exec @ARGV or die "exec: $!"; }
+my $timed_out = 0;
+local $SIG{ALRM} = sub { $timed_out = 1; kill 'KILL', -$pid; kill 'KILL', $pid; };
+alarm $secs;
+waitpid($pid, 0);
+my $st = $?;
+alarm 0;
+if ($timed_out) { print STDERR "bound: killed after $secs s: @ARGV\n"; exit 124; }
+exit($st >> 8);

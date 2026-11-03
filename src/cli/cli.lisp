@@ -269,7 +269,25 @@
                  th (lambda ()
                       (format *error-output* "~&--- backtrace of ~A ---~%"
                               (sb-thread:thread-name sb-thread:*current-thread*))
-                      (sb-debug:print-backtrace :count 80 :stream *error-output*)
+                      ;; frame names only, each apart: a frame interrupted
+                      ;; where it has no debug information makes
+                      ;; print-backtrace signal (an unknown code-location),
+                      ;; which would end the compile
+                      (ignore-errors
+                       (let ((i 0))
+                         (sb-debug:map-backtrace
+                          (lambda (frame)
+                            (format *error-output* "~D: ~A~%" i
+                                    (handler-case
+                                        (let ((*print-length* 6) (*print-level* 3))
+                                          (with-output-to-string (s)
+                                            (sb-debug::print-frame-call frame s)))
+                                      (error ()
+                                        (handler-case
+                                            (sb-di:debug-fun-name (sb-di:frame-debug-fun frame))
+                                          (error () "?")))))
+                            (incf i))
+                          :count 80)))
                       (finish-output *error-output*)))))))
          :name "backtrace timer"))))
   ;; YALE_HASKELL_ROOM_AFTER=N: after N seconds, the heap's contents by
