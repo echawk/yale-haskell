@@ -316,6 +316,12 @@
 ;;; top level synonym is expanded.
 
 (define (expand-ntype-synonym type)
+  (expand-ntype-synonym/seen type '()))
+
+(predefine (ntype-identical? t1 t2))  ; in type/mp-classes.mumble
+
+;;; SEEN: the family applications this expansion has reduced from.
+(define (expand-ntype-synonym/seen type seen)
   (if (and (ntycon? type)
 	   (synonym? (ntycon-tycon type)))
       (let ((syn (ntycon-tycon type)))
@@ -323,7 +329,15 @@
 	;; a type family application: its equation's right-hand side, or
 	;; itself while its arguments do not decide (families below)
 	(let ((r (reduce-family-app type)))
-	  (if (eq? r 'stuck) type (expand-ntype-synonym r)))
+	  (cond ((eq? r 'stuck) type)
+		;; given equalities that reduce in a cycle stop where it
+		;; closes: lens's instance (p ~ GT (GSize s) n, p ~ GT (GSize
+		;; t) n, GIxed' p n s s' t t' a b) takes GT (GSize t) n to
+		;; GT (GSize s) n, and GIxed's superclass equality takes it
+		;; back (mp-classes.mumble's given-family-reduction)
+		((lisp:some (lambda (s) (ntype-identical? s r)) (cons type seen))
+		 type)
+		(else (expand-ntype-synonym/seen r (cons type seen)))))
 	;; over-applied (type R = Either String; R a): the expansion
 	;; applied to the arguments beyond the synonym's own
 	(let* ((n (length (synonym-args syn)))
@@ -333,10 +347,11 @@
 						    (tuple var val))
 						  (synonym-args syn)
 						  args))))
-	  (expand-ntype-synonym
+	  (expand-ntype-synonym/seen
 	   (if (> (length args) n)
 	       (apply-ntype (prune body) (lisp:nthcdr n args))
-	       body)))))
+	       body)
+	   seen))))
       type))
 
 ;;; TypeFamilies (GHC; parser/typedecl-parser.mumble, tdecl/alg-syn
@@ -385,6 +400,29 @@
 
 (predefine (given-family-reduction type))  ; in type/mp-classes.mumble
 
+(define *checking-given-cycle* '#f)
+
+;;; Whether R, a given equality's reduction of the family application
+;;; TYPE, reduces back to TYPE.  lens's instance (p ~ GT (GSize s) n, p ~
+;;; GT (GSize t) n, GIxed' p n s s' t t' a b) gives GT (GSize s) n ~ GT
+;;; (GSize t) n, and GIxed's superclass equality p ~ GT (GSize t) n takes
+;;; the second back to the first: reduced either way, unification and
+;;; expansion went round for ever.  Both stay as they are, equal by the
+;;; given equality (mp-classes.mumble's given-type-equality?).
+(define (given-reduction-cycles? type r)
+  (and (not (dynamic *checking-given-cycle*))
+       (dynamic-let ((*checking-given-cycle* '#t))
+	 (given-reduction-cycles-1? type r 16))))
+
+(define (given-reduction-cycles-1? type x n)
+  (let ((x (prune x)))
+    (cond ((ntype-identical? x type) '#t)
+	  ((or (eqv? n 0) (not (family-app? x))) '#f)
+	  (else
+	   (let ((next (reduce-family-app x)))
+	     (and (not (eq? next 'stuck))
+		  (given-reduction-cycles-1? type next (1- n))))))))
+
 (define (reduce-family-app type)
   (let* ((family (ntycon-tycon type))
 	 (args (ntycon-args type))
@@ -393,7 +431,13 @@
 	 (res (let ((r (reduce-family-app-1 eqs args)))
 		;; stuck: perhaps a given constraint's equality superclass
 		;; decides it (ListLike text char: Item text is char)
-		(when (eq? r 'stuck) (setf r (given-family-reduction type)))
+		(when (eq? r 'stuck)
+		  (setf r (given-family-reduction type))
+		  ;; (not into a cycle of given equalities, which leave it as
+		  ;; it is: given-reduction-cycles?)
+		  (when (and (not (eq? r 'stuck))
+			     (given-reduction-cycles? type r))
+		    (setf r 'stuck)))
 		;; or an argument that is an application reducing so
 		;; (SubstArg (SubstArg a) with SubstArg a ~ a given)
 		(if (eq? r 'stuck) (reduce-with-reduced-args type) r))))
