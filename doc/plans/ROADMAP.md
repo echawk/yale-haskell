@@ -13,7 +13,10 @@ items are done.
 - Real programs: cubicaltt, husk-scheme, happy, alex, darcs 1.0.9,
   xmonad's QuickCheck properties, LambdaPi and Mini-TT, optparse's test
   suite, and Agda (builds and checks files; its Succeed suite passed
-  1183 of 1852 on 2026-10-27).
+  1183 of 1852 on 2026-10-27).  hiss (github.com/echawk/hiss, a kiss
+  package manager over `process`) builds unchanged and passes its
+  kiss-spec conformance suite, 123 of 123 as with GHC, after the fixes it
+  found (14bc1e8: exitWith as ExitCode, UseHandle closing, getCurrentPid).
 - Hackage: about 160 packages have built (build/mcabal and the survey
   databases).  QuickCheck 2.17.1.0, hspec-core and hspec build from
   Hackage and run (2026-11-02).
@@ -91,11 +94,11 @@ since `perl alarm` does not stop yale-haskell):
   naming the biggest bindings, when the code grows by half in three
   passes in a row past 10,000 nodes.
 
-Next, the same kind of check for the other loops that run to a fixpoint:
-strictness.mumble's fixpoint, mp-classes.mumble's improve-mp-loop (a
-limit of 50 passes, no warning), import-export's and derived-instances'
-fixpoints, and unify's deferred family equalities; each should count its
-rounds and say so when a limit is reached.  The slowest units left are
+The strictness trace limit and improve-mp-loop's 50 passes now say so
+under YALE_HASKELL_TRACE when reached.  Next, the same check for
+import-export's and derived-instances' fixpoints and unify's deferred
+family equalities: each should count its rounds and name itself when a
+limit is reached.  The slowest units left are
 SBCL compiling large generated code (vector's modules, about 20 s each,
 half of it the interface file).
 
