@@ -5,7 +5,7 @@
 module Data.Binary.Get (
     Get, runGet, runGetOrFail, ByteOffset, Decoder(..), runGetIncremental,
     pushChunk, pushChunks, pushEndOfInput,
-    skip, isEmpty, bytesRead, lookAhead, lookAheadM, lookAheadE, label,
+    skip, isEmpty, remaining, bytesRead, lookAhead, lookAheadM, lookAheadE, label,
     getByteString, getBytes, getLazyByteString, getLazyByteStringNul,
     getRemainingLazyByteString,
     getWord8, getWord16be, getWord16le, getWord16host, getWord32be,
@@ -117,6 +117,10 @@ skip k = fmap (const ()) (getBytesString k)
 
 isEmpty :: Get Bool
 isEmpty = Get (\s n -> Right (null s, s, n))
+
+-- the bytes left in the input (binary's, which reads it all to count them)
+remaining :: Get Int64
+remaining = Get (\s n -> Right (fromIntegral (length s), s, n))
 
 bytesRead :: Get Int64
 bytesRead = Get (\s n -> Right (n, s, n))

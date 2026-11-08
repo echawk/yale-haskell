@@ -5,8 +5,8 @@
 -- instances.
 {-# LANGUAGE FlexibleInstances, ExistentialQuantification, TypeFamilies, TypeOperators, DataKinds, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 module GHC.TypeLits (
-    Symbol, Nat, Natural, KnownNat(natSing), natVal, SNat, fromSNat,
-    KnownSymbol(symbolSing), symbolVal, SSymbol, fromSSymbol,
+    Symbol, Nat, Natural, KnownNat(natSing), natVal, natVal', SNat, fromSNat,
+    KnownSymbol(symbolSing), symbolVal, symbolVal', SSymbol, fromSSymbol,
     withKnownNat, withSomeSNat, withKnownSymbol, withSomeSSymbol,
     KnownChar(charSing), charVal, SChar, fromSChar,
     ErrorMessage(..), TypeError, type (+), type (-), type (<=?), type (<=), Div, Mod, CmpNat
@@ -18,6 +18,13 @@ import GHC.TypeNats (Nat, KnownNat(natSing), SNat, fromSNat, withKnownNat, withS
 import PreludeCore (TypeSymbol, TypeChar, PromotedNil, PromotedCons)
 
 data Symbol
+
+-- (natVal' and symbolVal' take GHC.Exts' Proxy#, a Proxy here)
+natVal' :: KnownNat n => proxy n -> Integer
+natVal' = natVal
+
+symbolVal' :: KnownSymbol n => proxy n -> String
+symbolVal' = symbolVal
 
 natVal :: KnownNat n => proxy n -> Integer
 natVal p = toInteger (fromSNat (sing p))

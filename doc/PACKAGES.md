@@ -286,7 +286,7 @@ Other commands (`mcabal help`):
 - The packages Yale Haskell provides itself count as installed and are
   never fetched: base, ghc-prim, array, containers, bytestring, text,
   deepseq, directory, filepath, process, time, mtl, transformers,
-  parsec, pretty, random, stm, parallel, binary, hashable,
+  parsec, pretty, stm, parallel, binary, hashable,
   unordered-containers, scientific, haskeline, ansi-terminal,
   utf8-string, old-time, old-locale, xhtml, unix, knob, ghc-boot-th
   (GHC.Lexeme), ghc-compact, and the
@@ -295,9 +295,11 @@ Other commands (`mcabal help`):
   `tools/microcabal/MicroCabal/src/MicroCabal/Backend/Yale.hs`).  They
   are "complete, or in the part commonly used", so a program may still
   find a module or function missing.
-  QuickCheck is in the library too, most of `Test.QuickCheck`, enough for
-  a program; a package that depends on it gets QuickCheck from Hackage,
-  whose modules then replace the library's (`replacedPackages`).
+  QuickCheck and random are in the library too (most of `Test.QuickCheck`,
+  random 1.1's API and part of 1.2's), enough for a program; a package
+  that depends on one gets it from Hackage (random 1.3.1, QuickCheck
+  2.17.1.0), whose modules then replace the library's
+  (`replacedPackages`).
   `template-haskell` also counts as installed, so that packages depend on
   it; Template Haskell itself is only partly there (below).
 - `impl(ghc ...)` conditions in a `.cabal` file are false (the compiler

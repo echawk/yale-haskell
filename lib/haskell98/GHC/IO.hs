@@ -18,7 +18,7 @@ import GHC.PrimOps (State#, RealWorld)
 import Unsafe.Coerce (unsafeCoerce)
 import System.IO.Unsafe (unsafePerformIO, unsafeInterleaveIO,
                          unsafeDupablePerformIO)
-import Control.Monad.ST (stToIO, ioToST, unsafeIOToST, unsafeSTToIO)
+import STBase (stToIO, ioToST, unsafeIOToST, unsafeSTToIO)
 import Control.Exception (evaluate, throwIO, catch, mask, mask_,
                           uninterruptibleMask, uninterruptibleMask_,
                           onException, bracket, finally)

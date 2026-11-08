@@ -7,7 +7,7 @@ module Data.List.NonEmpty (
     drop, splitAt, iterate, repeat, cycle, insert, scanl, scanr, scanl1,
     scanr1, transpose, xor, unfoldr, unfold, some1, (!!), uncons, singleton,
     appendList, prependList, groupBy1, groupWith1, groupAllWith1, inits1,
-    tails1, permutations, permutations1, intersperse, inits, tails, append,
+    tails1, intersperse, inits, tails, append,
     isPrefixOf, nubBy
   ) where
 
@@ -133,11 +133,8 @@ inits1 = fromList . P.map fromList . P.drop 1 . L.inits . toList
 tails1 :: NonEmpty a -> NonEmpty (NonEmpty a)
 tails1 = fromList . P.map fromList . P.init . L.tails . toList
 
-permutations :: [a] -> NonEmpty [a]
-permutations = fromList . L.permutations
-
-permutations1 :: NonEmpty a -> NonEmpty (NonEmpty a)
-permutations1 = fromList . P.map fromList . L.permutations . toList
+-- (not base 4.20's permutations and permutations1: the library reports
+-- base 4.18, and base-compat's Data.List.NonEmpty.Compat defines them)
 
 filter :: (a -> Bool) -> NonEmpty a -> [a]
 filter p = P.filter p . toList

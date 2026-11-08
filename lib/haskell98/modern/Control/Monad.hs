@@ -3,11 +3,11 @@
 -- csys/compiler-driver.mumble): as the 2010 Report's, but guard is
 -- Alternative's (base's), replicateM, when, forever, filterM, zipWithM
 -- and their _ forms are over Applicative (base's), mapM, forM, sequence, msum and their _ forms are
--- over Traversable or Foldable (base's), and base's additions.  MonadFail
--- is exported without its fail, which a module gets from the Prelude:
--- library modules (mtl's) re-export Control.Monad under the core Prelude.
+-- over Traversable or Foldable (base's), and base's additions.  fail is
+-- MonadFail's, as base's Control.Monad exports it (logict's import
+-- Control.Monad (Monad(..), fail)), not the core Monad's.
 module Control.Monad (
-    Functor(fmap), Monad((>>=), (>>), return, fail), MonadFail,
+    Functor(fmap), Monad((>>=), (>>), return), MonadFail(fail),
     MonadPlus(mzero, mplus),
     mapM, mapM_, forM, forM_, sequence, sequence_, (=<<), (>=>), (<=<),
     forever, void, join, msum, filterM, mapAndUnzipM, zipWithM, zipWithM_,
@@ -22,7 +22,7 @@ import ControlMonadBase hiding (guard, mapM, mapM_, forM, forM_, sequence,
                                sequence_, msum, replicateM, replicateM_, when,
                                unless, forever, filterM, zipWithM, zipWithM_,
                                foldM, foldM_)
-import PreludeModern (Applicative(pure, (<*>), (*>)), liftA2, Alternative(empty), MonadFail,
+import PreludeModern (Applicative(pure, (<*>), (*>)), liftA2, Alternative(empty), MonadFail(fail),
                       Traversable(mapM, sequence), Foldable(foldr),
                       mapM_, sequence_)
 

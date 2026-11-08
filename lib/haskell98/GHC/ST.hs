@@ -9,7 +9,7 @@ module GHC.ST (
 import GHC.PrimOps (State#, RealWorld)
 import qualified GHC.IO as GIO
 import Unsafe.Coerce (unsafeCoerce)
-import Control.Monad.ST (ST, runST, fixST, stToIO, unsafeIOToST, unsafeSTToIO)
+import STBase (ST, runST, fixST, stToIO, unsafeIOToST, unsafeSTToIO)
 import System.IO.Unsafe (unsafeInterleaveIO)
 
 type STRep s a = State# s -> (# State# s, a #)

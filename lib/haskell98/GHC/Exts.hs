@@ -51,12 +51,13 @@ module GHC.Exts (
     uncheckedShiftRLWord8#, uncheckedShiftRLWord16#, uncheckedShiftRLWord32#,
     uncheckedShiftLWord8#, uncheckedShiftLWord16#, uncheckedShiftLWord32#,
     plusWord8#, plusWord16#, subWord8#, subWord16#, plusInt8#, plusInt16#, subInt8#, subInt16#,
-    Weak#, mkWeak#, mkWeakNoFinalizer#, deRefWeak#
+    Weak#, mkWeak#, mkWeakNoFinalizer#, deRefWeak#, Proxy#, proxy#
   ) where
 
 import GHC.IsList (IsList(..), Item)
 import Data.Coerce (coerce, Coercible)
 import Data.Kind (Constraint)
+import Data.Proxy (Proxy(Proxy))
 import BasePrims (primPtrEq)
 import GHC.PrimOps
 import GHC.PrimOpsTyped
@@ -542,3 +543,10 @@ bitReverse8# = bitReverseN 8
 bitReverse16# = bitReverseN 16
 bitReverse32# = bitReverseN 32
 bitReverse64# = bitReverseN 64
+
+-- the unlifted proxy: an ordinary Proxy here (random's natVal' (proxy# ::
+-- Proxy# n))
+type Proxy# = Proxy
+
+proxy# :: Proxy# a
+proxy# = Proxy

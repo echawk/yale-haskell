@@ -3,7 +3,7 @@ module Control.Monad.ST.Unsafe (
     unsafeIOToST, unsafeSTToIO, unsafeInterleaveST, unsafeDupableInterleaveST
   ) where
 
-import Control.Monad.ST (ST, unsafeIOToST, unsafeSTToIO)
+import STBase (ST, unsafeIOToST, unsafeSTToIO)
 import System.IO.Unsafe (unsafeInterleaveIO)
 
 unsafeInterleaveST :: ST s a -> ST s a

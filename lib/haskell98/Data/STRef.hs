@@ -3,7 +3,7 @@ module Data.STRef (
     STRef, newSTRef, readSTRef, writeSTRef, modifySTRef, modifySTRef'
   ) where
 
-import Control.Monad.ST (ST, unsafeIOToST)
+import STBase (ST, unsafeIOToST)
 import Data.IORef
 
 newtype STRef s a = STRef (IORef a)

@@ -24,7 +24,7 @@ import Array
 import Monad (zipWithM_)
 import BasePrims
 import qualified DataArrayIArrayBase as IA
-import Control.Monad.ST (ST, runST, unsafeIOToST)
+import STBase (ST, runST, unsafeIOToST)
 
 class Monad m => MArray a e m where
   getBounds       :: Ix i => a i e -> m (i, i)
