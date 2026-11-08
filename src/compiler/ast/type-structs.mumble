@@ -117,7 +117,10 @@
    (body (type t))   ; a type, or #f for a family
    ;; TypeFamilies: a type or data family (body #f); its equations are
    ;; the module's type-equations (type/families.mumble)
-   (family? (type t) (default '#f))))   ; #f, #t, or data
+   (family? (type t) (default '#f))   ; #f, #t, or data
+   ;; TypeFamilyDependencies: the positions of the parameters the result
+   ;; determines (= r | r -> a)
+   (injective (type list) (default '()))))
 
 
 ;;; <aldata-decl> -> data [<context> => ] <simple> = <constrs> 

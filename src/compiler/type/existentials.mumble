@@ -513,6 +513,15 @@
        (memq (def-module var) '(|Data.Coerce| |GHC.Exts| |GHC.Prim|))
        '#t))
 
+;;; Whether a coerce in VAR's declaration waits for its signature.
+(define (coercions-pending? var)
+  (lisp:some (lambda (entry)
+	       (and (eq? (car entry) 'coerce)
+		    (valdef? (cadr entry))
+		    (memq var (map (function var-ref-var)
+				   (collect-pattern-vars (valdef-lhs (cadr entry)))))))
+	     (dynamic *gadt-cast-types*)))
+
 (define (record-coercion object type)
   (let ((type (prune type)))
     (when (and (ntycon? type) (eq? (ntycon-tycon type) (core-symbol "Arrow"))
@@ -527,7 +536,11 @@
   (let ((t1 (prune t1))
 	(t2 (prune t2)))
     (cond ((<= depth 0) '#f)
-	  ((could-unify? t1 t2 32)
+	  ((and (could-unify? t1 t2 32)
+		;; (not a variable with a type that contains it: g and
+		;; StateGen g, random's put (coerce f), are a newtype apart)
+		(not (and (ntyvar? t1) (not (ntyvar? t2)) (occurs-in-type t1 t2)))
+		(not (and (ntyvar? t2) (not (ntyvar? t1)) (occurs-in-type t2 t1))))
 	   (type-unify t1 t2 '#f))
 	  ((and (ntycon? t1) (ntycon? t2)
 		(eq? (ntycon-tycon t1) (ntycon-tycon t2))

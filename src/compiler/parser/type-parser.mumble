@@ -599,7 +599,8 @@
 
 (define (leq-assertion-ahead?)
   (and (haskell98?)
-       (eq? *token* 'varid)
+       ;; (n <= m, or a literal's: random's 1 <= SeedSize g)
+       (memq *token* '(varid integer))
        (let ((saved (save-scanner-state)))
 	 (advance-token)
 	 (let ((res (and (eq? *token* 'varsym)

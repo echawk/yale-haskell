@@ -709,6 +709,11 @@
     ;; signature's, those its type does not mention too
     (link-scoped-instance-tyvars var sig-vars
 				 (lambda () (signature-mismatch var)))
+    ;; a coerce's types after the signature's functional dependencies
+    ;; decide them: put (coerce f) under MonadState g m, f :: StateGen g,
+    ;; is put's state type g, not StateGen g (random's overwriteGen)
+    (when (coercions-pending? var)
+      (improve-mp-placeholders/given (dynamic *placeholders*) givens))
     ;; GADTs: right-hand sides that need no refinement (existentials.mumble)
     (gadt-soft-unify var)
     (dolist (tyvar sig-vars)

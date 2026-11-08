@@ -345,7 +345,8 @@
       (update-slots synonym def
 	(args (simple-tyvar-list (synonym-decl-simple decl)))
 	(body '#f)
-	(family? (synonym-decl-family? decl)))
+	(family? (synonym-decl-family? decl))
+	(injective (synonym-decl-injective decl)))
       def)))
 
 ;;; A module's family equations, after its types are defined: each is

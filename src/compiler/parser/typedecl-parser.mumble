@@ -820,6 +820,7 @@
 (define *family-equations* '())
 (define *family-data-decls* '())
 (define *family-instance-count* 0)
+(define *family-injective-names* '())   ; parse-family-result-signature's
 
 ;;; type family F a b [:: kind] [where equations], data family ...,
 ;;; and in a class body type F a [:: kind], data F a [:: kind].  The kind's
@@ -827,6 +828,7 @@
 
 (define (parse-type-family-decl . data?)
   (when (at-varid-named? "family") (advance-token))
+  (setf *family-injective-names* '())
   (let* ((head (parse-infix-family-lhs (parse-btype)))
 	 (extra (cond ((eq-token? '\:\:)
 		       (advance-token)
@@ -852,7 +854,13 @@
 			 (list-head '(1 2 3 4 5 6 7 8) extra)))))
     ;; a data family is injective: family? is data
     (push (make synonym-decl (simple head) (body '#f)
-		(family? (if (and (pair? data?) (car data?)) 'data '#t)))
+		(family? (if (and (pair? data?) (car data?)) 'data '#t))
+		(injective (let ((i -1) (ps '()))
+			     (dolist (a (tycon-args head))
+			       (incf i)
+			       (when (and (tyvar? a) (memq (tyvar-name a) *family-injective-names*))
+				 (push i ps)))
+			     (reverse ps))))
 	  *family-decls*)
     ;; a closed family's equations
     (when (eq-token? '|where|)
@@ -869,8 +877,9 @@
       left))
 
 ;;; TypeFamilyDependencies (GHC): type family F a = r | r -> a, or
-;;; = (r :: kind) | ...  The injectivity is not used; the kind's arrows
-;;; count as more parameters.
+;;; = (r :: kind) | ...  The kind's arrows count as more parameters; the
+;;; names after the arrow are the injective parameters
+;;; (*family-injective-names*, then the synonym's injective positions).
 
 (define (at-family-result-signature?)
   (and (eq-token? '=)
@@ -887,7 +896,10 @@
 			    n))
 		   (begin (advance-token) 0))))
     (require-token \| (signal-missing-token "`|'" "a type family injectivity annotation"))
+    (setf *family-injective-names* '())
     (do () ((memq *token* '(\; \} $\} eof |where|)))
+      (when (and (eq? *token* 'varid) (not (eq? (peek-1-type) '->)))
+	(push (string->symbol (car *token-args*)) *family-injective-names*))
       (advance-token))
     extra))
 

@@ -712,6 +712,14 @@
 	  ((and (eq? r2 'stuck) (data-family-app? type2) (ntycon? r1)
 		(unify-data-family-instance type2 r1))
 	   'OK)
+	  ;; TypeFamilyDependencies: the type decides the injective
+	  ;; arguments, then the application reduces
+	  ((and (eq? r1 'stuck) (ntycon? (prune type2)) (not (family-app? (prune type2)))
+		(unify-injective-family type1 (prune type2)))
+	   (unify type1 type2))
+	  ((and (eq? r2 'stuck) (ntycon? (prune type1)) (not (family-app? (prune type1)))
+		(unify-injective-family type2 (prune type1)))
+	   (unify type1 type2))
 	  ((and (not (eq? r1 'stuck)) (not (eq? r2 'stuck)))
 	   (unify r1 r2))
 	  ((not (eq? r1 'stuck))
@@ -806,6 +814,41 @@
 		       (map (lambda (p) (expand-ntype-synonym-1 p env)) (tuple-2-1 eq)))
 	   (unify (expand-ntype-synonym-1 (tuple-2-2 eq) env) type)
 	   '#t))))
+
+;;; F args (a type family injective in some of its parameters, stuck)
+;;; against T ts: when exactly one of F's equations has a right-hand side
+;;; headed by T, F's injective arguments are that equation's patterns
+;;; there (fresh variables for theirs), as GHC improves by injectivity:
+;;; random's g ~ MutableGen f m, g StateGenM s, is f StateGen s.  #f when
+;;; it decides nothing.
+(define (unify-injective-family app type)
+  (let* ((fam (ntycon-tycon app))
+	 (positions (synonym-injective fam)))
+    (and (not (null? positions))
+	 (let ((eqs (lisp:remove-if-not
+		     (lambda (e)
+		       (let ((rhs (tuple-2-2 e)))
+			 ;; (a variable or an application right-hand side may
+			 ;; be anything)
+			 (or (not (tycon? rhs))
+			     (same-tycon? (tycon-def rhs) (ntycon-tycon type)))))
+		     (synonym-equations fam))))
+	   (and (not (null? eqs)) (null? (cdr eqs))
+		(tycon? (tuple-2-2 (car eqs)))
+		(let* ((eq (car eqs))
+		       (env (map (lambda (v) (tuple v (**ntyvar)))
+				 (lisp:remove-duplicates
+				  (lisp:mapcan (function ast-type-tyvar-names)
+					       (cons (tuple-2-2 eq) (tuple-2-1 eq))))))
+		       (pats (map (lambda (p) (expand-ntype-synonym-1 p env)) (tuple-2-1 eq)))
+		       (changed '#f))
+		  (unify (expand-ntype-synonym-1 (tuple-2-2 eq) env) type)
+		  (dolist (i positions)
+		    (when (and (< i (length pats)) (< i (length (ntycon-args app)))
+			       (ntyvar? (prune (list-ref (ntycon-args app) i))))
+		      (setf changed '#t)
+		      (unify (list-ref (ntycon-args app) i) (list-ref pats i))))
+		  changed))))))
 
 (define (ast-type-tyvar-names type)
   (cond ((tyvar? type) (list (tyvar-name type)))
