@@ -37,7 +37,7 @@ The live status of every ticket. Full specs are in [`roadmap.md`](roadmap.md) §
 
 | ID | Title | Depends on | Status | Branch / notes |
 |---|---|---|---|---|
-| YHS-0.1 | Fix CI | — | todo | Owns the "verify" on the CI cause. Never push; CI green is confirmed after the human pushes `ng`. |
+| YHS-0.1 | Fix CI | — | in-progress | Branch `ticket/YHS-0.1-fix-ci`. Owns the "verify" on the CI cause. Never push; CI green is confirmed after the human pushes `ng`. |
 | YHS-0.2 | Z3 query timeout in yale-liquid | — | todo | Find the hanging query first. |
 | YHS-0.3 | `scripts/check.sh` | YHS-0.1, YHS-0.2 | todo | CI must call this script. |
 | YHS-0.4 | Ratchet counters | YHS-0.3 | todo | Mallet on mumble macros is **verify**. |
