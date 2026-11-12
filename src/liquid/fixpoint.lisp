@@ -376,7 +376,8 @@ pair (PRED . KEY); KEYs of the valid ones are returned."
                 (liquid-parse-error (e)
                   (return-from solve-fq-file
                     (make-fixpoint-result :status :crash :message (princ-to-string e)))))))
-    (apply #'solve-fq info keys)))
+    (let ((*z3-query-label* (namestring path)))
+      (apply #'solve-fq info keys))))
 
 ;;; ------------------------------------------------------------------
 ;;; One-off validity checks (milestone 2 of the plan: no kvars)
