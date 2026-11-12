@@ -38,6 +38,7 @@ The live status of every ticket. Full specs are in [`roadmap.md`](roadmap.md) §
 | ID | Title | Depends on | Status | Branch / notes |
 |---|---|---|---|---|
 | YHS-0.1 | Fix CI | — | review | Branch `ticket/YHS-0.1-fix-ci`; note `notes/YHS-0.1.md`. Owns the "verify" on the CI cause. Never push; CI green is confirmed after the human pushes `ng`. |
+| YHS-0.1a | Linux CI failures after YHS-0.1 | YHS-0.1 | review | Run 43167422525: errno table and z3 fixed; `system/stack-overflow` memory fault on Linux still open. |
 | YHS-0.2 | Z3 query timeout in yale-liquid | — | todo | Find the hanging query first. |
 | YHS-0.3 | `scripts/check.sh` | YHS-0.1, YHS-0.2 | todo | CI must call this script. |
 | YHS-0.4 | Ratchet counters | YHS-0.3 | todo | Mallet on mumble macros is **verify**. |

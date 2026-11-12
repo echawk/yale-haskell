@@ -30,6 +30,8 @@ jobs:
       - name: Install SBCL (Linux)
         if: runner.os == 'Linux'
         run: |
+          sudo apt-get update
+          sudo apt-get install -y z3
           curl -fsSL -o sbcl.tar.bz2 \
             "https://downloads.sourceforge.net/project/sbcl/sbcl/${SBCL_VERSION}/sbcl-${SBCL_VERSION}-x86-64-linux-binary.tar.bz2"
           mkdir sbcl-dist
@@ -43,7 +45,7 @@ jobs:
       # if Homebrew leaves the 2.6 series.
       - name: Install SBCL (macOS)
         if: runner.os == 'macOS'
-        run: brew install sbcl
+        run: brew install sbcl z3
 
       - name: SBCL version
         run: |
@@ -73,8 +75,10 @@ jobs:
           path: ocicl
           key: ocicl-${{ runner.os }}-${{ hashFiles('ocicl.csv') }}
 
+      # ocicl fetches each library from ghcr.io in parallel; a dropped
+      # connection fails the whole step, so it is retried.
       - name: Install Lisp libraries
-        run: make deps
+        run: make deps || (sleep 15 && make deps) || (sleep 45 && make deps)
 
       - name: Build
         run: make
