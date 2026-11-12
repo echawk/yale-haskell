@@ -216,3 +216,23 @@ Lisp program can load the compiler with ASDF and contain Haskell
 
 See [Copyright](Copyright): free to copy and use with attribution to the
 Yale University Computer Science Department.
+
+## Project plan and agent workflow
+
+Development is planned as small tickets that builder agents implement and
+reviewer agents verify through milestone gates:
+
+- [AGENTS.md](AGENTS.md): rules for every coding agent (Claude Code reads it
+  through [CLAUDE.md](CLAUDE.md));
+- [doc/harness/roadmap.md](doc/harness/roadmap.md): the plan of record
+  (milestones, tickets, correctness strategy, north star);
+- [doc/harness/TICKETS.md](doc/harness/TICKETS.md): the ticket board;
+- [doc/harness/agent-protocol.md](doc/harness/agent-protocol.md): the ticket
+  lifecycle, review checklist and gates;
+- `notes/`: handoff, review and gate notes, with evidence;
+- `.claude/skills/`: the workflow skills (`start-ticket`, `finish-ticket`,
+  `review-ticket`, `milestone-gate`) and domain skills (`yale-dev`,
+  `correctness`, `perf-change`, `conformance-target`).
+
+In Claude Code, say "start the next ticket" (builder), "review YHS-0.1"
+(reviewer) or "run gate 0".
