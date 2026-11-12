@@ -5,6 +5,13 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The build needs SBCL 2.6.x (Ubuntu 24.04's apt SBCL is 2.2.9) and the Lisp
+# libraries pinned in ocicl.csv, which live in the gitignored ocicl/ directory
+# and so must be installed on every runner (YHS-0.1).
+env:
+  SBCL_VERSION: "2.6.10"
+  OCICL_VERSION: "2.20.0"
+
 jobs:
   build-and-test:
     name: ${{ matrix.os }}
@@ -16,19 +23,57 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
+      # Linux: the official binary tarball of the pinned version.
       - name: Install SBCL (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y sbcl
+          curl -fsSL -o sbcl.tar.bz2 \
+            "https://downloads.sourceforge.net/project/sbcl/sbcl/${SBCL_VERSION}/sbcl-${SBCL_VERSION}-x86-64-linux-binary.tar.bz2"
+          mkdir sbcl-dist
+          tar -xjf sbcl.tar.bz2 -C sbcl-dist --strip-components=1
+          (cd sbcl-dist && INSTALL_ROOT="$HOME/sbcl" sh install.sh)
+          echo "$HOME/sbcl/bin" >> "$GITHUB_PATH"
+          echo "SBCL_HOME=$HOME/sbcl/lib/sbcl" >> "$GITHUB_ENV"
 
+      # macOS: SBCL publishes no macOS binary for this version; Homebrew's
+      # bottle is the same release, and the version check below fails the job
+      # if Homebrew moves on, so the pin is still enforced.
       - name: Install SBCL (macOS)
         if: runner.os == 'macOS'
         run: brew install sbcl
 
       - name: SBCL version
-        run: sbcl --version
+        run: |
+          sbcl --version
+          sbcl --version | grep -q "SBCL ${SBCL_VERSION}"
+
+      - name: Install ocicl (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          curl -fsSL -o ocicl.tar.gz \
+            "https://github.com/ocicl/ocicl/releases/download/v${OCICL_VERSION}/ocicl-${OCICL_VERSION}-linux-amd64.tar.gz"
+          mkdir ocicl-dist
+          tar -xzf ocicl.tar.gz -C ocicl-dist
+          sudo install -m 755 "$(find ocicl-dist -type f -name ocicl | head -n 1)" /usr/local/bin/ocicl
+
+      - name: Install ocicl (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ocicl
+
+      - name: ocicl version
+        run: ocicl version
+
+      - name: Cache ocicl libraries
+        uses: actions/cache@v4
+        with:
+          path: ocicl
+          key: ocicl-${{ runner.os }}-${{ hashFiles('ocicl.csv') }}
+
+      - name: Install Lisp libraries
+        run: make deps
 
       - name: Build
         run: make
