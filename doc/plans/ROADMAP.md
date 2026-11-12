@@ -104,6 +104,11 @@ half of it the interface file).
 
 ## Order
 
+> **Superseded by doc/harness/roadmap.md** (2026-11-12). The order of work now
+> lives in the ticketed roadmap, [../harness/roadmap.md](../harness/roadmap.md),
+> which covers items 1–5 below; item 6 is a stretch goal there.  The rest of
+> this document stays as a design reference.
+
 | # | Item | Status |
 |---|---|---|
 | 1 | Compile-time blowup: find it with lens and nhc98 | lens's loop and nhc98's stall fixed (2026-11-03, below); audit continues |

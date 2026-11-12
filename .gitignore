@@ -9,3 +9,8 @@
 /.claude/*
 !/.claude/skills/
 /ocicl/
+
+# Secrets and local agent settings (agent harness, doc/harness/)
+.env
+.env.*
+/.claude/settings.local.json

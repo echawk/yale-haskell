@@ -1,0 +1,15 @@
+# Minimal settings only: existing mumble and Lisp files mix tabs and spaces,
+# so indentation is left to each file's surrounding style (AGENTS.md §9).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{py,sh,yml}]
+indent_style = space
+trim_trailing_whitespace = true
+
+[Makefile]
+indent_style = tab

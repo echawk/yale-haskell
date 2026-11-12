@@ -221,6 +221,10 @@ project), and Template Haskell.
 
 ## 6. Rules of the road (non-negotiable)
 
+> **Moved to [AGENTS.md](AGENTS.md) §4–§5 (2026-11-12).** AGENTS.md is now the
+> authoritative copy of these rules. This copy is kept for reference and is
+> superseded; change the rules only in AGENTS.md.
+
 1. **`make test` must stay green after every change** (all dialects:
    haskell-1.2 and haskell98 tests; the 1.2 demos are a fixed
    regression baseline — do not break 1.2). New features get tests:
@@ -258,6 +262,10 @@ project), and Template Haskell.
    in the REPL) shows what each pass produced for a given expression.
 
 ## 7. Suggested order of work
+
+> **Superseded by doc/harness/roadmap.md** (2026-11-12). The ticketed roadmap
+> in [doc/harness/roadmap.md](doc/harness/roadmap.md) is the plan of record; the
+> order below is kept as history.
 
 **Phase A — cheap conformance wins** (each is small-to-medium,
 independent, and unblocks real programs):
