@@ -39,8 +39,8 @@ jobs:
           echo "SBCL_HOME=$HOME/sbcl/lib/sbcl" >> "$GITHUB_ENV"
 
       # macOS: SBCL publishes no macOS binary for this version; Homebrew's
-      # bottle is the same release, and the version check below fails the job
-      # if Homebrew moves on, so the pin is still enforced.
+      # bottle is a 2.6.x release, and the version check below fails the job
+      # if Homebrew leaves the 2.6 series.
       - name: Install SBCL (macOS)
         if: runner.os == 'macOS'
         run: brew install sbcl
@@ -48,7 +48,8 @@ jobs:
       - name: SBCL version
         run: |
           sbcl --version
-          sbcl --version | grep -q "SBCL ${SBCL_VERSION}"
+          # Linux installs exactly SBCL_VERSION; Homebrew may move within 2.6.x.
+          sbcl --version | grep -q "SBCL ${SBCL_VERSION%.*}\."
 
       - name: Install ocicl (Linux)
         if: runner.os == 'Linux'
