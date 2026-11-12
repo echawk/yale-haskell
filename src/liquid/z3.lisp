@@ -111,8 +111,9 @@
   (ignore-errors (uiop:wait-process (z3-process z)))
   (let ((old (reverse (z3-history z))))
     (setf (z3-history z) (list '()))
+    ;; Z3-LAUNCH records the options in the new history, so that a later
+    ;; restart can again skip them with NTHCDR 3
     (z3-launch z)
-    (setf (z3-history z) (list '()))
     ;; replay: the options were re-sent by Z3-LAUNCH; the rest comes from OLD
     (let ((cmds (apply #'append (mapcar #'reverse old))))
       (dolist (c (nthcdr 3 cmds))
@@ -124,6 +125,15 @@
 (defun z3-stop (z)
   (ignore-errors (z3-send z "(exit)") (finish-output (z3-input z)))
   (ignore-errors (close (z3-input z)))
+  ;; a Z3 still busy with a query it ignores the timeout of never reads
+  ;; the (exit): after a second it is killed, so neither this process
+  ;; waits on it nor it outlives this process
+  (let ((deadline (+ (get-internal-real-time) internal-time-units-per-second)))
+    (loop while (and (ignore-errors (uiop:process-alive-p (z3-process z)))
+                     (< (get-internal-real-time) deadline))
+          do (sleep 0.01)))
+  (when (ignore-errors (uiop:process-alive-p (z3-process z)))
+    (ignore-errors (uiop:terminate-process (z3-process z) :urgent t)))
   (ignore-errors (uiop:wait-process (z3-process z)))
   (ignore-errors (close (z3-output z))))
 
