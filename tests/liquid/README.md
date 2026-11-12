@@ -2,7 +2,9 @@
 
 Run them with `make liquid-test` (or `tests/liquid/run-tests`); they need
 SBCL and, for the solver tests, Z3 (`/opt/homebrew/bin/z3`, `z3` on `PATH`,
-or `$YALE_LIQUID_Z3`).  Without Z3 the solver tests are skipped and say so.
+or `$YALE_LIQUID_Z3`).  Without Z3 the solver tests are skipped and say so.  Every Z3 query has a
+timeout of 10 s (`$YALE_LIQUID_Z3_TIMEOUT` seconds overrides it); a query that
+times out is reported on stderr and counts as `unknown`.
 
 | Directory | What | Expected |
 |---|---|---|

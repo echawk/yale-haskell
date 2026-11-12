@@ -43,7 +43,7 @@
    #:fq-info #:fq-info-binds #:fq-info-constraints #:fq-info-wfs
    #:fq-info-quals #:fq-info-consts #:fq-info-options #:fq-info-data
    ;; smt / z3
-   #:*z3-path* #:z3-available-p #:with-z3 #:z3-start #:z3-stop
+   #:*z3-path* #:*z3-timeout-ms* #:*z3-query-label* #:z3-timeouts #:z3-available-p #:with-z3 #:z3-start #:z3-stop
    #:z3-command #:z3-check-sat #:z3-push #:z3-pop #:smt-solver-missing
    #:formula->smt2 #:check-valid
    ;; solver

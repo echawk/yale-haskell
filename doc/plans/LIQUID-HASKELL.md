@@ -365,6 +365,16 @@ already has (`prim.launch-process` in `src/base/base-runtime.lisp`).
 This milestone needs no fixpoint solver and checks fully annotated
 code, which is already useful.
 
+Every query has a timeout (YHS-0.2): 10 s, or `$YALE_LIQUID_Z3_TIMEOUT`
+seconds.  It goes to Z3 as `(set-option :timeout N)` and works for most
+queries, but `tests/liquid/fq/pos/hex.ts.fq` makes Z3 spin in its string
+theory, ignoring the option and SIGINT (measured with Z3 5.3.3: the
+soft timeout never fires; only `-T:` kills it, and that is per process).
+So `z3-check-sat` also watches the clock (timeout plus 2 s): it kills Z3,
+starts another process, replays the commands of the open scopes, reports
+the query by name on stderr and returns `unknown`.  With the timeout,
+`make liquid-test` takes about 55 s instead of hanging.
+
 ### 5.2 With inference: the fixpoint solver
 
 Unknown refinements (κ) are solved by predicate abstraction:

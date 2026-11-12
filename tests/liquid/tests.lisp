@@ -264,6 +264,32 @@ here instead of reporting them (see RECORD-EXPECTED-PARSE-FAILURES).")
       (check (eq (check-valid "len xs >= 0" :hyps '("len xs > 0") :vars '(("xs" . (:tc "[]" :int)))
                               :consts (list (cons "len" (parse-sort-string "func(1, [[@(0)]; int])"))))
                  :valid))))
+  (section "per-query Z3 timeout (YHS-0.2)"
+    ;; Factoring a 64-bit semiprime by bit-vector multiplication takes Z3 far
+    ;; longer than 50 ms; the query must come back unknown, reported, not hang.
+    (let ((yale-liquid:*z3-timeout-ms* 50)
+          (yale-liquid:*z3-query-label* "unit test: bv factoring"))
+      (yale-liquid:with-z3 (z)
+        (dolist (c '("(declare-const a (_ BitVec 128))" "(declare-const b (_ BitVec 128))"
+                     "(assert (= (bvmul a b) (_ bv18446744030759878681 128)))"
+                     "(assert (bvugt a (_ bv1 128)))" "(assert (bvugt b (_ bv1 128)))"
+                     "(assert (bvult a (_ bv4294967296 128)))" "(assert (bvult b (_ bv4294967296 128)))"))
+          (yale-liquid:z3-command z c))
+        (let ((r (let ((*error-output* (make-broadcast-stream))) (yale-liquid:z3-check-sat z))))
+          (check (eq r :unknown))
+          (check (= 1 (yale-liquid:z3-timeouts z))))))
+    ;; A solver that ignores its timeout (as Z3 does on fq/pos/hex.ts.fq): the
+    ;; clock watch kills it, restarts it and still answers unknown.
+    (let ((yale-liquid:*z3-timeout-ms* 100)
+          (yale-liquid:*z3-path* (namestring (data-path "hang-z3.sh")))
+          (yale-liquid:*z3-query-label* "unit test: silent solver"))
+      (yale-liquid:with-z3 (z)
+        (yale-liquid:z3-push z)
+        (yale-liquid:z3-command z "(assert true)")
+        (let ((r (let ((*error-output* (make-broadcast-stream))) (yale-liquid:z3-check-sat z))))
+          (check (eq r :unknown))
+          (check (= 1 (yale-liquid:z3-timeouts z))))
+        (yale-liquid:z3-pop z))))
   (section "fixpoint solver on liquid-fixpoint's tests (fq/pos, fq/neg)"
     (let ((expected (expected-list (data-path "fq/expected-failures.txt"))))
       (dolist (dir '(("pos" :safe) ("neg" :unsafe)))
